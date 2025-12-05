@@ -1,0 +1,432 @@
+# The Festa GraphQL Schema
+
+scalar DateTime
+scalar JSON
+
+enum Role {
+  COUPLE
+  VENDOR
+  ADMIN
+}
+
+enum BookingStatus {
+  INQUIRY
+  QUOTED
+  ACCEPTED
+  DEPOSIT_PAID
+  COMPLETED
+  DISPUTED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  MPESA
+  AIRTEL
+  TIGO
+  CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum RSVPStatus {
+  PENDING
+  YES
+  NO
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REFUNDED
+  REJECTED
+}
+
+type User {
+  id: ID!
+  phone: String!
+  email: String
+  role: Role!
+  accountId: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Vendor {
+  id: ID!
+  accountId: String!
+  name: String!
+  category: String!
+  city: String!
+  phone: String!
+  email: String
+  description: String
+  ratingAvg: Float!
+  ratingCount: Int!
+  kycStatus: String!
+  isVerified: Boolean!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  user: User!
+  bookings: [Booking!]!
+  reviews: [Review!]!
+}
+
+type Event {
+  id: ID!
+  accountId: String!
+  ownerId: String!
+  name: String!
+  type: String!
+  date: DateTime!
+  budgetTotal: Int
+  guestCount: Int
+  location: String
+  description: String
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  owner: User!
+  bookings: [Booking!]!
+  guests: [Guest!]!
+}
+
+type Booking {
+  id: ID!
+  eventId: String!
+  vendorId: String!
+  status: BookingStatus!
+  quoteTotal: Int
+  depositDue: Int
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  event: Event!
+  vendor: Vendor!
+  invoices: [Invoice!]!
+  reviews: [Review!]!
+  disputes: [Dispute!]!
+}
+
+type Invoice {
+  id: ID!
+  bookingId: String!
+  type: String!
+  amount: Int!
+  dueDate: DateTime
+  status: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  booking: Booking!
+  payments: [Payment!]!
+}
+
+type Payment {
+  id: ID!
+  invoiceId: String!
+  amount: Int!
+  method: PaymentMethod!
+  providerRef: String!
+  status: PaymentStatus!
+  metadata: JSON
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  invoice: Invoice!
+}
+
+type Review {
+  id: ID!
+  bookingId: String!
+  userId: String!
+  rating: Int!
+  comment: String
+  createdAt: DateTime!
+  booking: Booking!
+  user: User!
+}
+
+type Dispute {
+  id: ID!
+  bookingId: String!
+  reason: String!
+  status: DisputeStatus!
+  resolution: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  booking: Booking!
+}
+
+type Guest {
+  id: ID!
+  eventId: String!
+  name: String!
+  phone: String
+  email: String
+  rsvp: RSVPStatus!
+  dietary: String
+  qrCode: String
+  isPlusOne: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  event: Event!
+}
+
+type VendorCategory {
+  id: ID!
+  name: String!
+  slug: String!
+  description: String
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type EventTemplate {
+  id: ID!
+  name: String!
+  type: String!
+  description: String
+  checklist: JSON!
+  budgetItems: JSON!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PaginatedVendors {
+  data: [Vendor!]!
+  pagination: PaginationInfo!
+}
+
+type PaginatedEvents {
+  data: [Event!]!
+  pagination: PaginationInfo!
+}
+
+type PaginatedBookings {
+  data: [Booking!]!
+  pagination: PaginationInfo!
+}
+
+type PaginationInfo {
+  page: Int!
+  limit: Int!
+  total: Int!
+  totalPages: Int!
+  hasNext: Boolean!
+  hasPrev: Boolean!
+}
+
+type PaymentIntent {
+  id: ID!
+  invoiceId: String!
+  amount: Int!
+  method: PaymentMethod!
+  providerRef: String
+  checkoutUrl: String
+  expiresAt: DateTime!
+}
+
+type Message {
+  id: ID!
+  threadId: String!
+  senderId: String!
+  text: String!
+  attachments: [String!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Notification {
+  id: ID!
+  userId: String!
+  type: String!
+  title: String!
+  message: String!
+  data: JSON
+  read: Boolean!
+  createdAt: DateTime!
+}
+
+# Input Types
+input CreateEventInput {
+  name: String!
+  type: String!
+  date: DateTime!
+  budgetTotal: Int
+  guestCount: Int
+  location: String
+  description: String
+}
+
+input UpdateEventInput {
+  id: ID!
+  name: String
+  type: String
+  date: DateTime
+  budgetTotal: Int
+  guestCount: Int
+  location: String
+  description: String
+  isActive: Boolean
+}
+
+input CreateVendorInput {
+  name: String!
+  category: String!
+  city: String!
+  phone: String!
+  email: String
+  description: String
+}
+
+input UpdateVendorInput {
+  id: ID!
+  name: String
+  category: String
+  city: String
+  phone: String
+  email: String
+  description: String
+  isActive: Boolean
+}
+
+input CreateBookingInput {
+  eventId: String!
+  vendorId: String!
+  notes: String
+}
+
+input UpdateBookingInput {
+  id: ID!
+  status: BookingStatus
+  quoteTotal: Int
+  depositDue: Int
+  notes: String
+}
+
+input CreateInvoiceInput {
+  bookingId: String!
+  type: String!
+  amount: Int!
+  dueDate: DateTime
+}
+
+input CreateGuestInput {
+  eventId: String!
+  name: String!
+  phone: String
+  email: String
+  dietary: String
+  isPlusOne: Boolean
+}
+
+input UpdateGuestInput {
+  id: ID!
+  name: String
+  phone: String
+  email: String
+  rsvp: RSVPStatus
+  dietary: String
+  isPlusOne: Boolean
+}
+
+input VendorSearchInput {
+  q: String
+  city: String
+  category: String
+  minRating: Float
+  priceRange: PriceRangeInput
+  page: Int = 1
+  limit: Int = 20
+}
+
+input PriceRangeInput {
+  min: Int
+  max: Int
+}
+
+input SendMessageInput {
+  threadId: String!
+  text: String!
+  attachments: [String!]
+}
+
+# Queries
+type Query {
+  # User queries
+  me: User
+  user(id: ID!): User
+  
+  # Vendor queries
+  vendor(id: ID!): Vendor
+  vendors(input: VendorSearchInput): PaginatedVendors!
+  vendorCategories: [VendorCategory!]!
+  
+  # Event queries
+  event(id: ID!): Event
+  events(page: Int = 1, limit: Int = 20): PaginatedEvents!
+  myEvents: [Event!]!
+  
+  # Booking queries
+  booking(id: ID!): Booking
+  bookings(eventId: String, vendorId: String, page: Int = 1, limit: Int = 20): PaginatedBookings!
+  
+  # Guest queries
+  guests(eventId: String!): [Guest!]!
+  guest(id: ID!): Guest
+  
+  # Template queries
+  eventTemplates(type: String): [EventTemplate!]!
+  
+  # Payment queries
+  paymentIntent(invoiceId: ID!): PaymentIntent
+}
+
+# Mutations
+type Mutation {
+  # Event mutations
+  createEvent(input: CreateEventInput!): Event!
+  updateEvent(input: UpdateEventInput!): Event!
+  deleteEvent(id: ID!): Boolean!
+  
+  # Vendor mutations
+  createVendor(input: CreateVendorInput!): Vendor!
+  updateVendor(input: UpdateVendorInput!): Vendor!
+  
+  # Booking mutations
+  createBooking(input: CreateBookingInput!): Booking!
+  updateBooking(input: UpdateBookingInput!): Booking!
+  
+  # Invoice mutations
+  createInvoice(input: CreateInvoiceInput!): Invoice!
+  
+  # Payment mutations
+  createPaymentIntent(invoiceId: ID!, method: PaymentMethod!): PaymentIntent!
+  acknowledgePayment(providerRef: String!): Payment!
+  
+  # Guest mutations
+  createGuest(input: CreateGuestInput!): Guest!
+  updateGuest(input: UpdateGuestInput!): Guest!
+  deleteGuest(id: ID!): Boolean!
+  
+  # Message mutations
+  sendMessage(input: SendMessageInput!): Message!
+  
+  # Review mutations
+  createReview(bookingId: ID!, rating: Int!, comment: String): Review!
+}
+
+# Subscriptions
+type Subscription {
+  # Real-time updates
+  messageAdded(threadId: ID!): Message!
+  rsvpUpdated(eventId: ID!): Guest!
+  bookingUpdated(bookingId: ID!): Booking!
+  notificationAdded(userId: ID!): Notification!
+}

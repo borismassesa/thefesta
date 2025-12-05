@@ -1,0 +1,25 @@
+{
+  "name": "@thefesta/auth",
+  "version": "1.0.0",
+  "description": "Authentication service for The Festa",
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@thefesta/lib": "*",
+    "@thefesta/db": "*",
+    "@aws-sdk/client-cognito-identity-provider": "^3.450.0",
+    "@aws-sdk/client-ses": "^3.450.0",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.10.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.0"
+  }
+}

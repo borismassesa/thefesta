@@ -1,0 +1,257 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  COUPLE
+  VENDOR
+  ADMIN
+}
+
+enum BookingStatus {
+  INQUIRY
+  QUOTED
+  ACCEPTED
+  DEPOSIT_PAID
+  COMPLETED
+  DISPUTED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  VOID
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum PaymentMethod {
+  MPESA
+  AIRTEL
+  TIGO
+  CARD
+}
+
+enum RSVPStatus {
+  PENDING
+  YES
+  NO
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REFUNDED
+  REJECTED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  email     String?  @unique
+  role      Role     @default(COUPLE)
+  accountId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  events   Event[]
+  vendors  Vendor[]
+  bookings Booking[]
+  reviews  Review[]
+
+  @@map("users")
+}
+
+model Vendor {
+  id           String  @id @default(cuid())
+  accountId    String
+  name         String
+  category     String // photographer, venue, caterer, etc.
+  city         String
+  phone        String
+  email        String?
+  description  String?
+  ratingAvg    Float   @default(0)
+  ratingCount  Int     @default(0)
+  kycStatus    String  @default("pending")
+  isVerified   Boolean @default(false)
+  isActive     Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user     User      @relation(fields: [accountId], references: [accountId])
+  bookings Booking[]
+  reviews  Review[]
+
+  @@map("vendors")
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  accountId   String
+  ownerId     String
+  name        String
+  type        String    // wedding, sendoff, kitchen_party, etc.
+  date        DateTime
+  budgetTotal Int?
+  guestCount  Int?
+  location    String?
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  owner    User     @relation(fields: [ownerId], references: [id])
+  bookings Booking[]
+  guests   Guest[]
+
+  @@map("events")
+}
+
+model Booking {
+  id           String        @id @default(cuid())
+  eventId      String
+  vendorId     String
+  status       BookingStatus @default(INQUIRY)
+  quoteTotal   Int?
+  depositDue   Int?
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relations
+  event     Event     @relation(fields: [eventId], references: [id])
+  vendor    Vendor    @relation(fields: [vendorId], references: [id])
+  invoices  Invoice[]
+  reviews   Review[]
+  disputes  Dispute[]
+
+  @@map("bookings")
+}
+
+model Invoice {
+  id        String        @id @default(cuid())
+  bookingId String
+  type      String        // deposit, balance, other
+  amount    Int
+  dueDate   DateTime?
+  status    InvoiceStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // Relations
+  booking Booking  @relation(fields: [bookingId], references: [id])
+  payments Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  invoiceId  String
+  amount     Int
+  method     PaymentMethod
+  providerRef String       @unique
+  status     PaymentStatus @default(PENDING)
+  metadata   Json?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("payments")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  bookingId String   @unique
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("reviews")
+}
+
+model Dispute {
+  id        String        @id @default(cuid())
+  bookingId String
+  reason    String
+  status    DisputeStatus @default(OPEN)
+  resolution String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("disputes")
+}
+
+model Guest {
+  id        String     @id @default(cuid())
+  eventId   String
+  name      String
+  phone     String?
+  email     String?
+  rsvp      RSVPStatus @default(PENDING)
+  dietary   String?
+  qrCode    String?
+  isPlusOne Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id])
+
+  @@map("guests")
+}
+
+model VendorCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("vendor_categories")
+}
+
+model EventTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  type        String
+  description String?
+  checklist   Json     // Array of checklist items
+  budgetItems Json     // Array of budget categories
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("event_templates")
+}
