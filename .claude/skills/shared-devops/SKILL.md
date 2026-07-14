@@ -16,6 +16,8 @@ description: "DevOps, CI/CD, testing, security hardening, monitoring, performanc
 
 Vercel projects live under the **`opus-festa`** team, which owns the `opusfesta.com` domain. The Expo apps (`of_mobile`, `opus_pass_mobile`) do not deploy to Vercel.
 
+`apps/studio` is a real Next.js app in the repo but is **not currently deployable**: it has no project in the `opus-festa` team, and `studio.opusfesta.com` has no DNS record. Its only Vercel project sits in a separate, stale `opusfesta` team that does not own the domain. Deploying it means first creating a project under `opus-festa`.
+
 ## Environments
 
 | Environment | Branch | Supabase Project | Vercel |

@@ -15,7 +15,22 @@ Four apps in this monorepo deploy to Vercel, all under the **`opus-festa`** team
 
 The two Expo apps (`apps/of_mobile`, `apps/opus_pass_mobile`) are not Vercel targets.
 
+`apps/studio` exists in the repo but is **not deployable today** — it has no project under the `opus-festa` team and `studio.opusfesta.com` has no DNS record. (Its only Vercel project lives in a separate, stale `opusfesta` team that does not own the domain.) To deploy it, create a project under `opus-festa` with Root Directory `apps/studio`, then add its ID to `scripts/deploy.sh`.
+
 Vercel builds remotely — the script uploads your working tree and Vercel runs the build, so a deploy reflects your local files, including uncommitted changes.
+
+### Sparse-checkout matters
+
+This repo uses sparse-checkout, and **the CLI uploads your local working tree, not the Git repo**. Whatever is missing from your checkout is missing from the deploy. That is harmless for directories the app being built does not import (an `apps/opus_admin` deploy does not care that `apps/studio` is absent), but it has two consequences:
+
+- A workspace an app *does* depend on must be checked out. `packages/lib` is used by every web app — if it is not in your sparse config, the build fails remotely with a confusing module-resolution error rather than an obvious "missing file".
+- Two people can deploy the same commit and upload different content. If a build succeeds for one person and fails for another, compare `git sparse-checkout list` before suspecting Vercel.
+
+Confirm the app you are deploying, plus `packages/lib`, are present:
+
+```bash
+git sparse-checkout list
+```
 
 ## Prerequisites
 
