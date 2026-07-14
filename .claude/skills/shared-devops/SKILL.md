@@ -26,6 +26,8 @@ Vercel projects live under the **`opus-festa`** team, which owns the `opusfesta.
 | Staging | `staging` | staging project | Preview URL |
 | Production | `main` | prod project | Production URL |
 
+Branches do **not** map to deploys automatically — merging to `main` ships nothing. Every deploy is triggered by hand; see "Manual Vercel Deploys" below.
+
 ## GitHub Actions CI Pipeline
 
 ```yaml
@@ -34,7 +36,7 @@ Vercel projects live under the **`opus-festa`** team, which owns the `opusfesta.
 # 2. Unit tests
 # 3. Build all apps
 # 4. Security scan (npm audit, license check)
-# 5. Deploy (Vercel auto-deploy on push)
+# 5. Deploy — NOT automatic. See "Manual Vercel Deploys" below.
 ```
 
 ## Manual Vercel Deploys
@@ -57,7 +59,9 @@ Backed by `scripts/deploy.sh`. Three constraints are baked into that script and 
 - **Projects are targeted by ID.** One `.vercel/project.json` cannot serve four apps, so the script sets `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` per invocation rather than using link files.
 - **Uploads must be archived.** The monorepo exceeds Vercel's 15k-file-per-deploy cap; without `--archive=tgz` the deploy is rejected with `missing_archive`.
 
-Manual deploys do **not** disable Git auto-deploys — the two coexist, and whichever finishes last wins the production domain. A manual deploy also uploads the working tree, so it can ship uncommitted code; check `git status` before using `--prod`.
+**There is no auto-deploy.** Every project sets its Ignored Build Step to `exit 0`, so Git-triggered deployments are cancelled before they build. This is deliberate: pushing or merging to `main` ships nothing. Code reaches production only via this script, or from the dashboard by creating a deployment and overriding the Ignore Build Step.
+
+A manual deploy uploads the working tree, so it can ship uncommitted code; check `git status` before using `--prod`.
 
 ### Monorepo Build
 

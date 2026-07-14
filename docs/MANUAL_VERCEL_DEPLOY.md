@@ -71,6 +71,12 @@ Each run prints a URL. Check a deployment's status any time with:
 vercel inspect <deployment-url> --scope opus-festa
 ```
 
+## Deploying from the dashboard instead
+
+The script is not the only way. In the Vercel dashboard you can create a deployment from a Git commit and tick **"Ignore Build Step" → override**, which forces the build to run despite the `exit 0` setting. Useful when you want to ship a specific commit rather than your working tree, or when you are not at your machine.
+
+The trade-off: the dashboard deploys the **commit**, the script deploys your **working tree**. Prefer the dashboard when shipping something that must exactly match what is in Git.
+
 ## Environment variables
 
 Builds use the environment variables configured on each **Vercel project**, not your local `.env`. A manual deploy and a Git deploy therefore build against exactly the same config. To change a build's env vars, change them in Vercel project settings.
@@ -89,6 +95,6 @@ Two constraints in this repo shaped `scripts/deploy.sh`, and both are easy to tr
 
 **A production deploy goes live immediately.** `--prod` promotes to the real domain — there is no confirmation step. Deploy a preview first and check it.
 
-**Manual deploys do not disable automatic ones.** These projects may still have a Git integration that deploys on push. Manual and automatic deploys coexist, and whichever finishes last wins on the production domain. To make deploys manual-only, turn off the Git integration in each project's settings in the Vercel dashboard.
+**Pushing to Git does not deploy anything.** Every project has its Ignored Build Step set to `exit 0`, which tells Vercel to skip the build. Git-triggered deployments are therefore cancelled before they build — this is deliberate. Deploys only happen when you ask for one, either through this script or from the dashboard (see below). Nothing ships behind your back, but equally, **merging to `main` does not put code in production**.
 
 **Deploys include uncommitted local changes.** Convenient for testing, but it means a production deploy can ship code that is not in `main`. Confirm your working tree is clean before shipping to production.
