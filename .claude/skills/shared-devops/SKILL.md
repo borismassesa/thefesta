@@ -9,10 +9,14 @@ description: "DevOps, CI/CD, testing, security hardening, monitoring, performanc
 
 | Service | Purpose |
 |---------|---------|
-| Vercel | Next.js app hosting (studio, website, admin, vendor-portal) |
+| Vercel | Next.js app hosting (`opus_website`, `opus_admin`, `opus_pass`, `vendors_portal`) |
 | Supabase | Postgres database, storage, auth, edge functions |
 | GitHub Actions | CI/CD pipelines |
 | Clerk | Authentication |
+
+Vercel projects live under the **`opus-festa`** team, which owns the `opusfesta.com` domain. The Expo apps (`of_mobile`, `opus_pass_mobile`) do not deploy to Vercel.
+
+`apps/studio` is a real Next.js app in the repo but is **not currently deployable**: it has no project in the `opus-festa` team, and `studio.opusfesta.com` has no DNS record. Its only Vercel project sits in a separate, stale `opusfesta` team that does not own the domain. Deploying it means first creating a project under `opus-festa`.
 
 ## Environments
 
@@ -22,6 +26,8 @@ description: "DevOps, CI/CD, testing, security hardening, monitoring, performanc
 | Staging | `staging` | staging project | Preview URL |
 | Production | `main` | prod project | Production URL |
 
+Branches do **not** map to deploys automatically — merging to `main` ships nothing. Every deploy is triggered by hand; see "Manual Vercel Deploys" below.
+
 ## GitHub Actions CI Pipeline
 
 ```yaml
@@ -30,12 +36,36 @@ description: "DevOps, CI/CD, testing, security hardening, monitoring, performanc
 # 2. Unit tests
 # 3. Build all apps
 # 4. Security scan (npm audit, license check)
-# 5. Deploy (Vercel auto-deploy on push)
+# 5. Deploy — NOT automatic. See "Manual Vercel Deploys" below.
 ```
+
+## Manual Vercel Deploys
+
+Any web app can be deployed on demand, without waiting on a Git push. Full guide: `docs/MANUAL_VERCEL_DEPLOY.md`.
+
+```bash
+npm run deploy:website           # preview deploy
+npm run deploy:admin
+npm run deploy:pass
+npm run deploy:vendors
+
+npm run deploy:website -- --prod # promote to the live domain
+npm run deploy -- all --prod     # all four apps
+```
+
+Backed by `scripts/deploy.sh`. Three constraints are baked into that script and are easy to trip over if you deploy by hand instead:
+
+- **Run from the repo root.** Each Vercel project sets Root Directory to `apps/<name>` and applies it itself, so running `vercel` from inside an app folder makes it look for `apps/opus_admin/apps/opus_admin` and fail.
+- **Projects are targeted by ID.** One `.vercel/project.json` cannot serve four apps, so the script sets `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` per invocation rather than using link files.
+- **Uploads must be archived.** The monorepo exceeds Vercel's 15k-file-per-deploy cap; without `--archive=tgz` the deploy is rejected with `missing_archive`.
+
+**There is no auto-deploy.** Every project sets its Ignored Build Step to `exit 0`, so Git-triggered deployments are cancelled before they build. This is deliberate: pushing or merging to `main` ships nothing. Code reaches production only via this script, or from the dashboard by creating a deployment and overriding the Ignore Build Step.
+
+A manual deploy uploads the working tree, so it can ship uncommitted code. The script refuses `--prod` with a dirty tree; override with `DEPLOY_ALLOW_DIRTY=1` if intentional.
 
 ### Monorepo Build
 
-- Each app builds independently: `turbo run build --filter=studio`
+- Each app builds independently: `turbo run build --filter=@opusfesta/opus-admin`
 - Shared packages are built first as dependencies
 - Cache turbo build artifacts between CI runs
 

@@ -1,0 +1,100 @@
+# Manual Vercel Deploys
+
+How to deploy any of the four OpusFesta web apps to Vercel on demand from your machine, without waiting on a Git push.
+
+## Overview
+
+Four apps in this monorepo deploy to Vercel, all under the **`opus-festa`** team (the team that owns the `opusfesta.com` domain):
+
+| App directory | Vercel project | Production domain |
+| --- | --- | --- |
+| `apps/opus_website` | `opus-festa-website` | `www.opusfesta.com` |
+| `apps/opus_admin` | `opus-admin` | `admin.opusfesta.com` |
+| `apps/opus_pass` | `opus-pass` | `opuspass.opusfesta.com` |
+| `apps/vendors_portal` | `vendors-portal` | `vendorsportal.opusfesta.com` |
+
+The two Expo apps (`apps/of_mobile`, `apps/opus_pass_mobile`) are not Vercel targets.
+
+`apps/studio` exists in the repo but is **not deployable today** — it has no project under the `opus-festa` team and `studio.opusfesta.com` has no DNS record. (Its only Vercel project lives in a separate, stale `opusfesta` team that does not own the domain.) To deploy it, create a project under `opus-festa` with Root Directory `apps/studio`, then add its ID to `scripts/deploy.sh`.
+
+Vercel builds remotely — the script uploads your working tree and Vercel runs the build, so a deploy reflects your local files, including uncommitted changes.
+
+### Sparse-checkout matters
+
+This repo uses sparse-checkout, and **the CLI uploads your local working tree, not the Git repo**. Whatever is missing from your checkout is missing from the deploy. That is harmless for directories the app being built does not import (an `apps/opus_admin` deploy does not care that `apps/studio` is absent), but it has two consequences:
+
+- A workspace an app *does* depend on must be checked out. `packages/lib` is used by every web app — if it is not in your sparse config, the build fails remotely with a confusing module-resolution error rather than an obvious "missing file".
+- Two people can deploy the same commit and upload different content. If a build succeeds for one person and fails for another, compare `git sparse-checkout list` before suspecting Vercel.
+
+Confirm the app you are deploying, plus `packages/lib`, are present:
+
+```bash
+git sparse-checkout list
+```
+
+## Prerequisites
+
+- Vercel CLI installed (`brew install vercel-cli`)
+- Logged in and a member of the `opus-festa` team (`vercel login`, verify with `vercel whoami`)
+- `apps/vendors_portal` present locally. This repo uses sparse-checkout, so if the folder is missing:
+  ```bash
+  git sparse-checkout add apps/vendors_portal
+  ```
+
+## Deploying
+
+Preview deploys (own throwaway URL, does not touch production):
+
+```bash
+npm run deploy:website
+npm run deploy:admin
+npm run deploy:pass
+npm run deploy:vendors
+```
+
+Production deploys (promotes to the live domain — see the warning below):
+
+```bash
+npm run deploy:website -- --prod
+npm run deploy -- all --prod     # all four apps
+```
+
+The underlying script takes the same arguments directly:
+
+```bash
+scripts/deploy.sh <website|admin|pass|vendors|all> [--prod]
+```
+
+Each run prints a URL. Check a deployment's status any time with:
+
+```bash
+vercel inspect <deployment-url> --scope opus-festa
+```
+
+## Deploying from the dashboard instead
+
+The script is not the only way. In the Vercel dashboard you can create a deployment from a Git commit and tick **"Ignore Build Step" → override**, which forces the build to run despite the `exit 0` setting. Useful when you want to ship a specific commit rather than your working tree, or when you are not at your machine.
+
+The trade-off: the dashboard deploys the **commit**, the script deploys your **working tree**. Prefer the dashboard when shipping something that must exactly match what is in Git.
+
+## Environment variables
+
+Builds use the environment variables configured on each **Vercel project**, not your local `.env`. A manual deploy and a Git deploy therefore build against exactly the same config. To change a build's env vars, change them in Vercel project settings.
+
+## How it works
+
+Two constraints in this repo shaped `scripts/deploy.sh`, and both are easy to trip over:
+
+**Deploys must run from the repo root.** Every Vercel project has its Root Directory set to `apps/<name>`. Vercel applies that itself, so the CLI has to upload the whole workspace from the repo root. Running `vercel` from inside an app folder makes Vercel look for `apps/opus_admin/apps/opus_admin` and fail.
+
+**Projects are targeted by ID, not by link file.** A single `.vercel/project.json` can only point at one project, and four apps share this repo. The script sets `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` per invocation instead, so no linking or re-linking is needed. Project IDs are hardcoded in the script — if a project is ever recreated in Vercel, its ID changes and the script needs updating.
+
+**Uploads go up as a tarball.** The monorepo is ~19,800 files, over Vercel's 15,000-file-per-deploy cap, so the script passes `--archive=tgz`. Without it the deploy is rejected with `missing_archive`.
+
+## Things to know
+
+**A production deploy goes live immediately.** `--prod` promotes to the real domain — there is no confirmation step. Deploy a preview first and check it.
+
+**Pushing to Git does not deploy anything.** Every project has its Ignored Build Step set to `exit 0`, which tells Vercel to skip the build. Git-triggered deployments are therefore cancelled before they build — this is deliberate. Deploys only happen when you ask for one, either through this script or from the dashboard (see below). Nothing ships behind your back, but equally, **merging to `main` does not put code in production**.
+
+**Deploys include uncommitted local changes.** Convenient for testing previews, but it means a production deploy can ship code that is not in `main`. The script refuses `--prod` while the working tree is dirty; if you really mean to ship uncommitted code, rerun with `DEPLOY_ALLOW_DIRTY=1`.
