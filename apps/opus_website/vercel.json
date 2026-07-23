@@ -3,7 +3,7 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "installCommand": "cd ../.. && npm install",
-    "git": {
+  "git": {
     "deploymentEnabled": false
   }
 }

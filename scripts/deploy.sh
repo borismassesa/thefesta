@@ -26,7 +26,7 @@ project_id_for() {
   case "$1" in
     website) echo "prj_28fo5hk9ug9OiAP2jTbqmcE5v8CQ" ;; # opus-festa-website -> www.opusfesta.com
     admin)   echo "prj_gt17XFUvx2wKdYIpy4Sk8WJkmbkS" ;; # opus-admin         -> admin.opusfesta.com
-    pass)    echo "prj_gSWlYXkLOBz4uwHzpcl2Ufkf2QZR" ;; # opus-pass
+    pass)    echo "prj_gSWlYXkLOBz4uwHzpcl2Ufkf2QZR" ;; # opus-pass          -> opuspass.opusfesta.com
     vendors) echo "prj_QTBQfrGNQoGQIo5anjuSUiWY8qyp" ;; # vendors-portal     -> vendorsportal.opusfesta.com
     *)       return 1 ;;
   esac
@@ -59,8 +59,21 @@ else
   APPS="$TARGET"
 fi
 
+if ! command -v vercel >/dev/null 2>&1; then
+  echo "Vercel CLI not found. Install it with: brew install vercel-cli" >&2
+  exit 1
+fi
+
 if ! vercel whoami >/dev/null 2>&1; then
   echo "Not logged in to Vercel. Run: vercel login" >&2
+  exit 1
+fi
+
+# A deploy uploads the working tree, not the Git repo, so --prod with uncommitted
+# changes would ship code that is not in main. Set DEPLOY_ALLOW_DIRTY=1 to override.
+if [ -n "$PROD" ] && [ "${DEPLOY_ALLOW_DIRTY:-}" != "1" ] && [ -n "$(git status --porcelain)" ]; then
+  echo "Refusing --prod with uncommitted changes; a deploy ships the working tree as-is." >&2
+  echo "Commit or stash first, or rerun with DEPLOY_ALLOW_DIRTY=1 to deploy anyway." >&2
   exit 1
 fi
 

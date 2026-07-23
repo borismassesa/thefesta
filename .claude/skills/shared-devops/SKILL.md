@@ -61,7 +61,7 @@ Backed by `scripts/deploy.sh`. Three constraints are baked into that script and 
 
 **There is no auto-deploy.** Every project sets its Ignored Build Step to `exit 0`, so Git-triggered deployments are cancelled before they build. This is deliberate: pushing or merging to `main` ships nothing. Code reaches production only via this script, or from the dashboard by creating a deployment and overriding the Ignore Build Step.
 
-A manual deploy uploads the working tree, so it can ship uncommitted code; check `git status` before using `--prod`.
+A manual deploy uploads the working tree, so it can ship uncommitted code. The script refuses `--prod` with a dirty tree; override with `DEPLOY_ALLOW_DIRTY=1` if intentional.
 
 ### Monorepo Build
 

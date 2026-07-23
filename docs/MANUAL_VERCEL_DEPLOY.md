@@ -10,7 +10,7 @@ Four apps in this monorepo deploy to Vercel, all under the **`opus-festa`** team
 | --- | --- | --- |
 | `apps/opus_website` | `opus-festa-website` | `www.opusfesta.com` |
 | `apps/opus_admin` | `opus-admin` | `admin.opusfesta.com` |
-| `apps/opus_pass` | `opus-pass` | `opus-pass.vercel.app` |
+| `apps/opus_pass` | `opus-pass` | `opuspass.opusfesta.com` |
 | `apps/vendors_portal` | `vendors-portal` | `vendorsportal.opusfesta.com` |
 
 The two Expo apps (`apps/of_mobile`, `apps/opus_pass_mobile`) are not Vercel targets.
@@ -97,4 +97,4 @@ Two constraints in this repo shaped `scripts/deploy.sh`, and both are easy to tr
 
 **Pushing to Git does not deploy anything.** Every project has its Ignored Build Step set to `exit 0`, which tells Vercel to skip the build. Git-triggered deployments are therefore cancelled before they build — this is deliberate. Deploys only happen when you ask for one, either through this script or from the dashboard (see below). Nothing ships behind your back, but equally, **merging to `main` does not put code in production**.
 
-**Deploys include uncommitted local changes.** Convenient for testing, but it means a production deploy can ship code that is not in `main`. Confirm your working tree is clean before shipping to production.
+**Deploys include uncommitted local changes.** Convenient for testing previews, but it means a production deploy can ship code that is not in `main`. The script refuses `--prod` while the working tree is dirty; if you really mean to ship uncommitted code, rerun with `DEPLOY_ALLOW_DIRTY=1`.
