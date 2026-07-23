@@ -22,6 +22,15 @@ const PLANNING_ROUTE_NAME = 'planning';
 
 const BAR_HEIGHT = 52;
 
+/** Add alpha to a #RRGGBB hex, yielding an rgba() string, so the frosted
+ * floating pills stay tied to the palette instead of a hardcoded white. */
+function withAlpha(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 const FLOATING_SHADOW = {
   shadowColor: '#000',
   shadowOpacity: 0.1,
@@ -39,6 +48,9 @@ const FLOATING_SHADOW = {
 export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { editorial } = useTheme();
+  // Frosted floating-pill surface. Derived from the palette so it flips with
+  // dark mode — a hardcoded white bar left light icons/text unreadable in dark.
+  const barSurface = withAlpha(editorial.surfaceContainerLow, 0.94);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [keyboardOffset, setKeyboardOffset] = useState(0);
@@ -105,7 +117,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                   width: BAR_HEIGHT,
                   height: BAR_HEIGHT,
                   borderRadius: BAR_HEIGHT / 2,
-                  backgroundColor: 'rgba(255,255,255,0.94)',
+                  backgroundColor: barSurface,
                   borderWidth: 1,
                   borderColor: editorial.outlineVariant,
                   alignItems: 'center',
@@ -124,7 +136,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                   height: BAR_HEIGHT,
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: 'rgba(255,255,255,0.94)',
+                  backgroundColor: barSurface,
                   borderRadius: BAR_HEIGHT / 2,
                   borderWidth: 1,
                   borderColor: editorial.outlineVariant,
@@ -162,7 +174,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                 {
                   flex: 1,
                   flexDirection: 'row',
-                  backgroundColor: 'rgba(255,255,255,0.94)',
+                  backgroundColor: barSurface,
                   borderRadius: 999,
                   borderWidth: 1,
                   borderColor: editorial.outlineVariant,
@@ -270,7 +282,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                   width: BAR_HEIGHT,
                   height: BAR_HEIGHT,
                   borderRadius: BAR_HEIGHT / 2,
-                  backgroundColor: 'rgba(255,255,255,0.94)',
+                  backgroundColor: barSurface,
                   borderWidth: 1,
                   borderColor: editorial.outlineVariant,
                   alignItems: 'center',
