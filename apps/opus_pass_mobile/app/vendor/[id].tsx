@@ -20,6 +20,7 @@ import { useTheme } from '@/theme/useTheme';
 import { ACCENT, ON_ACCENT } from '@/theme/brand';
 import { useVendor, useVendorPackages, useVendorReviews } from '@/hooks/useVendors';
 import { useMarkVendorBooked, useSavedVendorStatus } from '@/hooks/useSavedVendors';
+import { useStartConversation } from '@/hooks/useMessages';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SaveVendorButton } from '@/components/vendors/SaveVendorButton';
 import { Avatar } from '@/components/vendors/ui/Avatar';
@@ -197,9 +198,11 @@ function AboutFact({ icon, children }: { icon: keyof typeof Ionicons.glyphMap; c
 function VendorAboutSection({
   vendor,
   onMessage,
+  messagePending,
 }: {
   vendor: VendorListing;
   onMessage: () => void;
+  messagePending: boolean;
 }) {
   const about = vendor.description || vendor.bio;
   const team = vendor.team ?? [];
@@ -289,10 +292,15 @@ function VendorAboutSection({
 
           <Pressable
             onPress={onMessage}
+            disabled={messagePending}
             className="mt-4 w-full items-center rounded-full bg-[#1A1A1A] py-2.5"
             accessibilityRole="button"
           >
-            <Text className="font-work-sans-bold text-[13px] text-white">Message Vendor</Text>
+            {messagePending ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text className="font-work-sans-bold text-[13px] text-white">Message Vendor</Text>
+            )}
           </Pressable>
         </View>
 
@@ -370,17 +378,40 @@ function VendorServicesSection({ vendor }: { vendor: VendorListing }) {
 
 /* ───────────────────────── packages ───────────────────────── */
 
-function PackageCard({ pkg, featured, popular }: { pkg: VendorPackageDetail; featured: boolean; popular: boolean }) {
+function PackageCard({
+  pkg,
+  popular,
+  selected,
+  onToggle,
+}: {
+  pkg: VendorPackageDetail;
+  popular: boolean;
+  selected: boolean;
+  onToggle: () => void;
+}) {
   const customBadge = pkg.badge?.label?.trim() ? pkg.badge : null;
   const tone = customBadge ? PKG_BADGE_TONES[customBadge.tone ?? 'dark'] ?? PKG_BADGE_TONES.dark : null;
   const badgeIcon = customBadge ? PKG_BADGE_ICONS[customBadge.icon ?? 'star'] ?? 'star' : 'star';
   const items = pkg.includes ?? [];
 
   return (
-    <View
-      className={`rounded-3xl bg-ed-surface p-5 ${featured ? 'border-2' : 'border border-ed-outline-variant'}`}
-      style={featured ? { borderColor: ACCENT } : undefined}
+    <Pressable
+      onPress={onToggle}
+      className={`rounded-3xl bg-ed-surface p-5 ${selected ? 'border-2' : 'border border-ed-outline-variant'}`}
+      style={selected ? { borderColor: ACCENT } : undefined}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`Select ${pkg.name} package${pkg.price ? `, TZS ${pkg.price}` : ''}`}
     >
+      {selected ? (
+        <View
+          className="absolute right-4 top-4 h-6 w-6 items-center justify-center rounded-full"
+          style={{ backgroundColor: ACCENT }}
+        >
+          <Ionicons name="checkmark" size={14} color={ON_ACCENT} />
+        </View>
+      ) : null}
+
       {customBadge && tone ? (
         <View
           className="mb-3 flex-row items-center gap-1 self-start rounded-full px-3 py-1"
@@ -436,11 +467,21 @@ function PackageCard({ pkg, featured, popular }: { pkg: VendorPackageDetail; fea
           ))}
         </View>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 
-function VendorPricingSection({ vendor, packages }: { vendor: VendorListing; packages: VendorPackageDetail[] }) {
+function VendorPricingSection({
+  vendor,
+  packages,
+  selectedPackageId,
+  onTogglePackage,
+}: {
+  vendor: VendorListing;
+  packages: VendorPackageDetail[];
+  selectedPackageId: string | null;
+  onTogglePackage: (pkg: VendorPackageDetail) => void;
+}) {
   const sorted = useMemo(
     () => [...packages].sort((a, b) => parsePackagePrice(a.price) - parsePackagePrice(b.price)),
     [packages],
@@ -457,17 +498,15 @@ function VendorPricingSection({ vendor, packages }: { vendor: VendorListing; pac
 
       {sorted.length > 0 ? (
         <View className="gap-3">
-          {sorted.map((pkg, i) => {
-            const featured = Boolean(pkg.badge?.label?.trim()) || (!anyBadge && i === popularIdx);
-            return (
-              <PackageCard
-                key={pkg.id}
-                pkg={pkg}
-                featured={featured}
-                popular={!anyBadge && i === popularIdx}
-              />
-            );
-          })}
+          {sorted.map((pkg, i) => (
+            <PackageCard
+              key={pkg.id}
+              pkg={pkg}
+              popular={!anyBadge && i === popularIdx}
+              selected={selectedPackageId === pkg.id}
+              onToggle={() => onTogglePackage(pkg)}
+            />
+          ))}
         </View>
       ) : (
         <View className="items-center rounded-3xl border border-dashed border-ed-outline-variant p-8">
@@ -729,8 +768,10 @@ export default function VendorDetailScreen() {
   const { data: reviews } = useVendorReviews(id);
   const savedStatus = useSavedVendorStatus(id);
   const markBooked = useMarkVendorBooked();
+  const startConversation = useStartConversation();
 
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<VendorPackageDetail | null>(null);
 
   if (isLoading) {
     return (
@@ -789,6 +830,33 @@ export default function VendorDetailScreen() {
 
   const openLink = (url: string) =>
     Linking.openURL(url).catch(() => Alert.alert('Could not open link'));
+
+  const onTogglePackage = (pkg: VendorPackageDetail) => {
+    setSelectedPackage((current) => (current?.id === pkg.id ? null : pkg));
+  };
+
+  const goToBooking = () => {
+    if (selectedPackage) {
+      router.push({
+        pathname: '/booking/[vendorId]',
+        params: { vendorId: vendor.id, package: selectedPackage.name, price: selectedPackage.price ?? '' },
+      });
+    } else {
+      router.push(`/booking/${vendor.id}`);
+    }
+  };
+
+  const onMessage = () => {
+    if (startConversation.isPending) return;
+    startConversation.mutate(vendor.id, {
+      onSuccess: (thread) => router.push(`/chat/${thread.id}`),
+      onError: (err) =>
+        Alert.alert(
+          'Could not open conversation',
+          err instanceof Error ? err.message : 'Please try again.',
+        ),
+    });
+  };
 
   return (
     <View className="flex-1 bg-ed-bg">
@@ -863,7 +931,11 @@ export default function VendorDetailScreen() {
 
         <View className="mt-2">
           <Section first>
-            <VendorAboutSection vendor={vendor} onMessage={() => router.push(`/booking/${vendor.id}`)} />
+            <VendorAboutSection
+              vendor={vendor}
+              onMessage={onMessage}
+              messagePending={startConversation.isPending}
+            />
           </Section>
 
           {vendor.services_offered && vendor.services_offered.length > 0 ? (
@@ -873,7 +945,12 @@ export default function VendorDetailScreen() {
           ) : null}
 
           <Section>
-            <VendorPricingSection vendor={vendor} packages={packages ?? []} />
+            <VendorPricingSection
+              vendor={vendor}
+              packages={packages ?? []}
+              selectedPackageId={selectedPackage?.id ?? null}
+              onTogglePackage={onTogglePackage}
+            />
           </Section>
 
           {vendor.team && vendor.team.length > 0 ? (
@@ -946,12 +1023,14 @@ export default function VendorDetailScreen() {
         <Pressable
           className="flex-1 items-center rounded-full py-3.5"
           style={{ backgroundColor: ACCENT }}
-          onPress={() => router.push(`/booking/${vendor.id}`)}
+          onPress={goToBooking}
           accessibilityRole="button"
-          accessibilityLabel="Request a quote"
+          accessibilityLabel={
+            selectedPackage ? `Request a quote for ${selectedPackage.name}` : 'Request a quote'
+          }
         >
-          <Text className="font-work-sans-bold text-sm" style={{ color: ON_ACCENT }}>
-            Request a quote
+          <Text className="font-work-sans-bold text-sm" style={{ color: ON_ACCENT }} numberOfLines={1}>
+            {selectedPackage ? `Request a quote · ${selectedPackage.name}` : 'Request a quote'}
           </Text>
         </Pressable>
       </View>

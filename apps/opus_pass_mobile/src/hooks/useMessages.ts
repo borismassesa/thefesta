@@ -4,6 +4,7 @@ import { useAuthenticatedSupabase } from '@/lib/supabase';
 import {
   getConversations,
   getMessages,
+  getOrCreateThread,
   getThread,
   markThreadRead,
   sendMessage,
@@ -61,6 +62,21 @@ export function useMessages(threadId: string | undefined) {
   }, [client, threadId, queryClient]);
 
   return query;
+}
+
+/** Opens (or resumes) a conversation with a vendor — the "Message Vendor" CTA. */
+export function useStartConversation() {
+  const client = useAuthenticatedSupabase();
+  const { data: userId } = useInternalUserId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (vendorId: string) => {
+      if (!userId) throw new MissingInternalUserError();
+      return getOrCreateThread(client, userId, vendorId);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['conversations'] }),
+  });
 }
 
 export function useSendMessage(threadId: string | undefined) {

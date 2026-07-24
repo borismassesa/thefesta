@@ -66,6 +66,37 @@ export async function getMessages(
   return (data ?? []) as MessageRow[];
 }
 
+/**
+ * Finds the couple's existing thread with a vendor, or opens one. Relies on
+ * the `message_threads_user_id_vendor_id_key` unique constraint
+ * (022_messaging_system.sql) so this is safe to call every time "Message
+ * Vendor" is pressed rather than only on first contact.
+ */
+export async function getOrCreateThread(
+  client: SupabaseClient,
+  userId: string,
+  vendorId: string,
+): Promise<MessageThreadRow> {
+  const { data: existing, error: findError } = await client
+    .from('message_threads')
+    .select('*, vendors:vendor_id (id, business_name, logo)')
+    .eq('user_id', userId)
+    .eq('vendor_id', vendorId)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (existing) return existing as unknown as MessageThreadRow;
+
+  const { data: created, error: createError } = await client
+    .from('message_threads')
+    .insert({ user_id: userId, vendor_id: vendorId })
+    .select('*, vendors:vendor_id (id, business_name, logo)')
+    .single();
+
+  if (createError) throw createError;
+  return created as unknown as MessageThreadRow;
+}
+
 export async function getThread(
   client: SupabaseClient,
   threadId: string,
