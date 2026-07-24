@@ -21,6 +21,7 @@ import { useCreateBookingInquiry } from '@/hooks/useBookings';
 import { useCoupleProfile } from '@/hooks/useDashboard';
 import { coupleFirstNames } from '@/types/dashboard';
 import { parsePackagePrice } from '@/lib/vendor-detail';
+import { getErrorMessage } from '@/lib/errors';
 
 const GUEST_STEP = 10;
 const BUDGET_OPTIONS = ['Under 1M', '1M – 3M', '3M – 5M', '5M – 10M', '10M+'];
@@ -99,11 +100,10 @@ export default function BookingRequestScreen() {
             [{ text: 'Done', onPress: () => router.back() }],
           );
         },
-        onError: (error) =>
-          Alert.alert(
-            'Could not send request',
-            error instanceof Error ? error.message : 'Please try again.',
-          ),
+        onError: (error) => {
+          console.error('[booking] createBookingInquiry failed', error);
+          Alert.alert('Could not send request', getErrorMessage(error, 'Please try again.'));
+        },
       },
     );
   };
