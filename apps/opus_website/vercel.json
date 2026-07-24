@@ -3,7 +3,13 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "installCommand": "cd ../.. && npm install",
-    "git": {
+  "git": {
     "deploymentEnabled": false
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/opus/reindex",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }
