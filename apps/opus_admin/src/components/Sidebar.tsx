@@ -184,7 +184,8 @@ const sections: NavSection[] = [
     label: "Support",
     icon: Headset,
     items: [
-      { icon: Headset, label: "Conversations", href: "/support", requiredPermission: "support.read" },
+      { icon: Headset, label: "Conversations", href: "/support", exact: true, requiredPermission: "support.read" },
+      { icon: BarChart3, label: "Analytics", href: "/support/analytics", requiredPermission: "support.read" },
     ],
   },
   {

@@ -111,6 +111,62 @@ export async function listConversations(
   })
 }
 
+export type SupportAnalytics = {
+  total: number
+  last7: number
+  botOnly: number
+  escalated: number
+  resolved: number
+  thumbsUp: number
+  thumbsDown: number
+  totalMessages: number
+  topTopics: Array<{ topic: string; count: number }>
+}
+
+export async function getSupportAnalytics(): Promise<SupportAnalytics> {
+  const empty: SupportAnalytics = {
+    total: 0, last7: 0, botOnly: 0, escalated: 0, resolved: 0,
+    thumbsUp: 0, thumbsDown: 0, totalMessages: 0, topTopics: [],
+  }
+  if (!hasSupabaseAdminConfig()) return empty
+  const sb = createSupabaseAdminClient()
+  const conv = () => sb.from('support_conversations').select('id', { count: 'exact', head: true })
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [total, last7, botOnly, escalated, resolved, messages, feedback, topics] =
+    await Promise.all([
+      conv(),
+      conv().gte('created_at', weekAgo),
+      conv().eq('status', 'bot'),
+      conv().in('status', ['needs_human', 'assigned', 'resolved']),
+      conv().eq('status', 'resolved'),
+      sb.from('support_messages').select('id', { count: 'exact', head: true }),
+      sb.from('support_feedback').select('rating'),
+      sb.from('support_conversations').select('topic').not('topic', 'is', null).limit(1000),
+    ])
+
+  const fb = (feedback.data ?? []) as Array<{ rating: string }>
+  const topicCounts = new Map<string, number>()
+  for (const r of (topics.data ?? []) as Array<{ topic: string }>) {
+    topicCounts.set(r.topic, (topicCounts.get(r.topic) ?? 0) + 1)
+  }
+
+  return {
+    total: total.count ?? 0,
+    last7: last7.count ?? 0,
+    botOnly: botOnly.count ?? 0,
+    escalated: escalated.count ?? 0,
+    resolved: resolved.count ?? 0,
+    thumbsUp: fb.filter((r) => r.rating === 'up').length,
+    thumbsDown: fb.filter((r) => r.rating === 'down').length,
+    totalMessages: messages.count ?? 0,
+    topTopics: [...topicCounts.entries()]
+      .map(([topic, count]) => ({ topic, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6),
+  }
+}
+
 export async function getConversationDetail(id: string): Promise<ConversationDetail | null> {
   if (!hasSupabaseAdminConfig()) return null
   const sb = createSupabaseAdminClient()
