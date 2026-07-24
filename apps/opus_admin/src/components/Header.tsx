@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronLeft, HelpCircle, LogOut, MessagesSquare, Search, Settings, X } from "lucide-react";
+import { ChevronLeft, HelpCircle, LogOut, MessagesSquare, Search, Settings, X } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
+import SupportBell from "./SupportBell";
 import { usePageHeading } from "./PageHeading";
 import { usePageSearch } from "./PageSearch";
 import type { CallerProfile } from "@/lib/admin-auth";
@@ -119,16 +120,9 @@ export function Header({ profile }: { profile: CallerProfile }) {
           <span className="absolute -top-0.5 right-0 w-2 h-2 bg-red-500 border-2 border-gray-50 rounded-full"></span>
         </Link>
 
-        {/* Notifications: routes to the Opus support conversations awaiting a
-            human (the admin's live-notification surface). */}
-        <Link
-          href="/support?filter=attention"
-          aria-label="Notifications"
-          className="relative text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-0 right-0.5 w-2 h-2 bg-red-500 border-2 border-gray-50 rounded-full"></span>
-        </Link>
+        {/* Notifications: live dropdown of Opus support conversations awaiting a
+            human, with an unread count. Polls client-side. */}
+        <SupportBell />
 
         <div className="w-px h-6 bg-gray-200" aria-hidden />
 
