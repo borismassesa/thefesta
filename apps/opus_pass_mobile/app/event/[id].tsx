@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BackButton } from '@/components/navigation/BackButton';
 import { FormField } from '@/components/guests/FormField';
 import { useEvents, useSaveEvent } from '@/hooks/useGuests';
+import { getErrorMessage } from '@/lib/errors';
 import { useTheme } from '@/theme/useTheme';
 import { EVENT_TYPE_LABELS, type EventType, type WeddingEventDraft } from '@/types/dashboard';
 
@@ -103,7 +104,7 @@ export default function EventFormScreen() {
         onError: (error) =>
           Alert.alert(
             "Couldn't save event",
-            error instanceof Error ? error.message : 'Please try again shortly.',
+            getErrorMessage(error, 'Please try again shortly.'),
           ),
       },
     );

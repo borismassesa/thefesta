@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BackButton } from '@/components/navigation/BackButton';
 import { FormField } from '@/components/guests/FormField';
 import { useGuests, useSaveGuest } from '@/hooks/useGuests';
+import { getErrorMessage } from '@/lib/errors';
 import { useTheme } from '@/theme/useTheme';
 import type { GuestContactDraft } from '@/types/dashboard';
 
@@ -67,7 +68,7 @@ export default function GuestFormScreen() {
         onError: (error) =>
           Alert.alert(
             "Couldn't save guest",
-            error instanceof Error ? error.message : 'Please try again shortly.',
+            getErrorMessage(error, 'Please try again shortly.'),
           ),
       },
     );

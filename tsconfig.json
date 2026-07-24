@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["esnext", "dom", "dom.iterable"],
+    "lib": [
+      "esnext",
+      "dom",
+      "dom.iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
@@ -14,12 +18,26 @@
     "noEmit": true
   },
   "files": [],
-  "exclude": ["node_modules", "**/node_modules/**"],
+  "exclude": [
+    "node_modules",
+    "**/node_modules/**"
+  ],
   "references": [
-    { "path": "./apps/opus_website" },
-    { "path": "./apps/opus_admin" },
-    { "path": "./apps/vendors_portal" },
-    { "path": "./apps/opus_pass" },
-    { "path": "./packages/lib" }
-  ]
+    {
+      "path": "./apps/opus_website"
+    },
+    {
+      "path": "./apps/opus_admin"
+    },
+    {
+      "path": "./apps/vendors_portal"
+    },
+    {
+      "path": "./apps/opus_pass"
+    },
+    {
+      "path": "./packages/lib"
+    }
+  ],
+  "extends": "expo/tsconfig.base"
 }

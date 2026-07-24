@@ -2,6 +2,7 @@ import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useDeleteEvent, useEvents, useGuests } from '@/hooks/useGuests';
+import { getErrorMessage } from '@/lib/errors';
 import { formatShortDate } from '@/lib/format-date';
 import { useTheme } from '@/theme/useTheme';
 import { EVENT_TYPE_LABELS, type WeddingEvent } from '@/types/dashboard';
@@ -85,7 +86,7 @@ export function EventsTab() {
             onError: (error) =>
               Alert.alert(
                 "Couldn't delete event",
-                error instanceof Error ? error.message : 'Please try again shortly.',
+                getErrorMessage(error, 'Please try again shortly.'),
               ),
           }),
       },

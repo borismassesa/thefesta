@@ -34,15 +34,6 @@ export default function VendorsScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.navigate('/chat')}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Messages"
-          >
-            <Ionicons name="mail-outline" size={22} color={editorial.onSurface} />
-          </Pressable>
-
-          <Pressable
             onPress={() => setMode('saved')}
             hitSlop={8}
             accessibilityRole="button"

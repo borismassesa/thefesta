@@ -1,5 +1,6 @@
+import { marketLabel } from '@opusfesta/lib';
 import { formatTzs } from '@/lib/cart';
-import type { VendorListing, VendorLocation, VendorPackageDetail } from '@/types/vendor';
+import type { VendorAvailabilityEntry, VendorListing, VendorLocation, VendorPackageDetail } from '@/types/vendor';
 
 /** Production rows use '' for unset contact/social fields rather than null. */
 function present(value: string | undefined | null): value is string {
@@ -47,6 +48,25 @@ export function formatVendorAddress(location: VendorLocation | null): string {
 export function shortVendorLocation(location: VendorLocation | null): string {
   if (!location) return '';
   return location.city || location.district || location.region || '';
+}
+
+/**
+ * Resolves the vendor's home + service markets to display labels, matching
+ * the web storefront's "Service area" chip row. `home_market` sorts first,
+ * the vendor's city is appended when it isn't already covered by a market.
+ */
+export function buildServiceArea(vendor: VendorListing): string[] {
+  const homeMarket = present(vendor.home_market) ? vendor.home_market.trim() : null;
+  const otherMarkets = Array.isArray(vendor.service_markets)
+    ? vendor.service_markets.filter((id): id is string => present(id))
+    : [];
+  const ids = Array.from(new Set([...(homeMarket ? [homeMarket] : []), ...otherMarkets]));
+  const labels = ids.map(marketLabel);
+
+  const city = shortVendorLocation(vendor.location);
+  if (present(city) && !labels.includes(city)) labels.push(city);
+
+  return labels;
 }
 
 export interface ConnectLink {
@@ -109,8 +129,33 @@ export function buildConnectLinks(vendor: VendorListing): ConnectLink[] {
   return links;
 }
 
+/** Small pill label shown on vendor cards — mirrors the web card's `badge` field. */
+export function vendorBadgeLabel(vendor: Pick<VendorListing, 'verified'>): string | null {
+  return vendor.verified ? 'Verified' : null;
+}
+
 /** Cover first, then gallery — de-duplicated, since cover is often also in gallery. */
 export function vendorImages(vendor: Pick<VendorListing, 'cover_image' | 'gallery_urls'>): string[] {
   const images = [vendor.cover_image, ...(vendor.gallery_urls ?? [])].filter(present);
   return Array.from(new Set(images));
+}
+
+/**
+ * Splits the raw `vendors.availability` entries ([{date, status}]) into booked
+ * vs limited date lists, matching the web storefront's calendar. Returns null
+ * when the vendor hasn't declared any dates, so the calendar section can hide
+ * itself rather than invent availability.
+ */
+export function parseVendorAvailability(
+  entries: VendorAvailabilityEntry[] | null,
+): { bookedDates: string[]; limitedDates: string[] } | null {
+  const bookedDates: string[] = [];
+  const limitedDates: string[] = [];
+  for (const entry of entries ?? []) {
+    if (!present(entry?.date)) continue;
+    if (entry.status === 'limited') limitedDates.push(entry.date);
+    else bookedDates.push(entry.date);
+  }
+  if (bookedDates.length === 0 && limitedDates.length === 0) return null;
+  return { bookedDates, limitedDates };
 }

@@ -2,6 +2,7 @@ import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useDeleteGuest, useGuests } from '@/hooks/useGuests';
+import { getErrorMessage } from '@/lib/errors';
 import { useTheme } from '@/theme/useTheme';
 import type { GuestWithInvitations, RsvpStatus } from '@/types/dashboard';
 
@@ -120,7 +121,7 @@ export function GuestListTab() {
             onError: (error) =>
               Alert.alert(
                 "Couldn't remove guest",
-                error instanceof Error ? error.message : 'Please try again shortly.',
+                getErrorMessage(error, 'Please try again shortly.'),
               ),
           }),
       },

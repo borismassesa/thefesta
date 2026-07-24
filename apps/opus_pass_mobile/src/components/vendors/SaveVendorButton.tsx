@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSavedVendorIds, useToggleSavedVendor } from '@/hooks/useSavedVendors';
+import { getErrorMessage } from '@/lib/errors';
 
 /**
  * Heart toggle shared by the cards and the detail hero. Owns its own saved
@@ -34,7 +35,7 @@ export function SaveVendorButton({
           setOptimistic(null);
           Alert.alert(
             'Could not save',
-            error instanceof Error ? error.message : 'Please try again.',
+            getErrorMessage(error, 'Please try again.'),
           );
         },
         onSuccess: () => setOptimistic(null),

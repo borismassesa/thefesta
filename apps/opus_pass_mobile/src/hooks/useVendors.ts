@@ -1,5 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuthenticatedSupabase } from '@/lib/supabase';
 import {
+  createVendorReview,
   getCategoryCounts,
   getFeaturedVendors,
   getVendorById,
@@ -7,7 +9,9 @@ import {
   getVendorReviews,
   getVendorsByCategory,
   searchVendors,
+  type CreateVendorReviewPayload,
 } from '@/lib/api/vendors';
+import { MissingInternalUserError, useInternalUserId } from './useInternalUserId';
 
 export function useFeaturedVendors() {
   return useQuery({
@@ -45,6 +49,22 @@ export function useVendorReviews(vendorId: string | undefined) {
     queryKey: ['vendor-reviews', vendorId],
     queryFn: () => getVendorReviews(vendorId!),
     enabled: Boolean(vendorId),
+  });
+}
+
+export function useCreateVendorReview() {
+  const client = useAuthenticatedSupabase();
+  const { data: userId } = useInternalUserId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: Omit<CreateVendorReviewPayload, 'userId'>) => {
+      if (!userId) throw new MissingInternalUserError();
+      return createVendorReview(client, { ...payload, userId });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['vendor-reviews', variables.vendorId] });
+    },
   });
 }
 

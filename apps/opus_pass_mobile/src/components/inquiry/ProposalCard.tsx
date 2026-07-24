@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from 'react-native';
 import { formatTzs } from '@/lib/cart';
+import { getErrorMessage } from '@/lib/errors';
 import { useTheme } from '@/theme/useTheme';
 import { useAcceptProposal, useCounterProposal } from '@/hooks/useInquiries';
 import type { InquiryDetail } from '@/lib/api/inquiries';
@@ -35,7 +36,7 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
             onError: (error) =>
               Alert.alert(
                 'Could not accept',
-                error instanceof Error ? error.message : 'Please try again.',
+                getErrorMessage(error, 'Please try again.'),
               ),
           }),
       },
@@ -62,7 +63,7 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
         onError: (error) =>
           Alert.alert(
             'Could not send counter',
-            error instanceof Error ? error.message : 'Please try again.',
+            getErrorMessage(error, 'Please try again.'),
           ),
       },
     );

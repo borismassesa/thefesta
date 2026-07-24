@@ -1,5 +1,9 @@
 # OpusFesta Mobile
 
+> **⚠️ Deprecated.** This app is no longer actively developed. `apps/opus_pass_mobile`
+> (OpusPass) is the active mobile app going forward — new mobile work should land there
+> instead of here.
+
 The couple-facing wedding planning app: browse and book vendors, manage a guest list, plan a
 budget/checklist, build a wedding website, and message vendors — all backed by the same
 Supabase project as `apps/opus_website`, `apps/opus_pass`, and `apps/opus_admin`.

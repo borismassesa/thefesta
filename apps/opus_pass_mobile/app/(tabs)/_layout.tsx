@@ -20,9 +20,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="registry" options={{ title: 'Registry' }} />
       <Tabs.Screen name="vendors" options={{ title: 'Vendors' }} />
       {/* Hidden from the tab bar (omitted from FloatingTabBar's TAB_CONFIG) —
-          still reachable via the Chat icon buttons in the header pills, and
-          Guest List via the Planning radial menu. */}
-      <Tabs.Screen name="chat" options={{ title: 'Chat', href: null }} />
+          still reachable via Guest List in the Planning radial menu. */}
       <Tabs.Screen name="guests" options={{ title: 'Guests', href: null }} />
     </Tabs>
   );

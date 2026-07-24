@@ -350,8 +350,8 @@ export default function CardsScreen() {
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Chat"
-            onPress={() => router.navigate('/chat')}
+            accessibilityLabel="My requests"
+            onPress={() => router.navigate('/inquiries')}
             className="h-10 w-9 items-center justify-center"
           >
             <Ionicons

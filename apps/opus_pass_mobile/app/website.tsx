@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { BackButton } from '@/components/navigation/BackButton';
 import { useCoupleProfile, useEnablePublicSharing, useUpcomingEvents } from '@/hooks/useDashboard';
+import { getErrorMessage } from '@/lib/errors';
 import { publicInviteMessage, publicInviteUrl, formatLongDate } from '@/lib/share';
 import { useTheme } from '@/theme/useTheme';
 import { coupleFirstNames } from '@/types/dashboard';
@@ -69,7 +70,7 @@ export default function WebsiteShareScreen() {
     } catch (error) {
       Alert.alert(
         "Couldn't share your invite",
-        error instanceof Error ? error.message : 'Please try again shortly.',
+        getErrorMessage(error, 'Please try again shortly.'),
       );
     } finally {
       setPendingAction(null);
@@ -84,7 +85,7 @@ export default function WebsiteShareScreen() {
     } catch (error) {
       Alert.alert(
         "Couldn't generate your QR code",
-        error instanceof Error ? error.message : 'Please try again shortly.',
+        getErrorMessage(error, 'Please try again shortly.'),
       );
     } finally {
       setPendingAction(null);

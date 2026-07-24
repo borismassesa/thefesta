@@ -52,6 +52,17 @@ export interface VendorTeamMember {
   avatar?: string;
 }
 
+export type VendorHoursDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export type VendorHours = Partial<Record<VendorHoursDay, { open: boolean; from: string; to: string }>>;
+
+/** Raw shape of the `vendors.availability` jsonb column — one entry per declared date. */
+export interface VendorAvailabilityEntry {
+  date?: string;
+  status?: string;
+  note?: string;
+}
+
 /**
  * A vendor as returned by the public listing/detail queries (VENDOR_COLUMNS in
  * src/lib/api/vendors.ts). JSON columns (location, price_range, stats, …) are
@@ -80,8 +91,22 @@ export interface VendorListing {
   team_size: number | null;
   services_offered: string[] | null;
   team: VendorTeamMember[] | null;
+  faqs: VendorFaq[] | null;
+  service_markets: string[] | null;
+  home_market: string | null;
+  languages: string[] | null;
+  response_time_hours: string | null;
+  locally_owned: boolean | null;
+  hours: VendorHours | null;
+  availability: VendorAvailabilityEntry[] | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface VendorFaq {
+  id?: string;
+  question: string;
+  answer: string;
 }
 
 export type SavedVendorStatus = 'saved' | 'contacted' | 'booked' | 'archived';
@@ -131,6 +156,14 @@ export interface VendorPackageDetail {
   badge?: VendorPackageBadge | null;
 }
 
+export type VendorReviewStatus = 'pending' | 'published' | 'rejected';
+
+/**
+ * Sourced from `vendor_reviews` — the moderated pipeline the web storefront
+ * also reads (see 20260503000002_vendor_reviews_pipeline.sql). `status` is
+ * only populated for the signed-in user's own review (RLS only exposes other
+ * couples' `published` rows), so the UI can show "your review is pending".
+ */
 export interface VendorReview {
   id: string;
   vendor_id: string;
@@ -138,6 +171,8 @@ export interface VendorReview {
   title: string | null;
   content: string | null;
   event_type: string | null;
+  wedding_date: string | null;
+  status: VendorReviewStatus;
   created_at: string;
   user: {
     name: string;

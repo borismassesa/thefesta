@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { BackButton } from '@/components/navigation/BackButton';
 import { resolveAccessCode, validateScannerSession } from '@/lib/api/checkin';
+import { getErrorMessage } from '@/lib/errors';
 import { useScannerSession } from '@/hooks/useScannerSession';
 import { ACCENT, ON_ACCENT } from '@/theme/brand';
 import { useTheme } from '@/theme/useTheme';
@@ -190,7 +191,7 @@ export default function ScannerEntryScreen() {
       });
       router.push(`/scanner/${resolved.eventId}/scan`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setError(getErrorMessage(err, 'Something went wrong.'));
     } finally {
       setBusy(false);
     }

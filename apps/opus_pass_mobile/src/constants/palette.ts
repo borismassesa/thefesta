@@ -21,11 +21,14 @@
  * is intentionally untouched by this and keeps the fuller purple romance look.
  *
  * Dark strategy (Editorial Romance → dark): the surface scale inverts direction —
- * base surfaces become a near-black desaturated purple and elevation gets *lighter*
- * as it rises (Material dark convention), the opposite of light mode. Foreground
- * tokens invert toward light lavender-greys, and the primary purple is lightened so
- * text/icons stay legible on dark. Auth-only neutrals (ink/line/accent/placeholder)
- * do NOT flip — auth screens are light-only for v1.
+ * base surfaces become a near-black charcoal with only a whisper of purple, and
+ * elevation gets *lighter* as it rises (Material dark convention), the opposite
+ * of light mode. The surface scale is deliberately low-saturation (~12-14%) so
+ * full-screen backgrounds and cards read as neutral dark, not eggplant purple;
+ * the purple identity still lives in the primary/secondary/tertiary containers.
+ * Foreground tokens invert toward light lavender-greys, and the primary purple is
+ * lightened so text/icons stay legible on dark. Auth-only neutrals
+ * (ink/line/accent/placeholder) do NOT flip — auth screens are light-only for v1.
  */
 
 const lightEditorial = {
@@ -77,14 +80,14 @@ export type EditorialTokens = Record<keyof typeof lightEditorial, string>;
 export type ColorTokens = Record<keyof typeof lightColors, string>;
 
 const darkEditorial: EditorialTokens = {
-  /* Backgrounds — near-black desaturated purple; elevation gets lighter as it rises */
-  bg: '#120A1C',
-  surface: '#120A1C',
-  surfaceContainerLowest: '#0D0715',
-  surfaceContainerLow: '#1A1026',
-  surfaceContainer: '#1F1430',
-  surfaceContainerHigh: '#291A3D',
-  surfaceContainerHighest: '#332048',
+  /* Backgrounds — near-black charcoal with a whisper of purple; elevation gets lighter as it rises */
+  bg: '#131016',
+  surface: '#131016',
+  surfaceContainerLowest: '#0E0C10',
+  surfaceContainerLow: '#1B181F',
+  surfaceContainer: '#211E26',
+  surfaceContainerHigh: '#2B2631',
+  surfaceContainerHighest: '#332D3B',
 
   /* Text — light lavender-greys */
   onSurface: '#ECE0F5',
@@ -112,7 +115,7 @@ const darkEditorial: EditorialTokens = {
 
   /* Outline / borders */
   outline: '#9885A8',
-  outlineVariant: '#3A2C48',
+  outlineVariant: '#393341',
 
   /* Status — Material dark uses a lighter error red */
   error: '#FFB4AB',
@@ -144,8 +147,8 @@ const darkColors: ColorTokens = {
   medium: '#B98FD6',
   light: '#C9A0DC',
   pale: '#241533',
-  cream: '#120A1C', // page background
-  surface: '#1F1430', // elevated card surface (was #fff in light)
+  cream: '#131016', // page background
+  surface: '#211E26', // elevated card surface (was #fff in light)
   white: '#FFFFFF', // true white — foreground on purple, must not flip
   dark: '#2A1245',
   text: '#ECE0F5',
@@ -195,13 +198,13 @@ export const ofVars: Record<string, { light: string; dark?: string }> = {
   // Editorial Romance tokens — the `ed-*` NativeWind namespace, mirroring the
   // JS `editorial` object above so screens can style with classes instead of
   // inline `useTheme().editorial.*`. Derived from lightEditorial/darkEditorial.
-  '--ed-bg': { light: '#FFFFFF', dark: '#120A1C' },
-  '--ed-surface': { light: '#FFFFFF', dark: '#120A1C' },
-  '--ed-surface-container-lowest': { light: '#ffffff', dark: '#0D0715' },
-  '--ed-surface-container-low': { light: '#F9FAFB', dark: '#1A1026' },
-  '--ed-surface-container': { light: '#F3F4F6', dark: '#1F1430' },
-  '--ed-surface-container-high': { light: '#E5E7EB', dark: '#291A3D' },
-  '--ed-surface-container-highest': { light: '#D1D5DB', dark: '#332048' },
+  '--ed-bg': { light: '#FFFFFF', dark: '#131016' },
+  '--ed-surface': { light: '#FFFFFF', dark: '#131016' },
+  '--ed-surface-container-lowest': { light: '#ffffff', dark: '#0E0C10' },
+  '--ed-surface-container-low': { light: '#F9FAFB', dark: '#1B181F' },
+  '--ed-surface-container': { light: '#F3F4F6', dark: '#211E26' },
+  '--ed-surface-container-high': { light: '#E5E7EB', dark: '#2B2631' },
+  '--ed-surface-container-highest': { light: '#D1D5DB', dark: '#332D3B' },
   '--ed-on-surface': { light: '#1A1A1A', dark: '#ECE0F5' },
   '--ed-on-surface-variant': { light: '#6B7280', dark: '#C9B8D6' },
   '--ed-primary-container': { light: '#1A1A1A', dark: '#7B4FA2' },
@@ -217,7 +220,7 @@ export const ofVars: Record<string, { light: string; dark?: string }> = {
   '--ed-on-tertiary-fixed': { light: '#1A1A1A', dark: '#F3EBF9' },
   '--ed-on-tertiary-container': { light: '#C9A0DC', dark: '#E0C9F0' },
   '--ed-outline': { light: '#9CA3AF', dark: '#9885A8' },
-  '--ed-outline-variant': { light: '#E5E7EB', dark: '#3A2C48' },
+  '--ed-outline-variant': { light: '#E5E7EB', dark: '#393341' },
   '--ed-error': { light: '#ba1a1a', dark: '#FFB4AB' },
   '--ed-header-tint': { light: '#FCEEE6', dark: '#2B1D2A' },
 };

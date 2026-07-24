@@ -6,6 +6,7 @@ import { AttendanceDonut } from '@/components/dashboard/AttendanceDonut';
 import { useCoupleProfile } from '@/hooks/useDashboard';
 import { useEvents, useGuests, useRsvpQuestions, useToggleEventRsvp } from '@/hooks/useGuests';
 import { computeStats } from '@/lib/api/dashboard';
+import { getErrorMessage } from '@/lib/errors';
 import { useTheme } from '@/theme/useTheme';
 import { EVENT_TYPE_LABELS, type WeddingEvent } from '@/types/dashboard';
 
@@ -45,7 +46,7 @@ function EventRsvpCard({ event }: { event: WeddingEvent }) {
                 onError: (error) =>
                   Alert.alert(
                     "Couldn't update RSVPs",
-                    error instanceof Error ? error.message : 'Please try again shortly.',
+                    getErrorMessage(error, 'Please try again shortly.'),
                   ),
               },
             )
