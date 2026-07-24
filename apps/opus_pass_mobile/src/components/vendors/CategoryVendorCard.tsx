@@ -3,7 +3,8 @@ import { Image, Pressable, ScrollView, Text, useWindowDimensions, View } from 'r
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/useTheme';
-import { shortVendorLocation, vendorImages } from '@/lib/vendor-format';
+import { ACCENT, ON_ACCENT } from '@/theme/brand';
+import { shortVendorLocation, vendorBadgeLabel, vendorImages } from '@/lib/vendor-format';
 import { StarRating } from './ui/StarRating';
 import { SaveVendorButton } from './SaveVendorButton';
 import type { VendorListing } from '@/types/vendor';
@@ -21,6 +22,7 @@ export function CategoryVendorCard({ vendor }: { vendor: VendorListing }) {
   const rating = vendor.stats?.averageRating ?? 0;
   const reviewCount = vendor.stats?.reviewCount ?? 0;
   const location = shortVendorLocation(vendor.location);
+  const badge = vendorBadgeLabel(vendor);
 
   return (
     <Pressable
@@ -59,6 +61,20 @@ export function CategoryVendorCard({ vendor }: { vendor: VendorListing }) {
           <SaveVendorButton vendorId={vendor.id} color="#FFFFFF" />
         </View>
 
+        {badge ? (
+          <View
+            className="absolute left-3 top-3 rounded-full px-3 py-1"
+            style={{ backgroundColor: ACCENT }}
+          >
+            <Text
+              className="font-work-sans-bold text-[9px] uppercase tracking-[1.5px]"
+              style={{ color: ON_ACCENT }}
+            >
+              {badge}
+            </Text>
+          </View>
+        ) : null}
+
         {images.length > 1 ? (
           <View className="absolute bottom-3 w-full flex-row justify-center gap-1.5">
             {images.map((uri, index) => (
@@ -73,7 +89,14 @@ export function CategoryVendorCard({ vendor }: { vendor: VendorListing }) {
         ) : null}
       </View>
 
-      <View className="gap-1 px-4 py-3">
+      <View className="gap-1.5 px-4 py-3.5">
+        <Text
+          numberOfLines={1}
+          className="font-work-sans-bold text-[10px] uppercase tracking-[1.5px] text-ed-on-surface-variant"
+        >
+          {vendor.category}
+        </Text>
+
         <View className="flex-row items-center gap-1.5">
           <Text numberOfLines={1} className="flex-1 font-work-sans-bold text-base text-ed-on-surface">
             {vendor.business_name}

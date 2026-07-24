@@ -3,15 +3,18 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Linking,
   type LayoutChangeEvent,
   Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   Share,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -19,11 +22,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useUser } from '@clerk/clerk-expo';
 import { useTheme } from '@/theme/useTheme';
 import { ACCENT, ON_ACCENT } from '@/theme/brand';
-import { useVendor, useVendorPackages, useVendorReviews } from '@/hooks/useVendors';
+import { useCreateVendorReview, useVendor, useVendorPackages, useVendorReviews } from '@/hooks/useVendors';
 import { useMarkVendorBooked, useSavedVendorStatus } from '@/hooks/useSavedVendors';
 import { useStartConversation } from '@/hooks/useMessages';
+import { useCoupleProfile } from '@/hooks/useDashboard';
+import { coupleFirstNames } from '@/types/dashboard';
+import { getErrorMessage } from '@/lib/errors';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SaveVendorButton } from '@/components/vendors/SaveVendorButton';
 import { Avatar } from '@/components/vendors/ui/Avatar';
@@ -31,6 +38,7 @@ import {
   buildConnectLinks,
   buildServiceArea,
   formatVendorAddress,
+  parseVendorAvailability,
   shortVendorLocation,
   vendorImages,
 } from '@/lib/vendor-format';
@@ -45,7 +53,13 @@ import {
   PKG_BADGE_TONES,
   ratingLabel,
 } from '@/lib/vendor-detail';
-import type { VendorFaq, VendorListing, VendorPackageDetail, VendorReview } from '@/types/vendor';
+import type {
+  VendorFaq,
+  VendorHoursDay,
+  VendorListing,
+  VendorPackageDetail,
+  VendorReview,
+} from '@/types/vendor';
 
 const ACCENT_HOVER = '#b97fd0';
 const STAR_ON = '#FBBF24';
@@ -99,7 +113,17 @@ function Section({
 
 /* ───────────────────────── section nav tabs ───────────────────────── */
 
-const NAV_TABS = ['Photos', 'About', 'Services', 'Pricing', 'Team', "FAQ's", 'Location', 'Reviews'] as const;
+const NAV_TABS = [
+  'Photos',
+  'About',
+  'Services',
+  'Pricing',
+  'Availability',
+  'Team',
+  "FAQ's",
+  'Location',
+  'Reviews',
+] as const;
 type NavTab = (typeof NAV_TABS)[number];
 
 function VendorNavTabs({
@@ -596,6 +620,321 @@ function VendorPricingSection({
   );
 }
 
+/* ───────────────────────── hours ───────────────────────── */
+
+const HOURS_ROWS: { key: VendorHoursDay; label: string }[] = [
+  { key: 'mon', label: 'Monday' },
+  { key: 'tue', label: 'Tuesday' },
+  { key: 'wed', label: 'Wednesday' },
+  { key: 'thu', label: 'Thursday' },
+  { key: 'fri', label: 'Friday' },
+  { key: 'sat', label: 'Saturday' },
+  { key: 'sun', label: 'Sunday' },
+];
+
+function VendorHoursSection({ vendor }: { vendor: VendorListing }) {
+  const entries = HOURS_ROWS.map((d) => ({ ...d, value: vendor.hours?.[d.key] })).filter(
+    (d) => d.value,
+  );
+  if (entries.length === 0) return null;
+
+  return (
+    <View>
+      <SectionHeading
+        title="Hours of operation"
+        subtitle={`When ${vendor.business_name} is available for consultations and events.`}
+      />
+      <View className="overflow-hidden rounded-3xl border border-ed-outline-variant bg-ed-surface">
+        {entries.map(({ key, label, value }, i) => (
+          <View
+            key={key}
+            className={`flex-row items-center justify-between px-5 py-3.5 ${
+              i > 0 ? 'border-t border-ed-outline-variant' : ''
+            }`}
+          >
+            <Text className="font-work-sans-medium text-sm text-ed-on-surface">{label}</Text>
+            {value?.open ? (
+              <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+                {value.from || '—'} – {value.to || '—'}
+              </Text>
+            ) : (
+              <Text className="font-work-sans text-sm italic text-ed-on-surface-variant">Closed</Text>
+            )}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/* ───────────────────────── availability ───────────────────────── */
+
+// Brand palette for the calendar — matches the web storefront exactly.
+const CAL_EMERALD = '#2D6A4F';
+const CAL_PURPLE = '#5B2D8E';
+const CAL_AMBER_BG = '#FEF3C7';
+const CAL_AMBER_TEXT = '#F59E0B';
+const CAL_RED_BG = '#FEE2E2';
+const CAL_RED_TEXT = '#EF4444';
+const CAL_AVAILABLE_BG = '#D1FAE5';
+const CAL_CLOSED_BG = '#F3F4F6';
+
+const CAL_MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+const CAL_DAY_ABBRS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+function MiniCalendar({
+  year,
+  month,
+  bookedSet,
+  limitedSet,
+  closedWeekday,
+  selectedDate,
+  onDateClick,
+}: {
+  year: number;
+  month: number;
+  bookedSet: Set<string>;
+  limitedSet: Set<string>;
+  /** Weekly-closed weekdays from business hours, indexed by JS getDay() (0=Sun…6=Sat). */
+  closedWeekday: boolean[];
+  selectedDate: string | null;
+  onDateClick: (ds: string, kind: 'available' | 'limited' | 'booked') => void;
+}) {
+  const now = new Date();
+  const todayY = now.getFullYear();
+  const todayM = now.getMonth();
+  const todayD = now.getDate();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay();
+
+  const cells: (number | null)[] = Array(firstDow).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks: (number | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  return (
+    <View>
+      <Text className="mb-3 text-center font-work-sans-bold text-[13px] text-ed-on-surface">
+        {CAL_MONTH_NAMES[month]} {year}
+      </Text>
+
+      <View className="flex-row">
+        {CAL_DAY_ABBRS.map((d, i) => (
+          <View key={`${d}${i}`} className="flex-1 items-center pb-2">
+            <Text className="font-work-sans-bold text-[11px] text-ed-on-surface">{d}</Text>
+          </View>
+        ))}
+      </View>
+
+      {weeks.map((week, wi) => (
+        <View key={wi} className="flex-row">
+          {week.map((day, di) => {
+            if (!day) return <View key={di} className="m-px aspect-square flex-1" />;
+
+            const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const isPast =
+              year < todayY ||
+              (year === todayY && month < todayM) ||
+              (year === todayY && month === todayM && day < todayD);
+            const isToday = year === todayY && month === todayM && day === todayD;
+            const isBooked = bookedSet.has(ds);
+            const isLimited = !isPast && !isToday && !isBooked && limitedSet.has(ds);
+            const isClosed =
+              !isPast && !isToday && !isBooked && !isLimited && !!closedWeekday[new Date(year, month, day).getDay()];
+            const isSelected =
+              !isPast && !isToday && !isBooked && !isLimited && !isClosed && ds === selectedDate;
+
+            const bg = isPast
+              ? 'transparent'
+              : isToday
+                ? CAL_PURPLE
+                : isBooked
+                  ? CAL_RED_BG
+                  : isSelected
+                    ? CAL_EMERALD
+                    : isLimited
+                      ? CAL_AMBER_BG
+                      : isClosed
+                        ? CAL_CLOSED_BG
+                        : CAL_AVAILABLE_BG;
+
+            const fg = isPast
+              ? '#D1D5DB'
+              : isToday
+                ? '#FFFFFF'
+                : isBooked
+                  ? CAL_RED_TEXT
+                  : isSelected
+                    ? '#FFFFFF'
+                    : isLimited
+                      ? CAL_AMBER_TEXT
+                      : isClosed
+                        ? '#9CA3AF'
+                        : '#1A1A1A';
+
+            return (
+              <Pressable
+                key={ds}
+                disabled={isPast || isClosed}
+                onPress={() => onDateClick(ds, isBooked ? 'booked' : isLimited ? 'limited' : 'available')}
+                className="m-px aspect-square flex-1 items-center justify-center rounded-lg"
+                style={{ backgroundColor: bg }}
+                accessibilityLabel={`${CAL_MONTH_NAMES[month]} ${day}, ${year}`}
+              >
+                <Text
+                  className={`font-work-sans-medium text-[11px] ${isBooked ? 'line-through' : ''}`}
+                  style={{ color: fg }}
+                >
+                  {day}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const AVAILABILITY_LEGEND: { bg: string; label: string }[] = [
+  { bg: CAL_AVAILABLE_BG, label: 'Available' },
+  { bg: CAL_EMERALD, label: 'Selected' },
+  { bg: CAL_PURPLE, label: 'Today' },
+  { bg: CAL_AMBER_BG, label: 'Limited' },
+  { bg: CAL_RED_BG, label: 'Booked' },
+  { bg: CAL_CLOSED_BG, label: 'Closed' },
+];
+
+function VendorAvailabilitySection({
+  vendor,
+  bookedDates,
+  limitedDates,
+}: {
+  vendor: VendorListing;
+  bookedDates: string[];
+  limitedDates: string[];
+}) {
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ text: string; warn: boolean } | null>(null);
+
+  const bookedSet = useMemo(() => new Set(bookedDates), [bookedDates]);
+  const limitedSet = useMemo(() => new Set(limitedDates), [limitedDates]);
+
+  const HOURS_KEYS: VendorHoursDay[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const closedWeekday = HOURS_KEYS.map((k) => (vendor.hours ? !vendor.hours[k]?.open : false));
+
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+  const year = target.getFullYear();
+  const month = target.getMonth();
+  const canGoBack = monthOffset > 0;
+  const canGoForward = monthOffset < 11;
+
+  const handleDateClick = (ds: string, kind: 'available' | 'limited' | 'booked') => {
+    if (kind === 'booked') {
+      setSelectedDate(null);
+      setStatusMsg({ text: 'This date is taken — try a nearby date', warn: true });
+    } else if (kind === 'limited') {
+      setSelectedDate(ds);
+      setStatusMsg({ text: 'Only 1 slot remaining — act fast', warn: true });
+    } else {
+      setSelectedDate((current) => (ds === current ? null : ds));
+      setStatusMsg(null);
+    }
+  };
+
+  return (
+    <View>
+      <SectionHeading
+        title="Availability"
+        subtitle="Check dates before you reach out — availability updates regularly."
+      />
+
+      <View className="rounded-3xl border border-ed-outline-variant bg-ed-surface p-5">
+        {statusMsg ? (
+          <View
+            className="mb-4 flex-row items-center gap-2 rounded-lg px-3 py-2"
+            style={{ backgroundColor: statusMsg.warn ? CAL_AMBER_BG : '#ECFDF5' }}
+          >
+            <Ionicons
+              name={statusMsg.warn ? 'warning-outline' : 'information-circle-outline'}
+              size={14}
+              color={statusMsg.warn ? '#92400E' : '#065F46'}
+            />
+            <Text
+              className="flex-1 font-work-sans-medium text-xs"
+              style={{ color: statusMsg.warn ? '#92400E' : '#065F46' }}
+            >
+              {statusMsg.text}
+            </Text>
+          </View>
+        ) : null}
+
+        <View className="flex-row items-center gap-3">
+          <Pressable
+            onPress={() => setMonthOffset((o) => o - 1)}
+            disabled={!canGoBack}
+            style={{ opacity: canGoBack ? 1 : 0.25 }}
+            className="h-9 w-9 items-center justify-center rounded-full bg-[#1A1A1A]"
+            accessibilityLabel="Previous month"
+          >
+            <Ionicons name="chevron-back" size={17} color="#FFFFFF" />
+          </Pressable>
+
+          <View className="flex-1">
+            <MiniCalendar
+              year={year}
+              month={month}
+              bookedSet={bookedSet}
+              limitedSet={limitedSet}
+              closedWeekday={closedWeekday}
+              selectedDate={selectedDate}
+              onDateClick={handleDateClick}
+            />
+          </View>
+
+          <Pressable
+            onPress={() => setMonthOffset((o) => o + 1)}
+            disabled={!canGoForward}
+            style={{ opacity: canGoForward ? 1 : 0.25 }}
+            className="h-9 w-9 items-center justify-center rounded-full bg-[#1A1A1A]"
+            accessibilityLabel="Next month"
+          >
+            <Ionicons name="chevron-forward" size={17} color="#FFFFFF" />
+          </Pressable>
+        </View>
+
+        <View className="mt-5 flex-row flex-wrap gap-x-4 gap-y-2 border-t border-ed-outline-variant pt-4">
+          {AVAILABILITY_LEGEND.map(({ bg, label }) => (
+            <View key={label} className="flex-row items-center gap-1.5">
+              <View className="h-3.5 w-3.5 rounded" style={{ backgroundColor: bg }} />
+              <Text className="font-work-sans text-[11px] text-ed-on-surface-variant">{label}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View
+        className="mt-3 flex-row items-start gap-3 rounded-2xl px-4 py-3"
+        style={{ backgroundColor: 'rgba(45,106,79,0.07)', borderWidth: 1, borderColor: 'rgba(45,106,79,0.22)' }}
+      >
+        <Ionicons name="flash-outline" size={14} color={CAL_EMERALD} style={{ marginTop: 2 }} />
+        <Text className="flex-1 font-work-sans text-[13px] leading-5" style={{ color: '#1A3C2E' }}>
+          <Text className="font-work-sans-bold" style={{ color: '#1A3C2E' }}>
+            Peak Saturdays (June–Aug & December) book 6–18 months out.{' '}
+          </Text>
+          Couples who enquired early confirmed within 48hrs.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 /* ───────────────────────── team ───────────────────────── */
 
 function VendorTeamSection({ vendor }: { vendor: VendorListing }) {
@@ -718,10 +1057,12 @@ function ReviewsSummary({
   avg,
   reviewCount,
   reviews,
+  onWriteReview,
 }: {
   avg: number;
   reviewCount: number;
   reviews: VendorReview[];
+  onWriteReview: () => void;
 }) {
   const dist = useMemo(() => {
     return [5, 4, 3, 2, 1].map((star) => {
@@ -742,6 +1083,16 @@ function ReviewsSummary({
         <Text className="font-work-sans text-sm text-ed-on-surface-variant">
           {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
         </Text>
+        <Pressable
+          onPress={onWriteReview}
+          className="mt-2 rounded-full px-4 py-2"
+          style={{ backgroundColor: ACCENT }}
+          accessibilityRole="button"
+        >
+          <Text className="font-work-sans-bold text-xs" style={{ color: ON_ACCENT }}>
+            Write a review
+          </Text>
+        </Pressable>
       </View>
 
       <View className="gap-2.5 p-6">
@@ -770,92 +1121,236 @@ function ReviewsSummary({
 }
 
 const REVIEW_PAGE = 4;
+type ReviewSort = 'top' | 'recent';
 
 function VendorReviewsSection({
   reviews,
   avg,
   reviewCount,
+  onWriteReview,
 }: {
   reviews: VendorReview[];
   avg: number;
   reviewCount: number;
+  onWriteReview: () => void;
 }) {
   const [visible, setVisible] = useState(REVIEW_PAGE);
+  const [sortBy, setSortBy] = useState<ReviewSort>('top');
+  const [filterStar, setFilterStar] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const sorted = useMemo(() => {
+    const copy = [...reviews];
+    if (sortBy === 'top') return copy.sort((a, b) => b.rating - a.rating);
+    return copy.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [reviews, sortBy]);
+
+  const afterStar = filterStar ? sorted.filter((r) => Math.round(r.rating) === filterStar) : sorted;
+  const filtered = searchQuery.trim()
+    ? afterStar.filter(
+        (r) =>
+          (r.content ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.user.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    : afterStar;
+  const isFiltering = Boolean(filterStar) || searchQuery.trim().length > 0;
+  const resetPage = () => setVisible(REVIEW_PAGE);
 
   return (
     <View>
       <SectionHeading title="Reviews" />
 
-      {reviewCount > 0 ? <ReviewsSummary avg={avg} reviewCount={reviewCount} reviews={reviews} /> : null}
+      {reviewCount > 0 ? (
+        <ReviewsSummary avg={avg} reviewCount={reviewCount} reviews={reviews} onWriteReview={onWriteReview} />
+      ) : null}
 
       {reviews.length > 0 ? (
-        <View className="mt-2">
-          {reviews.slice(0, visible).map((review) => (
-            <View key={review.id} className="border-t border-ed-outline-variant py-5">
-              <View className="flex-row items-start justify-between gap-3">
-                <View className="flex-1 flex-row items-start gap-3">
-                  {review.user.avatar ? (
-                    <Avatar name={review.user.name} uri={review.user.avatar} size={44} />
-                  ) : (
-                    <View
-                      className="h-11 w-11 items-center justify-center rounded-full"
-                      style={{ backgroundColor: authorColor(review.user.name) }}
-                    >
-                      <Text className="font-work-sans-bold text-base text-white">
-                        {review.user.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <View className="flex-1">
-                    <Text className="font-work-sans-bold text-sm text-ed-on-surface">
-                      {review.user.name}
-                    </Text>
-                    <View className="mt-0.5 flex-row items-center gap-1.5">
-                      <StarRow rating={review.rating} size={13} />
-                      <Text className="font-work-sans-bold text-sm text-ed-on-surface">
-                        {review.rating.toFixed(1)}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-                <Text className="font-work-sans text-[13px] text-ed-on-surface-variant">
-                  {formatReviewDate(review.created_at)}
-                </Text>
-              </View>
+        <View className="mt-5">
+          <View className="flex-row items-center gap-2 rounded-lg border border-ed-outline-variant bg-ed-surface px-3.5 py-2.5">
+            <Ionicons name="search-outline" size={15} color="#9ca3af" />
+            <TextInput
+              value={searchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                resetPage();
+              }}
+              placeholder="Search reviews"
+              placeholderTextColor="#9ca3af"
+              returnKeyType="search"
+              className="flex-1 font-work-sans text-sm text-ed-on-surface"
+            />
+          </View>
 
-              {review.content ? (
-                <Text className="ml-14 mt-3 font-work-sans text-sm leading-6 text-ed-on-surface-variant">
-                  {review.content}
-                </Text>
-              ) : null}
-              {review.event_type ? (
-                <Text className="ml-14 mt-2 font-work-sans text-xs text-ed-on-surface-variant">
-                  {review.event_type}
-                </Text>
-              ) : null}
-            </View>
-          ))}
+          <View className="mt-3 flex-row items-center gap-2">
+            {([
+              { key: 'top' as const, label: 'Top reviews' },
+              { key: 'recent' as const, label: 'Most recent' },
+            ]).map(({ key, label }) => {
+              const active = sortBy === key;
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => {
+                    setSortBy(key);
+                    resetPage();
+                  }}
+                  className={`rounded-full border px-3 py-1.5 ${
+                    active ? 'border-[#1A1A1A] bg-[#1A1A1A]' : 'border-ed-outline-variant bg-ed-surface'
+                  }`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text
+                    className={`font-work-sans-bold text-xs ${active ? 'text-white' : 'text-ed-on-surface-variant'}`}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-          {visible < reviews.length ? (
-            <View className="mt-6 items-center gap-3">
-              <Text className="font-work-sans-medium text-xs text-ed-on-surface-variant">
-                Showing {Math.min(visible, reviews.length)} of {reviews.length} reviews
-              </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mt-3"
+            contentContainerStyle={{ gap: 8, paddingRight: 8 }}
+          >
+            <Text className="self-center font-work-sans-bold text-xs text-ed-on-surface-variant">
+              Filter:
+            </Text>
+            {[5, 4, 3, 2, 1].map((star) => {
+              const active = filterStar === star;
+              return (
+                <Pressable
+                  key={star}
+                  onPress={() => {
+                    setFilterStar(active ? null : star);
+                    resetPage();
+                  }}
+                  className={`flex-row items-center gap-1 rounded-full border px-3 py-1.5 ${
+                    active ? 'border-[#1A1A1A] bg-[#1A1A1A]' : 'border-ed-outline-variant bg-ed-surface'
+                  }`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Ionicons name="star" size={10} color="#FBBF24" />
+                  <Text
+                    className={`font-work-sans-bold text-xs ${active ? 'text-white' : 'text-ed-on-surface-variant'}`}
+                  >
+                    {star} star
+                  </Text>
+                </Pressable>
+              );
+            })}
+            {isFiltering ? (
               <Pressable
-                onPress={() => setVisible((v) => v + REVIEW_PAGE)}
-                className="flex-row items-center gap-2 rounded-full bg-[#1A1A1A] px-8 py-3"
+                onPress={() => {
+                  setFilterStar(null);
+                  setSearchQuery('');
+                  resetPage();
+                }}
+                className="items-center justify-center px-1"
+                accessibilityRole="button"
+                accessibilityLabel="Clear review filters"
               >
-                <Text className="font-work-sans-bold text-sm text-white">Read more reviews</Text>
-                <Ionicons name="chevron-down" size={15} color="#FFFFFF" />
+                <Text className="font-work-sans-bold text-xs text-ed-on-surface underline">Clear</Text>
               </Pressable>
-            </View>
+            ) : null}
+          </ScrollView>
+
+          {isFiltering ? (
+            <Text className="mt-2 font-work-sans text-xs text-ed-on-surface-variant">
+              {filtered.length} {filtered.length === 1 ? 'review' : 'reviews'} found
+            </Text>
           ) : null}
+
+          {filtered.length > 0 ? (
+            <View>
+              {filtered.slice(0, visible).map((review) => (
+                <View key={review.id} className="border-t border-ed-outline-variant py-5">
+                  <View className="flex-row items-start justify-between gap-3">
+                    <View className="flex-1 flex-row items-start gap-3">
+                      {review.user.avatar ? (
+                        <Avatar name={review.user.name} uri={review.user.avatar} size={44} />
+                      ) : (
+                        <View
+                          className="h-11 w-11 items-center justify-center rounded-full"
+                          style={{ backgroundColor: authorColor(review.user.name) }}
+                        >
+                          <Text className="font-work-sans-bold text-base text-white">
+                            {review.user.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                      <View className="flex-1">
+                        <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+                          {review.user.name}
+                        </Text>
+                        <View className="mt-0.5 flex-row items-center gap-1.5">
+                          <StarRow rating={review.rating} size={13} />
+                          <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+                            {review.rating.toFixed(1)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <Text className="font-work-sans text-[13px] text-ed-on-surface-variant">
+                      {formatReviewDate(review.created_at)}
+                    </Text>
+                  </View>
+
+                  {review.content ? (
+                    <Text className="ml-14 mt-3 font-work-sans text-sm leading-6 text-ed-on-surface-variant">
+                      {review.content}
+                    </Text>
+                  ) : null}
+                  {review.event_type ? (
+                    <Text className="ml-14 mt-2 font-work-sans text-xs text-ed-on-surface-variant">
+                      {review.event_type}
+                    </Text>
+                  ) : null}
+                </View>
+              ))}
+
+              {visible < filtered.length ? (
+                <View className="mt-6 items-center gap-3">
+                  <Text className="font-work-sans-medium text-xs text-ed-on-surface-variant">
+                    Showing {Math.min(visible, filtered.length)} of {filtered.length} reviews
+                  </Text>
+                  <Pressable
+                    onPress={() => setVisible((v) => v + REVIEW_PAGE)}
+                    className="flex-row items-center gap-2 rounded-full bg-[#1A1A1A] px-8 py-3"
+                  >
+                    <Text className="font-work-sans-bold text-sm text-white">Read more reviews</Text>
+                    <Ionicons name="chevron-down" size={15} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <View className="mt-2 items-center rounded-3xl border border-dashed border-ed-outline-variant p-8">
+              <Text className="font-work-sans text-sm text-ed-on-surface-variant">
+                No reviews match your filters.
+              </Text>
+            </View>
+          )}
         </View>
       ) : (
-        <View className="items-center rounded-3xl border border-dashed border-ed-outline-variant p-8">
-          <Text className="font-work-sans text-sm text-ed-on-surface-variant">
+        <View className="items-center gap-3 rounded-3xl border border-dashed border-ed-outline-variant p-8">
+          <Text className="text-center font-work-sans text-sm text-ed-on-surface-variant">
             No reviews yet — be the first to share your experience.
           </Text>
+          <Pressable
+            onPress={onWriteReview}
+            className="rounded-full px-4 py-2"
+            style={{ backgroundColor: ACCENT }}
+            accessibilityRole="button"
+          >
+            <Text className="font-work-sans-bold text-xs" style={{ color: ON_ACCENT }}>
+              Write a review
+            </Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -899,6 +1394,190 @@ function GalleryModal({
   );
 }
 
+/* ───────────────────────── write a review ───────────────────────── */
+
+const REVIEW_BODY_MIN = 10;
+const REVIEW_BODY_MAX = 3500;
+
+function WriteReviewStarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <View className="flex-row items-center justify-center gap-3">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Pressable
+          key={i}
+          onPress={() => onChange(i)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={`${i} star${i > 1 ? 's' : ''}`}
+        >
+          <Ionicons name={i <= value ? 'star' : 'star-outline'} size={36} color={i <= value ? STAR_ON : STAR_OFF} />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function WriteReviewModal({
+  vendor,
+  visible,
+  onClose,
+}: {
+  vendor: VendorListing;
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const { editorial } = useTheme();
+  const { user } = useUser();
+  const { data: profile } = useCoupleProfile();
+  const createReview = useCreateVendorReview();
+
+  const [rating, setRating] = useState(0);
+  const [body, setBody] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const email = user?.primaryEmailAddress?.emailAddress ?? '';
+  const name = coupleFirstNames(profile ?? null);
+  const canSubmit =
+    rating > 0 && body.trim().length >= REVIEW_BODY_MIN && Boolean(email) && !createReview.isPending;
+
+  const reset = () => {
+    setRating(0);
+    setBody('');
+    setSubmitted(false);
+    setErrorMsg(null);
+  };
+
+  const handleClose = () => {
+    onClose();
+    // Delay so the form doesn't visibly blank out before the sheet finishes closing.
+    setTimeout(reset, 300);
+  };
+
+  const onSubmit = () => {
+    if (!canSubmit) return;
+    setErrorMsg(null);
+    createReview.mutate(
+      {
+        vendorId: vendor.id,
+        authorName: name || 'A couple on OpusFesta',
+        authorEmail: email,
+        rating,
+        body: body.trim(),
+        weddingDate: profile?.wedding_date ?? null,
+      },
+      {
+        onSuccess: () => setSubmitted(true),
+        onError: (err) => {
+          const code = (err as { code?: string } | null)?.code;
+          setErrorMsg(
+            code === '23505'
+              ? "You've already reviewed this vendor."
+              : getErrorMessage(err, 'Could not submit your review.'),
+          );
+        },
+      },
+    );
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
+      <SafeAreaView className="flex-1 bg-ed-bg">
+        <View className="flex-row items-center justify-between px-5 pb-3 pt-2">
+          <Text className="flex-1 font-playfair-bold text-xl text-ed-on-surface" numberOfLines={1}>
+            {submitted ? 'Thank you!' : `Review ${vendor.business_name}`}
+          </Text>
+          <Pressable onPress={handleClose} hitSlop={8} accessibilityLabel="Close">
+            <Ionicons name="close" size={24} color={editorial.onSurface} />
+          </Pressable>
+        </View>
+
+        {submitted ? (
+          <View className="flex-1 items-center justify-center gap-4 px-8">
+            <View
+              className="h-16 w-16 items-center justify-center rounded-full"
+              style={{ backgroundColor: ACCENT }}
+            >
+              <Ionicons name="checkmark" size={30} color={ON_ACCENT} />
+            </View>
+            <Text className="text-center font-work-sans text-sm leading-6 text-ed-on-surface-variant">
+              Your review is in our moderation queue. Once our team verifies it, it&rsquo;ll appear publicly on
+              this profile.
+            </Text>
+            <Pressable onPress={handleClose} className="mt-2 rounded-full bg-[#1A1A1A] px-8 py-3">
+              <Text className="font-work-sans-bold text-sm text-white">Done</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScrollView
+              className="flex-1"
+              contentContainerClassName="gap-6 px-5 pb-10 pt-2"
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="items-center gap-3 rounded-3xl border border-ed-outline-variant bg-ed-surface py-8">
+                <Text className="font-work-sans-bold text-xs uppercase tracking-[2px] text-ed-on-surface-variant">
+                  Your rating
+                </Text>
+                <WriteReviewStarPicker value={rating} onChange={setRating} />
+              </View>
+
+              <View className="gap-2">
+                <Text className="font-work-sans-bold text-sm text-ed-on-surface">Your review</Text>
+                <TextInput
+                  value={body}
+                  onChangeText={setBody}
+                  maxLength={REVIEW_BODY_MAX}
+                  multiline
+                  numberOfLines={6}
+                  textAlignVertical="top"
+                  placeholder="Tell other couples about the professionalism, communication, quality of service, and overall value…"
+                  placeholderTextColor={editorial.onSurfaceVariant}
+                  className="min-h-32 rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-work-sans text-sm text-ed-on-surface"
+                />
+                <Text className="self-end font-work-sans text-xs text-ed-on-surface-variant">
+                  {body.trim().length < REVIEW_BODY_MIN && body.length > 0
+                    ? `${REVIEW_BODY_MIN - body.trim().length} more characters needed`
+                    : `${body.length}/${REVIEW_BODY_MAX}`}
+                </Text>
+              </View>
+
+              {!email ? (
+                <Text className="font-work-sans text-xs text-[#92400e]">
+                  Add an email address to your account to submit a review.
+                </Text>
+              ) : null}
+              {errorMsg ? <Text className="font-work-sans text-xs text-[#EF4444]">{errorMsg}</Text> : null}
+
+              <Pressable
+                onPress={onSubmit}
+                disabled={!canSubmit}
+                className={`items-center rounded-full py-3.5 ${
+                  canSubmit ? 'bg-ed-primary-container' : 'bg-ed-surface-container-high'
+                }`}
+                accessibilityRole="button"
+                accessibilityLabel="Submit review"
+              >
+                {createReview.isPending ? (
+                  <ActivityIndicator color={editorial.onPrimary} />
+                ) : (
+                  <Text
+                    className={`font-work-sans-bold text-sm ${
+                      canSubmit ? 'text-ed-on-primary' : 'text-ed-on-surface-variant'
+                    }`}
+                  >
+                    Submit review
+                  </Text>
+                )}
+              </Pressable>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        )}
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
 /* ───────────────────────── screen ───────────────────────── */
 
 export default function VendorDetailScreen() {
@@ -915,6 +1594,7 @@ export default function VendorDetailScreen() {
   const startConversation = useStartConversation();
 
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<VendorPackageDetail | null>(null);
 
   // Section nav — mirrors the web's sticky tab rail. RN has no anchor
@@ -1015,6 +1695,9 @@ export default function VendorDetailScreen() {
 
   const serviceArea = buildServiceArea(vendor);
   const hasFaqs = (vendor.faqs ?? []).some((f) => f.question?.trim() && f.answer?.trim());
+  const parsedAvailability = parseVendorAvailability(vendor.availability);
+  const hasAvailability = Boolean(parsedAvailability || vendor.hours);
+  const hasHours = Boolean(vendor.hours && Object.keys(vendor.hours).length > 0);
 
   const registerSection = (tab: NavTab) => (e: LayoutChangeEvent) => {
     sectionOffsets.current[tab] = e.nativeEvent.layout.y;
@@ -1161,6 +1844,22 @@ export default function VendorDetailScreen() {
             />
           </Section>
 
+          {hasAvailability ? (
+            <Section onLayout={registerSection('Availability')}>
+              <VendorAvailabilitySection
+                vendor={vendor}
+                bookedDates={parsedAvailability?.bookedDates ?? []}
+                limitedDates={parsedAvailability?.limitedDates ?? []}
+              />
+            </Section>
+          ) : null}
+
+          {hasHours ? (
+            <Section>
+              <VendorHoursSection vendor={vendor} />
+            </Section>
+          ) : null}
+
           {vendor.team && vendor.team.length > 0 ? (
             <Section onLayout={registerSection('Team')}>
               <VendorTeamSection vendor={vendor} />
@@ -1222,7 +1921,12 @@ export default function VendorDetailScreen() {
           ) : null}
 
           <Section onLayout={registerSection('Reviews')}>
-            <VendorReviewsSection reviews={reviewList} avg={avg} reviewCount={reviewCount} />
+            <VendorReviewsSection
+              reviews={reviewList}
+              avg={avg}
+              reviewCount={reviewCount}
+              onWriteReview={() => setReviewModalOpen(true)}
+            />
           </Section>
 
           {connectLinks.length > 0 ? (
@@ -1278,6 +1982,7 @@ export default function VendorDetailScreen() {
       </View>
 
       <GalleryModal images={images} visible={galleryOpen} onClose={() => setGalleryOpen(false)} />
+      <WriteReviewModal vendor={vendor} visible={reviewModalOpen} onClose={() => setReviewModalOpen(false)} />
     </View>
   );
 }
