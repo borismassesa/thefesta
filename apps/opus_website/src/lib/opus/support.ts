@@ -22,6 +22,8 @@ export type SupportConversationRow = {
   id: string
   status: SupportStatus
   awaiting_staff: boolean
+  visitor_id: string | null
+  user_id: string | null
   contact_name: string | null
   contact_email: string | null
   contact_phone: string | null
@@ -29,6 +31,16 @@ export type SupportConversationRow = {
   topic: string | null
   page_url: string | null
   locale: string | null
+}
+
+// A conversation belongs to the visitor that created it. We verify ownership on
+// public read/handoff so knowing (or leaking) a conversation UUID alone doesn't
+// grant access to someone else's support chat.
+export function ownsConversation(
+  conversation: Pick<SupportConversationRow, 'visitor_id'>,
+  visitorId: string | null | undefined,
+): boolean {
+  return Boolean(visitorId && conversation.visitor_id && conversation.visitor_id === visitorId)
 }
 
 function client(): SupabaseClient | null {
@@ -95,7 +107,7 @@ export async function getConversation(id: string): Promise<SupportConversationRo
     const { data, error } = await sb
       .from('support_conversations')
       .select(
-        'id, status, awaiting_staff, contact_name, contact_email, contact_phone, subject, topic, page_url, locale',
+        'id, status, awaiting_staff, visitor_id, user_id, contact_name, contact_email, contact_phone, subject, topic, page_url, locale',
       )
       .eq('id', id)
       .maybeSingle()

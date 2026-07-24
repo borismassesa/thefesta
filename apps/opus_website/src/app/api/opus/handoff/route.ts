@@ -1,5 +1,11 @@
 import { isAfterHours, notifyStaffOfHandoff } from '@/lib/opus/notify-staff'
-import { appendMessage, escalateConversation, getConversation, rateLimitOk } from '@/lib/opus/support'
+import {
+  appendMessage,
+  escalateConversation,
+  getConversation,
+  ownsConversation,
+  rateLimitOk,
+} from '@/lib/opus/support'
 
 // Explicit "talk to a person" handoff. Escalates the conversation, captures any
 // contact details the customer left, and alerts staff. Idempotent-ish: safe to
@@ -35,6 +41,10 @@ export async function POST(request: Request) {
   const conversation = await getConversation(conversationId)
   if (!conversation) {
     return Response.json({ error: 'Conversation not found.' }, { status: 404 })
+  }
+  // Only the visitor that owns this conversation can escalate it.
+  if (!ownsConversation(conversation, str(b.visitorId, 80))) {
+    return Response.json({ error: 'Not found.' }, { status: 404 })
   }
 
   const name = str(b.name, 120)

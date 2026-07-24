@@ -82,8 +82,11 @@ export async function listConversations(
   else if (filter === 'open') query = query.in('status', ['needs_human', 'assigned'])
   else if (filter === 'resolved') query = query.eq('status', 'resolved')
 
-  if (q.trim()) {
-    const like = `%${q.trim()}%`
+  // Strip PostgREST filter metacharacters so a search term cannot break out of
+  // the .or() expression (commas/parens/wildcards would alter the filter).
+  const safe = q.trim().replace(/[,()*:%\\]/g, '')
+  if (safe) {
+    const like = `%${safe}%`
     query = query.or(`subject.ilike.${like},contact_name.ilike.${like},contact_email.ilike.${like}`)
   }
 

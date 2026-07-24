@@ -75,7 +75,9 @@ export default function OpusChat() {
       const cid = window.localStorage.getItem(CONVO_KEY)
       if (!cid) return
       convoIdRef.current = cid
-      const res = await fetch(`/api/opus/messages?conversationId=${encodeURIComponent(cid)}`)
+      const res = await fetch(
+        `/api/opus/messages?conversationId=${encodeURIComponent(cid)}&visitorId=${encodeURIComponent(vid)}`,
+      )
       if (!res.ok) return
       const data = (await res.json()) as {
         status: Mode | 'needs_human' | 'assigned'
@@ -109,7 +111,8 @@ export default function OpusChat() {
       if (!cid) return
       try {
         const after = lastTsRef.current ? `&after=${encodeURIComponent(lastTsRef.current)}` : ''
-        const res = await fetch(`/api/opus/messages?conversationId=${encodeURIComponent(cid)}${after}`)
+        const vid = `&visitorId=${encodeURIComponent(visitorIdRef.current)}`
+        const res = await fetch(`/api/opus/messages?conversationId=${encodeURIComponent(cid)}${after}${vid}`)
         if (!res.ok || !alive) return
         const data = (await res.json()) as {
           status: string
@@ -236,6 +239,7 @@ export default function OpusChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId: cid,
+          visitorId: visitorIdRef.current,
           name: contact.name || undefined,
           email: contact.email || undefined,
           phone: contact.phone || undefined,
