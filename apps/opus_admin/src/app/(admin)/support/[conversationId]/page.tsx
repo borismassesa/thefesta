@@ -56,7 +56,7 @@ export default async function ConversationPage({
   const lastAt = convo.messages.at(-1)?.created_at ?? convo.created_at
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
       <DetailHeading subject={subject.length > 60 ? `${subject.slice(0, 60)}...` : subject} />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -116,7 +116,7 @@ export default async function ConversationPage({
                       />
                     )}
 
-                    <div className={`min-w-0 max-w-[82%] ${isUser ? 'items-end text-right' : ''}`}>
+                    <div className={`min-w-0 max-w-[86%] lg:max-w-[640px] ${isUser ? 'items-end text-right' : ''}`}>
                       <div className={`mb-1 flex items-center gap-2 text-[11px] text-gray-400 ${isUser ? 'justify-end' : ''}`}>
                         <span className="font-semibold text-gray-500">{label}</span>
                         <span>{time(m.created_at)}</span>

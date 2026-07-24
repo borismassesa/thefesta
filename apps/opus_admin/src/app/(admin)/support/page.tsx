@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { AlertCircle, MessageSquare, CheckCircle2, Inbox, ChevronRight } from 'lucide-react'
+import { AlertCircle, MessageSquare, Inbox, ChevronRight } from 'lucide-react'
 import { getAdminAccessRole, isAdminDashboardRole, hasPermission } from '@/lib/admin-auth'
 import SupportHeading from './SupportHeading'
 import { getSupportSummary, listConversations, type SupportFilter, type SupportStatus } from './queries'
@@ -49,20 +49,17 @@ function Kpi({
   label,
   value,
   icon,
-  href,
   active,
 }: {
   label: string
   value: number
   icon: React.ReactNode
-  href: string
   active: boolean
 }) {
   return (
-    <Link
-      href={href}
-      className={`flex items-center justify-between rounded-2xl border bg-white p-4 shadow-sm transition-colors ${
-        active ? 'border-[#C9A0DC] ring-1 ring-[#C9A0DC]' : 'border-gray-100 hover:border-gray-200'
+    <div
+      className={`flex items-center justify-between rounded-2xl border bg-white p-4 shadow-sm ${
+        active ? 'border-[#C9A0DC] ring-1 ring-[#C9A0DC]' : 'border-gray-100'
       }`}
     >
       <div>
@@ -70,7 +67,7 @@ function Kpi({
         <p className="mt-1 text-2xl font-bold text-[#1A1A1A]">{value}</p>
       </div>
       <span className="text-gray-400">{icon}</span>
-    </Link>
+    </div>
   )
 }
 
@@ -97,14 +94,20 @@ export default async function SupportPage({
   ])
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
       <SupportHeading />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Needs attention" value={summary.attention} icon={<AlertCircle className="h-5 w-5" />} href={filterHref('attention', q)} active={filter === 'attention'} />
-        <Kpi label="Open" value={summary.open} icon={<MessageSquare className="h-5 w-5" />} href={filterHref('open', q)} active={filter === 'open'} />
-        <Kpi label="Resolved" value={summary.resolved} icon={<CheckCircle2 className="h-5 w-5" />} href={filterHref('resolved', q)} active={filter === 'resolved'} />
-        <Kpi label="All" value={summary.all} icon={<Inbox className="h-5 w-5" />} href={filterHref('all', q)} active={filter === 'all'} />
+        <Kpi label="Needs attention" value={summary.attention} icon={<AlertCircle className="h-5 w-5" />} active={filter === 'attention'} />
+        <Kpi label="Open" value={summary.open} icon={<MessageSquare className="h-5 w-5" />} active={filter === 'open'} />
+        <Kpi
+          label="Resolved"
+          value={summary.resolved}
+          /* eslint-disable-next-line @next/next/no-img-element */
+          icon={<img src="/assets/logo/opusfesta-mark.png" alt="" className="h-6 w-6 object-contain" />}
+          active={filter === 'resolved'}
+        />
+        <Kpi label="All" value={summary.all} icon={<Inbox className="h-5 w-5" />} active={filter === 'all'} />
       </div>
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -148,26 +151,43 @@ export default async function SupportPage({
             <Link
               key={c.id}
               href={`/support/${c.id}`}
-              className="flex items-center justify-between gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-colors hover:border-gray-200"
+              className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-colors hover:border-[#C9A0DC] hover:shadow"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   {c.awaiting_staff && <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />}
                   <p className="truncate text-sm font-semibold text-[#1A1A1A]">
                     {c.subject || 'New conversation'}
                   </p>
+                  <span className="shrink-0 text-xs text-gray-400">
+                    {c.contact_name || c.contact_email || 'Anonymous'}
+                    {c.topic ? ` · ${c.topic.replace(/_/g, ' ')}` : ''}
+                  </span>
                 </div>
                 <p className="mt-1 truncate text-xs text-gray-500">
-                  {c.contact_name || c.contact_email || 'Anonymous visitor'}
-                  {c.topic ? ` · ${c.topic}` : ''}
-                  {c.assignee_name ? ` · ${c.assignee_name}` : ''}
+                  {c.preview ? (
+                    <>
+                      <span className="font-medium text-gray-400">
+                        {c.preview_role === 'agent'
+                          ? 'Support: '
+                          : c.preview_role === 'user'
+                            ? 'Customer: '
+                            : c.preview_role === 'assistant'
+                              ? 'Opus: '
+                              : ''}
+                      </span>
+                      {c.preview}
+                    </>
+                  ) : (
+                    c.assignee_name ? `Assigned to ${c.assignee_name}` : 'No messages yet'
+                  )}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${STATUS_STYLE[c.status]}`}>
                   {STATUS_LABEL[c.status]}
                 </span>
-                <span className="hidden text-xs text-gray-400 sm:block">{timeAgo(c.last_message_at)}</span>
+                <span className="hidden w-16 text-right text-xs text-gray-400 sm:block">{timeAgo(c.last_message_at)}</span>
                 <ChevronRight className="h-5 w-5 text-gray-300" />
               </div>
             </Link>

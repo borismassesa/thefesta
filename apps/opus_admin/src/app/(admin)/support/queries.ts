@@ -13,6 +13,8 @@ export type ConversationListItem = {
   contact_email: string | null
   page_url: string | null
   assignee_name: string | null
+  preview: string | null
+  preview_role: 'user' | 'assistant' | 'agent' | 'system' | null
   last_message_at: string
   created_at: string
 }
@@ -92,9 +94,27 @@ export async function listConversations(
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
-  return (data ?? []).map((r) => {
+  const rows = data ?? []
+
+  // Latest message per conversation, for the row preview (one extra query).
+  const ids = rows.map((r) => r.id as string)
+  const latest = new Map<string, { content: string; role: string }>()
+  if (ids.length > 0) {
+    const { data: msgs } = await sb
+      .from('support_messages')
+      .select('conversation_id, content, role, created_at')
+      .in('conversation_id', ids)
+      .order('created_at', { ascending: false })
+    for (const m of msgs ?? []) {
+      const cid = m.conversation_id as string
+      if (!latest.has(cid)) latest.set(cid, { content: m.content as string, role: m.role as string })
+    }
+  }
+
+  return rows.map((r) => {
     const assignee = r.assignee as { full_name: string } | { full_name: string }[] | null
     const name = Array.isArray(assignee) ? assignee[0]?.full_name : assignee?.full_name
+    const last = latest.get(r.id as string)
     return {
       id: r.id as string,
       status: r.status as SupportStatus,
@@ -105,6 +125,8 @@ export async function listConversations(
       contact_email: r.contact_email as string | null,
       page_url: r.page_url as string | null,
       assignee_name: name ?? null,
+      preview: last ? last.content.replace(/\s+/g, ' ').trim() : null,
+      preview_role: (last?.role as ConversationListItem['preview_role']) ?? null,
       last_message_at: r.last_message_at as string,
       created_at: r.created_at as string,
     }
