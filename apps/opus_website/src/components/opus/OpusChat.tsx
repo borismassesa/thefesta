@@ -385,7 +385,13 @@ export default function OpusChat() {
                           Support
                         </span>
                       )}
-                      {m.content || (
+                      {m.content ? (
+                        isUser ? (
+                          m.content
+                        ) : (
+                          <RichText text={m.content} />
+                        )
+                      ) : (
                         <span className="inline-flex gap-1 py-1">
                           <Dot /> <Dot delay="150ms" /> <Dot delay="300ms" />
                         </span>
@@ -514,6 +520,68 @@ export default function OpusChat() {
           )}
         </div>
       )}
+    </>
+  )
+}
+
+// Minimal, safe rich-text: renders **bold**, [label](url) and bare http(s)
+// links (internal links open in the same tab, external in a new one) while
+// preserving line breaks. No dependency, no dangerouslySetInnerHTML.
+const INLINE = /\*\*(.+?)\*\*|\[([^\]]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s)]+)/g
+
+function Anchor({ href, children }: { href: string; children: React.ReactNode }) {
+  const external = /^https?:\/\//i.test(href)
+  return (
+    <a
+      href={href}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noopener noreferrer' : undefined}
+      className="font-semibold text-[#7E5896] underline underline-offset-2 hover:text-[#5f4270]"
+    >
+      {children}
+    </a>
+  )
+}
+
+function parseInline(line: string): React.ReactNode[] {
+  const out: React.ReactNode[] = []
+  let last = 0
+  let m: RegExpExecArray | null
+  INLINE.lastIndex = 0
+  let key = 0
+  while ((m = INLINE.exec(line)) !== null) {
+    if (m.index > last) out.push(line.slice(last, m.index))
+    if (m[1] !== undefined) {
+      out.push(<strong key={key++}>{m[1]}</strong>)
+    } else if (m[2] !== undefined && m[3] !== undefined) {
+      out.push(
+        <Anchor key={key++} href={m[3]}>
+          {m[2]}
+        </Anchor>,
+      )
+    } else if (m[4] !== undefined) {
+      out.push(
+        <Anchor key={key++} href={m[4]}>
+          {m[4]}
+        </Anchor>,
+      )
+    }
+    last = m.index + m[0].length
+  }
+  if (last < line.length) out.push(line.slice(last))
+  return out
+}
+
+function RichText({ text }: { text: string }) {
+  const lines = text.split('\n')
+  return (
+    <>
+      {lines.map((line, i) => (
+        <span key={i}>
+          {parseInline(line)}
+          {i < lines.length - 1 ? <br /> : null}
+        </span>
+      ))}
     </>
   )
 }

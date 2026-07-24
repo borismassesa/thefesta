@@ -3,7 +3,7 @@ import { buildOpusLiveContext } from '@/lib/opus/context'
 import { buildOpusRagContext } from '@/lib/opus/rag'
 import { checkEscalation, escalationReply } from '@/lib/opus/guardrails'
 import { isAfterHours, notifyStaffOfHandoff } from '@/lib/opus/notify-staff'
-import { getAuthedEmail, OPUS_TOOLS, runTool } from '@/lib/opus/tools'
+import { getAuthedContext, OPUS_TOOLS, runTool } from '@/lib/opus/tools'
 import {
   appendMessage,
   createConversation,
@@ -186,8 +186,8 @@ export async function POST(request: Request) {
   // resolves any tool calls; results are fed back and the final answer streams.
   const baseMessages: unknown[] = [{ role: 'system', content: systemContent }, ...messages]
   let finalMessages = baseMessages
-  const authedEmail = await getAuthedEmail()
-  if (authedEmail) {
+  const authedCtx = await getAuthedContext()
+  if (authedCtx) {
     try {
       const firstRes = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -214,7 +214,7 @@ export async function POST(request: Request) {
             } catch {
               /* ignore malformed args */
             }
-            const result = await runTool(tc?.function?.name, args, authedEmail)
+            const result = await runTool(tc?.function?.name, args, authedCtx)
             toolMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result })
           }
           finalMessages = [...baseMessages, msg, ...toolMsgs]
