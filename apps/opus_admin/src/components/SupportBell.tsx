@@ -2,9 +2,32 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Bell } from 'lucide-react'
+import {
+  Bell,
+  Clock,
+  RefreshCcw,
+  CreditCard,
+  CalendarX,
+  Headset,
+  AlertTriangle,
+  ShieldAlert,
+  MessageSquare,
+  type LucideIcon,
+} from 'lucide-react'
 
 type Item = { id: string; subject: string | null; topic: string | null; lastMessageAt: string }
+
+const TOPIC_ICON: Record<string, LucideIcon> = {
+  refund: RefreshCcw,
+  payment: CreditCard,
+  cancellation: CalendarX,
+  human_request: Headset,
+  complaint: AlertTriangle,
+  account: ShieldAlert,
+}
+function topicIcon(topic: string | null): LucideIcon {
+  return (topic && TOPIC_ICON[topic]) || MessageSquare
+}
 
 function timeAgo(iso: string): string {
   const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000))
@@ -90,23 +113,41 @@ export default function SupportBell() {
             <p className="px-4 py-8 text-center text-sm text-gray-400">You are all caught up.</p>
           ) : (
             <ul className="max-h-96 divide-y divide-gray-50 overflow-y-auto">
-              {items.map((it) => (
-                <li key={it.id}>
-                  <Link
-                    href={`/support/${it.id}`}
-                    onClick={() => setOpen(false)}
-                    className="block px-4 py-3 transition-colors hover:bg-gray-50"
-                  >
-                    <p className="truncate text-sm font-semibold text-[#1A1A1A]">
-                      {it.subject || 'New conversation'}
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-400">
-                      <span className="font-medium text-amber-600">Needs human</span>
-                      {it.topic ? ` · ${it.topic.replace(/_/g, ' ')}` : ''} · {timeAgo(it.lastMessageAt)}
-                    </p>
-                  </Link>
-                </li>
-              ))}
+              {items.map((it) => {
+                const Icon = topicIcon(it.topic)
+                return (
+                  <li key={it.id}>
+                    <Link
+                      href={`/support/${it.id}`}
+                      onClick={() => setOpen(false)}
+                      className="flex gap-3 px-4 py-3 transition-colors hover:bg-gray-50"
+                    >
+                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-[#1A1A1A]">
+                          {it.subject || 'New conversation'}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                            Needs human
+                          </span>
+                          {it.topic && (
+                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-gray-600">
+                              {it.topic.replace(/_/g, ' ')}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-400">
+                          <Clock className="h-3 w-3" />
+                          {timeAgo(it.lastMessageAt)}
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>
