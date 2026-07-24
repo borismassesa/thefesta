@@ -3,6 +3,7 @@ import { buildOpusLiveContext } from '@/lib/opus/context'
 import { buildOpusRagContext } from '@/lib/opus/rag'
 import { checkEscalation, escalationReply } from '@/lib/opus/guardrails'
 import { isAfterHours, notifyStaffOfHandoff } from '@/lib/opus/notify-staff'
+import { getAuthedEmail, OPUS_TOOLS, runTool } from '@/lib/opus/tools'
 import {
   appendMessage,
   createConversation,
@@ -180,6 +181,57 @@ export async function POST(request: Request) {
   if (!context) context = await buildOpusLiveContext().catch(() => '')
   const systemContent = context ? `${OPUS_SYSTEM_PROMPT}\n\n${context}` : OPUS_SYSTEM_PROMPT
 
+  // Action tools: for a signed-in user, let the model look up their OWN account
+  // data (scoped server-side to their Clerk email). A first non-streaming pass
+  // resolves any tool calls; results are fed back and the final answer streams.
+  const baseMessages: unknown[] = [{ role: 'system', content: systemContent }, ...messages]
+  let finalMessages = baseMessages
+  const authedEmail = await getAuthedEmail()
+  if (authedEmail) {
+    try {
+      const firstRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: MODEL,
+          temperature: 0.4,
+          max_tokens: 700,
+          tools: OPUS_TOOLS,
+          tool_choice: 'auto',
+          messages: baseMessages,
+        }),
+      })
+      if (firstRes.ok) {
+        const json = await firstRes.json()
+        const msg = json?.choices?.[0]?.message
+        const toolCalls = msg?.tool_calls
+        if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+          const toolMsgs = []
+          for (const tc of toolCalls.slice(0, 4)) {
+            let args: unknown = {}
+            try {
+              args = JSON.parse(tc?.function?.arguments || '{}')
+            } catch {
+              /* ignore malformed args */
+            }
+            const result = await runTool(tc?.function?.name, args, authedEmail)
+            toolMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result })
+          }
+          finalMessages = [...baseMessages, msg, ...toolMsgs]
+        } else if (typeof msg?.content === 'string' && msg.content.trim()) {
+          // Model answered without needing a tool; stream the content directly.
+          if (conversationId) void appendMessage(conversationId, 'assistant', msg.content).catch(() => {})
+          return new Response(textStream(msg.content), {
+            headers: streamHeaders(conversationId, 'bot'),
+          })
+        }
+      }
+    } catch (err) {
+      console.error('[opus] tool pass failed:', err)
+      // Fall through to the normal streaming answer without tools.
+    }
+  }
+
   let upstream: Response
   try {
     upstream = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -190,7 +242,7 @@ export async function POST(request: Request) {
         stream: true,
         temperature: 0.5,
         max_tokens: 700,
-        messages: [{ role: 'system', content: systemContent }, ...messages],
+        messages: finalMessages,
       }),
     })
   } catch (err) {
