@@ -22,6 +22,7 @@ const VENDOR_COLUMNS = `
   id, slug, user_id, business_name, category, subcategories, bio, description,
   logo, cover_image, gallery_urls, location, price_range, verified, tier, stats, contact_info,
   social_links, years_in_business, team_size, services_offered, team,
+  faqs, service_markets, home_market, languages, response_time_hours, locally_owned,
   created_at, updated_at
 `;
 

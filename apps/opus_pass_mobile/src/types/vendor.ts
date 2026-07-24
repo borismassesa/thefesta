@@ -80,8 +80,20 @@ export interface VendorListing {
   team_size: number | null;
   services_offered: string[] | null;
   team: VendorTeamMember[] | null;
+  faqs: VendorFaq[] | null;
+  service_markets: string[] | null;
+  home_market: string | null;
+  languages: string[] | null;
+  response_time_hours: string | null;
+  locally_owned: boolean | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface VendorFaq {
+  id?: string;
+  question: string;
+  answer: string;
 }
 
 export type SavedVendorStatus = 'saved' | 'contacted' | 'booked' | 'archived';

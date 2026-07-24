@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
   Linking,
+  type LayoutChangeEvent,
   Modal,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   Share,
@@ -26,12 +29,14 @@ import { SaveVendorButton } from '@/components/vendors/SaveVendorButton';
 import { Avatar } from '@/components/vendors/ui/Avatar';
 import {
   buildConnectLinks,
+  buildServiceArea,
   formatVendorAddress,
   shortVendorLocation,
   vendorImages,
 } from '@/lib/vendor-format';
 import {
   authorColor,
+  formatLanguages,
   formatReviewDate,
   getServiceDescription,
   getServiceIcon,
@@ -40,7 +45,7 @@ import {
   PKG_BADGE_TONES,
   ratingLabel,
 } from '@/lib/vendor-detail';
-import type { VendorListing, VendorPackageDetail, VendorReview } from '@/types/vendor';
+import type { VendorFaq, VendorListing, VendorPackageDetail, VendorReview } from '@/types/vendor';
 
 const ACCENT_HOVER = '#b97fd0';
 const STAR_ON = '#FBBF24';
@@ -76,9 +81,64 @@ function SectionHeading({ title, subtitle }: { title: string; subtitle?: string 
 }
 
 /** Top-bordered section wrapper matching the web's divided content column. */
-function Section({ children, first = false }: { children: React.ReactNode; first?: boolean }) {
+function Section({
+  children,
+  first = false,
+  onLayout,
+}: {
+  children: React.ReactNode;
+  first?: boolean;
+  onLayout?: (e: LayoutChangeEvent) => void;
+}) {
   return (
-    <View className={`px-5 py-8 ${first ? '' : 'border-t border-ed-outline-variant'}`}>{children}</View>
+    <View onLayout={onLayout} className={`px-5 py-8 ${first ? '' : 'border-t border-ed-outline-variant'}`}>
+      {children}
+    </View>
+  );
+}
+
+/* ───────────────────────── section nav tabs ───────────────────────── */
+
+const NAV_TABS = ['Photos', 'About', 'Services', 'Pricing', 'Team', "FAQ's", 'Location', 'Reviews'] as const;
+type NavTab = (typeof NAV_TABS)[number];
+
+function VendorNavTabs({
+  active,
+  onSelect,
+  onSurface,
+  onSurfaceVariant,
+}: {
+  active: NavTab;
+  onSelect: (tab: NavTab) => void;
+  onSurface: string;
+  onSurfaceVariant: string;
+}) {
+  return (
+    <View className="border-b border-ed-outline-variant bg-ed-bg">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 20, gap: 20 }}
+      >
+        {NAV_TABS.map((tab) => {
+          const isActive = active === tab;
+          return (
+            <Pressable key={tab} onPress={() => onSelect(tab)} className="items-center pt-3">
+              <Text
+                className="font-work-sans-bold text-[13px]"
+                style={{ color: isActive ? onSurface : onSurfaceVariant }}
+              >
+                {tab}
+              </Text>
+              <View
+                className="mt-2.5 h-0.5 w-full rounded-full"
+                style={{ backgroundColor: isActive ? onSurface : 'transparent' }}
+              />
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -314,10 +374,19 @@ function VendorAboutSection({
                 <Text className="font-work-sans-medium text-ed-on-surface">Verified vendor</Text>
               </AboutFact>
             ) : null}
+            {vendor.response_time_hours ? (
+              <AboutFact icon="flash-outline">Responds within {vendor.response_time_hours}</AboutFact>
+            ) : null}
+            {vendor.locally_owned ? (
+              <AboutFact icon="home-outline">Locally owned business</AboutFact>
+            ) : null}
             {vendor.years_in_business != null ? (
               <AboutFact icon="calendar-outline">
                 {vendor.years_in_business} years in business
               </AboutFact>
+            ) : null}
+            {vendor.languages && vendor.languages.length > 0 ? (
+              <AboutFact icon="globe-outline">Speaks {formatLanguages(vendor.languages)}</AboutFact>
             ) : null}
             {team.length > 0 ? (
               <AboutFact icon="people-outline">
@@ -568,6 +637,81 @@ function VendorTeamSection({ vendor }: { vendor: VendorListing }) {
   );
 }
 
+/* ───────────────────────── faq ───────────────────────── */
+
+function VendorFaqSection({ vendor, onMessage }: { vendor: VendorListing; onMessage: () => void }) {
+  const faqs: VendorFaq[] = (vendor.faqs ?? []).filter((f) => f.question?.trim() && f.answer?.trim());
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  if (faqs.length === 0) return null;
+
+  return (
+    <View>
+      <SectionHeading
+        title="Frequently Asked Questions"
+        subtitle={`Everything couples typically ask before booking ${vendor.business_name}.`}
+      />
+
+      <View className="overflow-hidden rounded-3xl border border-ed-outline-variant bg-ed-surface">
+        {faqs.map((faq, i) => {
+          const isOpen = openIdx === i;
+          return (
+            <View key={faq.id ?? i} className={i > 0 ? 'border-t border-ed-outline-variant' : ''}>
+              <Pressable
+                onPress={() => setOpenIdx(isOpen ? null : i)}
+                className="flex-row items-start gap-3 px-5 py-4"
+              >
+                <View
+                  className="mt-0.5 h-6 w-6 items-center justify-center rounded-full"
+                  style={{ backgroundColor: isOpen ? '#1A1A1A' : '#F4F4F4' }}
+                >
+                  <Text
+                    className="font-work-sans-bold text-[11px]"
+                    style={{ color: isOpen ? '#FFFFFF' : '#9CA3AF' }}
+                  >
+                    {i + 1}
+                  </Text>
+                </View>
+                <Text className="flex-1 font-work-sans-bold text-sm leading-5 text-ed-on-surface">
+                  {faq.question}
+                </Text>
+                <Ionicons
+                  name={isOpen ? 'chevron-up' : 'chevron-down'}
+                  size={15}
+                  color="#9ca3af"
+                  style={{ marginTop: 2 }}
+                />
+              </Pressable>
+              {isOpen ? (
+                <View className="border-t border-ed-outline-variant bg-ed-surface-container-low px-5 py-4 pl-14">
+                  <Text className="font-work-sans text-[13px] leading-5 text-ed-on-surface-variant">
+                    {faq.answer}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+
+      <Pressable
+        onPress={onMessage}
+        className="mt-4 flex-row items-center gap-3 rounded-2xl border border-ed-outline-variant bg-ed-surface-container-low px-4 py-3.5"
+      >
+        <View className="h-8 w-8 items-center justify-center rounded-full bg-[#1A1A1A]">
+          <Ionicons name="book-outline" size={14} color="#FFFFFF" />
+        </View>
+        <Text className="flex-1 font-work-sans text-[13px] leading-5 text-ed-on-surface-variant">
+          Still have questions?{' '}
+          <Text className="font-work-sans-bold text-ed-on-surface">
+            Send {vendor.business_name} a message
+          </Text>{' '}
+          — they typically respond {vendor.response_time_hours ? `within ${vendor.response_time_hours}` : 'within 48 hours'}.
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 /* ───────────────────────── reviews ───────────────────────── */
 
 function ReviewsSummary({
@@ -773,6 +917,17 @@ export default function VendorDetailScreen() {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<VendorPackageDetail | null>(null);
 
+  // Section nav — mirrors the web's sticky tab rail. RN has no anchor
+  // scrolling, so each Section reports its y-offset via onLayout (relative to
+  // the content column) and we combine it with that column's own offset
+  // (relative to the ScrollView) to get an absolute scroll target.
+  const scrollRef = useRef<ScrollView>(null);
+  const contentTopRef = useRef(0);
+  const sectionOffsets = useRef<Partial<Record<NavTab, number>>>({});
+  const tabsHeightRef = useRef(44);
+  const activeTabRef = useRef<NavTab>('About');
+  const [activeTab, setActiveTab] = useState<NavTab>('About');
+
   if (isLoading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-ed-bg">
@@ -858,26 +1013,76 @@ export default function VendorDetailScreen() {
     });
   };
 
+  const serviceArea = buildServiceArea(vendor);
+  const hasFaqs = (vendor.faqs ?? []).some((f) => f.question?.trim() && f.answer?.trim());
+
+  const registerSection = (tab: NavTab) => (e: LayoutChangeEvent) => {
+    sectionOffsets.current[tab] = e.nativeEvent.layout.y;
+  };
+
+  const scrollToTab = (tab: NavTab) => {
+    if (tab === 'Photos') {
+      if (hero) setGalleryOpen(true);
+      return;
+    }
+    const offset = sectionOffsets.current[tab];
+    if (offset == null) return;
+    scrollRef.current?.scrollTo({
+      y: Math.max(contentTopRef.current + offset - tabsHeightRef.current - 12, 0),
+      animated: true,
+    });
+    activeTabRef.current = tab;
+    setActiveTab(tab);
+  };
+
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const threshold = e.nativeEvent.contentOffset.y - contentTopRef.current + tabsHeightRef.current + 60;
+    let next: NavTab = 'About';
+    for (const tab of NAV_TABS) {
+      const offset = sectionOffsets.current[tab];
+      if (offset != null && offset <= threshold) next = tab;
+    }
+    if (next !== activeTabRef.current) {
+      activeTabRef.current = next;
+      setActiveTab(next);
+    }
+  };
+
   return (
     <View className="flex-1 bg-ed-bg">
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Top bar — back to category, matching web's uppercase crumb */}
-        <View style={{ paddingTop: insets.top + 8 }} className="flex-row items-center px-5 pb-3">
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={8}
-            className="flex-row items-center gap-1.5"
-            accessibilityLabel="Back to vendors"
-          >
-            <Ionicons name="arrow-back" size={14} color={editorial.onSurfaceVariant} />
-            <Text className="font-work-sans-bold text-[11px] uppercase tracking-[2px] text-ed-on-surface-variant">
-              {vendor.category} vendors
-            </Text>
-          </Pressable>
-        </View>
+      {/* Top bar — back to category, matching web's uppercase crumb */}
+      <View style={{ paddingTop: insets.top + 8 }} className="flex-row items-center px-5 pb-3">
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={8}
+          className="flex-row items-center gap-1.5"
+          accessibilityLabel="Back to vendors"
+        >
+          <Ionicons name="arrow-back" size={14} color={editorial.onSurfaceVariant} />
+          <Text className="font-work-sans-bold text-[11px] uppercase tracking-[2px] text-ed-on-surface-variant">
+            {vendor.category} vendors
+          </Text>
+        </Pressable>
+      </View>
 
+      <View onLayout={(e) => { tabsHeightRef.current = e.nativeEvent.layout.height; }}>
+        <VendorNavTabs
+          active={activeTab}
+          onSelect={scrollToTab}
+          onSurface={editorial.onSurface}
+          onSurfaceVariant={editorial.onSurfaceVariant}
+        />
+      </View>
+
+      <ScrollView
+        ref={scrollRef}
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 120 }}
+        onScroll={handleScroll}
+        scrollEventThrottle={32}
+      >
         {/* Gallery */}
-        <View className="px-4">
+        <View className="px-4 pt-4">
           <Pressable
             onPress={() => hero && setGalleryOpen(true)}
             className="h-60 overflow-hidden rounded-2xl bg-ed-surface-container"
@@ -929,8 +1134,11 @@ export default function VendorDetailScreen() {
           </View>
         ) : null}
 
-        <View className="mt-2">
-          <Section first>
+        <View
+          className="mt-2"
+          onLayout={(e) => { contentTopRef.current = e.nativeEvent.layout.y; }}
+        >
+          <Section first onLayout={registerSection('About')}>
             <VendorAboutSection
               vendor={vendor}
               onMessage={onMessage}
@@ -939,12 +1147,12 @@ export default function VendorDetailScreen() {
           </Section>
 
           {vendor.services_offered && vendor.services_offered.length > 0 ? (
-            <Section>
+            <Section onLayout={registerSection('Services')}>
               <VendorServicesSection vendor={vendor} />
             </Section>
           ) : null}
 
-          <Section>
+          <Section onLayout={registerSection('Pricing')}>
             <VendorPricingSection
               vendor={vendor}
               packages={packages ?? []}
@@ -954,34 +1162,68 @@ export default function VendorDetailScreen() {
           </Section>
 
           {vendor.team && vendor.team.length > 0 ? (
-            <Section>
+            <Section onLayout={registerSection('Team')}>
               <VendorTeamSection vendor={vendor} />
             </Section>
           ) : null}
 
-          <Section>
-            <VendorReviewsSection reviews={reviewList} avg={avg} reviewCount={reviewCount} />
-          </Section>
-
-          {address ? (
-            <Section>
-              <SectionHeading title="Location" />
-              <Text className="font-work-sans text-sm text-ed-on-surface-variant">{address}</Text>
-              <Pressable
-                className="mt-3 flex-row items-center gap-2"
-                onPress={() =>
-                  openLink(
-                    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-                  )
-                }
-                accessibilityRole="button"
-                accessibilityLabel="Open in Maps"
-              >
-                <Ionicons name="map-outline" size={16} color={editorial.secondary} />
-                <Text className="font-work-sans-bold text-sm text-ed-secondary">Open in Maps</Text>
-              </Pressable>
+          {hasFaqs ? (
+            <Section onLayout={registerSection("FAQ's")}>
+              <VendorFaqSection vendor={vendor} onMessage={onMessage} />
             </Section>
           ) : null}
+
+          {address || serviceArea.length > 0 ? (
+            <Section onLayout={registerSection('Location')}>
+              <SectionHeading title="Location & Service Area" />
+              {address ? (
+                <View className="flex-row items-center justify-between gap-3 border-b border-ed-outline-variant pb-3">
+                  <View className="flex-1 flex-row items-center gap-2">
+                    <Ionicons name="location-outline" size={15} color="#9ca3af" />
+                    <Text className="flex-1 font-work-sans text-sm text-ed-on-surface" numberOfLines={1}>
+                      {address}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() =>
+                      openLink(
+                        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+                      )
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="Open in Maps"
+                  >
+                    <Text className="font-work-sans-bold text-sm text-ed-on-surface underline">
+                      Open map
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {serviceArea.length > 0 ? (
+                <View className={address ? 'mt-4' : ''}>
+                  <Text className="mb-3 font-work-sans-bold text-[11px] uppercase tracking-[2px] text-ed-on-surface-variant">
+                    Service area
+                  </Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {serviceArea.map((area) => (
+                      <View
+                        key={area}
+                        className="flex-row items-center gap-1.5 rounded-full border border-ed-outline-variant bg-ed-surface-container-low px-3.5 py-2"
+                      >
+                        <Ionicons name="location-outline" size={12} color="#9ca3af" />
+                        <Text className="font-work-sans-medium text-sm text-ed-on-surface">{area}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+            </Section>
+          ) : null}
+
+          <Section onLayout={registerSection('Reviews')}>
+            <VendorReviewsSection reviews={reviewList} avg={avg} reviewCount={reviewCount} />
+          </Section>
 
           {connectLinks.length > 0 ? (
             <Section>

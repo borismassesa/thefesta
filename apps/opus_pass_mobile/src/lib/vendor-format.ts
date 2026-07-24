@@ -1,3 +1,4 @@
+import { marketLabel } from '@opusfesta/lib';
 import { formatTzs } from '@/lib/cart';
 import type { VendorListing, VendorLocation, VendorPackageDetail } from '@/types/vendor';
 
@@ -47,6 +48,25 @@ export function formatVendorAddress(location: VendorLocation | null): string {
 export function shortVendorLocation(location: VendorLocation | null): string {
   if (!location) return '';
   return location.city || location.district || location.region || '';
+}
+
+/**
+ * Resolves the vendor's home + service markets to display labels, matching
+ * the web storefront's "Service area" chip row. `home_market` sorts first,
+ * the vendor's city is appended when it isn't already covered by a market.
+ */
+export function buildServiceArea(vendor: VendorListing): string[] {
+  const homeMarket = present(vendor.home_market) ? vendor.home_market.trim() : null;
+  const otherMarkets = Array.isArray(vendor.service_markets)
+    ? vendor.service_markets.filter((id): id is string => present(id))
+    : [];
+  const ids = Array.from(new Set([...(homeMarket ? [homeMarket] : []), ...otherMarkets]));
+  const labels = ids.map(marketLabel);
+
+  const city = shortVendorLocation(vendor.location);
+  if (present(city) && !labels.includes(city)) labels.push(city);
+
+  return labels;
 }
 
 export interface ConnectLink {
