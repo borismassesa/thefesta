@@ -3,6 +3,7 @@ import { loadFaqContent } from '@/lib/cms/faq'
 import { loadPublishedAdviceIdeasPosts } from '@/lib/advice-ideas-db'
 import { getAdviceIdeasHref } from '@/lib/advice-ideas'
 import { getActiveMarketplaceVendors } from '@/lib/vendors-db'
+import { createSupabaseServerClient } from '@/lib/supabase'
 
 // Retrieval-augmented generation for Opus.
 //
@@ -147,12 +148,66 @@ function cosine(a: number[], b: number[]): number {
   return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1)
 }
 
+// Persist the whole knowledge base into Supabase pgvector. Called by the
+// protected /api/opus/reindex route. Returns the number of chunks upserted.
+export async function ingestOpusKnowledge(): Promise<number> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('Missing OPENAI_API_KEY')
+  const docs = await collectDocs()
+  if (docs.length === 0) return 0
+  const vectors = await embed(
+    docs.map((d) => d.text),
+    apiKey,
+  )
+  const sb = createSupabaseServerClient()
+  const rows = docs.map((d, i) => ({
+    id: d.id,
+    source_type: d.type,
+    source_id: d.id,
+    title: d.title,
+    url: d.url ?? null,
+    content: d.text,
+    embedding: vectors[i],
+    updated_at: new Date().toISOString(),
+  }))
+  // Upsert in batches to stay well under payload limits.
+  for (let i = 0; i < rows.length; i += 100) {
+    const { error } = await sb
+      .from('opus_knowledge_chunks')
+      .upsert(rows.slice(i, i + 100), { onConflict: 'id' })
+    if (error) throw new Error(error.message)
+  }
+  return rows.length
+}
+
+// Query the persistent pgvector store first; fall back to the in-memory index
+// if pgvector is empty or unavailable, so retrieval always works.
 export async function retrieve(query: string, k = 6): Promise<KnowledgeDoc[]> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey || !query.trim()) return []
+  const [qVec] = await embed([query], apiKey)
+
+  try {
+    const sb = createSupabaseServerClient()
+    const { data, error } = await sb.rpc('match_opus_knowledge', {
+      query_embedding: qVec,
+      match_count: k,
+    })
+    if (!error && Array.isArray(data) && data.length > 0) {
+      return data.map((r) => ({
+        id: r.source_id as string,
+        type: r.source_type as KnowledgeDoc['type'],
+        title: r.title as string,
+        url: (r.url as string) ?? undefined,
+        text: r.content as string,
+      }))
+    }
+  } catch {
+    // fall through to in-memory
+  }
+
   const index = await getIndex(apiKey)
   if (index.docs.length === 0) return []
-  const [qVec] = await embed([query], apiKey)
   return index.vectors
     .map((vec, i) => ({ doc: index.docs[i], score: cosine(qVec, vec) }))
     .sort((a, b) => b.score - a.score)
