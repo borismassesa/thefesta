@@ -99,8 +99,8 @@ export function HomeHeader() {
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Chat"
-          onPress={() => router.navigate('/chat')}
+          accessibilityLabel="My requests"
+          onPress={() => router.navigate('/inquiries')}
           style={{
             width: 44,
             height: 52,

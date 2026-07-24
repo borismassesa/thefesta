@@ -27,7 +27,6 @@ import { useTheme } from '@/theme/useTheme';
 import { ACCENT, ON_ACCENT } from '@/theme/brand';
 import { useCreateVendorReview, useVendor, useVendorPackages, useVendorReviews } from '@/hooks/useVendors';
 import { useMarkVendorBooked, useSavedVendorStatus } from '@/hooks/useSavedVendors';
-import { useStartConversation } from '@/hooks/useMessages';
 import { useCoupleProfile } from '@/hooks/useDashboard';
 import { coupleFirstNames } from '@/types/dashboard';
 import { getErrorMessage } from '@/lib/errors';
@@ -282,11 +281,9 @@ function AboutFact({ icon, children }: { icon: keyof typeof Ionicons.glyphMap; c
 function VendorAboutSection({
   vendor,
   onMessage,
-  messagePending,
 }: {
   vendor: VendorListing;
   onMessage: () => void;
-  messagePending: boolean;
 }) {
   const about = vendor.description || vendor.bio;
   const team = vendor.team ?? [];
@@ -376,15 +373,10 @@ function VendorAboutSection({
 
           <Pressable
             onPress={onMessage}
-            disabled={messagePending}
             className="mt-4 w-full items-center rounded-full bg-[#1A1A1A] py-2.5"
             accessibilityRole="button"
           >
-            {messagePending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text className="font-work-sans-bold text-[13px] text-white">Message Vendor</Text>
-            )}
+            <Text className="font-work-sans-bold text-[13px] text-white">Message Vendor</Text>
           </Pressable>
         </View>
 
@@ -1591,7 +1583,6 @@ export default function VendorDetailScreen() {
   const { data: reviews } = useVendorReviews(id);
   const savedStatus = useSavedVendorStatus(id);
   const markBooked = useMarkVendorBooked();
-  const startConversation = useStartConversation();
 
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -1679,18 +1670,6 @@ export default function VendorDetailScreen() {
     } else {
       router.push(`/booking/${vendor.id}`);
     }
-  };
-
-  const onMessage = () => {
-    if (startConversation.isPending) return;
-    startConversation.mutate(vendor.id, {
-      onSuccess: (thread) => router.push(`/chat/${thread.id}`),
-      onError: (err) =>
-        Alert.alert(
-          'Could not open conversation',
-          getErrorMessage(err, 'Please try again.'),
-        ),
-    });
   };
 
   const serviceArea = buildServiceArea(vendor);
@@ -1822,11 +1801,7 @@ export default function VendorDetailScreen() {
           onLayout={(e) => { contentTopRef.current = e.nativeEvent.layout.y; }}
         >
           <Section first onLayout={registerSection('About')}>
-            <VendorAboutSection
-              vendor={vendor}
-              onMessage={onMessage}
-              messagePending={startConversation.isPending}
-            />
+            <VendorAboutSection vendor={vendor} onMessage={goToBooking} />
           </Section>
 
           {vendor.services_offered && vendor.services_offered.length > 0 ? (
@@ -1868,7 +1843,7 @@ export default function VendorDetailScreen() {
 
           {hasFaqs ? (
             <Section onLayout={registerSection("FAQ's")}>
-              <VendorFaqSection vendor={vendor} onMessage={onMessage} />
+              <VendorFaqSection vendor={vendor} onMessage={goToBooking} />
             </Section>
           ) : null}
 
