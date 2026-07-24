@@ -1,6 +1,6 @@
 import '@/lib/polyfills';
 import { useEffect, useState } from 'react';
-import { Slot } from 'expo-router';
+import { Stack } from 'expo-router';
 import { ClerkProvider } from '@clerk/clerk-expo';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
@@ -117,7 +117,7 @@ function RootLayoutInner() {
         {/* Required by react-native-gesture-handler for swipe actions
             (checklist rows) to receive touches — must wrap the whole tree. */}
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <Slot />
+          <Stack screenOptions={{ headerShown: false }} />
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ClerkProvider>
