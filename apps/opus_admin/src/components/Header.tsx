@@ -1,9 +1,12 @@
 'use client'
 
 import Link from "next/link";
-import { Bell, ChevronLeft, HelpCircle, Search, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, ChevronLeft, HelpCircle, LogOut, MessagesSquare, Search, Settings, X } from "lucide-react";
+import { useClerk } from "@clerk/nextjs";
 import { usePageHeading } from "./PageHeading";
 import { usePageSearch } from "./PageSearch";
+import type { CallerProfile } from "@/lib/admin-auth";
 
 // Two empty placeholders sit in the header for pages that need to inject
 // their own page-specific content. The vendor review page, for example,
@@ -13,7 +16,7 @@ import { usePageSearch } from "./PageSearch";
 const BADGE_SLOT_ID = 'page-header-badge'
 const ACTIONS_SLOT_ID = 'page-header-actions'
 
-export function Header() {
+export function Header({ profile }: { profile: CallerProfile }) {
   // Heading and search are both driven by each page via context — the page
   // is the only thing that knows what it's actually showing and what a
   // search query should match against.
@@ -107,11 +110,128 @@ export function Header() {
           <HelpCircle className="w-5 h-5" />
         </button>
 
-        <button className="relative text-gray-400 hover:text-gray-600 transition-colors">
+        <Link
+          href="/inbox"
+          aria-label="Messages"
+          className="relative text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <MessagesSquare className="w-5 h-5" />
+          <span className="absolute -top-0.5 right-0 w-2 h-2 bg-red-500 border-2 border-gray-50 rounded-full"></span>
+        </Link>
+
+        {/* Notifications: routes to the Opus support conversations awaiting a
+            human (the admin's live-notification surface). */}
+        <Link
+          href="/support?filter=attention"
+          aria-label="Notifications"
+          className="relative text-gray-400 hover:text-gray-600 transition-colors"
+        >
           <Bell className="w-5 h-5" />
           <span className="absolute top-0 right-0.5 w-2 h-2 bg-red-500 border-2 border-gray-50 rounded-full"></span>
-        </button>
+        </Link>
+
+        <div className="w-px h-6 bg-gray-200" aria-hidden />
+
+        <HeaderAccount profile={profile} />
       </div>
     </header>
+  );
+}
+
+// Compact account control on the far right of the header: avatar button that
+// drops a small menu (Manage account / Log out). Mirrors the sidebar account
+// footer's Clerk wiring so both entry points behave identically — signOut goes
+// through Clerk's client so the apex-cookie clearing stays in one place.
+function HeaderAccount({ profile }: { profile: CallerProfile }) {
+  const { openUserProfile, signOut } = useClerk()
+  const [open, setOpen] = useState(false)
+  const [pending, setPending] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const initials =
+    profile.name
+      .split(/\s+/)
+      .map((p) => p[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?'
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={profile.name}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Account"
+        className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-[#F0DFF6] text-xs font-bold text-[#7E5896] ring-1 ring-black/5 transition-shadow hover:ring-2 hover:ring-[#5B2D8E]/30"
+      >
+        {profile.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={profile.imageUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          initials
+        )}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
+        >
+          <div className="px-3 py-2">
+            <p className="truncate text-sm font-semibold text-gray-900">{profile.name}</p>
+            {profile.email && (
+              <p className="truncate text-xs text-gray-400">{profile.email}</p>
+            )}
+          </div>
+          <div className="my-1 border-t border-gray-100" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              openUserProfile()
+            }}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Settings className="h-4 w-4 stroke-[1.5] text-gray-400" />
+            Manage account
+          </button>
+          <div className="my-1 border-t border-gray-100" />
+          <button
+            type="button"
+            role="menuitem"
+            disabled={pending}
+            onClick={() => {
+              setPending(true)
+              void signOut()
+            }}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+          >
+            <LogOut className="h-4 w-4 stroke-[1.5]" />
+            {pending ? 'Logging out…' : 'Log out'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
