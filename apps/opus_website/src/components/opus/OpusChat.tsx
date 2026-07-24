@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MessageCircle, X, Send, Headset, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
+import { X, Send, Headset, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
 import { OPUS_GREETING } from '@/lib/opus/knowledge'
 
 type Role = 'user' | 'assistant' | 'agent' | 'system'
@@ -296,12 +296,22 @@ export default function OpusChat() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Close Opus assistant' : 'Open Opus assistant'}
         aria-expanded={open}
-        className="fixed bottom-5 right-5 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-[#1A1A1A] text-white shadow-lg shadow-black/20 transition-transform hover:scale-105 active:scale-95"
+        className="group fixed bottom-5 right-5 z-[60] flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-white to-[#F3F0EA] ring-1 ring-black/5 transition-all duration-200 hover:scale-105 active:scale-95"
+        style={{ boxShadow: '0 12px 32px -10px rgba(201,160,220,0.55), 0 4px 14px rgba(0,0,0,0.10)' }}
       >
         {open ? (
-          <X className="h-6 w-6" />
+          <X className="h-6 w-6 text-[#1A1A1A]" />
         ) : (
-          <MessageCircle className="h-6 w-6" style={{ color: 'var(--accent)' }} />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/logo/opusfesta-mark.png"
+              alt=""
+              className="h-9 w-9 object-contain transition-transform duration-200 group-hover:scale-110"
+            />
+            {/* Online / available indicator */}
+            <span className="absolute right-1.5 top-1.5 h-3 w-3 rounded-full bg-[#9FE870] ring-2 ring-white" />
+          </>
         )}
       </button>
 
