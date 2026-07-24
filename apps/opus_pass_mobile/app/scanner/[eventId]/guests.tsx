@@ -18,6 +18,7 @@ import { GuestAvatar } from '@/components/scanner/GuestAvatar';
 import { GuestConfirmCard } from '@/components/scanner/GuestConfirmCard';
 import { PartyBadge } from '@/components/scanner/PartyBadge';
 import { submitScan, validateScannerSession } from '@/lib/api/checkin';
+import { getErrorMessage } from '@/lib/errors';
 import { arrivedHeads, countLabel, groupRoster, UNGROUPED_LABEL } from '@/lib/scannerRoster';
 import { useScannerSession } from '@/hooks/useScannerSession';
 import { useTheme } from '@/theme/useTheme';
@@ -149,7 +150,7 @@ export default function ScannerGuestsScreen() {
     } catch (err) {
       // Network failure or the 15s request timeout. postJson already names
       // the unreachable host, which is the detail worth surfacing.
-      setAdmitError(err instanceof Error ? err.message : FALLBACK_ADMIT_ERROR.error);
+      setAdmitError(getErrorMessage(err, FALLBACK_ADMIT_ERROR.error));
     } finally {
       setAdmitting(false);
     }

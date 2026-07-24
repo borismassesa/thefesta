@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/theme/useTheme';
+import { getErrorMessage } from '@/lib/errors';
 import { useInternalUserId } from '@/hooks/useInternalUserId';
 import { useMarkThreadRead, useMessages, useSendMessage, useThread } from '@/hooks/useMessages';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -45,7 +46,7 @@ export default function ChatThreadScreen() {
         setDraft(content);
         Alert.alert(
           'Could not send',
-          error instanceof Error ? error.message : 'Please try again.',
+          getErrorMessage(error, 'Please try again.'),
         );
       },
     });

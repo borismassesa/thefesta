@@ -18,6 +18,7 @@ import { BackButton } from '@/components/navigation/BackButton';
 import { CHECKLIST_CATEGORIES, categoryById } from '@/constants/checklist';
 import { useSetWeddingDate } from '@/hooks/useDashboard';
 import { useChecklist, type ResolvedTask } from '@/hooks/useChecklist';
+import { getErrorMessage } from '@/lib/errors';
 import { useTheme } from '@/theme/useTheme';
 
 const MONTHS = [
@@ -776,7 +777,7 @@ function WeddingDateModal({
       onError: (error) =>
         Alert.alert(
           "Couldn't save your date",
-          error instanceof Error ? error.message : 'Please try again shortly.',
+          getErrorMessage(error, 'Please try again shortly.'),
         ),
     });
   };

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/theme/useTheme';
+import { getErrorMessage } from '@/lib/errors';
 import { useInquiry, useSendInquiryMessage } from '@/hooks/useInquiries';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ProposalCard } from '@/components/inquiry/ProposalCard';
@@ -38,7 +39,7 @@ export default function InquiryDetailScreen() {
     sendMessage.mutate(content, {
       onError: (err) => {
         setDraft(content);
-        Alert.alert('Could not send', err instanceof Error ? err.message : 'Please try again.');
+        Alert.alert('Could not send', getErrorMessage(err, 'Please try again.'));
       },
     });
   };
@@ -71,7 +72,7 @@ export default function InquiryDetailScreen() {
           ) : error || !inquiry ? (
             <EmptyState
               icon="alert-circle-outline"
-              label={error instanceof Error ? error.message : 'Could not load this request.'}
+              label={getErrorMessage(error, 'Could not load this request.')}
             />
           ) : (
             <>

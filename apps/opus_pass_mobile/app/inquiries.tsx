@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/useTheme';
+import { getErrorMessage } from '@/lib/errors';
 import { useMyInquiries } from '@/hooks/useInquiries';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { InquiryStatusBadge } from '@/components/inquiry/InquiryStatusBadge';
@@ -27,7 +28,7 @@ export default function InquiriesScreen() {
         ) : error ? (
           <EmptyState
             icon="alert-circle-outline"
-            label={error instanceof Error ? error.message : 'Could not load your requests.'}
+            label={getErrorMessage(error, 'Could not load your requests.')}
           />
         ) : data && data.length > 0 ? (
           data.map((inquiry) => (

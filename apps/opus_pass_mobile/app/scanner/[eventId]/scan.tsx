@@ -13,6 +13,7 @@ import { ManualCheckinSheet } from '@/components/scanner/ManualCheckinSheet';
 import { PartySizeSheet } from '@/components/scanner/PartySizeSheet';
 import { ScanTipsBanner, ScanTipsModal } from '@/components/scanner/ScanTipsModal';
 import { amendPartySize, submitScan, validateScannerSession } from '@/lib/api/checkin';
+import { getErrorMessage } from '@/lib/errors';
 import { arrivedHeads } from '@/lib/scannerRoster';
 import { useScannerSession } from '@/hooks/useScannerSession';
 import { useScannerTips } from '@/hooks/useScannerTips';
@@ -125,7 +126,7 @@ export default function ScanScreen() {
       } catch (err) {
         setResult({
           status: 'error',
-          message: err instanceof Error ? err.message : 'Network error',
+          message: getErrorMessage(err, 'Network error'),
         });
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } finally {
@@ -160,7 +161,7 @@ export default function ScanScreen() {
       } catch (err) {
         setResult({
           status: 'error',
-          message: err instanceof Error ? err.message : 'Network error',
+          message: getErrorMessage(err, 'Network error'),
         });
       } finally {
         setPending(false);
@@ -194,7 +195,7 @@ export default function ScanScreen() {
       } catch (err) {
         return {
           status: 'error',
-          message: err instanceof Error ? err.message : 'Network error',
+          message: getErrorMessage(err, 'Network error'),
         };
       }
     },
@@ -222,7 +223,7 @@ export default function ScanScreen() {
       } catch (err) {
         return {
           status: 'error',
-          message: err instanceof Error ? err.message : 'Network error',
+          message: getErrorMessage(err, 'Network error'),
         };
       }
     },

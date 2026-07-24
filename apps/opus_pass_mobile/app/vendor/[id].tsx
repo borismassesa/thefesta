@@ -1657,7 +1657,7 @@ export default function VendorDetailScreen() {
         onPress: () =>
           markBooked.mutate(vendor.id, {
             onError: (err) =>
-              Alert.alert('Could not update', err instanceof Error ? err.message : 'Please try again.'),
+              Alert.alert('Could not update', getErrorMessage(err, 'Please try again.')),
           }),
       },
     ]);
@@ -1688,7 +1688,7 @@ export default function VendorDetailScreen() {
       onError: (err) =>
         Alert.alert(
           'Could not open conversation',
-          err instanceof Error ? err.message : 'Please try again.',
+          getErrorMessage(err, 'Please try again.'),
         ),
     });
   };

@@ -12,6 +12,7 @@ import {
   updatesMessage,
   whatsappUrl,
 } from '@/lib/share';
+import { getErrorMessage } from '@/lib/errors';
 import { useTheme } from '@/theme/useTheme';
 import { coupleFirstNames, type GuestWithInvitations } from '@/types/dashboard';
 
@@ -82,7 +83,7 @@ export function MessagesTab() {
     } catch (error) {
       Alert.alert(
         "Couldn't open that message",
-        error instanceof Error ? error.message : 'Please try again shortly.',
+        getErrorMessage(error, 'Please try again shortly.'),
       );
     } finally {
       setPendingId(null);
