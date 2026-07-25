@@ -399,6 +399,9 @@ export default function OpusChat() {
         <div
           role="dialog"
           aria-label="Opus assistant"
+          // Lenis smooth-scrolls the page and swallows wheel events, which left
+          // the transcript scrollable only by dragging its scrollbar.
+          data-lenis-prevent
           className="fixed bottom-24 right-5 z-[60] flex h-[70vh] max-h-[600px] w-[calc(100vw-2.5rem)] max-w-[380px] flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl shadow-black/20"
         >
           {/* Header */}
@@ -449,7 +452,11 @@ export default function OpusChat() {
           ) : null}
 
           {/* Transcript */}
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+          <div
+            ref={scrollRef}
+            data-lenis-prevent
+            className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4"
+          >
             {messages.map((m, i) => {
               const isUser = m.role === 'user'
               const isAgent = m.role === 'agent'
