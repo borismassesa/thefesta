@@ -35,7 +35,7 @@ export function isEmailConfigured(): boolean {
 }
 
 function defaultFromAddress(): string {
-  return process.env.RESEND_FROM_EMAIL || 'OpusFesta <noreply@thefestaevents.com>'
+  return process.env.RESEND_FROM_EMAIL || 'OpusFesta <admin@opusfesta.com>'
 }
 
 /** Strip CR, LF, and other ASCII control characters from email header fields to prevent header injection attacks */
