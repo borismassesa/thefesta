@@ -6,6 +6,7 @@ import { isAfterHours, notifyStaffOfHandoff } from '@/lib/opus/notify-staff'
 import { getAuthedContext, OPUS_TOOLS, runTool } from '@/lib/opus/tools'
 import {
   appendMessage,
+  attachIdentity,
   createConversation,
   escalateConversation,
   getConversation,
@@ -110,15 +111,34 @@ export async function POST(request: Request) {
   const pageUrl = str(b.pageUrl, 500)
   const locale = str(b.locale, 10)
 
+  // Resolve the signed-in customer once (used for both conversation identity
+  // and the account tools below), so a logged-in chat is attributed to them
+  // instead of "Anonymous visitor".
+  const authedCtx = await getAuthedContext()
+
   let conversation = conversationId ? await getConversation(conversationId) : null
   if (!conversation) {
     conversationId = await createConversation({
+      userId: authedCtx?.usersId ?? null,
       visitorId,
       subject: lastUserMessage,
       pageUrl,
       locale,
+      contactName: authedCtx?.name ?? null,
+      contactEmail: authedCtx?.email ?? null,
+      contactPhone: authedCtx?.phone ?? null,
     })
     conversation = conversationId ? await getConversation(conversationId) : null
+  } else if (authedCtx && conversationId) {
+    // Existing conversation: backfill identity if it started anonymous, then
+    // refresh so downstream staff alerts carry the customer's details.
+    await attachIdentity(conversationId, {
+      userId: authedCtx.usersId,
+      name: authedCtx.name,
+      email: authedCtx.email,
+      phone: authedCtx.phone,
+    })
+    conversation = await getConversation(conversationId)
   }
 
   // Persist the customer's message.
@@ -186,7 +206,6 @@ export async function POST(request: Request) {
   // resolves any tool calls; results are fed back and the final answer streams.
   const baseMessages: unknown[] = [{ role: 'system', content: systemContent }, ...messages]
   let finalMessages = baseMessages
-  const authedCtx = await getAuthedContext()
   if (authedCtx) {
     try {
       const firstRes = await fetch('https://api.openai.com/v1/chat/completions', {

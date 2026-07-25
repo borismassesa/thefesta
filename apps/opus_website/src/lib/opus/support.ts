@@ -78,6 +78,9 @@ export async function createConversation(input: {
   subject?: string | null
   pageUrl?: string | null
   locale?: string | null
+  contactName?: string | null
+  contactEmail?: string | null
+  contactPhone?: string | null
 }): Promise<string | null> {
   const sb = client()
   if (!sb) return null
@@ -90,6 +93,9 @@ export async function createConversation(input: {
         subject: input.subject?.slice(0, 200) ?? null,
         page_url: input.pageUrl?.slice(0, 500) ?? null,
         locale: input.locale ?? null,
+        contact_name: input.contactName?.slice(0, 120) ?? null,
+        contact_email: input.contactEmail?.slice(0, 200) ?? null,
+        contact_phone: input.contactPhone?.slice(0, 40) ?? null,
       })
       .select('id')
       .single()
@@ -97,6 +103,38 @@ export async function createConversation(input: {
     return data.id as string
   } catch {
     return null
+  }
+}
+
+/**
+ * Attach the signed-in customer's identity to a conversation, filling only the
+ * blanks so contact details the customer typed themselves are never overwritten.
+ * Lets a conversation that started anonymous become attributed once we know who
+ * they are.
+ */
+export async function attachIdentity(
+  conversationId: string,
+  identity: { userId?: string | null; name?: string | null; email?: string | null; phone?: string | null },
+): Promise<void> {
+  const sb = client()
+  if (!sb) return
+  try {
+    const { data } = await sb
+      .from('support_conversations')
+      .select('user_id, contact_name, contact_email, contact_phone')
+      .eq('id', conversationId)
+      .maybeSingle()
+    if (!data) return
+    const patch: Record<string, unknown> = {}
+    if (!data.user_id && identity.userId) patch.user_id = identity.userId
+    if (!data.contact_name && identity.name) patch.contact_name = identity.name.slice(0, 120)
+    if (!data.contact_email && identity.email) patch.contact_email = identity.email.slice(0, 200)
+    if (!data.contact_phone && identity.phone) patch.contact_phone = identity.phone.slice(0, 40)
+    if (Object.keys(patch).length === 0) return
+    patch.updated_at = new Date().toISOString()
+    await sb.from('support_conversations').update(patch).eq('id', conversationId)
+  } catch {
+    /* best-effort */
   }
 }
 

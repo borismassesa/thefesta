@@ -19,9 +19,14 @@ export type OpenAITool = {
   }
 }
 
-export type AuthedContext = { email: string; usersId: string | null }
+export type AuthedContext = {
+  email: string
+  usersId: string | null
+  name: string | null
+  phone: string | null
+}
 
-/** Resolve the signed-in caller to {email, users.id}, or null if signed out. */
+/** Resolve the signed-in caller to {email, users.id, name, phone}, or null. */
 export async function getAuthedContext(): Promise<AuthedContext | null> {
   try {
     const { userId: clerkId } = await auth()
@@ -32,6 +37,8 @@ export async function getAuthedContext(): Promise<AuthedContext | null> {
       user?.emailAddresses[0]?.emailAddress
     if (!email) return null
     const lower = email.toLowerCase()
+    const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || null
+    const phone = user?.primaryPhoneNumber?.phoneNumber ?? null
 
     let usersId: string | null = null
     try {
@@ -46,7 +53,7 @@ export async function getAuthedContext(): Promise<AuthedContext | null> {
     } catch {
       /* users.id optional; email-scoped tools still work */
     }
-    return { email: lower, usersId }
+    return { email: lower, usersId, name, phone }
   } catch {
     return null
   }
