@@ -2,7 +2,8 @@ import { OPUS_SYSTEM_PROMPT } from '@/lib/opus/knowledge'
 import { buildOpusLiveContext } from '@/lib/opus/context'
 import { buildOpusRagContext } from '@/lib/opus/rag'
 import { checkEscalation, escalationReply } from '@/lib/opus/guardrails'
-import { isAfterHours, notifyStaffOfHandoff } from '@/lib/opus/notify-staff'
+import { DEFAULT_ETA_MINUTES, isAfterHours, nextOpenLabel } from '@/lib/opus/hours'
+import { notifyStaffOfHandoff } from '@/lib/opus/notify-staff'
 import { getAuthedContext, OPUS_TOOLS, runTool } from '@/lib/opus/tools'
 import {
   appendMessage,
@@ -10,6 +11,7 @@ import {
   createConversation,
   escalateConversation,
   getConversation,
+  getPresence,
   rateLimitOk,
 } from '@/lib/opus/support'
 
@@ -173,7 +175,12 @@ export async function POST(request: Request) {
   const escalation = checkEscalation(lastUserMessage)
   if (escalation.escalate) {
     const afterHours = isAfterHours()
-    const reply = escalationReply(escalation, { afterHours })
+    const presence = await getPresence(conversationId)
+    const reply = escalationReply(escalation, {
+      afterHours,
+      opensNext: afterHours ? nextOpenLabel() : null,
+      etaMinutes: presence.etaMinutes ?? DEFAULT_ETA_MINUTES,
+    })
     if (conversationId) {
       await escalateConversation(conversationId, {
         reason: escalation.reason,

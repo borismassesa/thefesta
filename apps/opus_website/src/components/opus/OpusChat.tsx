@@ -5,8 +5,51 @@ import { X, Send, Headset, ThumbsUp, ThumbsDown, Check } from 'lucide-react'
 import { OPUS_GREETING } from '@/lib/opus/knowledge'
 
 type Role = 'user' | 'assistant' | 'agent' | 'system'
-type Msg = { id?: string; role: Role; content: string }
+type Msg = { id?: string; role: Role; content: string; at?: string }
 type Mode = 'bot' | 'human' | 'resolved'
+type Presence = {
+  online: boolean
+  opensNext: string | null
+  etaMinutes: number | null
+  agentName: string | null
+  agentLastSeenAt: string | null
+  staffLastSeenAt: string | null
+}
+
+function timeAgo(iso: string): string {
+  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000))
+  if (s < 60) return 'just now'
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m} min ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h} hr ago`
+  return `${Math.floor(h / 24)} days ago`
+}
+
+/** Clock time next to a message, in the reader's own locale and timezone. */
+function formatTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  } catch {
+    return ''
+  }
+}
+
+function formatEta(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`
+  const h = Math.round(minutes / 60)
+  return h === 1 ? 'an hour' : `${h} hours`
+}
+
+/** One plain sentence telling the customer when to expect a human. */
+function presenceLine(p: Presence | null): string {
+  if (!p) return 'Checking availability...'
+  if (p.agentName && p.agentLastSeenAt) return `${p.agentName} replied ${timeAgo(p.agentLastSeenAt)}`
+  if (p.agentName) return `${p.agentName} has picked up your request`
+  if (!p.online) return `Support is offline. Back ${p.opensNext ?? 'soon'}`
+  if (p.etaMinutes) return `Support is online. Usually replies in about ${formatEta(p.etaMinutes)}`
+  return 'Support is online'
+}
 
 const GREETING: Msg = { role: 'assistant', content: OPUS_GREETING }
 const SUGGESTIONS = [
@@ -36,6 +79,7 @@ export default function OpusChat() {
   const [handoffDone, setHandoffDone] = useState(false)
   const [contact, setContact] = useState({ name: '', email: '', phone: '' })
   const [rated, setRated] = useState<Record<number, 'up' | 'down'>>({})
+  const [presence, setPresence] = useState<Presence | null>(null)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -84,7 +128,9 @@ export default function OpusChat() {
         messages: Array<{ id: string; role: Role; content: string; createdAt: string }>
       }
       if (data.messages.length > 0) {
-        setMessages(data.messages.map((m) => ({ id: m.id, role: m.role, content: m.content })))
+        setMessages(
+          data.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, at: m.createdAt })),
+        )
         lastTsRef.current = data.messages[data.messages.length - 1].createdAt
       }
       if (data.status === 'assigned' || data.status === 'needs_human') {
@@ -101,6 +147,34 @@ export default function OpusChat() {
   useEffect(() => {
     if (open) void restore()
   }, [open, restore])
+
+  // Staff availability, so the customer knows whether anyone is around and how
+  // long a reply usually takes. Refreshed on open and after a handoff.
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    const load = async () => {
+      try {
+        const cid = convoIdRef.current
+        const qs = cid
+          ? `?conversationId=${encodeURIComponent(cid)}&visitorId=${encodeURIComponent(visitorIdRef.current)}`
+          : ''
+        const res = await fetch(`/api/opus/presence${qs}`)
+        if (!res.ok || !alive) return
+        setPresence((await res.json()) as Presence)
+      } catch {
+        /* availability is optional; the widget still works without it */
+      }
+    }
+    void load()
+    const timer = setInterval(load, 60000)
+    return () => {
+      alive = false
+      clearInterval(timer)
+    }
+    // The interval reads convoIdRef live, so a conversation created mid-session
+    // is picked up on the next tick without re-running this effect.
+  }, [open, mode])
 
   // Poll for agent replies while a human owns the conversation.
   useEffect(() => {
@@ -123,7 +197,9 @@ export default function OpusChat() {
           setMessages((prev) => {
             const seen = new Set(prev.map((p) => p.id).filter(Boolean))
             const add = incoming.filter((m) => !seen.has(m.id))
-            return add.length ? [...prev, ...add.map((m) => ({ id: m.id, role: m.role, content: m.content }))] : prev
+            return add.length
+              ? [...prev, ...add.map((m) => ({ id: m.id, role: m.role, content: m.content, at: m.createdAt }))]
+              : prev
           })
         }
         if (data.messages.length > 0) {
@@ -147,7 +223,8 @@ export default function OpusChat() {
     if (!question || busy) return
     setInput('')
     const history = messages.filter((m) => !(m === GREETING) && (m.role === 'user' || m.role === 'assistant'))
-    const outgoing: Msg[] = [...messages, { role: 'user', content: question }]
+    const sentAt = new Date().toISOString()
+    const outgoing: Msg[] = [...messages, { role: 'user', content: question, at: sentAt }]
 
     // In human mode we just deliver the message; agent replies arrive via poll.
     if (mode === 'human') {
@@ -171,7 +248,7 @@ export default function OpusChat() {
       return
     }
 
-    setMessages([...outgoing, { role: 'assistant', content: '' }])
+    setMessages([...outgoing, { role: 'assistant', content: '', at: new Date().toISOString() }])
     setBusy(true)
     try {
       const res = await fetch('/api/opus/chat', {
@@ -202,7 +279,7 @@ export default function OpusChat() {
         acc += decoder.decode(value, { stream: true })
         setMessages((prev) => {
           const copy = [...prev]
-          copy[copy.length - 1] = { role: 'assistant', content: acc }
+          copy[copy.length - 1] = { ...copy[copy.length - 1], role: 'assistant', content: acc }
           return copy
         })
       }
@@ -219,6 +296,7 @@ export default function OpusChat() {
       setMessages((prev) => {
         const copy = [...prev]
         copy[copy.length - 1] = {
+          ...copy[copy.length - 1],
           role: 'assistant',
           content:
             "Sorry, I'm having trouble responding right now. Please try again, or tap 'Talk to a person'.",
@@ -254,8 +332,10 @@ export default function OpusChat() {
         {
           role: 'system',
           content: data.afterHours
-            ? "Thanks. We're offline right now, but our team will follow up as soon as we're back. You can keep typing here."
-            : 'Thanks. A member of our team has been notified and will reply right here.',
+            ? `Thanks. We're offline right now, but our team will follow up ${presence?.opensNext ?? 'as soon as we are back'}. You can keep typing here.`
+            : presence?.etaMinutes
+              ? `Thanks. A member of our team has been notified and usually replies within ${formatEta(presence.etaMinutes)}.`
+              : 'Thanks. A member of our team has been notified and will reply right here.',
         },
       ])
     } catch {
@@ -346,13 +426,25 @@ export default function OpusChat() {
             <button
               type="button"
               onClick={() => setHandoffOpen(true)}
-              className="flex items-center justify-center gap-1.5 border-b border-gray-100 bg-gray-50 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100"
+              className="flex w-full items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2.5 text-left hover:bg-gray-100"
             >
-              <Headset className="h-3.5 w-3.5" /> Talk to a person
+              <Headset className="h-4 w-4 shrink-0 text-gray-500" />
+              <span className="flex-1 text-xs font-semibold text-gray-700">Talk to a person</span>
+              <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                <StatusDot online={presence?.online ?? false} />
+                {presence ? (presence.online ? 'Online' : 'Offline') : ''}
+              </span>
             </button>
           ) : mode === 'human' ? (
-            <div className="flex items-center justify-center gap-1.5 border-b border-gray-100 bg-[#F0DFF6] py-2 text-xs font-semibold text-[#7E5896]">
-              <Headset className="h-3.5 w-3.5" /> A team member will reply here
+            <div className="flex items-start gap-2 border-b border-gray-100 bg-[#F0DFF6] px-4 py-2.5">
+              <Headset className="mt-0.5 h-4 w-4 shrink-0 text-[#7E5896]" />
+              <div className="min-w-0 leading-tight">
+                <p className="text-xs font-bold text-[#7E5896]">A team member will reply here</p>
+                <p className="mt-1 flex items-center gap-1.5 text-[11px] text-[#7E5896]/80">
+                  <StatusDot online={presence?.online ?? false} />
+                  {presenceLine(presence)}
+                </p>
+              </div>
             </div>
           ) : null}
 
@@ -408,32 +500,40 @@ export default function OpusChat() {
                       )}
                     </div>
                   </div>
-                  {canRate && (
-                    <div className="mt-1 flex gap-1 pl-8">
-                      {rated[i] ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
-                          <Check className="h-3 w-3" /> Thanks for the feedback
-                        </span>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => rate(i, 'up')}
-                            aria-label="Helpful"
-                            className="rounded p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-600"
-                          >
-                            <ThumbsUp className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => rate(i, 'down')}
-                            aria-label="Not helpful"
-                            className="rounded p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-600"
-                          >
-                            <ThumbsDown className="h-3.5 w-3.5" />
-                          </button>
-                        </>
+                  {(m.at || canRate) && (
+                    <div
+                      className={`mt-1 flex items-center gap-1 ${isUser ? 'justify-end pr-1' : 'pl-8'}`}
+                    >
+                      {m.at && (
+                        <time dateTime={m.at} className="text-[10px] text-gray-400">
+                          {formatTime(m.at)}
+                        </time>
                       )}
+                      {canRate &&
+                        (rated[i] ? (
+                          <span className="ml-1 inline-flex items-center gap-1 text-[10px] text-gray-400">
+                            <Check className="h-3 w-3" /> Thanks for the feedback
+                          </span>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => rate(i, 'up')}
+                              aria-label="Helpful"
+                              className="rounded p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-600"
+                            >
+                              <ThumbsUp className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => rate(i, 'down')}
+                              aria-label="Not helpful"
+                              className="rounded p-1 text-gray-300 hover:bg-gray-100 hover:text-gray-600"
+                            >
+                              <ThumbsDown className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        ))}
                     </div>
                   )}
                 </div>
@@ -593,6 +693,16 @@ function RichText({ text }: { text: string }) {
         </span>
       ))}
     </>
+  )
+}
+
+/** Availability dot: green when staffed, amber when outside support hours. */
+function StatusDot({ online }: { online: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-block h-2 w-2 shrink-0 rounded-full ${online ? 'bg-[#4CAF50]' : 'bg-amber-400'}`}
+    />
   )
 }
 

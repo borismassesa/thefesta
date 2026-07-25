@@ -1,4 +1,5 @@
-import { isAfterHours, notifyStaffOfHandoff } from '@/lib/opus/notify-staff'
+import { isAfterHours } from '@/lib/opus/hours'
+import { notifyStaffOfHandoff } from '@/lib/opus/notify-staff'
 import {
   appendMessage,
   escalateConversation,

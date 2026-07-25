@@ -252,6 +252,170 @@ export async function recordFeedback(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Presence: what the customer is told about staff availability.
+// ---------------------------------------------------------------------------
+
+export type SupportPresence = {
+  /** Most recent agent reply anywhere, i.e. "the team was last active then". */
+  staffLastSeenAt: string | null
+  /** The agent who owns this conversation, if one has been assigned. */
+  agentName: string | null
+  /** Last agent reply in THIS conversation. */
+  agentLastSeenAt: string | null
+  /** Measured median first-reply time, in minutes. Null when we have no data. */
+  etaMinutes: number | null
+}
+
+type Cached<T> = { at: number; value: T }
+let staffSeenCache: Cached<string | null> | null = null
+let etaCache: Cached<number | null> | null = null
+
+const STAFF_SEEN_TTL = 60_000
+const ETA_TTL = 15 * 60_000
+
+/** Timestamp of the newest agent reply across all conversations. */
+async function staffLastSeen(sb: SupabaseClient): Promise<string | null> {
+  if (staffSeenCache && Date.now() - staffSeenCache.at < STAFF_SEEN_TTL) return staffSeenCache.value
+  let value: string | null = null
+  try {
+    const { data } = await sb
+      .from('support_messages')
+      .select('created_at')
+      .eq('role', 'agent')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    value = (data?.created_at as string) ?? null
+  } catch {
+    /* leave null */
+  }
+  staffSeenCache = { at: Date.now(), value }
+  return value
+}
+
+/**
+ * Median minutes between a conversation's creation and its first agent reply,
+ * over recent human-handled conversations. Cached: this is two queries and the
+ * answer only needs to be roughly right.
+ */
+async function medianFirstReplyMinutes(sb: SupabaseClient): Promise<number | null> {
+  if (etaCache && Date.now() - etaCache.at < ETA_TTL) return etaCache.value
+  let value: number | null = null
+  try {
+    const { data: convos } = await sb
+      .from('support_conversations')
+      .select('id, created_at')
+      .in('status', ['assigned', 'resolved'])
+      .order('created_at', { ascending: false })
+      .limit(30)
+    const ids = (convos ?? []).map((c) => c.id as string)
+    if (ids.length > 0) {
+      const { data: msgs } = await sb
+        .from('support_messages')
+        .select('conversation_id, created_at')
+        .in('conversation_id', ids)
+        .eq('role', 'agent')
+        .order('created_at', { ascending: true })
+      const firstReply = new Map<string, string>()
+      for (const m of msgs ?? []) {
+        const cid = m.conversation_id as string
+        if (!firstReply.has(cid)) firstReply.set(cid, m.created_at as string)
+      }
+      const deltas: number[] = []
+      for (const c of convos ?? []) {
+        const reply = firstReply.get(c.id as string)
+        if (!reply) continue
+        const mins = (new Date(reply).getTime() - new Date(c.created_at as string).getTime()) / 60000
+        if (mins >= 0 && mins < 60 * 24) deltas.push(mins)
+      }
+      if (deltas.length >= 3) {
+        deltas.sort((a, b) => a - b)
+        value = Math.max(1, Math.round(deltas[Math.floor(deltas.length / 2)]))
+      }
+    }
+  } catch {
+    /* leave null */
+  }
+  etaCache = { at: Date.now(), value }
+  return value
+}
+
+/**
+ * Availability signals for the chat widget. Best-effort: any failure degrades
+ * to nulls and the widget falls back to the published support hours.
+ */
+export async function getPresence(conversationId?: string | null): Promise<SupportPresence> {
+  const empty: SupportPresence = {
+    staffLastSeenAt: null,
+    agentName: null,
+    agentLastSeenAt: null,
+    etaMinutes: null,
+  }
+  const sb = client()
+  if (!sb) return empty
+  try {
+    const [staffSeen, eta] = await Promise.all([staffLastSeen(sb), medianFirstReplyMinutes(sb)])
+    const presence: SupportPresence = { ...empty, staffLastSeenAt: staffSeen, etaMinutes: eta }
+    if (!conversationId) return presence
+
+    const [{ data: convo }, { data: lastAgentMsg }] = await Promise.all([
+      sb.from('support_conversations').select('assigned_to').eq('id', conversationId).maybeSingle(),
+      sb
+        .from('support_messages')
+        .select('created_at')
+        .eq('conversation_id', conversationId)
+        .eq('role', 'agent')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
+    presence.agentLastSeenAt = (lastAgentMsg?.created_at as string) ?? null
+    const assignedTo = convo?.assigned_to as string | null | undefined
+    if (assignedTo) {
+      const { data: employee } = await sb
+        .from('workforce_employees')
+        .select('full_name')
+        .eq('id', assignedTo)
+        .maybeSingle()
+      // First name only: enough to feel human without exposing staff surnames.
+      const full = (employee?.full_name as string | undefined)?.trim()
+      presence.agentName = full ? full.split(/\s+/)[0] : null
+    }
+    return presence
+  } catch {
+    return empty
+  }
+}
+
+/**
+ * Conversations where a customer is waiting on a human and nobody has replied
+ * for at least `minMinutes`. Drives the unattended-conversation nudge.
+ */
+export async function listUnattended(
+  minMinutes: number,
+  limit = 20,
+): Promise<Array<SupportConversationRow & { last_message_at: string }>> {
+  const sb = client()
+  if (!sb) return []
+  try {
+    const cutoff = new Date(Date.now() - minMinutes * 60_000).toISOString()
+    const { data } = await sb
+      .from('support_conversations')
+      .select(
+        'id, status, awaiting_staff, visitor_id, user_id, contact_name, contact_email, contact_phone, subject, topic, page_url, locale, last_message_at',
+      )
+      .eq('awaiting_staff', true)
+      .in('status', ['needs_human', 'assigned'])
+      .lt('last_message_at', cutoff)
+      .order('last_message_at', { ascending: true })
+      .limit(limit)
+    return (data ?? []) as Array<SupportConversationRow & { last_message_at: string }>
+  } catch {
+    return []
+  }
+}
+
 /** Messages after an ISO timestamp (for the widget's human-mode polling). */
 export async function getMessagesAfter(
   conversationId: string,

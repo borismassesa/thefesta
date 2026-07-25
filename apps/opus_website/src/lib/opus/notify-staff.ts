@@ -1,6 +1,6 @@
 import 'server-only'
 import { createSupabaseServerClient } from '@/lib/supabase'
-import { sendEmail } from '@/lib/email/email'
+import { isEmailConfigured, sendEmail } from '@/lib/email/email'
 import { renderEmail, plaintextLines } from '@/lib/email/email-shell'
 
 // Alerts support staff when a customer needs a human: email (Resend, reliable)
@@ -12,17 +12,7 @@ const ADMIN_BASE = process.env.ADMIN_APP_URL ?? 'https://admin.opusfesta.com'
 
 type StaffContact = { name: string; email: string; phone: string | null }
 
-// Nairobi/Dar time is UTC+3 with no DST. Support hours: Mon-Sat, 08:00-20:00.
-export function isAfterHours(now = new Date()): boolean {
-  const eatMs = now.getTime() + 3 * 60 * 60 * 1000
-  const eat = new Date(eatMs)
-  const day = eat.getUTCDay() // 0 Sun ... 6 Sat
-  const hour = eat.getUTCHours()
-  if (day === 0) return true // Sunday closed
-  return hour < 8 || hour >= 20
-}
-
-async function resolveStaff(): Promise<StaffContact[]> {
+export async function resolveStaff(): Promise<StaffContact[]> {
   // Explicit allowlist wins (comma-separated emails).
   const envEmails = (process.env.SUPPORT_ALERT_EMAILS ?? '')
     .split(',')
@@ -81,21 +71,42 @@ export async function notifyStaffOfHandoff(input: {
   contactEmail?: string | null
   contactPhone?: string | null
   afterHours: boolean
+  /** Set for the unattended-conversation nudge so the email reads as a reminder. */
+  reminderMinutes?: number | null
 }): Promise<void> {
   const staff = await resolveStaff()
-  if (staff.length === 0) return
+  if (staff.length === 0) {
+    // A customer is waiting and nobody can be paged. Loud on purpose: the fix
+    // is either a workforce_employees row with dashboard_access, or the
+    // SUPPORT_ALERT_EMAILS env allowlist.
+    console.error(
+      '[opus] handoff alert NOT sent: no support staff resolved. Set SUPPORT_ALERT_EMAILS or grant dashboard_access.',
+      { conversationId: input.conversationId },
+    )
+    return
+  }
+  if (!isEmailConfigured()) {
+    console.error('[opus] handoff alert NOT emailed: RESEND_API_KEY is missing.', {
+      conversationId: input.conversationId,
+    })
+  }
 
   const link = `${ADMIN_BASE}/support/${input.conversationId}`
   const topic = input.topic && input.topic !== 'human_request' ? input.topic : 'a support request'
-  const heading = `A customer needs help (${topic})`
+  const waiting = input.reminderMinutes
+  const heading = waiting
+    ? `Still waiting: a customer needs help (${topic})`
+    : `A customer needs help (${topic})`
   const snippet = (input.lastUserMessage ?? '').slice(0, 300)
 
   const html = renderEmail({
     heading,
     preheader: 'Open the Support console to reply.',
-    intro: input.afterHours
-      ? 'A customer asked for a person outside support hours. Please follow up when you can.'
-      : 'A customer just asked to speak with a person on Opus.',
+    intro: waiting
+      ? `Nobody has replied to this customer for ${waiting} minutes. Please pick it up.`
+      : input.afterHours
+        ? 'A customer asked for a person outside support hours. Please follow up when you can.'
+        : 'A customer just asked to speak with a person on Opus.',
     rows: [
       { label: 'Topic', value: input.topic ?? 'general' },
       ...(input.reason ? [{ label: 'Reason', value: input.reason }] : []),
@@ -118,12 +129,18 @@ export async function notifyStaffOfHandoff(input: {
     `Open: ${link}`,
   ])
 
-  await sendEmail({
+  const result = await sendEmail({
     to: staff.map((s) => s.email),
     subject: `[Opus] ${heading}`,
     html,
     text,
-  }).catch(() => {})
+  }).catch((err) => ({ sent: false as const, reason: 'send_failed' as const, error: String(err) }))
+  if (!result.sent) {
+    console.error('[opus] handoff alert email failed:', result.reason, result.error ?? '', {
+      conversationId: input.conversationId,
+      recipients: staff.length,
+    })
+  }
 
   const waBody = `OpusFesta: a customer needs support (${input.topic ?? 'general'}).${
     snippet ? `\n"${snippet}"` : ''

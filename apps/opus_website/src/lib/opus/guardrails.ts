@@ -72,15 +72,25 @@ export function checkEscalation(text: string): EscalationCheck {
 }
 
 // Safe holding message returned instead of an AI answer when we escalate.
-export function escalationReply(check: EscalationCheck, opts: { afterHours: boolean }): string {
+// `opensNext` / `etaMinutes` let the customer know when to expect a person
+// rather than leaving them staring at an open-ended wait.
+export function escalationReply(
+  check: EscalationCheck,
+  opts: { afterHours: boolean; opensNext?: string | null; etaMinutes?: number | null },
+): string {
   const intro =
     check.topic === 'human_request'
       ? "Of course, I'll connect you with a member of our team."
       : "This is something our team should help you with directly, so I won't guess. I've flagged it for a person on our support team."
 
-  const timing = opts.afterHours
-    ? " We're offline right now, but leave your email or WhatsApp number and the team will follow up as soon as we're back."
-    : ' Someone will jump in here shortly. You can also leave your email or WhatsApp number so we can reach you if you step away.'
+  if (opts.afterHours) {
+    const back = opts.opensNext ? ` and the team will follow up ${opts.opensNext}` : ' and the team will follow up as soon as we are back'
+    return `${intro} We're offline right now, but leave your email or WhatsApp number${back}.`
+  }
 
-  return `${intro}${timing}`
+  const eta =
+    opts.etaMinutes && opts.etaMinutes < 60
+      ? ` Someone usually jumps in within ${opts.etaMinutes} minutes.`
+      : ' Someone will jump in here shortly.'
+  return `${intro}${eta} You can also leave your email or WhatsApp number so we can reach you if you step away.`
 }
