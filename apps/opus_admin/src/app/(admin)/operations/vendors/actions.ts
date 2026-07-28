@@ -11,6 +11,7 @@ import {
   type VendorStatusEvent,
 } from '@/lib/vendor-status-email'
 import { buildDocumentRequestEmail } from '@/lib/document-request-email'
+import { revalidateWebsite } from '@/lib/revalidate'
 
 export type ActionResult =
   | { ok: true; warning?: string }
@@ -1213,6 +1214,31 @@ const VALID_VENDOR_CATEGORIES = [
 
 export type VendorCategory = (typeof VALID_VENDOR_CATEGORIES)[number]
 
+/**
+ * Resolve a category's vertical from `vendor_categories`, the source of truth.
+ *
+ * `vendors.category` is an FK onto `vendor_categories(db_value)` (migration
+ * 20260611000002), so that column — not `label` or `slug` — is the join key.
+ * Anything unmatched falls back to 'service', which is the column default and
+ * the safest guess: a service vendor shows up in the directory the admin was
+ * already looking at, rather than silently appearing in a shop catalogue.
+ */
+async function verticalForCategory(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  category: string,
+): Promise<string> {
+  const { data, error } = await admin
+    .from('vendor_categories')
+    .select('vertical')
+    .eq('db_value', category)
+    .maybeSingle<{ vertical: string | null }>()
+  if (error) {
+    console.error('[admin] vertical lookup failed', error.code, error.message)
+    return 'service'
+  }
+  return data?.vertical ?? 'service'
+}
+
 function slugifyForVendor(input: string): string {
   return input
     .toLowerCase()
@@ -1327,11 +1353,19 @@ export async function createVendorAccount(
     }
   }
 
+  // The vertical decides which public catalogue this vendor is published to,
+  // so it's derived from the chosen category rather than defaulted. Today every
+  // entry in VALID_VENDOR_CATEGORIES is a wedding service, but the moment a
+  // product category is added to that list an admin-created shop would
+  // otherwise be born as a service vendor and leak into the vendor directory.
+  const vertical = await verticalForCategory(admin, category)
+
   const corePayload: Record<string, unknown> = {
     slug,
     user_id: supabaseUserId,
     business_name: businessName,
     category,
+    vertical,
     bio: input.bio?.trim() || null,
     location: input.city?.trim() ? { city: input.city.trim() } : {},
     contact_info: {
@@ -1526,6 +1560,133 @@ export async function adminCreateVendorVideoUploadUrl(input: {
     publicUrl: publicUrl.data.publicUrl,
     path,
   }
+}
+
+export type VendorCategoryOption = {
+  slug: string
+  /** The value written to `vendors.category` (FK onto vendor_categories.db_value). */
+  dbValue: string
+  label: string
+  vertical: string
+}
+
+/** Active business categories, for the admin's category picker. */
+export async function loadVendorCategoryOptions(): Promise<VendorCategoryOption[]> {
+  const admin = createSupabaseAdminClient()
+  const { data, error } = await admin
+    .from('vendor_categories')
+    .select('slug, db_value, profile_label, label, vertical, active')
+    .eq('active', true)
+    .order('sort_order', { ascending: true })
+    .returns<
+      Array<{
+        slug: string
+        db_value: string
+        profile_label: string | null
+        label: string
+        vertical: string | null
+        active: boolean
+      }>
+    >()
+  if (error) {
+    console.error('[admin] category options failed', error.code, error.message)
+    return []
+  }
+  return (data ?? []).map((c) => ({
+    slug: c.slug,
+    dbValue: c.db_value,
+    // `profile_label` is the short public-facing noun ("Venue", "Home &
+    // Kitchen"); `label` is the longer onboarding question phrasing ("Venue or
+    // event space"). The short form reads better in a picker.
+    label: c.profile_label?.trim() || c.label,
+    vertical: c.vertical ?? 'service',
+  }))
+}
+
+/**
+ * Re-file a vendor under a different business category.
+ *
+ * The vertical is DERIVED from the chosen category rather than set separately.
+ * `vendor_categories.vertical` is the source of truth and `vendors.vertical` is
+ * a denormalised copy of it, so letting an admin set the two independently is
+ * the one way to produce a vendor the schema considers self-contradictory: a
+ * "Venues" row published in the gift registry.
+ *
+ * This moves the vendor between PUBLIC CATALOGUES — out of the wedding vendor
+ * directory and into the registry, or back — so it also busts the website's ISR
+ * cache for the affected pages. It reshapes their portal too: a vendor moved to
+ * a product vertical loses Bookings, Leads, Packages and Availability and gains
+ * Products and Payments (see the guards in vendors_portal).
+ */
+export async function updateVendorCategory(
+  vendorId: string,
+  categoryDbValue: string,
+): Promise<ActionResult> {
+  const { userId } = await auth()
+  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
+  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+
+  const admin = createSupabaseAdminClient()
+
+  // Resolve against the table rather than trusting the client's string: this
+  // value goes into a column with an FK onto vendor_categories(db_value), and
+  // it decides which public catalogue the vendor lands in.
+  const { data: category, error: catError } = await admin
+    .from('vendor_categories')
+    .select('db_value, vertical, active')
+    .eq('db_value', categoryDbValue)
+    .maybeSingle<{ db_value: string; vertical: string | null; active: boolean }>()
+  if (catError) {
+    return {
+      ok: false,
+      reason: 'unknown',
+      error: `[admin] category lookup failed: ${catError.code} ${catError.message}`,
+    }
+  }
+  if (!category || !category.active) {
+    return { ok: false, reason: 'invalid', error: 'Pick an active vendor category.' }
+  }
+
+  const { data: before } = await admin
+    .from('vendors')
+    .select('slug, category, vertical')
+    .eq('id', vendorId)
+    .maybeSingle<{ slug: string; category: string; vertical: string | null }>()
+
+  const { error } = await admin
+    .from('vendors')
+    .update({
+      category: category.db_value,
+      vertical: category.vertical ?? 'service',
+    })
+    .eq('id', vendorId)
+
+  if (error) {
+    return {
+      ok: false,
+      reason: 'unknown',
+      error: `[admin] update vendor category failed: ${error.code} ${error.message}`,
+    }
+  }
+
+  revalidatePath('/operations/vendors')
+  revalidatePath(`/operations/vendors/${vendorId}`)
+
+  // Bust the public caches. The vendor's own page plus both index surfaces they
+  // could be entering or leaving — we don't try to be clever about which,
+  // because the old and new verticals are both stale after this write.
+  if (before?.slug) {
+    await revalidateWebsite(
+      `/vendors/${before.slug}`,
+      '/vendors',
+      `/registry/shops/${before.slug}`,
+      '/registry/shops',
+      `/attire-and-rings/shops/${before.slug}`,
+      '/attire-and-rings/shops',
+    )
+  }
+
+  return { ok: true }
 }
 
 export async function reactivateVendor(
