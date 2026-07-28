@@ -12,6 +12,7 @@ import {
   escalateConversation,
   getConversation,
   getPresence,
+  ownsConversation,
   rateLimitOk,
 } from '@/lib/opus/support'
 
@@ -119,6 +120,14 @@ export async function POST(request: Request) {
   const authedCtx = await getAuthedContext()
 
   let conversation = conversationId ? await getConversation(conversationId) : null
+  // A conversation UUID alone must not grant write access to someone else's
+  // support chat (same rule the messages/presence/handoff routes enforce). If
+  // the caller does not own it, drop it and start a fresh conversation rather
+  // than appending to, escalating, or backfilling identity on a stranger's thread.
+  if (conversation && !ownsConversation(conversation, visitorId)) {
+    conversation = null
+    conversationId = null
+  }
   if (!conversation) {
     conversationId = await createConversation({
       userId: authedCtx?.usersId ?? null,

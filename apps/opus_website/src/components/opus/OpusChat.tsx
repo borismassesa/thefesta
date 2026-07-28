@@ -323,6 +323,9 @@ export default function OpusChat() {
           phone: contact.phone || undefined,
         }),
       })
+      // The route answers 429/400/404 without rejecting the fetch, so check the
+      // status before telling the customer a human was notified.
+      if (!res.ok) throw new Error('handoff failed')
       const data = (await res.json().catch(() => ({}))) as { afterHours?: boolean }
       lastTsRef.current = new Date().toISOString()
       setMode('human')
@@ -353,7 +356,11 @@ export default function OpusChat() {
       await fetch('/api/opus/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId: convoIdRef.current, rating }),
+        body: JSON.stringify({
+          conversationId: convoIdRef.current,
+          visitorId: visitorIdRef.current,
+          rating,
+        }),
       })
     } catch {
       /* best-effort */

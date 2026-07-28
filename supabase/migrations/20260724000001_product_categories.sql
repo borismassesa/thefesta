@@ -37,16 +37,15 @@ CREATE POLICY "product_categories_public_read"
   ON public.product_categories FOR SELECT
   USING (active = true);
 
--- Admins (role = 'admin') can do full CRUD.
+-- Admins can do full CRUD. Use is_platform_admin() (which resolves the caller
+-- via requesting_user_id()) rather than auth.uid(): Clerk subs look like
+-- 'user_3D6XCxic...' and blow up auth.uid()'s UUID cast with 22P02, which would
+-- crash every admin query against this table.
 DROP POLICY IF EXISTS "product_categories_admin_all" ON public.product_categories;
 CREATE POLICY "product_categories_admin_all"
   ON public.product_categories FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (is_platform_admin())
+  WITH CHECK (is_platform_admin());
 
 CREATE OR REPLACE FUNCTION public.set_product_categories_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql

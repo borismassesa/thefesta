@@ -35,8 +35,16 @@ export async function fileToImportLines(file: File): Promise<string> {
 
   if (isXlsx) {
     const sheets = await parseXlsx(file)
+    // A workbook with multiple sheets is often guest-list tabs alongside
+    // unrelated ones (Budget, Instructions, Seating). The headerless
+    // "column 0/1/2 = name/email/phone" fallback below is safe for a single
+    // sheet a couple pasted/exported directly, but applying it to EVERY
+    // sheet in a multi-tab workbook would misread a non-guest tab's rows as
+    // guest names. Only merge sheets that declare themselves via a real
+    // header row once there's more than one to choose from.
+    const requireHeader = sheets.length > 1
     return sheets
-      .map((rows) => rowsToImportLines(rows))
+      .map((rows) => rowsToImportLines(rows, requireHeader))
       .filter((lines) => lines.length > 0)
       .join('\n')
   }
@@ -63,7 +71,7 @@ function isHeaderRow(cells: string[]): boolean {
  * (Guest ID, Title, RSVP Status, …). Without a header it falls back to the
  * documented paste order: `Name, email, phone`.
  */
-export function rowsToImportLines(rows: string[][]): string {
+export function rowsToImportLines(rows: string[][], requireHeader = false): string {
   if (rows.length === 0) return ''
 
   // Scan the first several rows for the header — spreadsheets frequently have
@@ -76,6 +84,11 @@ export function rowsToImportLines(rows: string[][]): string {
       break
     }
   }
+
+  // Called with requireHeader when merging multiple worksheets — a sheet
+  // with no recognizable header is more likely an unrelated tab than a
+  // genuine headerless guest list, so skip it rather than guessing.
+  if (headerIdx === -1 && requireHeader) return ''
 
   let nameIdx = 0
   let emailIdx = 1

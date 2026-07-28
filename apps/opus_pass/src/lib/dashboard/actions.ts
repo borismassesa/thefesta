@@ -1953,11 +1953,15 @@ export async function applySaveDateTemplate(
     .maybeSingle<{ invite_slug: string | null }>()
   if (!event) throw new Error('Event not found')
 
-  const { data: profile } = await supabase
+  // Check the read error: on a transient failure `profile` is null, and merging
+  // onto an empty object would overwrite the couple's whole pledge_page blob
+  // (pledge cover config plus every other event's save-date template).
+  const { data: profile, error: profileErr } = await supabase
     .from('couple_profiles')
     .select('pledge_page')
     .eq('user_id', user.id)
     .maybeSingle<{ pledge_page: PledgePageConfig | null }>()
+  if (profileErr) throw new Error(profileErr.message)
   const stored = profile?.pledge_page ?? {}
   const nextConfig: PledgePageConfig = {
     ...stored,
@@ -1998,11 +2002,14 @@ export async function removeSaveDateTemplate(eventId: string): Promise<void> {
     .maybeSingle<{ invite_slug: string | null }>()
   if (!event) throw new Error('Event not found')
 
-  const { data: profile } = await supabase
+  // See applySaveDateTemplate: an unchecked read error here would clobber the
+  // couple's entire pledge_page blob instead of removing one template.
+  const { data: profile, error: profileErr } = await supabase
     .from('couple_profiles')
     .select('pledge_page')
     .eq('user_id', user.id)
     .maybeSingle<{ pledge_page: PledgePageConfig | null }>()
+  if (profileErr) throw new Error(profileErr.message)
   const stored = profile?.pledge_page ?? {}
   const nextSelections = { ...(stored.saveDateTemplates ?? {}) }
   delete nextSelections[eventId]
