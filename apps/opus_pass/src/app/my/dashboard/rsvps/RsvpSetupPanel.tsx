@@ -4,9 +4,9 @@ import { useMemo, useState, useSyncExternalStore, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Copy, ExternalLink, Eye, Plus, Pencil, Trash2 } from 'lucide-react'
 import { Card, SectionTitle, EmptyState } from '@/components/dashboard/primitives'
-import { Button, ConfirmDialog, Toggle } from '@/components/dashboard/controls'
+import { Button, ConfirmDialog, Dialog, Toggle } from '@/components/dashboard/controls'
 import { QuestionEditorSlideover } from '@/components/dashboard/QuestionEditorSlideover'
 import {
   setEventAllowRsvp,
@@ -18,12 +18,14 @@ import {
 } from '@/lib/dashboard/actions'
 import { EVENT_QUESTION_PRESETS, GENERAL_QUESTION_PRESETS, type RsvpQuestionPreset } from '@/lib/dashboard/rsvp-presets'
 import { eventInvitePath } from '@/lib/dashboard/share'
-import type { RsvpEventSummary, RsvpAnswerSummary } from '@/lib/dashboard/queries'
+import type { RsvpEventSummary, RsvpAnswerSummary, SendGuestRow } from '@/lib/dashboard/queries'
 import {
   RSVP_QUESTION_KIND_LABELS,
   type RsvpQuestion,
   type WeddingEvent,
 } from '@/lib/dashboard/types'
+
+const EVENT_CARD_IMAGE = '/assets/images/rsvp-confetti-card.jpg'
 
 type EditorState =
   | { open: false }
@@ -48,6 +50,10 @@ export default function RsvpSetupPanel({
   questions,
   summaries,
   answerSummaries,
+  mode = 'rsvp',
+  onShareFollowups,
+  followupShareGuests = [],
+  followupPreview,
 }: {
   events: WeddingEvent[]
   /** Which event's card to show — Setup is per-event config, not a merged view. */
@@ -55,11 +61,16 @@ export default function RsvpSetupPanel({
   questions: RsvpQuestion[]
   summaries: RsvpEventSummary[]
   answerSummaries: Record<string, RsvpAnswerSummary>
+  mode?: 'rsvp' | 'followups'
+  onShareFollowups?: () => void
+  followupShareGuests?: SendGuestRow[]
+  followupPreview?: { coupleName: string; cardImageUrl: string | null }
 }) {
   const router = useRouter()
   const origin = useSyncExternalStore(subscribeToNothing, getOrigin, getServerOrigin)
   const [editor, setEditor] = useState<EditorState>({ open: false })
   const [deleting, setDeleting] = useState<RsvpQuestion | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const generalQuestions = useMemo(() => questions.filter((q) => q.event_id === null), [questions])
@@ -123,7 +134,15 @@ export default function RsvpSetupPanel({
     startTransition(async () => {
       try {
         await setEventAllowRsvp(eventId, allow)
-        toast.success(allow ? 'RSVPs turned on' : 'RSVPs turned off')
+        toast.success(
+          mode === 'followups'
+            ? allow
+              ? 'Guest responses turned on'
+              : 'Guest responses turned off'
+            : allow
+              ? 'RSVPs turned on'
+              : 'RSVPs turned off',
+        )
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not update')
       }
@@ -181,12 +200,31 @@ export default function RsvpSetupPanel({
   const usedPrompts = useMemo(() => new Set(questions.map((q) => q.prompt.toLowerCase())), [questions])
   const eventPresetsLeft = EVENT_QUESTION_PRESETS.filter((p) => !usedPrompts.has(p.input.prompt.toLowerCase()))
   const generalPresetsLeft = GENERAL_QUESTION_PRESETS.filter((p) => !usedPrompts.has(p.input.prompt.toLowerCase()))
+  const eventQuestions = event ? (questionsByEvent.get(event.id) ?? []) : []
+  const previewQuestions = [...eventQuestions, ...generalQuestions]
+  const followupGuestsWithResponses = followupShareGuests.filter((g) =>
+    g.status === 'attending' || g.status === 'maybe' || g.status === 'declined',
+  )
+  const sampleFollowupGuest = followupGuestsWithResponses[0] ?? null
+  const sampleFollowupUrl = sampleFollowupGuest ? followupLink(sampleFollowupGuest.rsvpUrl) : null
+
+  function copySampleFollowupLink() {
+    if (!sampleFollowupUrl) return
+    navigator.clipboard?.writeText(sampleFollowupUrl).then(
+      () => toast.success('Follow-up link copied'),
+      () => toast.error('Could not copy link'),
+    )
+  }
 
   if (events.length === 0) {
     return (
       <EmptyState
         title="Add an event first"
-        description="Create at least one event, then set up the RSVP questions your guests will answer."
+        description={
+          mode === 'followups'
+            ? 'Create at least one event, then set up the follow-up questions your guests will answer.'
+            : 'Create at least one event, then set up the RSVP questions your guests will answer.'
+        }
         action={
           <Link href="/my/dashboard/events">
             <Button>Go to events</Button>
@@ -199,7 +237,15 @@ export default function RsvpSetupPanel({
   return (
     <div className="space-y-6">
       {/* Reconciled status — toggle state + share state in one clear message */}
-      <StatusBanner status={status} onCopyLink={copyShareLink} onShare={enableSharing} sharing={pending} />
+      {mode === 'followups' ? (
+        <FollowupsBanner
+          onCopyLink={copySampleFollowupLink}
+          onPreview={() => setPreviewOpen(true)}
+          copyDisabled={!sampleFollowupGuest}
+        />
+      ) : (
+        <StatusBanner status={status} onCopyLink={copyShareLink} onShare={enableSharing} sharing={pending} />
+      )}
 
       {/* Selected event's follow-up questions — Setup is per-event config,
           use the switcher in the tab bar above to work on a different event. */}
@@ -209,10 +255,19 @@ export default function RsvpSetupPanel({
             <h2 className="text-base font-semibold text-[#1A1A1A]">{event.name}</h2>
             <label
               className="inline-flex cursor-pointer items-center gap-2.5"
-              title={event.allow_rsvp ? 'Guests can RSVP to this event' : "Off — guests can't RSVP to this event yet"}
+              title={
+                event.allow_rsvp
+                  ? mode === 'followups'
+                    ? 'Guests can respond to this event'
+                    : 'Guests can RSVP to this event'
+                  : mode === 'followups'
+                    ? "Off — guests can't respond to this event yet"
+                    : "Off — guests can't RSVP to this event yet"
+              }
             >
               <span className="text-sm text-[#1A1A1A]/70">
-                Collect RSVPs <span className="text-[#1A1A1A]/40">· {event.allow_rsvp ? 'On' : 'Off'}</span>
+                {mode === 'followups' ? 'Collect responses' : 'Collect RSVPs'}{' '}
+                <span className="text-[#1A1A1A]/40">· {event.allow_rsvp ? 'On' : 'Off'}</span>
               </span>
               <Toggle
                 checked={event.allow_rsvp}
@@ -228,7 +283,9 @@ export default function RsvpSetupPanel({
             <div>
               <h3 className="text-sm font-semibold text-[#1A1A1A]">Follow-up questions</h3>
               <p className="mb-3 mt-0.5 text-xs text-[#1A1A1A]/55">
-                Asked to everyone who RSVPs to {event.name}.
+                {mode === 'followups'
+                  ? `Asked after guests respond to ${event.name}.`
+                  : `Asked to everyone who RSVPs to ${event.name}.`}
               </p>
 
               <QuestionList
@@ -271,7 +328,11 @@ export default function RsvpSetupPanel({
       <Card className="p-5 shadow-sm ring-1 ring-black/[0.04]">
         <SectionTitle
           title="General questions"
-          subtitle="Asked to everyone who RSVPs, whether or not they can attend."
+          subtitle={
+            mode === 'followups'
+              ? 'Asked to guests after their attendance response, whether or not they can attend.'
+              : 'Asked to everyone who RSVPs, whether or not they can attend.'
+          }
         />
         <div className="mt-4">
           <QuestionList
@@ -325,6 +386,69 @@ export default function RsvpSetupPanel({
         confirmLabel="Remove"
         pending={pending}
       />
+
+      {mode === 'followups' ? (
+        <Dialog
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          title="Preview & share follow-up questions"
+          width="xl"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setPreviewOpen(false)}>
+                Close
+              </Button>
+              {onShareFollowups ? (
+                <Button
+                  onClick={() => {
+                    setPreviewOpen(false)
+                    onShareFollowups()
+                  }}
+                >
+                  Go to Guest Responses
+                </Button>
+              ) : null}
+            </>
+          }
+        >
+          <div className="space-y-5">
+            <FollowupGuestPreview event={event} questions={previewQuestions} preview={followupPreview} />
+
+            <div className="rounded-2xl border border-[#C9A0DC]/45 bg-[#F6EEFB] p-4">
+              <p className="text-sm font-semibold text-[#1A1A1A]">Share personal follow-up links</p>
+              <p className="mt-1 text-xs leading-relaxed text-[#5d3a78]">
+                Use one personal link per guest. Guest Responses has the full list with send and copy actions.
+              </p>
+              {sampleFollowupGuest ? (
+                <div className="mt-3 rounded-xl border border-white/70 bg-white p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]/45">
+                    Sample guest link
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[#1A1A1A]">{sampleFollowupGuest.name}</p>
+                  <p className="mt-1 truncate text-xs text-[#1A1A1A]/50">{sampleFollowupUrl}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={copySampleFollowupLink}>
+                      <Copy className="h-4 w-4" /> Copy link
+                    </Button>
+                    <a
+                      href={sampleFollowupUrl ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#1A1A1A] ring-1 ring-inset ring-black/[0.12] transition-colors hover:bg-black/[0.03]"
+                    >
+                      <ExternalLink className="h-4 w-4" /> Open preview
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 rounded-xl border border-dashed border-[#C9A0DC]/55 bg-white/70 px-4 py-4 text-sm text-[#5d3a78]">
+                  Add guests first, then their personal links will appear here and in Guest Responses.
+                </p>
+              )}
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
     </div>
   )
 }
@@ -359,7 +483,9 @@ function StatusBanner({
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#F2D9A0] bg-[#FBF3DD] px-4 py-3.5">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sm font-semibold text-[#1A1A1A]">RSVPs are paused {pill}</p>
+          <p className="flex items-center gap-2 text-sm font-semibold text-[#1A1A1A]">
+            RSVPs are paused {pill}
+          </p>
           <p className="mt-0.5 text-xs text-[#8a6a14]">
             Guests can’t reply yet. Turn on <b>Collect RSVPs</b> for an event below to start.
           </p>
@@ -380,7 +506,9 @@ function StatusBanner({
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#C9A0DC]/50 bg-[#F0DFF6]/60 px-4 py-3.5">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sm font-semibold text-[#1A1A1A]">RSVPs are live — one step left {pill}</p>
+          <p className="flex items-center gap-2 text-sm font-semibold text-[#1A1A1A]">
+            RSVPs are live — one step left {pill}
+          </p>
           <p className="mt-0.5 text-xs text-[#5d3a78]">
             Generate this event&apos;s invite link so guests can find it and reply.
           </p>
@@ -395,7 +523,9 @@ function StatusBanner({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#9FE870]/60 bg-[#9FE870]/15 px-4 py-3.5">
       <div className="min-w-0">
-        <p className="flex items-center gap-2 text-sm font-semibold text-[#14342B]">RSVPs are live {pill}</p>
+        <p className="flex items-center gap-2 text-sm font-semibold text-[#14342B]">
+          RSVPs are live {pill}
+        </p>
         <p className="mt-0.5 text-xs text-[#3f6b1f]">
           Collection is on and your invite is shared. Replies appear here as guests respond.
         </p>
@@ -409,6 +539,162 @@ function StatusBanner({
       </button>
     </div>
   )
+}
+
+function FollowupsBanner({
+  onCopyLink,
+  onPreview,
+  copyDisabled,
+}: {
+  onCopyLink: () => void
+  onPreview: () => void
+  copyDisabled: boolean
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#9FE870]/60 bg-[#9FE870]/15 px-4 py-3.5">
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-2 text-sm font-semibold text-[#14342B]">
+          Follow-up questions are live
+          <span className="rounded-full bg-[#9FE870]/35 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#2f5417]">
+            Live
+          </span>
+        </p>
+        <p className="mt-0.5 text-xs leading-relaxed text-[#3f6b1f]">
+          Collection is on. Guests answer these from their personal link after responding to the invitation.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onPreview}
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#9FE870]/70 bg-white px-4 py-2 text-sm font-semibold text-[#2f5417] hover:bg-[#9FE870]/15"
+      >
+        <Eye className="h-3.5 w-3.5" /> Preview
+      </button>
+      <button
+        type="button"
+        onClick={onCopyLink}
+        disabled={copyDisabled}
+        title={copyDisabled ? 'Add guests first, then copy a personal guest link' : 'Copy a personal guest link'}
+        className="shrink-0 rounded-full border border-[#1261ff] bg-white px-4 py-2 text-sm font-semibold text-[#0b56e3] hover:bg-[#eff5ff] disabled:cursor-not-allowed disabled:border-black/[0.12] disabled:text-[#1A1A1A]/35"
+      >
+        Copy link
+      </button>
+    </div>
+  )
+}
+
+function FollowupGuestPreview({
+  event,
+  questions,
+  preview,
+}: {
+  event: WeddingEvent | null
+  questions: RsvpQuestion[]
+  preview?: { coupleName: string; cardImageUrl: string | null }
+}) {
+  const visualSrc = preview?.cardImageUrl || EVENT_CARD_IMAGE
+  const coupleName = preview?.coupleName || 'The Couple'
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-black/[0.08] bg-white shadow-[0_24px_70px_-48px_rgba(0,0,0,0.55)]">
+      <div className="grid min-h-[640px] lg:grid-cols-[0.95fr_1fr]">
+        <div className="flex items-center justify-center bg-gradient-to-br from-[#F1F4EB] to-[#EDF0E7] p-6 sm:p-8">
+          <img
+            src={visualSrc}
+            alt={`${coupleName} card preview`}
+            className="max-h-[560px] w-auto max-w-full rounded-2xl object-contain shadow-[0_24px_60px_-24px_rgba(0,0,0,0.45)]"
+          />
+        </div>
+
+        <div className="flex items-center justify-center px-5 py-8 sm:px-10">
+          <div className="w-full max-w-md">
+            <div className="text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7E5896]">Guest preview</p>
+              <h4
+                className="mt-3 text-4xl font-semibold leading-none text-[#1A1A1A]"
+                style={{ fontFamily: 'var(--font-dancing), cursive' }}
+              >
+                {coupleName}
+              </h4>
+              <div className="mx-auto mt-3 flex items-center justify-center gap-2.5" aria-hidden>
+                <span className="h-px w-8 bg-[#C9A0DC]/60" />
+                <span className="h-1.5 w-1.5 rotate-45 bg-[#C9A0DC]" />
+                <span className="h-px w-8 bg-[#C9A0DC]/60" />
+              </div>
+              <h5 className="mt-4 text-2xl font-semibold text-[#1A1A1A]/85" style={{ fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                Follow-up Details
+              </h5>
+              <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[#1A1A1A]/55">
+                Thanks for responding{event ? ` to ${event.name}` : ''}. Please share a few details with the couple.
+              </p>
+            </div>
+
+          <div className="mt-4 space-y-3">
+            {questions.length > 0 ? (
+              questions.map((q) => <QuestionPreview key={q.id} question={q} />)
+            ) : (
+              <p className="rounded-xl border border-dashed border-black/[0.12] bg-white px-4 py-5 text-center text-sm text-[#1A1A1A]/45">
+                No follow-up questions yet.
+              </p>
+            )}
+          </div>
+          {questions.length > 0 ? (
+            <button
+              type="button"
+              disabled
+              className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[#C9A0DC] px-5 py-3.5 text-sm font-bold text-[#1A1A1A] opacity-90 shadow-[0_12px_26px_-18px_rgba(0,0,0,0.65)]"
+            >
+              Send details
+            </button>
+          ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function QuestionPreview({ question }: { question: RsvpQuestion }) {
+  return (
+    <div className="rounded-xl border border-black/[0.08] bg-white p-3">
+      <p className="text-sm font-semibold text-[#1A1A1A]">
+        {question.prompt}
+        {question.required ? <span className="ml-0.5 text-rose-500">*</span> : null}
+      </p>
+      {question.kind === 'short_answer' ? (
+        <div className="mt-2 min-h-16 rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm text-[#1A1A1A]/35">
+          Guest writes their answer here
+        </div>
+      ) : (
+        <div className="mt-2 space-y-2">
+          {question.options.map((opt) => {
+            const detailPrompt = opt.description?.trim()
+            const label = cleanOptionPreviewLabel(opt.label)
+            return (
+              <div key={opt.id} className="rounded-xl border border-black/[0.12] bg-white px-3 py-2">
+                <span className="text-sm font-medium text-[#1A1A1A]">{label}</span>
+                {detailPrompt ? (
+                  <div className="mt-2 rounded-lg border border-[#C9A0DC]/45 bg-[#F6EEFB]/45 px-3 py-2">
+                    <span className="block text-xs font-semibold text-[#5d3a78]">{detailPrompt}</span>
+                    <span className="mt-1 block text-sm text-[#1A1A1A]/35">Guest writes details here</span>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function cleanOptionPreviewLabel(label: string): string {
+  const trimmed = label.trim()
+  if (/^(yes|no)\?$/i.test(trimmed)) return trimmed.slice(0, -1)
+  return trimmed
+}
+
+function followupLink(url: string): string {
+  return `${url}${url.includes('?') ? '&' : '?'}followups=1`
 }
 
 function QuestionList({

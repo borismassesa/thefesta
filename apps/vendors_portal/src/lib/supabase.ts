@@ -18,6 +18,26 @@ export function createSupabaseAdminClient(): SupabaseClient {
 
 
 /**
+ * Anonymous client for data that is public-read by RLS (the category
+ * catalogue, CMS copy). Reaching for the Clerk-authenticated client here
+ * couples a public list to the state of the 'supabase' JWT template: if the
+ * token is missing or rejected, the read fails and callers silently fall back
+ * to stale hardcoded data. Nothing here is per-user, so don't pay that cost.
+ */
+export function createSupabasePublicClient(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  if (!url || !key) {
+    throw new Error(
+      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+    )
+  }
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+/**
  * Server-side Clerk-authenticated client (subject to RLS).
  * The Clerk JWT 'supabase' template carries the user's sub claim, which
  * RLS policies resolve to public.users.id via requesting_user_id().

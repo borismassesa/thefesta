@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Check, Lock, Pencil, Plus, Save, Tag, X } from 'lucide-react'
 import { getStorefrontSections } from '@/lib/storefront/completion'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 import {
   hasCompletePayout,
   newPayoutEntryId,
@@ -221,11 +222,12 @@ export default function PackagesEditor({
 
   const banner = buildBannerBySource(t)[source.kind]
 
+  const vertical = useVendorVertical()
   const nextHref = useMemo(() => {
-    const sections = getStorefrontSections(draft)
+    const sections = getStorefrontSections(draft, vertical)
     const idx = sections.findIndex((s) => s.id === 'packages')
     return idx >= 0 && idx < sections.length - 1 ? sections[idx + 1].href : null
-  }, [draft])
+  }, [draft, vertical])
 
   const onNext = () => {
     if (nextHref) router.push(nextHref)

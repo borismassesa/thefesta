@@ -50,6 +50,7 @@ export class StubWhatsAppProvider implements WhatsAppProvider {
       contact: send.contactFirstName,
       header: send.headerImageUrl,
       token: send.token,
+      eventId: send.eventId ?? null,
     })
     return { ok: true, wamid: this.fakeWamid(), dryRun: true }
   }

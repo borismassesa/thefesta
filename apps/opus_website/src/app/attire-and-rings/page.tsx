@@ -12,6 +12,7 @@ import { StandoutStyles } from '@/components/attire-and-rings/StandoutStyles'
 import { LocalShops } from '@/components/attire-and-rings/LocalShops'
 import { BlogSection } from '@/components/attire-and-rings/BlogSection'
 import { InfoSection } from '@/components/attire-and-rings/InfoSection'
+import ShopsBand from '@/components/shop/ShopsBand'
 import SearchForm from '@/components/advice-ideas/SearchForm'
 import Footer from '@/components/footer'
 
@@ -77,6 +78,18 @@ export default function AttireAndRingsPage() {
           <EditorsPicks />
         </section>
         <StandoutStyles />
+        {/* Real attire/rings sellers (vertical='attire_rings'), above the
+            CMS-curated LocalShops band. Renders nothing until one is live. */}
+        <section id="opusfesta-sellers">
+          <ShopsBand
+            vertical="attire_rings"
+            eyebrow="Sellers"
+            heading="Shop attire & rings on OpusFesta"
+            blurb="Gowns, suits, jewellery and rings listed directly by Tanzanian sellers. Pay with mobile money at checkout."
+            allHref="/attire-and-rings/shops"
+            allLabel="All sellers"
+          />
+        </section>
         <LocalShops />
         <BlogSection />
         <InfoSection />

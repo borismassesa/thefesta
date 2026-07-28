@@ -13,7 +13,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>
-          OpusPass (operated by OpusFesta) helps you create wedding invitations and
+          OpusPass (operated by OpusFesta) helps you create wedding digital cards and
           collect RSVPs. This policy explains what personal information we collect,
           how we use it, and the choices and rights you and your guests have. We don&rsquo;t
           sell your data.
@@ -33,8 +33,8 @@ const sections: LegalSection[] = [
         <p>We collect:</p>
         <ul>
           <li><strong>Account information</strong> — your name, email, phone number and sign-in details.</li>
-          <li><strong>Event content</strong> — the wording, dates, photos and design choices you add to your invitations.</li>
-          <li><strong>Guest information</strong> — the names and contact details you add or import to send invitations and track replies.</li>
+          <li><strong>Event content</strong> — the wording, dates, photos and design choices you add to your digital cards.</li>
+          <li><strong>Guest information</strong> — the names and contact details you add or import to send digital cards and track replies.</li>
           <li><strong>RSVP responses</strong> — replies, meal choices and notes your guests submit.</li>
           <li><strong>Payment information</strong> — handled by our payment partners; we receive confirmation, not full card or mobile-money credentials.</li>
           <li><strong>Usage and device data</strong> — how you interact with the Service, collected through cookies and similar technologies.</li>
@@ -49,7 +49,7 @@ const sections: LegalSection[] = [
       <>
         <p>We use personal information to:</p>
         <ul>
-          <li>create and render your invitations and deliver them to the guests you choose;</li>
+          <li>create and render your digital cards and deliver them to the guests you choose;</li>
           <li>collect and show you RSVP responses;</li>
           <li>process payments and send receipts;</li>
           <li>provide support and respond to your messages;</li>
@@ -65,9 +65,9 @@ const sections: LegalSection[] = [
     body: (
       <p>
         When you add or import guests, you act as the controller of that information and
-        OpusPass processes it on your behalf to deliver your invitations and collect
+        OpusPass processes it on your behalf to deliver your digital cards and collect
         replies. Please only add guests who are happy to hear from you. We use guest
-        contact details solely to send the invitations you choose and to manage your
+        contact details solely to send the digital cards you choose and to manage your
         RSVPs — never to market our own products to your guests.
       </p>
     ),
@@ -79,7 +79,7 @@ const sections: LegalSection[] = [
       <>
         <p>We share personal information only as needed to run the Service:</p>
         <ul>
-          <li>with delivery partners (SMS, WhatsApp, email) to send your invitations;</li>
+          <li>with delivery partners (SMS, WhatsApp, email) to send your digital cards;</li>
           <li>with payment providers to process transactions;</li>
           <li>with hosting and infrastructure providers that store data securely on our behalf;</li>
           <li>where required by law, or to protect the rights and safety of OpusPass, our users and guests.</li>

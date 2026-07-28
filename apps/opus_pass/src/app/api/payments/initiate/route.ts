@@ -12,6 +12,7 @@ import {
   transitionOrder,
 } from '@/lib/payments/orders'
 import { sendManualPaymentSubmittedEmails } from '@/lib/payments/email'
+import { createProductOrderLines, resolveRegistryContext } from '@/lib/payments/product-orders'
 import {
   isSelcomConfigured,
   createOrder,
@@ -85,6 +86,115 @@ export async function POST(req: Request): Promise<NextResponse<InitiateResponse>
   if (pricing.amountTotal <= 0) return bad('Order total is invalid.')
   if (pricing.adjustments.length > 0) {
     console.warn('[payments] client totals adjusted to CMS prices', pricing.adjustments)
+  }
+
+  // ── Product / registry purchase ─────────────────────────────────────────────
+  // Guests buying real vendor products from a couple's registry shop. Distinct
+  // from the invitation flow: the buyer is an unauthenticated guest, the order
+  // links to the couple via their registry slug, and it reserves the gift(s)
+  // with pending_payment claims that finalize on paid / release on failure.
+  if (items.some((i) => i.kind === 'product')) {
+    if (!pricing.fullyTrusted) return bad('One of these products is no longer available.')
+    // Registry purchase reserves a couple's gift; a plain shop purchase (no
+    // registrySlug) just ships to the buyer. Either way the goods need an
+    // address, so a delivery address is required for product orders.
+    const ctx = body.registrySlug ? await resolveRegistryContext(body.registrySlug) : null
+    if (body.registrySlug && !ctx) return bad('This registry link is no longer active.')
+    if (!body.delivery?.address?.trim()) return bad('Enter a delivery address.')
+
+    const ref = generateRef()
+    const origin = appOrigin(req)
+    const payerPhone =
+      method === 'mobile' || method === 'lipa_namba' ? normalizeMsisdn(body.phone!.trim()) : null
+
+    if (method === 'lipa_namba') {
+      const order = await createPendingOrder({
+        ref,
+        userId: null,
+        currency: pricing.currency,
+        subtotal: pricing.subtotal,
+        discount: pricing.discount,
+        amountTotal: pricing.amountTotal,
+        contact: { name: contact.name, email: contact.email, phone: contact.phone },
+        eventId: ctx?.eventId ?? null,
+        items: pricing.items,
+        status: 'processing',
+        provider: 'mpesa_lipa_namba',
+        paymentMethod: 'lipa_namba',
+        payerPhone,
+        payerName: body.payerName?.trim() ?? '',
+        paymentReference: body.paymentReference?.trim().toUpperCase() ?? '',
+        paymentSubmittedAt: new Date().toISOString(),
+        paymentLabel: body.paymentLabel ?? null,
+        kind: 'product',
+        delivery: body.delivery ?? null,
+      })
+      await createProductOrderLines(order, pricing.items, ctx)
+      return NextResponse.json({ ref, status: 'processing', message: 'Payment submitted for review.' })
+    }
+
+    if (!isSelcomConfigured()) {
+      return NextResponse.json(
+        { ref: '', status: 'failed', message: 'Card & mobile payments are not available yet. Choose Lipa Namba.' },
+        { status: 503 },
+      )
+    }
+
+    const order = await createPendingOrder({
+      ref,
+      userId: null,
+      currency: pricing.currency,
+      subtotal: pricing.subtotal,
+      discount: pricing.discount,
+      amountTotal: pricing.amountTotal,
+      contact: { name: contact.name, email: contact.email, phone: contact.phone },
+      eventId: ctx?.eventId ?? null,
+      items: pricing.items,
+      paymentMethod: method,
+      payerPhone,
+      paymentLabel: body.paymentLabel ?? null,
+      kind: 'product',
+      delivery: body.delivery ?? null,
+    })
+    await createProductOrderLines(order, pricing.items, ctx)
+
+    try {
+      const created = await createOrder({
+        orderRef: ref,
+        amount: pricing.amountTotal,
+        currency: pricing.currency,
+        buyerName: contact.name ?? 'OpusPass guest',
+        buyerEmail: contact.email,
+        buyerPhone: contact.phone,
+        redirectUrl: `${origin}${body.redirectPath ?? `/gift-registry/${body.registrySlug}`}${(body.redirectPath ?? '').includes('?') ? '&' : '?'}purchase_ref=${ref}`,
+        cancelUrl: `${origin}${body.cancelPath ?? `/gift-registry/${body.registrySlug}`}`,
+        webhookUrl: `${origin}/api/payments/webhook`,
+      })
+      if (created.resultcode && created.resultcode !== '000') {
+        await transitionOrder(ref, 'failed')
+        return NextResponse.json({ ref, status: 'failed', message: created.message ?? 'Could not start the payment.' }, { status: 502 })
+      }
+      if (method === 'card') {
+        const redirectUrl = extractGatewayUrl(created)
+        if (!redirectUrl) {
+          await transitionOrder(ref, 'failed')
+          return NextResponse.json({ ref, status: 'failed', message: 'Card payment is unavailable right now.' }, { status: 502 })
+        }
+        return NextResponse.json({ ref, status: 'pending', redirectUrl })
+      }
+      const transid = randomUUID().replace(/-/g, '').slice(0, 20)
+      await setProviderOrderId(ref, transid)
+      const push = await walletPush({ orderRef: ref, msisdn: payerPhone!, transid })
+      if (push.resultcode && push.resultcode !== '000') {
+        await transitionOrder(ref, 'failed')
+        return NextResponse.json({ ref, status: 'failed', message: push.message ?? 'Could not send the payment prompt.' }, { status: 502 })
+      }
+      return NextResponse.json({ ref, status: 'pending' })
+    } catch (err) {
+      console.error('[payments] product initiate failed', err)
+      await transitionOrder(ref, 'failed').catch(() => {})
+      return NextResponse.json({ ref, status: 'failed', message: 'Payment could not be started. Please try again.' }, { status: 502 })
+    }
   }
 
   const ref = generateRef()
@@ -186,8 +296,8 @@ export async function POST(req: Request): Promise<NextResponse<InitiateResponse>
       // query string, so append `ref` with the right separator.
       redirectUrl: body.redirectPath
         ? `${origin}${body.redirectPath}${body.redirectPath.includes('?') ? '&' : '?'}purchase_ref=${ref}`
-        : `${origin}/invitations/confirmation?ref=${ref}`,
-      cancelUrl: `${origin}${body.cancelPath ?? '/invitations/checkout'}`,
+        : `${origin}/digital-cards/confirmation?ref=${ref}`,
+      cancelUrl: `${origin}${body.cancelPath ?? '/digital-cards/checkout'}`,
       webhookUrl: `${origin}/api/payments/webhook`,
     })
 

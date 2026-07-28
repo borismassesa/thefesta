@@ -58,6 +58,9 @@ export default async function VendorSlugPage({
     notFound()
   }
 
+  // No product grid here on purpose. This route resolves `vertical='service'`
+  // vendors only (getVendorFromDb), and service vendors don't list products —
+  // shops live at /registry/shops/<slug> and /attire-and-rings/shops/<slug>.
   const localBusinessSchema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',

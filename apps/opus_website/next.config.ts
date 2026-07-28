@@ -39,8 +39,8 @@ const nextConfig: NextConfig = {
       // opus_pass. opus_website's old copies are retired; these 308s send the
       // legacy URLs to the subdomain so there is a single source of truth and no
       // duplicate content. Order matters: most specific first, catch-all last.
-      { source: '/invitations', destination: `${opusPass}/invitations`, permanent: true },
-      { source: '/invitations/:path*', destination: `${opusPass}/invitations/:path*`, permanent: true },
+      { source: '/invitations', destination: `${opusPass}/digital-cards`, permanent: true },
+      { source: '/invitations/:path*', destination: `${opusPass}/digital-cards/:path*`, permanent: true },
       { source: '/websites', destination: `${opusPass}/websites`, permanent: true },
       { source: '/websites/:path*', destination: `${opusPass}/websites/:path*`, permanent: true },
 
@@ -48,8 +48,8 @@ const nextConfig: NextConfig = {
       // /guests) go to the catalog; everything else to Guests & RSVP.
       // /my/guests is a separate user-dashboard route and is NOT matched — Next.js
       // redirect `source` matches the full path, not a prefix of a different one.
-      { source: '/guests/invitations', destination: `${opusPass}/invitations/catalog`, permanent: true },
-      { source: '/guests/invitations/:path*', destination: `${opusPass}/invitations/catalog/:path*`, permanent: true },
+      { source: '/guests/invitations', destination: `${opusPass}/digital-cards/catalog`, permanent: true },
+      { source: '/guests/invitations/:path*', destination: `${opusPass}/digital-cards/catalog/:path*`, permanent: true },
       { source: '/guests', destination: `${opusPass}/guests-and-rsvp`, permanent: true },
       { source: '/guests/:path*', destination: `${opusPass}/guests-and-rsvp`, permanent: true },
     ]

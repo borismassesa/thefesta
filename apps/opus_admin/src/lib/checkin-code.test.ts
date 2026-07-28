@@ -13,8 +13,8 @@ test('fixed durations ignore the event times', () => {
     new Date(NOW.getTime() + 12 * HOUR).toISOString(),
   )
   assert.equal(
-    accessCodeExpiry('24h', null, null, NOW),
-    new Date(NOW.getTime() + 24 * HOUR).toISOString(),
+    accessCodeExpiry('72h', null, null, NOW),
+    new Date(NOW.getTime() + 72 * HOUR).toISOString(),
   )
 })
 
@@ -54,10 +54,10 @@ test("'event' never returns an already-expired token (now + lead floor)", () => 
   )
 })
 
-test("'event' with no times falls back to now + 24h", () => {
+test("'event' with no times falls back to now + 72h", () => {
   assert.equal(
     accessCodeExpiry('event', null, null, NOW),
-    new Date(NOW.getTime() + 24 * HOUR).toISOString(),
+    new Date(NOW.getTime() + 72 * HOUR).toISOString(),
   )
 })
 

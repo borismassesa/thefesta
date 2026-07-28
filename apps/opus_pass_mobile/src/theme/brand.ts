@@ -1,5 +1,5 @@
 /**
- * Fixed brand values shared by the invitations flow (card detail, cart).
+ * Fixed brand values shared by the digital cards flow (card detail, cart).
  * These deliberately sit outside the app's light/dark theme tokens: they must
  * match the web exactly so a design priced in the app looks the same as on
  * opuspass.opusfesta.com.

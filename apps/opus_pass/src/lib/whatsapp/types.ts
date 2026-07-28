@@ -166,6 +166,10 @@ export interface LinkSend {
   headerImageUrl: string
   /** The collector/pledge token — supplied as the dynamic URL button suffix. */
   token: string
+  /** Optional event scope for collector/pledge pages. When present, the
+   *  dynamic URL suffix becomes `<token>?event=<eventId>` so guests land on
+   *  the event-specific card/page instead of the account-level fallback. */
+  eventId?: string | null
   /** Template language code, e.g. 'sw' or 'en'. */
   languageCode?: string
 }

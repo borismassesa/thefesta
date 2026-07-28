@@ -71,7 +71,7 @@ export const FAQ_FALLBACK: FaqContent = {
     {
       id: 'q5',
       q: 'How long does it take to get verified?',
-      a: 'Most storefronts are reviewed within 24 hours. We confirm your business details, portfolio quality, and a few sample reviews — then you go live with a verified badge that builds trust with couples.',
+      a: 'Most storefronts are reviewed within 48-72 hours. We confirm your business details, portfolio quality, and a few sample reviews — then you go live with a verified badge that builds trust with couples.',
     },
     {
       id: 'q6',

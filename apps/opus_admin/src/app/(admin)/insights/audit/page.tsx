@@ -6,7 +6,7 @@ import AuditPageHeading from './AuditPageHeading'
 export const dynamic = 'force-dynamic'
 
 const RANGE_TO_MS: Record<string, number | null> = {
-  '24h': 86_400_000,
+  '72h': 3 * 86_400_000,
   '7d': 7 * 86_400_000,
   '30d': 30 * 86_400_000,
   all: null,

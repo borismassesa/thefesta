@@ -1,6 +1,7 @@
 import 'server-only'
 import { loadPackagesContent } from '@/lib/cms/packages'
 import { TEMPLATE_CARD_PRICE } from '@/lib/dashboard/pledge-card-templates'
+import { createSupabaseServerClient } from '@/lib/supabase'
 import type { InitiateItem } from './types'
 
 // Authoritative amount calculation. The browser sends each line's `total`, but
@@ -33,12 +34,46 @@ export async function priceOrder(items: InitiateItem[]): Promise<PricingResult> 
   const packages = await loadPackagesContent()
   const tierPrice = new Map(packages.tiers.map((t) => [t.id, t.price_per_guest]))
 
+  // Authoritative product prices — one lookup for every product line in the
+  // cart. Only live products (approved, published, active vendor) are priced;
+  // anything else drops out (priced at 0 → order rejected by the caller).
+  const productIds = items
+    .filter((i) => i.kind === 'product' && i.productId)
+    .map((i) => i.productId as string)
+  const productPrice = new Map<string, number>()
+  if (productIds.length > 0) {
+    const supabase = createSupabaseServerClient()
+    const { data } = await supabase
+      .from('products')
+      .select('id, price_tzs, status, published, vendor:vendors!inner(onboarding_status)')
+      .in('id', productIds)
+      .eq('status', 'approved')
+      .eq('published', true)
+      .eq('vendor.onboarding_status', 'active')
+      .returns<{ id: string; price_tzs: number }[]>()
+    for (const row of data ?? []) productPrice.set(row.id, row.price_tzs)
+  }
+
   const adjustments: PricingResult['adjustments'] = []
   let fullyTrusted = true
 
   const priced: PricedItem[] = items.map((item) => {
     const authPerGuest = item.tierId ? tierPrice.get(item.tierId) : undefined
     const clientTotal = Math.max(0, Math.round(Number(item.total) || 0))
+
+    // Real vendor product — price is products.price_tzs × quantity, straight
+    // from the DB. A missing/unlive product prices to 0 so the order is
+    // rejected rather than sold at the client's number.
+    if (item.kind === 'product') {
+      const unit = item.productId ? productPrice.get(item.productId) : undefined
+      const qty = Math.max(1, Math.floor(Number(item.quantity) || 1))
+      const serverTotal = unit != null ? unit * qty : 0
+      if (serverTotal !== clientTotal) {
+        adjustments.push({ id: item.id, clientTotal, serverTotal })
+      }
+      if (unit == null) fullyTrusted = false
+      return { ...item, quantity: qty, pricePerGuest: unit, total: serverTotal }
+    }
 
     // Flat-price line (a single card-template unlock, not a guest-tier
     // invitation) — the price is a fixed constant, never the client's number.

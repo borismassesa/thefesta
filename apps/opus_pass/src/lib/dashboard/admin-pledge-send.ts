@@ -202,6 +202,7 @@ export async function sendPledgeRequestForCouple(
         coupleName,
         headerImageUrl,
         token,
+        eventId: resolvedEventId,
       })
       await supabase.from('whatsapp_messages').insert({
         user_id: userId,

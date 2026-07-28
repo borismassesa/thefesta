@@ -119,11 +119,11 @@
 └─────────────────────────────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ STEP 8: Escrow Release (24h after completion)               │
+│ STEP 8: Escrow Release (48-72h after completion)            │
 └─────────────────────────────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ Automatic Release (after 24 hours) OR Manual Release        │
+│ Automatic Release (after 48-72 hours) OR Manual Release     │
 │                                                              │
 │ API: POST /api/escrow/[id]/release                          │
 │                                                              │

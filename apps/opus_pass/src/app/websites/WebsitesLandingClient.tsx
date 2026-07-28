@@ -148,7 +148,7 @@ function DesignsPicker({ content }: { content: WebsitesDesignsContent }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  FEATURE ROW — clean icon columns (echoes /invitations FeatureRow)
+//  FEATURE ROW — clean icon columns (echoes /digital-cards FeatureRow)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function FeatureRow({ content }: { content: WebsitesFeaturesContent }) {
@@ -270,7 +270,7 @@ function SellingPoints({ content }: { content: WebsitesSellingPointsContent }) {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  FAQS — accordion (identical pattern to /invitations FAQs)
+//  FAQS — accordion (identical pattern to /digital-cards FAQs)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function FAQs({ content }: { content: WebsitesFaqsContent }) {

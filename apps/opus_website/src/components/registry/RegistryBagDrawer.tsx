@@ -1,9 +1,22 @@
 'use client'
 
-import { X, Gift, Trash2 } from 'lucide-react'
+import { X, ShoppingBag, Trash2, Truck } from 'lucide-react'
 import { removeFromRegistryBag, type RegistryBagItem } from '@/lib/registry-storage'
 
-const OPUSPASS_REGISTRY_HREF = '/opuspass/my/dashboard/gift-registry'
+// opusfesta.com/opuspass/* 308-redirects to the OpusPass subdomain, so this
+// resolves to opuspass.opusfesta.com/shop/checkout — where the payment engine
+// lives. The cart is handed over in the URL (?items=<productId>:<qty>,…); the
+// checkout re-fetches every product server-side, so no cross-origin state.
+const CHECKOUT_BASE = '/opuspass/shop/checkout'
+
+function priceToNumber(label: string): number {
+  const digits = label.replace(/[^\d]/g, '')
+  return digits ? parseInt(digits, 10) : 0
+}
+
+function formatTzs(n: number): string {
+  return `TZS ${n.toLocaleString('en-US')}`
+}
 
 export default function RegistryBagDrawer({
   open,
@@ -16,13 +29,16 @@ export default function RegistryBagDrawer({
 }) {
   if (!open) return null
 
+  const subtotal = items.reduce((sum, i) => sum + priceToNumber(i.price) * i.quantity, 0)
+  const checkoutHref = `${CHECKOUT_BASE}?items=${items.map((i) => `${i.id}:${i.quantity}`).join(',')}`
+
   return (
     <div className="fixed inset-0 z-[60] flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative flex h-full w-full max-w-sm flex-col bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">
-            <Gift size={18} /> Your registry picks
+            <ShoppingBag size={18} /> Your cart {items.length > 0 ? `(${items.length})` : ''}
           </h2>
           <button onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100">
             <X size={18} />
@@ -32,7 +48,7 @@ export default function RegistryBagDrawer({
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {items.length === 0 ? (
             <p className="mt-10 text-center text-sm text-gray-500">
-              Nothing here yet — browse the registry and tap “Add to Registry” on anything you’d love.
+              Nothing here yet — browse the shop and tap “Add to cart” on any gift.
             </p>
           ) : (
             <ul className="space-y-4">
@@ -63,16 +79,19 @@ export default function RegistryBagDrawer({
 
         {items.length > 0 && (
           <div className="border-t border-gray-100 px-5 py-4">
-            <p className="mb-3 text-xs leading-relaxed text-gray-500">
-              These picks are saved on this device. Continue to OpusPass to add them to your live registry so guests
-              can see them.
-            </p>
+            <div className="mb-3 flex items-center justify-between text-sm">
+              <span className="font-medium text-gray-500">Estimated total</span>
+              <span className="text-base font-bold text-gray-900">{formatTzs(subtotal)}</span>
+            </div>
             <a
-              href={OPUSPASS_REGISTRY_HREF}
-              className="flex w-full items-center justify-center rounded-full bg-gray-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
+              href={checkoutHref}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-gray-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
             >
-              Continue to my OpusPass registry
+              Check out now
             </a>
+            <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-gray-500">
+              <Truck className="h-3.5 w-3.5" /> Secure checkout · delivery across Tanzania
+            </p>
           </div>
         )}
       </div>

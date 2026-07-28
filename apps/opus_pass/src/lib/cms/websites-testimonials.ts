@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase'
 import { DEFAULT_LOCALE, resolveLocalized, type Locale, type MaybeLocalized } from './localized'
 
 // Mirrors HomepageTestimonialsContent so it can be passed straight to the shared
-// <InvitationShowcase> wall on /websites — two scrolling columns of cards.
+// <DigitalCardShowcase> wall on /websites — two scrolling columns of cards.
 export type WebsitesTestimonialFg = 'light' | 'dark'
 
 export type WebsitesTestimonialItem = {
@@ -35,7 +35,7 @@ export const WEBSITES_TESTIMONIALS_FALLBACK: WebsitesTestimonialsContent = {
     { id: 'wc1-a', quote: 'Our wedding website was up the same day. Guests loved the photo gallery and travel info.', name: 'Rehema & Bakari', location: 'Dar es Salaam', avatar: '/assets/images/cutesy_couple.jpg', bg: 'bg-[#5d3a78]', fg: 'dark' },
     { id: 'wc1-b', quote: 'Bilingual pages meant both sides of the family felt at home — and it was completely free.', name: 'Faith & Daniel', location: 'Arusha', avatar: '/assets/images/authentic_couple.jpg', bg: 'bg-[#fbeede]', fg: 'light' },
     { id: 'wc1-c', quote: 'We changed the venue once and the site updated instantly. No reprints, no panic.', name: 'Neema & Amani', location: 'Bagamoyo', avatar: '/assets/images/coupleswithpiano.jpg', bg: 'bg-[#3f6b3f]', fg: 'dark' },
-    { id: 'wc1-d', quote: 'From save-the-date to thank-yous, every page matched our invitations beautifully.', name: 'Joyce & Mwita', location: 'Mwanza', avatar: '/assets/images/churchcouples.jpg', bg: 'bg-[#e7c8c8]', fg: 'light' },
+    { id: 'wc1-d', quote: 'From save-the-date to thank-yous, every page matched our digital cards beautifully.', name: 'Joyce & Mwita', location: 'Mwanza', avatar: '/assets/images/churchcouples.jpg', bg: 'bg-[#e7c8c8]', fg: 'light' },
   ],
   column2: [
     { id: 'wc2-a', quote: 'One link in our WhatsApp groups and everyone had the schedule, the map and the RSVP.', name: 'Shirima & Joyce', location: 'Zanzibar', avatar: '/assets/images/beautiful_bride.jpg', bg: 'bg-[#c47a3a]', fg: 'dark' },
@@ -48,7 +48,7 @@ export const WEBSITES_TESTIMONIALS_FALLBACK: WebsitesTestimonialsContent = {
 // Stored shape: translatable fields may be a localized { en, sw } object or a
 // legacy plain string; proper names, places and config stay scalar. The loader
 // resolves each translatable field for `locale` and returns the flat content the
-// shared <InvitationShowcase> wall already expects.
+// shared <DigitalCardShowcase> wall already expects.
 type StoredWebsitesTestimonialItem = {
   id?: string
   quote?: MaybeLocalized

@@ -12,9 +12,14 @@ import { PriceBandRow } from '@/components/registry/PriceBandRow'
 import { PopularGiftsGrid } from '@/components/registry/PopularGiftsGrid'
 import { PerksRow } from '@/components/registry/PerksRow'
 import { NewArrivalsRow } from '@/components/registry/NewArrivalsRow'
-import RegistryBagButton from '@/components/registry/RegistryBagButton'
+import ShopsBand from '@/components/shop/ShopsBand'
 import { REGISTRY_CATEGORIES } from '@/lib/registry-categories'
 import { PRICE_BANDS } from '@/lib/registry-products'
+
+// The rows below (price bands, popular, new arrivals, shops) all read live
+// products from Supabase, so this page needs the same ISR window as the rest
+// of /registry rather than being frozen at build time.
+export const revalidate = 600
 
 export const metadata: Metadata = {
   title: 'Gift Registry | OpusFesta',
@@ -40,13 +45,20 @@ export default function RegistryPage() {
                   </Link>
                 </li>
               ))}
+              <li className="shrink-0">
+                <Link
+                  href="/registry/shops"
+                  className="whitespace-nowrap font-medium text-white/80 transition-colors hover:text-[var(--accent)]"
+                >
+                  Shops
+                </Link>
+              </li>
             </ul>
           </nav>
           <div className="flex shrink-0 items-center gap-3">
             <Suspense fallback={null}>
               <SearchForm placeholder="Search the registry" ariaLabel="Search the registry" />
             </Suspense>
-            <RegistryBagButton />
           </div>
         </div>
       </div>
@@ -60,6 +72,14 @@ export default function RegistryPage() {
           <PriceBandRow key={band.id} band={band} />
         ))}
         <PopularGiftsGrid />
+        <ShopsBand
+          vertical="gift_shop"
+          eyebrow="Sellers"
+          heading="Shops on the registry"
+          blurb="Every gift here comes from a real Tanzanian seller. Browse a shop to see everything they stock."
+          allHref="/registry/shops"
+          allLabel="All shops"
+        />
         <PerksRow />
         <NewArrivalsRow />
       </main>

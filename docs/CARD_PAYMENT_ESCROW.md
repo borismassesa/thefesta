@@ -29,7 +29,7 @@ All card payments (debit and credit cards) are processed through OpusFesta's Str
 - Funds ready for release
 
 ### 5. Fund Release
-- After 24 hours (or manual release)
+- After 48-72 hours (or manual release)
 - Funds transferred to vendor via Stripe Connect
 - Status: `RELEASED`
 

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getPublicGiftRegistryPage } from '@/lib/dashboard/queries'
+import { fetchCatalogProducts } from '@/lib/dashboard/gift-catalog-db'
 import { giftRegistryPath, publicOrigin } from '@/lib/dashboard/share'
 import GiftRegistryPublicClient from './GiftRegistryPublicClient'
 
@@ -38,5 +39,6 @@ export default async function PublicGiftRegistryPage({ params }: PageProps) {
   const { slug } = await params
   const data = await getPublicGiftRegistryPage(slug)
   if (!data) notFound()
-  return <GiftRegistryPublicClient data={data} />
+  const catalog = await fetchCatalogProducts()
+  return <GiftRegistryPublicClient data={data} catalog={catalog} />
 }

@@ -13,9 +13,9 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { BackButton } from '@/components/navigation/BackButton';
-import { Stepper } from '@/components/invitations/Stepper';
+import { Stepper } from '@/components/digital-cards/Stepper';
 import { useCart } from '@/hooks/useCart';
-import { useInvitationProducts } from '@/hooks/useInvitationProducts';
+import { useDigitalCardProducts } from '@/hooks/useDigitalCardProducts';
 import { useLikedDesigns } from '@/hooks/useLikedDesigns';
 import { usePackagesContent } from '@/hooks/usePackagesContent';
 import { useProductAddonsFaqContent } from '@/hooks/useProductAddonsFaqContent';
@@ -23,7 +23,7 @@ import { buildItemSummary, formatTzs, GUEST_STEP, MIN_GUESTS } from '@/lib/cart'
 import { ACCENT, ON_ACCENT, TIER_PILL, TIER_PILL_DEFAULT } from '@/theme/brand';
 import { useTheme } from '@/theme/useTheme';
 import type { CartItem } from '@/types/cart';
-import type { InvitationProduct } from '@/types/invitations';
+import type { DigitalCardProduct } from '@/types/digital-cards';
 import type { PackageTier, TierBadgeIcon, TierBadgeTone } from '@/types/packages';
 import type { AddOn, FaqItem } from '@/types/product-addons-faq';
 
@@ -108,7 +108,7 @@ function RelatedCard({
   perGuestLabel,
   onPress,
 }: {
-  product: InvitationProduct;
+  product: DigitalCardProduct;
   fromGuestPrice: number;
   fromLabel: string;
   perGuestLabel: string;
@@ -409,7 +409,7 @@ export default function CardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { editorial } = useTheme();
-  const products = useInvitationProducts();
+  const products = useDigitalCardProducts();
   const { width: windowWidth } = useWindowDimensions();
   const { liked: likedIds, toggleLike } = useLikedDesigns();
   const packagesQuery = usePackagesContent();
@@ -560,7 +560,7 @@ export default function CardDetailScreen() {
 
   // Mirrors buildCartItem() in ProductDetailClient.tsx — same fields, so a line
   // added here matches the one the web cart would have stored.
-  const buildCartItem = (design: InvitationProduct): CartItem => {
+  const buildCartItem = (design: DigitalCardProduct): CartItem => {
     const cartAddOns = addOnLines.map((line) => line.cartLabel);
     return {
       id: design.id,
@@ -692,7 +692,7 @@ export default function CardDetailScreen() {
         contentContainerClassName="pb-12"
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero carousel — 5:7, matching the app's canonical invitation card aspect ratio */}
+        {/* Hero carousel — 5:7, matching the app's canonical digital card aspect ratio */}
         <View className="mt-2">
           <ScrollView
             horizontal

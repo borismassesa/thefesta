@@ -421,12 +421,11 @@ const DAY = 86_400_000
 
 async function buildOperationsLane(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<DepartmentLane> {
   const threeDaysAgo = new Date(Date.now() - 3 * DAY).toISOString()
-  const twoDaysAgo = new Date(Date.now() - 2 * DAY).toISOString()
   const sevenDaysAgo = new Date(Date.now() - 7 * DAY).toISOString()
 
   const [
     overdueAdminReview,
-    inquiriesOver48h,
+    inquiriesOver72h,
     bookingsThisWeek,
     topVendorsRaw,
   ] = await Promise.all([
@@ -442,7 +441,7 @@ async function buildOperationsLane(supabase: ReturnType<typeof createSupabaseAdm
         .from('inquiries')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'pending')
-        .lt('created_at', twoDaysAgo),
+        .lt('created_at', threeDaysAgo),
     ),
     safeCount(
       supabase
@@ -488,10 +487,10 @@ async function buildOperationsLane(supabase: ReturnType<typeof createSupabaseAdm
         href: '/operations/vendors',
       },
       {
-        tone: inquiriesOver48h > 0 ? 'amber' : 'gray',
+        tone: inquiriesOver72h > 0 ? 'amber' : 'gray',
         label: 'Inquiries with no response',
-        count: inquiriesOver48h,
-        hint: inquiriesOver48h > 0 ? 'Older than 48 hours' : 'All recent',
+        count: inquiriesOver72h,
+        hint: inquiriesOver72h > 0 ? 'Older than 72 hours' : 'All recent',
         href: '/operations/bookings',
       },
       {
@@ -509,7 +508,7 @@ async function buildOperationsLane(supabase: ReturnType<typeof createSupabaseAdm
 }
 
 async function buildTechnologyLane(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<DepartmentLane> {
-  const twentyFourHoursAgo = new Date(Date.now() - DAY).toISOString()
+  const seventyTwoHoursAgo = new Date(Date.now() - 3 * DAY).toISOString()
   const sevenDaysAgo = new Date(Date.now() - 7 * DAY).toISOString()
 
   const [
@@ -523,7 +522,7 @@ async function buildTechnologyLane(supabase: ReturnType<typeof createSupabaseAdm
         .from('audit_log')
         .select('id', { count: 'exact', head: true })
         .eq('severity', 'critical')
-        .gte('created_at', twentyFourHoursAgo),
+        .gte('created_at', seventyTwoHoursAgo),
     ),
     safeCount(
       supabase
@@ -567,7 +566,7 @@ async function buildTechnologyLane(supabase: ReturnType<typeof createSupabaseAdm
     cards: [
       {
         tone: criticalAuditEvents > 0 ? 'red' : 'gray',
-        label: 'Security-critical events (24h)',
+        label: 'Security-critical events (72h)',
         count: criticalAuditEvents,
         hint: criticalAuditEvents > 0 ? 'Permission or role denials' : 'No critical events',
         href: '/insights/audit',

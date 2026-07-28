@@ -1,6 +1,7 @@
 import { draftMode } from 'next/headers'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { DEFAULT_LOCALE, resolveLocalized, type Locale, type MaybeLocalized } from './localized'
+import { canonicalOpusPassHref } from './opus-pass-hrefs'
 
 export type HomepageWhyOpusPassContent = {
   headline: string
@@ -31,11 +32,11 @@ export const HOMEPAGE_WHY_OPUS_PASS_FALLBACK: HomepageWhyOpusPassContent = {
   floating_cta_href: '/sign-up',
   subheadline: 'Planning that actually feels effortless',
   body:
-    'Couples tell us everything just flows — invitations, live RSVPs, your guest list and a free wedding website all talk to each other, so nothing slips through the cracks. Spend less time on admin, and more time celebrating.',
+    'Couples tell us everything just flows — digital cards, live RSVPs, your guest list and a free wedding website all talk to each other, so nothing slips through the cracks. Spend less time on admin, and more time celebrating.',
   primary_button_label: 'How it works',
   primary_button_href: '/guests-and-rsvp',
   secondary_button_label: 'Browse designs',
-  secondary_button_href: '/invitations',
+  secondary_button_href: '/digital-cards/catalog',
 }
 
 // Stored shape: translatable fields may be a localized { en, sw } object or a
@@ -87,13 +88,13 @@ export async function loadHomepageWhyOpusPassContent(
         chip_title: resolveLocalized(stored.chip_title ?? F.chip_title, locale),
         chip_subtitle: resolveLocalized(stored.chip_subtitle ?? F.chip_subtitle, locale),
         floating_cta_label: resolveLocalized(stored.floating_cta_label ?? F.floating_cta_label, locale),
-        floating_cta_href: stored.floating_cta_href ?? F.floating_cta_href,
+        floating_cta_href: canonicalOpusPassHref(stored.floating_cta_href, F.floating_cta_href),
         subheadline: resolveLocalized(stored.subheadline ?? F.subheadline, locale),
         body: resolveLocalized(stored.body ?? F.body, locale),
         primary_button_label: resolveLocalized(stored.primary_button_label ?? F.primary_button_label, locale),
-        primary_button_href: stored.primary_button_href ?? F.primary_button_href,
+        primary_button_href: canonicalOpusPassHref(stored.primary_button_href, F.primary_button_href),
         secondary_button_label: resolveLocalized(stored.secondary_button_label ?? F.secondary_button_label, locale),
-        secondary_button_href: stored.secondary_button_href ?? F.secondary_button_href,
+        secondary_button_href: canonicalOpusPassHref(stored.secondary_button_href, F.secondary_button_href),
       }
     }
     return HOMEPAGE_WHY_OPUS_PASS_FALLBACK

@@ -3,10 +3,13 @@ import VendorsListClient from './VendorsListClient'
 import {
   DB_STATUS_TO_VENDOR_STATUS,
   VENDOR_STATUS_TO_DB,
+  isVendorVertical,
   type QueueHealth,
   type VendorAccount,
   type VendorStatus,
   type VendorStatusCounts,
+  type VendorVertical,
+  type VerticalCounts,
 } from './_lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -17,6 +20,7 @@ type VendorRow = {
   slug: string
   business_name: string
   category: string
+  vertical: string | null
   onboarding_status: string
   onboarding_started_at: string | null
   onboarding_completed_at: string | null
@@ -60,6 +64,11 @@ function parseStatus(raw: string | string[] | undefined): VendorStatus | 'all' {
   return 'all'
 }
 
+function parseVertical(raw: string | string[] | undefined): VendorVertical | 'all' {
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return isVendorVertical(value) ? value : 'all'
+}
+
 // Vendors awaiting admin review for longer than this threshold are flagged
 // as SLA-at-risk. Pulled out as a constant so the threshold is reviewable
 // in one place when ops calibrates the queue policy.
@@ -68,17 +77,24 @@ const SLA_HOURS = 48
 export default async function VendorsListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; sort?: string; letter?: string }>
+  searchParams: Promise<{
+    status?: string
+    q?: string
+    sort?: string
+    letter?: string
+    vertical?: string
+  }>
 }) {
   const params = await searchParams
   const status = parseStatus(params.status)
+  const vertical = parseVertical(params.vertical)
 
   const admin = createSupabaseAdminClient()
 
   let query = admin
     .from('vendors')
     .select(
-      `id, vendor_code, slug, business_name, category, onboarding_status,
+      `id, vendor_code, slug, business_name, category, vertical, onboarding_status,
        onboarding_started_at, onboarding_completed_at, suspended_at,
        created_at, updated_at, location, application_snapshot,
        cover_image, gallery_urls, user_id`,
@@ -89,6 +105,13 @@ export default async function VendorsListPage({
 
   if (status !== 'all') {
     query = query.eq('onboarding_status', VENDOR_STATUS_TO_DB[status])
+  }
+
+  // Vertical filters server-side rather than in the client like Category does.
+  // The roster is capped at 200 rows, so filtering after the fetch would search
+  // only the first 200 vendors and quietly under-report the smaller verticals.
+  if (vertical !== 'all') {
+    query = query.eq('vertical', vertical)
   }
 
   const { data: vendors, error } = await query.returns<VendorRow[]>()
@@ -173,6 +196,9 @@ export default async function VendorsListPage({
       publicId: v.vendor_code ?? v.id.slice(0, 8),
       businessName: v.business_name,
       category: v.category,
+      // NOT NULL with a 'service' default in the DB; the fallback only covers a
+      // row written before the verticals migration landed.
+      vertical: isVendorVertical(v.vertical) ? v.vertical : 'service',
       city: v.location?.city ?? v.location?.homeMarket ?? null,
       submittedByName,
       contactEmail: owner?.email ?? null,
@@ -198,12 +224,14 @@ export default async function VendorsListPage({
     }
   })
 
-  // Per-status rollup for the tab counts. One lightweight query — we only
-  // need the column, not the rest of the row.
+  // Rollup for the filter counts. One lightweight query — we only need the two
+  // columns, not the rest of the row. Each dimension is counted within the
+  // other's active filter, so the numbers describe what a click would actually
+  // return: status counts are scoped to the selected vertical, and vice versa.
   const { data: rollup } = await admin
     .from('vendors')
-    .select('onboarding_status')
-    .returns<Pick<VendorRow, 'onboarding_status'>[]>()
+    .select('onboarding_status, vertical')
+    .returns<Pick<VendorRow, 'onboarding_status' | 'vertical'>[]>()
 
   const counts: VendorStatusCounts = {
     awaiting_review: 0,
@@ -212,11 +240,26 @@ export default async function VendorsListPage({
     drafting: 0,
     active: 0,
     suspended: 0,
-    all: rollup?.length ?? 0,
+    all: 0,
+  }
+  const verticalCounts: VerticalCounts = {
+    service: 0,
+    gift_shop: 0,
+    attire_rings: 0,
+    all: 0,
   }
   for (const r of rollup ?? []) {
+    const rowVertical = isVendorVertical(r.vertical) ? r.vertical : 'service'
     const mapped = DB_STATUS_TO_VENDOR_STATUS[r.onboarding_status]
-    if (mapped) counts[mapped] += 1
+
+    if (vertical === 'all' || rowVertical === vertical) {
+      counts.all += 1
+      if (mapped) counts[mapped] += 1
+    }
+    if (status === 'all' || mapped === status) {
+      verticalCounts.all += 1
+      verticalCounts[rowVertical] += 1
+    }
   }
 
   // Queue health derives from the live awaiting-review queue plus historical
@@ -228,7 +271,9 @@ export default async function VendorsListPage({
     <VendorsListClient
       vendors={accounts}
       status={status}
+      vertical={vertical}
       counts={counts}
+      verticalCounts={verticalCounts}
       health={queueHealth}
       slaHours={SLA_HOURS}
     />

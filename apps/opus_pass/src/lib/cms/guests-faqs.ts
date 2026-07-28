@@ -34,7 +34,7 @@ export const GUESTS_FAQS_FALLBACK: GuestsFaqsContent = {
       id: 'paper',
       question: 'Can I send to a few guests by paper instead?',
       answer:
-        'Of course. Choose any design from /invitations and order a small premium pack (50–500 cards). We print and deliver in Dar, Arusha and Mwanza. Digital + paper, one event.',
+        'Of course. Choose any design from /digital-cards and order a small premium pack (50–500 cards). We print and deliver in Dar, Arusha and Mwanza. Digital + paper, one event.',
     },
     {
       id: 'older-guests',

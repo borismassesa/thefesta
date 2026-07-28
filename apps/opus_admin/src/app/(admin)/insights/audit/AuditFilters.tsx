@@ -10,7 +10,7 @@ import { useTransition } from 'react'
 
 const SEVERITIES = ['all', 'info', 'warn', 'error', 'critical'] as const
 const RANGES = [
-  { value: '24h', label: 'Last 24h' },
+  { value: '72h', label: 'Last 72h' },
   { value: '7d', label: 'Last 7 days' },
   { value: '30d', label: 'Last 30 days' },
   { value: 'all', label: 'All time' },

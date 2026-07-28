@@ -48,7 +48,7 @@ stripe.paymentIntents.create({
 - Funds ready for release
 
 ### Step 5: Fund Release
-- After 24 hours (or manual release)
+- After 48-72 hours (or manual release)
 - Transfer created to vendor's Stripe Connect account
 - 90% transferred to vendor
 - Status: `RELEASED`
@@ -159,7 +159,7 @@ stripe.transfers.create({
 2. ✅ Funds held in escrow automatically
 3. ✅ 10% platform fee collected immediately
 4. ✅ 90% vendor amount held until work completion
-5. ✅ Released after 24 hours (or manual release)
+5. ✅ Released after 48-72 hours (or manual release)
 6. ✅ Transferred to vendor on release
 
 **No payment method bypasses escrow** - all funds are protected and held until work is verified.

@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import ProductCard from './ProductCard'
-import { newArrivals } from '@/lib/registry-products'
+import { getNewArrivals } from '@/lib/products-db'
 
-export function NewArrivalsRow() {
-  const products = newArrivals(8)
+export async function NewArrivalsRow() {
+  const products = await getNewArrivals(8)
+  if (products.length === 0) return null
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 lg:px-8">

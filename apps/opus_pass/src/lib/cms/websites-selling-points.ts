@@ -20,7 +20,7 @@ export type WebsitesSellingPointsContent = {
 export const WEBSITES_SELLING_POINTS_FALLBACK: WebsitesSellingPointsContent = {
   heading: 'Built to fit your wedding',
   description:
-    'Everything you need for a seamless wedding experience, from beautifully designed websites, invitations, RSVPs, guest updates, registries, and every meaningful moment leading up to your big day.',
+    'Everything you need for a seamless wedding experience, from beautifully designed websites, digital cards, RSVPs, guest updates, registries, and every meaningful moment leading up to your big day.',
   items: [
     {
       id: 'designer-templates',
@@ -40,10 +40,10 @@ export const WEBSITES_SELLING_POINTS_FALLBACK: WebsitesSellingPointsContent = {
     },
     {
       id: 'match-invitations',
-      headline: 'Match your wedding invitations and save the dates',
+      headline: 'Match your wedding digital cards and save the dates',
       body: 'Whatever your style, our websites are made to match your invites and more.',
-      cta_label: 'Explore invitations',
-      cta_href: '/invitations',
+      cta_label: 'Explore digital cards',
+      cta_href: '/digital-cards',
       image: '/assets/images/flowers_pinky.jpg',
     },
   ],

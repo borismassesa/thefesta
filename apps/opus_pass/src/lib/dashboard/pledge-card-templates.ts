@@ -1,6 +1,6 @@
 /** A card design pulled from the invitation catalog, offered as a
  *  ready-made pledge-page cover (see `pledgeCardCatalog` in pledges/page.tsx,
- *  built from `loadInvitationProducts()`). */
+ *  built from `loadDigitalCardProducts()`). */
 export interface PledgeCardCatalogItem {
   id: string
   name: string

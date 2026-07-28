@@ -2,7 +2,7 @@ import 'server-only'
 
 import { createSupabaseAdminClient } from '@/lib/supabase'
 
-export type InvitationPaymentStatus =
+export type DigitalCardPaymentStatus =
   | 'pending'
   | 'processing'
   | 'paid'
@@ -10,7 +10,43 @@ export type InvitationPaymentStatus =
   | 'expired'
   | 'refunded'
 
-export type InvitationPaymentItem = {
+// Product family an order belongs to — mirrors invitation_orders.category
+// (set in opus_pass, see lib/payments/order-category.ts). What the Payments
+// console segments by.
+export type PaymentCategory =
+  | 'digital_card'
+  | 'thank_you_card'
+  | 'pledge_card'
+  | 'gift_registry'
+  | 'attire_rings'
+
+export const PAYMENT_CATEGORY_LABEL: Record<PaymentCategory, string> = {
+  digital_card: 'Digital Cards',
+  thank_you_card: 'Thank You Cards',
+  pledge_card: 'Pledge Cards',
+  gift_registry: 'Gift Registry',
+  attire_rings: 'Attire & Rings',
+}
+
+/** Singular label for a single payment's badge/copy. */
+export const PAYMENT_CATEGORY_BADGE: Record<PaymentCategory, string> = {
+  digital_card: 'Digital Card',
+  thank_you_card: 'Thank You Card',
+  pledge_card: 'Pledge Card',
+  gift_registry: 'Gift Registry',
+  attire_rings: 'Attire & Rings',
+}
+
+export function toCategory(value: unknown): PaymentCategory {
+  return value === 'thank_you_card' ||
+    value === 'pledge_card' ||
+    value === 'gift_registry' ||
+    value === 'attire_rings'
+    ? value
+    : 'digital_card'
+}
+
+export type DigitalCardPaymentItem = {
   id?: string
   name?: string
   /** Selected card's hero image (Supabase URL) for the review thumbnail. */
@@ -21,10 +57,11 @@ export type InvitationPaymentItem = {
   total?: number
 }
 
-export type InvitationPayment = {
+export type DigitalCardPayment = {
   id: string
   ref: string
-  status: InvitationPaymentStatus
+  status: DigitalCardPaymentStatus
+  category: PaymentCategory
   userId: string | null
   /** Which of the buyer's events this order's quota is assigned to — null
    *  until the couple assigns it (see OpusPass event-scoped credits). */
@@ -36,7 +73,7 @@ export type InvitationPayment = {
   contactName: string | null
   contactEmail: string
   contactPhone: string
-  items: InvitationPaymentItem[]
+  items: DigitalCardPaymentItem[]
   paymentMethod: string | null
   payerPhone: string | null
   payerName: string | null
@@ -52,10 +89,11 @@ export type InvitationPayment = {
   createdAt: string
 }
 
-type InvitationPaymentRow = {
+type DigitalCardPaymentRow = {
   id: string
   ref: string
-  status: InvitationPaymentStatus
+  status: DigitalCardPaymentStatus
+  category: string | null
   user_id: string | null
   event_id: string | null
   currency: string
@@ -82,14 +120,14 @@ type InvitationPaymentRow = {
 }
 
 const COLUMNS = `
-  id, ref, status, user_id, event_id, currency, subtotal, discount, amount_total,
+  id, ref, status, category, user_id, event_id, currency, subtotal, discount, amount_total,
   contact_name, contact_email, contact_phone, items, payment_method,
   payer_phone, payer_name, payment_reference, payment_label,
   payment_submitted_at, paid_at, reviewed_at, reviewed_by, review_note,
   customer_invoice_emailed_at, admin_notified_at, created_at
 `
 
-function parseItems(value: unknown): InvitationPaymentItem[] {
+function parseItems(value: unknown): DigitalCardPaymentItem[] {
   if (!Array.isArray(value)) return []
   return value
     .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
@@ -104,11 +142,12 @@ function parseItems(value: unknown): InvitationPaymentItem[] {
     }))
 }
 
-function mapPayment(row: InvitationPaymentRow): InvitationPayment {
+function mapPayment(row: DigitalCardPaymentRow): DigitalCardPayment {
   return {
     id: row.id,
     ref: row.ref,
     status: row.status,
+    category: toCategory(row.category),
     userId: row.user_id,
     eventId: row.event_id,
     currency: row.currency,
@@ -142,16 +181,17 @@ const REVIEW_STATUSES = ['processing', 'pending']
 
 export const PAYMENTS_PAGE_SIZE = 50
 
-export async function getInvitationPayments(
-  opts: { filter?: PaymentFilter; q?: string; limit?: number } = {},
-): Promise<InvitationPayment[]> {
-  const { filter = 'all', q, limit = PAYMENTS_PAGE_SIZE } = opts
+export async function getDigitalCardPayments(
+  opts: { filter?: PaymentFilter; category?: PaymentCategory; q?: string; limit?: number } = {},
+): Promise<DigitalCardPayment[]> {
+  const { filter = 'all', category, q, limit = PAYMENTS_PAGE_SIZE } = opts
   const supabase = createSupabaseAdminClient()
   let query = supabase
     .from('invitation_orders')
     .select(COLUMNS)
     .eq('provider', 'mpesa_lipa_namba')
 
+  if (category) query = query.eq('category', category)
   if (filter === 'review') query = query.in('status', REVIEW_STATUSES)
   else if (filter === 'paid') query = query.eq('status', 'paid')
   else if (filter === 'failed') query = query.eq('status', 'failed')
@@ -177,29 +217,40 @@ export async function getInvitationPayments(
     .limit(limit)
 
   if (error) throw new Error(error.message)
-  return ((data ?? []) as InvitationPaymentRow[]).map(mapPayment)
+  return ((data ?? []) as DigitalCardPaymentRow[]).map(mapPayment)
 }
 
-/** Totals for the KPI tiles — independent of the current filter/search. */
-export async function getInvitationPaymentSummary(): Promise<{
+/** Totals for the KPI tiles — scoped to the active category tab (but not the
+ *  status filter/search, so the tiles stay stable as you switch status). */
+export async function getDigitalCardPaymentSummary(
+  category?: PaymentCategory,
+): Promise<{
   review: number
   paid: number
   failed: number
   reviewValue: number
 }> {
   const supabase = createSupabaseAdminClient()
-  const base = () =>
-    supabase.from('invitation_orders').select('id', { count: 'exact', head: true }).eq('provider', 'mpesa_lipa_namba')
+  const base = () => {
+    const q = supabase
+      .from('invitation_orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('provider', 'mpesa_lipa_namba')
+    return category ? q.eq('category', category) : q
+  }
+
+  let reviewValueQuery = supabase
+    .from('invitation_orders')
+    .select('amount_total')
+    .eq('provider', 'mpesa_lipa_namba')
+    .in('status', REVIEW_STATUSES)
+  if (category) reviewValueQuery = reviewValueQuery.eq('category', category)
 
   const [reviewRes, paidRes, failedRes, reviewRows] = await Promise.all([
     base().in('status', REVIEW_STATUSES),
     base().eq('status', 'paid'),
     base().eq('status', 'failed'),
-    supabase
-      .from('invitation_orders')
-      .select('amount_total')
-      .eq('provider', 'mpesa_lipa_namba')
-      .in('status', REVIEW_STATUSES),
+    reviewValueQuery,
   ])
 
   const reviewValue = ((reviewRows.data ?? []) as { amount_total: string | number }[]).reduce(
@@ -213,6 +264,29 @@ export async function getInvitationPaymentSummary(): Promise<{
     failed: failedRes.count ?? 0,
     reviewValue,
   }
+}
+
+/** Count of payments per category (all statuses) — powers the category
+ *  sub-tabs. Only categories with at least one payment need a tab, plus the
+ *  ones we always show. Single round-trip: fetch categories and tally here. */
+export async function getPaymentCategoryCounts(): Promise<Record<PaymentCategory, number>> {
+  const supabase = createSupabaseAdminClient()
+  const { data } = await supabase
+    .from('invitation_orders')
+    .select('category')
+    .eq('provider', 'mpesa_lipa_namba')
+
+  const counts: Record<PaymentCategory, number> = {
+    digital_card: 0,
+    thank_you_card: 0,
+    pledge_card: 0,
+    gift_registry: 0,
+    attire_rings: 0,
+  }
+  for (const row of (data ?? []) as { category: string | null }[]) {
+    counts[toCategory(row.category)] += 1
+  }
+  return counts
 }
 
 // ── OpusPass send-credit usage (invites + entrance passes) ─────────────────

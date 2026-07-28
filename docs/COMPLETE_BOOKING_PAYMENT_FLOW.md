@@ -190,13 +190,13 @@ This document provides a comprehensive analysis of the complete flow from bookin
 └─────────────────────────────────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ STEP 12: Escrow Release (24h after completion)                   │
+│ STEP 12: Escrow Release (48-72h after completion)                │
 └─────────────────────────────────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ Automatic Release (Cron Job):                                  │
 │ - Runs every hour                                              │
-│ - Checks: work_completed = true AND work_completed_at < 24h ago │
+│ - Checks: work_completed = true AND work_completed_at < 72h ago │
 │ - Calls: release_escrow_funds()                                │
 │                                                                 │
 │ OR Manual Release:                                              │

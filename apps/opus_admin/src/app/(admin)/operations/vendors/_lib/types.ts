@@ -25,11 +25,31 @@ export type VendorCategory =
 
 export type AgreementStatus = 'signed' | 'pending' | 'declined'
 
+// Which business a vendor is actually in. Mirrors `vendors.vertical`
+// (migration 20260725000001_vendor_verticals), the column that decides which
+// public surface the vendor is published on: the wedding vendor directory, the
+// gift registry, or the Attire & Rings pages. Worth surfacing in admin because
+// a vendor filed under the wrong vertical shows up in the wrong catalogue.
+export const VENDOR_VERTICALS = ['service', 'gift_shop', 'attire_rings'] as const
+
+export type VendorVertical = (typeof VENDOR_VERTICALS)[number]
+
+export const VERTICAL_LABELS: Record<VendorVertical, string> = {
+  service: 'Wedding service',
+  gift_shop: 'Gift shop',
+  attire_rings: 'Attire & rings',
+}
+
+export function isVendorVertical(value: unknown): value is VendorVertical {
+  return typeof value === 'string' && (VENDOR_VERTICALS as readonly string[]).includes(value)
+}
+
 export interface VendorAccount {
   id: string
   publicId: string
   businessName: string
   category: string
+  vertical: VendorVertical
   city: string | null
   submittedByName: string | null
   contactEmail: string | null
@@ -48,6 +68,13 @@ export interface QueueHealth {
   inQueue: number
   avgReviewTimeDays: number
   slaAtRisk: number
+}
+
+export interface VerticalCounts {
+  service: number
+  gift_shop: number
+  attire_rings: number
+  all: number
 }
 
 export interface VendorStatusCounts {

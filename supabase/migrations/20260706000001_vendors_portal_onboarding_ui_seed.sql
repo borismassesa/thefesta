@@ -759,7 +759,7 @@ insert into website_page_sections (page_key, section_key, content, is_published)
     "sw": "Malipo hufanyaje kazi na lini?"
   },
   "payout.why.body1": {
-    "en": "We hold each booking’s funds in escrow. The deposit is released to your account within 24 hours of the couple confirming, and the balance is released within 48 hours after the event.",
+    "en": "We hold each booking’s funds in escrow. The deposit is released to your account within 48-72 hours of the couple confirming, and the balance is released within 48-72 hours after the event.",
     "sw": "Tunashikilia fedha za kila uhifadhi katika dhamana. Amana hutolewa kwenye akaunti yako ndani ya saa 24 baada ya wachumba kuthibitisha, na salio hutolewa ndani ya saa 48 baada ya tukio."
   },
   "payout.why.body2": {

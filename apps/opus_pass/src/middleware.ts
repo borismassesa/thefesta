@@ -10,9 +10,9 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 //   management, and the couple dashboard all key off the signed-in user).
 const isProtectedRoute = createRouteMatcher([
   '/my(.*)',
-  '/invitations/cart(.*)',
-  '/invitations/address(.*)',
-  '/invitations/checkout(.*)',
+  '/digital-cards/cart(.*)',
+  '/digital-cards/address(.*)',
+  '/digital-cards/checkout(.*)',
 ])
 
 export default clerkMiddleware(async (auth, req) => {

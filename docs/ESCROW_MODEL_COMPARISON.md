@@ -7,7 +7,7 @@
 1. Guest pays Airbnb at booking
 2. Airbnb holds the money (not immediately to host)
 3. Guest checks in
-4. **24 hours after check-in**, Airbnb releases payment to host
+4. **48-72 hours after check-in**, Airbnb releases payment to host
 5. If problem → Airbnb can pause/adjust payout
 
 **Characteristics:**
@@ -49,7 +49,7 @@
 
 | Aspect | Airbnb | Uber | OpusFesta |
 |--------|--------|------|----------|
-| **Holding Period** | Until check-in + 24h | Minimal (post-ride) | Until work completion |
+| **Holding Period** | Until check-in + 48-72h | Minimal (post-ride) | Until work completion |
 | **Release Trigger** | Check-in + time delay | Ride completion | Work completion + verification |
 | **Dispute Handling** | Yes | Limited | Yes |
 | **Platform Fee** | ~3% | ~25% | 10% |
@@ -84,9 +84,9 @@
 
 #### Option 1: Automatic Release (Recommended)
 - Work marked as completed
-- **24-48 hour window** for customer to dispute
+- **48-72 hour window** for customer to dispute
 - Auto-release if no dispute
-- Similar to Airbnb's 24h after check-in
+- Similar to Airbnb's 48-72h after check-in
 
 #### Option 2: Manual Release
 - Admin reviews work completion
@@ -104,7 +104,7 @@
 ```typescript
 {
   autoReleaseEnabled: true,
-  releaseDelayHours: 24, // Like Airbnb's 24h after check-in
+  releaseDelayHours: 72, // Like Airbnb's 48-72h after check-in
   customerConfirmationRequired: false, // Optional
   disputeWindowHours: 48,
   adminReviewThreshold: 10000 // TZS - manual review for large amounts
@@ -112,7 +112,7 @@
 ```
 
 ### Release Triggers
-1. **Work Completed** + **24 hours** → Auto-release
+1. **Work Completed** + **48-72 hours** → Auto-release
 2. **Work Completed** + **Customer Confirms** → Immediate release
 3. **Work Completed** + **Admin Approves** → Manual release
 4. **Dispute Opened** → Hold funds until resolved
@@ -147,7 +147,7 @@
 
 ## Next Steps
 
-1. **Implement Auto-Release**: 24-48h after work completion
+1. **Implement Auto-Release**: 48-72h after work completion
 2. **Add Dispute System**: Customer can open disputes
 3. **Customer Confirmation**: Optional customer approval
 4. **Notifications**: Alert vendors when funds ready

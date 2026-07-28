@@ -335,8 +335,8 @@ function PublishedModal({ url, onClose }: { url: string; onClose: () => void }) 
   )
 }
 
-// ── Matching invitation cards (the "Save the date" preview) ──────────────────
-//  A flat-lay of the couple's DIGITAL invitation cards that mirrors the chosen
+// ── Matching digital cards (the "Save the date" preview) ──────────────────
+//  A flat-lay of the couple's DIGITAL cards that mirrors the chosen
 //  website design's palette, fonts and motif — so the wedding website and the
 //  digital cards share one look. OpusFesta is digital-first; this is about the
 //  matching card suite, not paper prints.
@@ -364,16 +364,16 @@ function MatchingCards({ preset, meta }: { preset: DesignPreset; meta: BuilderMe
         </div>
       </div>
       <h3 className="mt-8 text-center text-[26px] font-bold tracking-tight text-[#1A1A1A]">
-        Your website matches your invitation cards, too
+        Your website matches your digital cards, too
       </h3>
       <p className="mx-auto mt-2 max-w-md text-center text-[15px] text-[#1A1A1A]/55">
         Your digital cards carry the same palette, fonts and feel — one style across your whole celebration.
       </p>
       <Link
-        href="/invitations/catalog"
+        href="/digital-cards/catalog"
         className="mx-auto mt-5 block w-fit rounded-full bg-[#1A1A1A] px-8 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-black"
       >
-        See matching invitation cards
+        See matching digital cards
       </Link>
     </div>
   )

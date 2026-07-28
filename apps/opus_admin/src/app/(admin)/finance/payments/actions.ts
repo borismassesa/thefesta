@@ -6,17 +6,52 @@ import { getCallerEmail, requirePermission } from '@/lib/admin-auth'
 import { insertEntitlementAdjustment } from '@/lib/entitlements'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
 import { renderEmail, plaintextLines } from '@/lib/email-shell'
-import type { InvitationPaymentStatus } from './queries'
+import { fetchInvoiceAttachment } from '@/lib/opus-pass-invoice'
+import { PAYMENT_CATEGORY_BADGE, toCategory, type DigitalCardPaymentStatus } from './queries'
 
 type PaymentEmailRow = {
   id: string
   ref: string
   user_id: string | null
-  status: InvitationPaymentStatus
+  status: DigitalCardPaymentStatus
   amount_total: string | number
   contact_name: string | null
   contact_email: string
   payment_reference: string | null
+  kind: string
+  category: string | null
+}
+
+/**
+ * Product orders finalize through a shared DB function so stock decrement,
+ * registry-claim confirmation and vendor earnings happen exactly once — the
+ * same RPC opus_pass calls on a Selcom paid order (idempotent). Then a
+ * best-effort call into opus_pass runs the couple notification + guest/couple
+ * receipts (which live there, next to the WhatsApp/email providers).
+ */
+async function finalizeProductOrderSideEffects(orderId: string, ref: string): Promise<void> {
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase.rpc('finalize_product_order', { p_order_id: orderId })
+  if (error) console.error('[product-payments] finalize_product_order RPC failed', error)
+
+  const base = process.env.NEXT_PUBLIC_OPUS_PASS_URL
+  const secret = process.env.OPUS_PASS_REVALIDATE_SECRET
+  if (!base || !secret) return
+  try {
+    await fetch(`${base.replace(/\/$/, '')}/api/payments/notify-paid`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+      body: JSON.stringify({ ref }),
+    })
+  } catch (error) {
+    console.error('[product-payments] notify-paid call failed', error)
+  }
+}
+
+async function releaseProductOrder(orderId: string): Promise<void> {
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase.rpc('release_product_order', { p_order_id: orderId })
+  if (error) console.error('[product-payments] release_product_order RPC failed', error)
 }
 
 function clean(value: FormDataEntryValue | null): string {
@@ -31,7 +66,7 @@ async function getPayment(id: string): Promise<PaymentEmailRow> {
   const supabase = createSupabaseAdminClient()
   const { data, error } = await supabase
     .from('invitation_orders')
-    .select('id, ref, user_id, status, amount_total, contact_name, contact_email, payment_reference')
+    .select('id, ref, user_id, status, amount_total, contact_name, contact_email, payment_reference, kind, category')
     .eq('id', id)
     .eq('provider', 'mpesa_lipa_namba')
     .single<PaymentEmailRow>()
@@ -55,34 +90,9 @@ async function createCustomerNotification(args: {
       body: args.body,
       href: '/my/dashboard/orders',
     })
-    if (error) console.error('[invitation-payments] notification insert failed', error)
+    if (error) console.error('[digital-card-payments] notification insert failed', error)
   } catch (error) {
-    console.error('[invitation-payments] notification insert threw', error)
-  }
-}
-
-// Fetch the persisted order's invoice PDF from opus_pass (authenticated, ref
-// mode). Best-effort — a failure must never block the approval email.
-async function fetchInvoicePdf(
-  ref: string,
-): Promise<{ filename: string; content: Buffer } | null> {
-  const base = process.env.NEXT_PUBLIC_OPUS_PASS_URL
-  const secret = process.env.OPUS_PASS_REVALIDATE_SECRET
-  if (!base || !secret) return null
-  try {
-    const res = await fetch(`${base.replace(/\/$/, '')}/api/invoice`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-      body: JSON.stringify({ ref }),
-    })
-    if (!res.ok) {
-      console.error(`[invitation-payments] invoice fetch failed: ${res.status}`)
-      return null
-    }
-    return { filename: `OpusFesta-Invoice-${ref}.pdf`, content: Buffer.from(await res.arrayBuffer()) }
-  } catch (error) {
-    console.error('[invitation-payments] invoice fetch error', error)
-    return null
+    console.error('[digital-card-payments] notification insert threw', error)
   }
 }
 
@@ -93,22 +103,24 @@ async function emailCustomer(args: {
 }) {
   if (!isEmailConfigured()) return
   const approved = args.kind === 'approved'
+  const label = PAYMENT_CATEGORY_BADGE[toCategory(args.payment.category)]
+  const labelLower = label.toLowerCase()
   const subject = approved
     ? `Payment approved - ${args.payment.ref}`
     : `Payment update - ${args.payment.ref}`
   const html = renderEmail({
     preheader: approved
-      ? `Your invitation payment ${args.payment.ref} has been approved.`
-      : `We need help reconciling invitation payment ${args.payment.ref}.`,
-    eyebrow: 'Invitation Payment',
+      ? `Your ${labelLower} payment ${args.payment.ref} has been approved.`
+      : `We need help reconciling ${labelLower} payment ${args.payment.ref}.`,
+    eyebrow: `${label} Payment`,
     heading: approved ? 'Your payment is approved' : 'Payment needs review',
     referenceCode: args.payment.ref,
     sections: [
       {
         kind: 'paragraph',
         text: approved
-          ? 'Finance has confirmed your Lipa Namba payment. Your invitation order is now confirmed and moving into design.'
-          : 'Finance could not approve the payment details submitted for this invitation order. Please reply with the correct payment SMS/reference or contact OpusFesta support.',
+          ? `Finance has confirmed your Lipa Namba payment. Your ${labelLower} order is now confirmed and moving into design.`
+          : `Finance could not approve the payment details submitted for this ${labelLower} order. Please reply with the correct payment SMS/reference or contact OpusFesta support.`,
       },
       {
         kind: 'detailRows',
@@ -124,11 +136,10 @@ async function emailCustomer(args: {
       // The review note is an INTERNAL finance record — never surface it to the
       // customer. It stays on the order (review_note) and shows in the admin only.
     ],
-    footerNote:
-      'You received this because you placed an invitation order with OpusFesta. This is an automated message about your purchase.',
+    footerNote: `You received this because you placed a ${labelLower} order with OpusFesta. This is an automated message about your purchase.`,
   })
   // The paid/confirmed invoice PDF accompanies the approval email.
-  const invoice = approved ? await fetchInvoicePdf(args.payment.ref) : null
+  const invoice = approved ? await fetchInvoiceAttachment(args.payment.ref) : null
   await sendEmail({
     to: args.payment.contact_email,
     subject,
@@ -143,7 +154,7 @@ async function emailCustomer(args: {
   })
 }
 
-export async function approveInvitationPayment(formData: FormData): Promise<void> {
+export async function approveDigitalCardPayment(formData: FormData): Promise<void> {
   await requirePermission('finance.write')
 
   const id = clean(formData.get('id'))
@@ -175,21 +186,28 @@ export async function approveInvitationPayment(formData: FormData): Promise<void
     .eq('provider', 'mpesa_lipa_namba')
   if (error) throw new Error(error.message)
 
-  await Promise.all([
-    emailCustomer({ payment, kind: 'approved', note }).catch((error) => {
-      console.error('[invitation-payments] approval email failed', error)
-    }),
-    createCustomerNotification({
-      userId: payment.user_id,
-      type: 'payment_confirmed',
-      title: 'Invitation payment approved',
-      body: `${formatTzs(payment.amount_total)} confirmed${payment.payment_reference ? ` · ref ${payment.payment_reference}` : ''}`,
-    }),
-  ])
+  if (payment.kind === 'product') {
+    // Product order — the couple notification + guest/couple receipts run in
+    // opus_pass via finalize; the invitation-flavoured customer email/notice
+    // below doesn't apply (the buyer is an unauthenticated guest).
+    await finalizeProductOrderSideEffects(payment.id, payment.ref)
+  } else {
+    await Promise.all([
+      emailCustomer({ payment, kind: 'approved', note }).catch((error) => {
+        console.error('[digital-card-payments] approval email failed', error)
+      }),
+      createCustomerNotification({
+        userId: payment.user_id,
+        type: 'payment_confirmed',
+        title: `${PAYMENT_CATEGORY_BADGE[toCategory(payment.category)]} payment approved`,
+        body: `${formatTzs(payment.amount_total)} confirmed${payment.payment_reference ? ` · ref ${payment.payment_reference}` : ''}`,
+      }),
+    ])
+  }
   revalidatePath('/finance/payments')
 }
 
-export async function rejectInvitationPayment(formData: FormData): Promise<void> {
+export async function rejectDigitalCardPayment(formData: FormData): Promise<void> {
   await requirePermission('finance.write')
 
   const id = clean(formData.get('id'))
@@ -219,14 +237,17 @@ export async function rejectInvitationPayment(formData: FormData): Promise<void>
     .eq('provider', 'mpesa_lipa_namba')
   if (error) throw new Error(error.message)
 
+  // Free the registry units a rejected product purchase was holding.
+  if (payment.kind === 'product') await releaseProductOrder(payment.id)
+
   await Promise.all([
     emailCustomer({ payment, kind: 'rejected', note }).catch((error) => {
-      console.error('[invitation-payments] rejection email failed', error)
+      console.error('[digital-card-payments] rejection email failed', error)
     }),
     createCustomerNotification({
       userId: payment.user_id,
       type: 'system',
-      title: 'Invitation payment needs attention',
+      title: `${PAYMENT_CATEGORY_BADGE[toCategory(payment.category)]} payment needs attention`,
       body: note,
     }),
   ])

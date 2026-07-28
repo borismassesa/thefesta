@@ -12,13 +12,13 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useInvitationProducts } from '@/hooks/useInvitationProducts';
-import { useInvitationCategories } from '@/hooks/useInvitationCategories';
+import { useDigitalCardProducts } from '@/hooks/useDigitalCardProducts';
+import { useDigitalCardCategories } from '@/hooks/useDigitalCardCategories';
 import { useFromGuestPrice } from '@/hooks/useFromGuestPrice';
 import { useLikedDesigns } from '@/hooks/useLikedDesigns';
 import { useCart } from '@/hooks/useCart';
-import type { InvitationProduct } from '@/types/invitations';
-import { matchesCategory } from '@/lib/api/invitation-categories';
+import type { DigitalCardProduct } from '@/types/digital-cards';
+import { matchesCategory } from '@/lib/api/digital-card-categories';
 import { ACCENT, ON_ACCENT } from '@/theme/brand';
 import { useTheme } from '@/theme/useTheme';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -71,8 +71,8 @@ function buildFaqs(label: string) {
       answer: `Absolutely. A digital send reaches guests instantly and costs less, a great option if you're working with a tight timeline or budget.`,
     },
     {
-      question: `Do ${label} need to match our invitation suite?`,
-      answer: `It's a nice touch but not required. Many couples choose a simpler, more casual design here and save the fuller suite for formal invitations.`,
+      question: `Do ${label} need to match our digital card suite?`,
+      answer: `It's a nice touch but not required. Many couples choose a simpler, more casual design here and save the fuller suite for formal digital cards.`,
     },
     {
       question: 'Should we include our wedding website URL?',
@@ -91,7 +91,7 @@ function DesignCard({
   liked,
   onToggleLike,
 }: {
-  product: InvitationProduct;
+  product: DigitalCardProduct;
   fromGuestPrice: number;
   liked: boolean;
   onToggleLike: () => void;
@@ -200,8 +200,8 @@ export default function CardsScreen() {
     tab?: TopTab;
   }>();
   const { editorial } = useTheme();
-  const products = useInvitationProducts();
-  const categories = useInvitationCategories();
+  const products = useDigitalCardProducts();
+  const categories = useDigitalCardCategories();
   const fromGuestPriceQuery = useFromGuestPrice();
   const fromGuestPrice = fromGuestPriceQuery.data ?? 0;
   const { width: windowWidth } = useWindowDimensions();

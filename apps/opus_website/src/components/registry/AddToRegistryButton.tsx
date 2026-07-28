@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Gift, Minus, Plus } from 'lucide-react'
+import { Check, Minus, Plus, ShoppingBag } from 'lucide-react'
 import { toast } from 'sonner'
 import { addToRegistryBag } from '@/lib/registry-storage'
 import type { Product } from '@/lib/registry-products'
@@ -27,7 +27,7 @@ export default function AddToRegistryButton({ product, variant = 'card', quantit
       price: product.price,
       quantity,
     })
-    toast.success(`Added "${product.name}" to your registry picks`)
+    toast.success(`Added "${product.name}" to your cart`)
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
   }
@@ -56,8 +56,8 @@ export default function AddToRegistryButton({ product, variant = 'card', quantit
           onClick={onAdd}
           className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gray-900 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
         >
-          {added ? <Check size={16} /> : <Gift size={16} />}
-          {added ? 'Added to your picks' : 'Add to Registry'}
+          {added ? <Check size={16} /> : <ShoppingBag size={16} />}
+          {added ? 'Added to cart' : 'Add to cart'}
         </button>
       </div>
     )
@@ -68,8 +68,8 @@ export default function AddToRegistryButton({ product, variant = 'card', quantit
       onClick={onAdd}
       className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 transition hover:border-gray-900 hover:bg-gray-900 hover:text-white"
     >
-      {added ? <Check size={13} /> : <Gift size={13} />}
-      {added ? 'Added' : 'Add to Registry'}
+      {added ? <Check size={13} /> : <ShoppingBag size={13} />}
+      {added ? 'Added' : 'Add to cart'}
     </button>
   )
 }

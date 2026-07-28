@@ -563,7 +563,7 @@ export default function OrdersManager({
           title={strings.empty_title}
           description={strings.empty_description}
           action={
-            <Link href="/invitations/catalog">
+            <Link href="/digital-cards/catalog">
               <Button>
                 <ArrowRight className="h-4 w-4" /> {strings.empty_action}
               </Button>

@@ -13,13 +13,13 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>
-          OpusPass is a digital wedding-invitation and RSVP service operated by
+          OpusPass is a digital wedding-card and RSVP service operated by
           OpusFesta. These Terms of Use are an agreement between you and OpusFesta
           (&ldquo;OpusPass&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;) and govern your access to and use of our
           websites, apps and services (together, the &ldquo;Service&rdquo;).
         </p>
         <p>
-          By creating an account, sending an invitation or otherwise using the
+          By creating an account, sending a digital card or otherwise using the
           Service, you agree to these terms. If you don&rsquo;t agree, please don&rsquo;t use
           OpusPass.
         </p>
@@ -52,7 +52,7 @@ const sections: LegalSection[] = [
           You keep ownership of everything you add to OpusPass — your event details,
           photos, wording and the guest list you build or import (&ldquo;Your Content&rdquo;).
           You grant us a limited licence to host, store and display Your Content
-          solely to operate the Service for you, such as rendering your invitation and
+          solely to operate the Service for you, such as rendering your digital card and
           delivering it to the guests you choose.
         </p>
         <p>
@@ -90,7 +90,7 @@ const sections: LegalSection[] = [
           shown.
         </p>
         <p>
-          Because digital invitation products are delivered immediately and
+          Because digital card products are delivered immediately and
           personalised to your event, purchases are generally non-refundable except
           where required by law or stated otherwise at checkout.
         </p>
@@ -104,7 +104,7 @@ const sections: LegalSection[] = [
       <p>
         The OpusPass name, logo, designs, templates, fonts and software are owned by
         OpusFesta or our licensors and are protected by intellectual-property laws.
-        Using our templates to create your invitation doesn&rsquo;t transfer ownership of
+        Using our templates to create your digital card doesn&rsquo;t transfer ownership of
         the underlying design to you. See our{' '}
         <a href="/copyright">Copyright &amp; IP policy</a> for how to report
         infringement.
@@ -191,7 +191,7 @@ export default function TermsPage() {
       intro={
         <p>
           Welcome to OpusPass. These terms explain the rules for using our
-          invitation and RSVP service, what you can expect from us, and what we
+          digital-card and RSVP service, what you can expect from us, and what we
           expect from you. We&rsquo;ve kept them as plain as we can.
         </p>
       }

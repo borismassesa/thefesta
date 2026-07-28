@@ -331,7 +331,7 @@ const CATEGORY_TEMPLATES: Partial<Record<VendorCategoryId, CategoryTemplate>> = 
       {
         question: 'How long until we see our photos?',
         answer:
-          'Sneak peeks within 48 hours, and the full edited gallery within 3 weeks. We also deliver social-ready squares for Instagram inside a week.',
+          'Sneak peeks in 48-72 hours, and the full edited gallery within 3 weeks. We also deliver social-ready squares for Instagram inside a week.',
       },
       {
         question: 'Do you shoot film or digital?',
@@ -380,7 +380,7 @@ const CATEGORY_TEMPLATES: Partial<Record<VendorCategoryId, CategoryTemplate>> = 
       'Beautiful images and colour grading. A few shots I wish we had gotten, but overall a lovely gallery that we\'ll treasure.',
       'The drone footage is jaw-dropping. Having aerial shots of the ceremony and reception makes the album feel like a magazine feature.',
       'They worked seamlessly with our videographer and coordinator. No turf battles, just a team that made everyone look good.',
-      'Could not be happier. The sneak peeks arrived 24 hours after the wedding and kept us floating on the honeymoon high for weeks.',
+      'Could not be happier. The sneak peeks arrived 48-72 hours after the wedding and kept us floating on the honeymoon high for weeks.',
     ],
   },
 
@@ -786,7 +786,7 @@ const TEAM_BIOS = [
   'Certified drone operator and licensed driver; handles our aerial coverage.',
 ]
 
-const RESPONSE_TIMES = ['Within an hour', 'Within 2 hours', 'Within 4 hours', 'Within 24 hours']
+const RESPONSE_TIMES = ['Within an hour', 'Within 2 hours', 'Within 4 hours', 'Within 72 hours']
 const LANGUAGE_SETS: string[][] = [
   ['English', 'Swahili'],
   ['English', 'Swahili', 'French'],

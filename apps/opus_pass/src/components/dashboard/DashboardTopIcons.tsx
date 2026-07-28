@@ -7,7 +7,7 @@ import NotificationsBell from '@/components/NotificationsBell'
 import { useFavorites } from '@/components/providers/FavoritesProvider'
 
 // Shared right-aligned icon cluster for the dashboard header (desktop + mobile).
-// Message → vendor inquiries; Heart → saved designs (/invitations/favorites);
+// Message → vendor inquiries; Heart → saved designs (/digital-cards/favorites);
 // Bell + Cart reuse the existing navbar components so behaviour stays identical
 // to the public site (unread polling, cart count).
 const ICON_BUTTON =
@@ -22,7 +22,7 @@ export default function DashboardTopIcons() {
         <MessagesSquare size={18} />
       </Link>
       <Link
-        href="/invitations/favorites"
+        href="/digital-cards/favorites"
         aria-label={count > 0 ? `Favorites (${count} saved)` : 'Favorites'}
         className={ICON_BUTTON}
       >

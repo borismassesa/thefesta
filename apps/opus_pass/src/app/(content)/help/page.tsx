@@ -10,7 +10,7 @@ import {
   ArrowRight,
   MessageCircle,
 } from 'lucide-react'
-import { FAQItem } from '@/app/invitations/FAQAccordion'
+import { FAQItem } from '@/app/digital-cards/FAQAccordion'
 import { getLocale } from '@/lib/cms/locale'
 import { loadUiStrings, type HelpStrings } from '@/lib/cms/ui-strings'
 
@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Help Centre | OpusPass',
   description:
-    'Find answers about invitations, RSVPs, payments and your wedding website — or reach the OpusPass team directly. We reply within one business day.',
+    'Find answers about digital cards, RSVPs, payments and your wedding website — or reach the OpusPass team directly. We reply within one business day.',
 }
 
 export default async function HelpCentrePage() {
@@ -32,7 +32,7 @@ export default async function HelpCentrePage() {
   const topics: { Icon: typeof PlayCircle; titleKey: keyof HelpStrings; bodyKey: keyof HelpStrings; ctaKey: keyof HelpStrings; href: string }[] = [
     { Icon: PlayCircle, titleKey: 'topic_getting_started_title', bodyKey: 'topic_getting_started_body', ctaKey: 'topic_getting_started_cta', href: '/' },
     { Icon: CreditCard, titleKey: 'topic_pricing_title', bodyKey: 'topic_pricing_body', ctaKey: 'topic_pricing_cta', href: '/pricing' },
-    { Icon: Ticket, titleKey: 'topic_invitations_title', bodyKey: 'topic_invitations_body', ctaKey: 'topic_invitations_cta', href: '/invitations' },
+    { Icon: Ticket, titleKey: 'topic_invitations_title', bodyKey: 'topic_invitations_body', ctaKey: 'topic_invitations_cta', href: '/digital-cards' },
     { Icon: Users, titleKey: 'topic_guests_title', bodyKey: 'topic_guests_body', ctaKey: 'topic_guests_cta', href: '/guests-and-rsvp' },
     { Icon: Globe, titleKey: 'topic_website_title', bodyKey: 'topic_website_body', ctaKey: 'topic_website_cta', href: '/websites' },
     { Icon: Mail, titleKey: 'topic_contact_title', bodyKey: 'topic_contact_body', ctaKey: 'topic_contact_cta', href: '/contact' },

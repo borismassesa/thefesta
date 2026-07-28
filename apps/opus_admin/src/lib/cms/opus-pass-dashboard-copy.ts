@@ -200,7 +200,7 @@ export const DASHBOARD_COPY_PUBLIC_PATH: Record<DashboardCopySlug, string> = {
 
 export const DASHBOARD_COPY_LABEL: Record<DashboardCopySlug, string> = {
   home: 'Dashboard home',
-  invitations: 'Invitations',
+  invitations: 'Digital Cards',
   guests: 'Guest list',
   rsvps: 'RSVPs',
   website: 'Wedding website',

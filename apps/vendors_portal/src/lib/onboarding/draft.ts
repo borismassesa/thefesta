@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { useActiveVendorId } from './active-vendor-context'
 import type { PackageDraft } from './packages'
+import type { VendorVertical } from './verticals'
 import {
   emptyPayoutEntry,
   hasCompletePayout,
@@ -104,6 +105,10 @@ export type CancellationLevel = 'flexible' | 'moderate' | 'strict' | null
 export type ReschedulePolicy = 'one-free' | 'unlimited' | 'none' | null
 
 export type OnboardingDraft = {
+  // The first fork in the wizard: wedding service vs gift shop vs attire &
+  // rings. Decides which categories are offered, which steps are asked, and
+  // which public surface the vendor lands on. Null until the vendor chooses.
+  vertical: VendorVertical | null
   categoryId: string | null
   customCategoryLabel: string
   vowsAccepted: boolean
@@ -221,6 +226,7 @@ function storageKey(userId: string, slot: string): string {
 }
 
 const EMPTY: OnboardingDraft = {
+  vertical: null,
   categoryId: null,
   customCategoryLabel: '',
   vowsAccepted: false,

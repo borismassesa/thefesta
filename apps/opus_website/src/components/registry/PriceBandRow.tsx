@@ -1,8 +1,9 @@
 import ProductCard from './ProductCard'
-import { productsUnder, type PriceBand } from '@/lib/registry-products'
+import type { PriceBand } from '@/lib/registry-products'
+import { getProductsUnder } from '@/lib/products-db'
 
-export function PriceBandRow({ band }: { band: PriceBand }) {
-  const products = productsUnder(band.maxTzs, 6)
+export async function PriceBandRow({ band }: { band: PriceBand }) {
+  const products = await getProductsUnder(band.maxTzs, 6)
   if (products.length === 0) return null
 
   return (

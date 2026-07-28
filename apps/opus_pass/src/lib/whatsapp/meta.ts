@@ -173,6 +173,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
   async sendLinkRequest(kind: LinkRequestKind, send: LinkSend): Promise<SendResult> {
     const linkCfg = readLinkTemplateConfig(kind)
     if (!linkCfg) return { ok: false, error: `WhatsApp ${kind} template is not configured` }
+    const urlSuffix = send.eventId ? `${send.token}?event=${send.eventId}` : send.token
     return this.post({
       messaging_product: 'whatsapp',
       to: send.to,
@@ -190,8 +191,9 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
             ],
           },
           // The CTA button's base URL (e.g. https://opuspass.opusfesta.com/collect/{{1}})
-          // is fixed in the approved template; only the trailing token is dynamic.
-          { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: send.token }] },
+          // is fixed in the approved template; only the trailing token/query
+          // suffix is dynamic.
+          { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: urlSuffix }] },
         ],
       },
     })

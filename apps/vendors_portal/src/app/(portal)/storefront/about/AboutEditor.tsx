@@ -34,6 +34,7 @@ import { LogoUpload } from '@/components/onboard/LogoUpload'
 import { saveProfile } from './actions'
 import { saveProfileFields, uploadStorefrontPhoto } from '../sections/actions'
 import { getStorefrontSections } from '@/lib/storefront/completion'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 import { profilesEqual, type DbProfile } from './mapping'
 import { usePortalT, type Translator } from '@/components/providers/PortalUIStringsProvider'
 
@@ -166,11 +167,12 @@ export default function AboutEditor({
   // Resolve the next storefront section so the bottom bar's "Next" button
   // mirrors the flow on every other section page. Same helper the sidebar
   // uses, so the order stays in sync.
+  const vertical = useVendorVertical()
   const nextHref = useMemo(() => {
-    const sections = getStorefrontSections(draft)
+    const sections = getStorefrontSections(draft, vertical)
     const idx = sections.findIndex((s) => s.id === 'about')
     return idx >= 0 && idx < sections.length - 1 ? sections[idx + 1].href : null
-  }, [draft])
+  }, [draft, vertical])
 
   const onNext = () => {
     if (nextHref) router.push(nextHref)

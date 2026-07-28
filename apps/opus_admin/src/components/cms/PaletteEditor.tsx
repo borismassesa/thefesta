@@ -1,11 +1,11 @@
 'use client'
 
 import { Plus, X, GripVertical } from 'lucide-react'
-import type { InvitationPalette } from '@/lib/cms/opus-pass-invitations-products'
+import type { DigitalCardPalette } from '@/lib/cms/opus-pass-digital-cards-products'
 
 const MAX_PALETTES = 5
 
-const PALETTE_ROLES: { key: keyof Omit<InvitationPalette, 'name'>; label: string }[] = [
+const PALETTE_ROLES: { key: keyof Omit<DigitalCardPalette, 'name'>; label: string }[] = [
   { key: 'background',   label: 'Background' },
   { key: 'surface',      label: 'Surface' },
   { key: 'accent',       label: 'Accent' },
@@ -14,7 +14,7 @@ const PALETTE_ROLES: { key: keyof Omit<InvitationPalette, 'name'>; label: string
   { key: 'muted',        label: 'Muted' },
 ]
 
-const emptyPalette = (): InvitationPalette => ({
+const emptyPalette = (): DigitalCardPalette => ({
   name: '',
   background: '#FBF7F2',
   surface: '#FFFFFF',
@@ -31,12 +31,12 @@ export function PaletteEditor({
   value: valueProp,
   onChange,
 }: {
-  value: InvitationPalette[] | undefined | null
-  onChange: (v: InvitationPalette[]) => void
+  value: DigitalCardPalette[] | undefined | null
+  onChange: (v: DigitalCardPalette[]) => void
 }) {
   const value = valueProp ?? []
 
-  function updatePalette(i: number, patch: Partial<InvitationPalette>) {
+  function updatePalette(i: number, patch: Partial<DigitalCardPalette>) {
     onChange(value.map((p, idx) => (idx === i ? { ...p, ...patch } : p)))
   }
 

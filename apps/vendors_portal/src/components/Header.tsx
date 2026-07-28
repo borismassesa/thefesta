@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { useOnboardingDraft } from '@/lib/onboarding/draft'
 import { getStorefrontSections } from '@/lib/storefront/completion'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 import { bookings } from '@/lib/mock-data'
 import { eventDateLabel, relativeDays } from '@/lib/bookings'
 import { usePortalT, type Translator } from '@/components/providers/PortalUIStringsProvider'
@@ -62,10 +63,17 @@ function buildCrumbs(pathname: string, segmentLabels: Record<string, string>): C
 
 function useStorefrontHeading(pathname: string, t: Translator): PageHeading | null {
   const { draft, hydrated } = useOnboardingDraft()
+  const vertical = useVendorVertical()
   if (!pathname.startsWith('/storefront')) return null
+  // Products is a moderation-driven tab, not part of the completeness-tracked
+  // onboarding sections, so it isn't in getStorefrontSections — give it a
+  // heading here.
+  if (pathname.startsWith('/storefront/products')) {
+    return { title: 'Products', subtitle: 'The goods couples and guests can buy from your shop.' }
+  }
   const fallback = { title: t('storefront_fallback_title'), subtitle: t('storefront_fallback_subtitle') }
   if (!hydrated) return fallback
-  const section = getStorefrontSections(draft).find(
+  const section = getStorefrontSections(draft, vertical).find(
     (s) => pathname === s.href || pathname.startsWith(s.href + '/'),
   )
   if (!section) return fallback

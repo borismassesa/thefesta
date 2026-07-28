@@ -12,6 +12,12 @@ const isPublicRoute = createRouteMatcher([
   // Admin-requested document upload — authorized by a per-request token in the
   // URL, not a Clerk session. The vendor uploads without logging in.
   '/upload(.*)',
+  // Cross-deployment cache bust from the admin's CMS publish flows — authorized
+  // by the VENDORS_PORTAL_REVALIDATE_SECRET bearer header the route checks
+  // itself, not a Clerk session. Without this the server-to-server POST is
+  // bounced to /sign-in, which answers 200, so the admin sees a successful
+  // publish while the public page keeps serving stale content.
+  '/api/revalidate',
 ])
 
 export default clerkMiddleware(

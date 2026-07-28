@@ -29,7 +29,7 @@ const jakarta      = Plus_Jakarta_Sans({ weight: ['300','400','500','600','700']
 export const metadata: Metadata = {
   title: 'OpusPass — Your wedding, in one digital pass',
   description:
-    'Digital invitations, live RSVP tracking, and a beautiful wedding website — all in one pass. Free to start. Built for couples in Tanzania.',
+    'Digital cards, live RSVP tracking, and a beautiful wedding website — all in one pass. Free to start. Built for couples in Tanzania.',
   metadataBase: new URL(BASE),
   icons: {
     icon: [
@@ -74,13 +74,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     '@type': 'Organization',
     name: 'OpusPass',
     url: BASE,
-    description: 'Digital invitations, RSVP tracking, and wedding websites for couples in Tanzania.',
+    description: 'Digital cards, RSVP tracking, and wedding websites for couples in Tanzania.',
   }
 
   return (
-    <ClerkProvider>
-      <html lang="en" className={`bg-white ${fontVars}`}>
-        <body className="bg-white">
+    <html lang="en" className={`bg-white ${fontVars}`}>
+      <body className="bg-white">
+        <ClerkProvider>
           <ClerkLoadFallback />
           <JsonLd data={organizationSchema} />
           <CartProvider>
@@ -89,8 +89,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </FavoritesProvider>
           </CartProvider>
           <ToastProvider />
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   )
 }

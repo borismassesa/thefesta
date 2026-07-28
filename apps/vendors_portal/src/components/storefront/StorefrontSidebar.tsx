@@ -10,6 +10,7 @@ import {
   CircleDashed,
   Lock,
   Minus,
+  Package,
   Sparkles,
 } from 'lucide-react'
 import { useOnboardingDraft } from '@/lib/onboarding/draft'
@@ -18,11 +19,15 @@ import {
   getStorefrontSections,
   type SectionStatus,
 } from '@/lib/storefront/completion'
+import { sellsProducts } from '@/lib/onboarding/verticals'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 import { cn } from '@/lib/utils'
 
 export function StorefrontSidebar() {
   const pathname = usePathname()
   const { draft, hydrated } = useOnboardingDraft()
+  const vertical = useVendorVertical()
+  const sells = sellsProducts(vertical)
 
   if (!hydrated) {
     return (
@@ -40,7 +45,7 @@ export function StorefrontSidebar() {
   // cleared storage, admin approval), matching the dead-end lock screen the
   // storefront layout used to show. Completion still reads from the draft;
   // it simply starts empty until the vendor saves a section.
-  const sections = getStorefrontSections(draft)
+  const sections = getStorefrontSections(draft, vertical)
   const {
     percent,
     isReady,
@@ -116,6 +121,38 @@ export function StorefrontSidebar() {
             </Link>
           )
         })}
+
+        {/* Products is a separate, moderation-driven surface (not part of the
+            completeness ring) shown only to product-selling vendors. */}
+        {sells ? (
+          <Link
+            href="/storefront/products"
+            className={cn(
+              'group mt-1 flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors',
+              pathname.startsWith('/storefront/products') ? 'bg-gray-100' : 'hover:bg-gray-50',
+            )}
+            aria-current={pathname.startsWith('/storefront/products') ? 'page' : undefined}
+          >
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+              <Package className="h-3 w-3" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="text-sm font-semibold text-gray-800">Products</span>
+              <span className="mt-0.5 block truncate text-xs text-gray-500">
+                Items you sell in the shop
+              </span>
+            </span>
+            <ChevronRight
+              className={cn(
+                'mt-1 h-4 w-4 shrink-0 transition-transform',
+                pathname.startsWith('/storefront/products')
+                  ? 'translate-x-0.5 text-gray-700'
+                  : 'text-gray-300 group-hover:translate-x-0.5 group-hover:text-gray-600',
+              )}
+              aria-hidden
+            />
+          </Link>
+        ) : null}
       </nav>
 
       {/* Bottom: completion summary + clear next step */}

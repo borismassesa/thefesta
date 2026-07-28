@@ -12,7 +12,7 @@ import { getLastOrder, setLastOrder, type StoredOrder, type StoredOrderPayment }
 
 // A single-item checkout for buying ONE pledge-card / thank-you-card design —
 // the same Selcom/M-Pesa payment machinery the invitation-card checkout uses
-// (see apps/opus_pass/src/app/invitations/checkout/CheckoutClient.tsx and
+// (see apps/opus_pass/src/app/digital-cards/checkout/CheckoutClient.tsx and
 // /api/payments/{initiate,status,webhook}), trimmed down to a single
 // flat-price line instead of a guest-tier cart. Reuses that flow's CMS copy
 // (checkout-payment / checkout-form) so the wording matches exactly.
@@ -129,6 +129,7 @@ export default function TemplatePurchaseModal({
   const buildLocalOrder = (ref: string, paymentStatus: 'verifying' | 'paid'): StoredOrder => ({
     ref,
     paidAt: new Date().toISOString(),
+    eventId,
     paymentLabel: paymentLabel(),
     payment: paymentDetails(),
     paymentRef: useLipa ? payRef.trim().toUpperCase() : undefined,

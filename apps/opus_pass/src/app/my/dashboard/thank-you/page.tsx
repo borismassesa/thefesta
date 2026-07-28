@@ -10,7 +10,7 @@ import { resolveEventScope } from '@/lib/dashboard/event-scope'
 import { EventChooser } from '@/components/dashboard/EventScope'
 import { getLocale } from '@/lib/cms/locale'
 import { loadUiStrings } from '@/lib/cms/ui-strings'
-import { loadInvitationProducts } from '@/lib/cms/invitations-products'
+import { loadDigitalCardProducts } from '@/lib/cms/digital-cards-products'
 import ThankYouView from './ThankYouView'
 
 /** Only designs from this catalog category are offered as thank-you cards —
@@ -60,8 +60,8 @@ export default async function ThankYouPage({
     getThankYouData(selectedEventId ?? undefined, events),
     loadUiStrings('dashboard-thank-you', locale),
     getMyThankYouCardConfig(selectedEventId),
-    loadInvitationProducts(locale),
-    getPurchasedTemplateIds('thank_you_card'),
+    loadDigitalCardProducts(locale),
+    getPurchasedTemplateIds('thank_you_card', selectedEventId),
     getCoupleProfile(),
     getDashboardUser(),
     loadUiStrings('checkout-form', locale),
@@ -86,6 +86,8 @@ export default async function ThankYouPage({
       strings={strings}
       coverImageUrl={cardConfig.coverImageUrl}
       coverIsFullTemplate={cardConfig.coverIsFullTemplate}
+      templateId={cardConfig.templateId}
+      templateName={cardConfig.templateName}
       cardCatalog={cardCatalog}
       purchasedTemplateIds={Array.from(purchasedTemplateIds)}
       contactEmail={dashboardUser?.email ?? ''}

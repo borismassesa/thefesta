@@ -56,7 +56,7 @@ const TILES: Tile[] = [
     image: require('../../../assets/images/dashboard/save-the-dates.jpg'),
   },
   {
-    label: 'Invitations',
+    label: 'Digital Cards',
     icon: 'mail-outline',
     route: '/cards',
     image: require('../../../assets/images/dashboard/invitations.jpg'),

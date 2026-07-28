@@ -74,7 +74,7 @@ CNAME   admin         cname.vercel-dns.com
 CNAME   vendors       cname.vercel-dns.com
 ```
 
-**Important**: DNS propagation can take 24-48 hours, but usually happens within a few minutes to a few hours.
+**Important**: DNS propagation can take 48-72 hours, but usually happens within a few minutes to a few hours.
 
 ---
 
@@ -289,7 +289,7 @@ Both should load your Vercel-deployed applications.
 
 ### DNS Not Propagating
 
-1. **Wait**: DNS can take up to 48 hours (usually much faster)
+1. **Wait**: DNS can take up to 72 hours (usually much faster)
 2. **Clear DNS Cache**: 
    - macOS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`
    - Windows: `ipconfig /flushdns`

@@ -1,7 +1,7 @@
 import 'server-only'
 import { createDashboardClient } from './supabase'
 import { getDashboardUser, requireDashboardUser } from './auth'
-import { eatDateParts, eventInviteUrl, firstNameOf, formatLongDate, formatLongDateSw, formatSwahiliTime, formatTicketDate, hasEatTimeComponent, publicOrigin } from './share'
+import { eatDateParts, eventInviteUrl, eventSlugBase, firstNameOf, formatLongDate, formatLongDateSw, formatSwahiliTime, formatTicketDate, hasEatTimeComponent, publicOrigin, slugBaseOf } from './share'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import { eventTypeLabel, eventTypeLabelSw, ticketIntroLabel } from './types'
 import type { TicketLanguage } from './types'
@@ -56,6 +56,29 @@ function toRsvpQuestion(row: Record<string, unknown>): RsvpQuestion {
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   }
+}
+
+/** Public personal RSVP/follow-up pages should show only a couple-uploaded
+ *  photo. Bundled marketing/sample assets are not uploads, even if old seed
+ *  data stored one in couple_profiles.cover_image_url. */
+function uploadedCouplePhotoUrl(value: string | null | undefined): string | null {
+  const url = value?.trim()
+  if (!url) return null
+  const lower = url.toLowerCase()
+  if (
+    lower.startsWith('/') ||
+    lower.includes('/assets/') ||
+    lower.includes('/auth-panel') ||
+    lower.includes('/favicon') ||
+    lower.includes('/icon-')
+  ) {
+    return null
+  }
+  return (lower.includes('/storage/v1/object/public/pledge-covers/') ||
+    lower.includes('/storage/v1/object/sign/pledge-covers/')) &&
+    lower.includes('/invite-cover-')
+    ? url
+    : null
 }
 
 export async function getEvents(): Promise<WeddingEvent[]> {
@@ -178,7 +201,7 @@ export async function getRsvpAnswerSummaries(): Promise<Record<string, RsvpAnswe
     const entry = (byQuestion[a.question_id] ??= { total: 0, options: new Map() })
     entry.total += 1
     if (a.option_id) {
-      const label = a.answer_text || 'Selected'
+      const label = (a.answer_text || 'Selected').split(':')[0]?.trim() || 'Selected'
       entry.options.set(label, (entry.options.get(label) ?? 0) + 1)
     }
   }
@@ -481,6 +504,7 @@ interface PledgeContactRow {
   phone: string | null
   whatsapp_phone: string | null
   group_tag: string | null
+  max_party_size: number
   public_token: string
 }
 
@@ -514,7 +538,7 @@ export async function getPledges(scope: PledgeScope = {}): Promise<PledgeWithCon
     pledgeQuery,
     supabase
       .from('guest_contacts')
-      .select('id, full_name, email, phone, whatsapp_phone, group_tag, public_token')
+      .select('id, full_name, email, phone, whatsapp_phone, group_tag, max_party_size, public_token')
       .eq('user_id', user.id),
   ])
   if (pErr) throw new Error(pErr.message)
@@ -535,6 +559,7 @@ export async function getPledges(scope: PledgeScope = {}): Promise<PledgeWithCon
       phone: c?.phone ?? null,
       whatsapp_phone: c?.whatsapp_phone ?? null,
       group_tag: c?.group_tag ?? null,
+      max_party_size: Math.min(2, Math.max(1, c?.max_party_size ?? 1)),
       public_token: c?.public_token ?? '',
     }
   })
@@ -595,13 +620,17 @@ export interface PublicPledgeCouple {
   coupleName: string
   weddingDate: string | null
   city: string | null
+  /** The verified/default event this public pledge page is rendering for. */
+  eventId: string | null
   paymentInstructions: string | null
   paymentMethods: PledgePaymentMethod[]
   pageConfig: PledgePageConfig
 }
 
 /** `eventId` is the ?event= carried on the guest link — picks which event's
- *  cover to show (see resolveEventCover); null renders the default cover. */
+ *  cover to show (see resolveEventCover). When it is missing, fall back to the
+ *  couple's default event so WhatsApp links sent before event-scoped CTA
+ *  suffixes still render the actual pledge card instead of the generic panel. */
 export async function getPublicPledgeCouple(token: string, eventId: string | null): Promise<PublicPledgeCouple | null> {
   const supabase = createDashboardClient()
   const { data: owner, error: ownerErr } = await supabase
@@ -636,13 +665,15 @@ export async function getPublicPledgeCouple(token: string, eventId: string | nul
   const names = [profile?.partner1_name, profile?.partner2_name].filter(Boolean).map((n) => firstNameOf(n!))
   const coupleName = names.length ? names.join(' & ') : await fallbackCoupleNameFromEvent(supabase, owner.id)
   const storedPage = profile?.pledge_page ?? {}
+  const resolvedEventId = await resolveEventIdOrDefault(owner.id, eventId)
   return {
     coupleName,
     weddingDate: profile?.wedding_date ?? null,
     city: profile?.city ?? null,
+    eventId: resolvedEventId,
     paymentInstructions: profile?.pledge_payment_instructions ?? null,
     paymentMethods: profile?.pledge_payment_methods ?? [],
-    pageConfig: { ...storedPage, ...resolveEventCover(storedPage, eventId) },
+    pageConfig: { ...storedPage, ...resolveEventCover(storedPage, resolvedEventId) },
   }
 }
 
@@ -683,7 +714,12 @@ export async function getMyPledgePageConfig(eventId: string | null): Promise<Ple
  *  mirrors getMyPledgePageConfig, reading thank_you_config instead. */
 export async function getMyThankYouCardConfig(
   eventId: string | null,
-): Promise<{ coverImageUrl: string | null; coverIsFullTemplate: boolean }> {
+): Promise<{
+  coverImageUrl: string | null
+  coverIsFullTemplate: boolean
+  templateId: string | null
+  templateName: string | null
+}> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
   const { data } = await supabase
@@ -715,6 +751,7 @@ export interface CoupleProfileLite {
   pledge_payment_instructions: string | null
   pledge_payment_methods: PledgePaymentMethod[] | null
   pledge_goal_amount: number | null
+  pledge_page: PledgePageConfig | null
 }
 
 export async function getCoupleProfile(): Promise<CoupleProfileLite | null> {
@@ -723,7 +760,7 @@ export async function getCoupleProfile(): Promise<CoupleProfileLite | null> {
   const { data } = await supabase
     .from('couple_profiles')
     .select(
-      'partner1_name, partner2_name, wedding_date, whatsapp_phone, city, pledge_payment_instructions, pledge_payment_methods, pledge_goal_amount',
+      'partner1_name, partner2_name, wedding_date, whatsapp_phone, city, pledge_payment_instructions, pledge_payment_methods, pledge_goal_amount, pledge_page',
     )
     .eq('user_id', user.id)
     .maybeSingle<CoupleProfileLite>()
@@ -806,6 +843,7 @@ export interface PublicRsvpData {
   }
   coupleName: string
   weddingDate: string | null
+  coverImageUrl: string | null
   events: (WeddingEvent & { invitation: GuestInvitation })[]
   /** Per-event follow-up questions, keyed by event_id. */
   questionsByEvent: Record<string, RsvpQuestion[]>
@@ -847,6 +885,7 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
       },
       coupleName: 'The Couple',
       weddingDate: null,
+      coverImageUrl: null,
       events: [],
       questionsByEvent: {},
       generalQuestions: [],
@@ -861,9 +900,14 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     supabase.from('wedding_events').select('*').eq('user_id', guest.user_id).in('id', eventIds),
     supabase
       .from('couple_profiles')
-      .select('partner1_name, partner2_name, wedding_date')
+      .select('partner1_name, partner2_name, wedding_date, cover_image_url')
       .eq('user_id', guest.user_id)
-      .maybeSingle<{ partner1_name: string | null; partner2_name: string | null; wedding_date: string | null }>(),
+      .maybeSingle<{
+        partner1_name: string | null
+        partner2_name: string | null
+        wedding_date: string | null
+        cover_image_url: string | null
+      }>(),
     // General questions (event_id NULL) + follow-ups for the guest's events.
     supabase
       .from('rsvp_questions')
@@ -900,7 +944,7 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     .filter((x): x is WeddingEvent & { invitation: GuestInvitation } => x !== null)
     .sort((a, b) => a.sort_order - b.sort_order)
 
-  const names = [profile?.partner1_name, profile?.partner2_name].filter(Boolean)
+  const names = [profile?.partner1_name, profile?.partner2_name].filter(Boolean).map((n) => firstNameOf(n!))
   return {
     guest: {
       id: guest.id,
@@ -910,6 +954,7 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     },
     coupleName: names.length ? names.join(' & ') : 'The Couple',
     weddingDate: profile?.wedding_date ?? null,
+    coverImageUrl: uploadedCouplePhotoUrl(profile?.cover_image_url),
     events: merged,
     questionsByEvent,
     generalQuestions,
@@ -1110,6 +1155,7 @@ export interface PublicInviteData {
   weddingDate: string | null
   city: string | null
   coverImageUrl: string | null
+  coverIsFullTemplate: boolean
   /** True once this event's date has passed — the hub closes RSVPs. */
   hasPassed: boolean
   /** This event accepts RSVPs AND its date hasn't passed. */
@@ -1191,9 +1237,14 @@ export async function getPublicInvite(slug: string): Promise<PublicInviteData | 
 
   const { data: profile } = await supabase
     .from('couple_profiles')
-    .select('partner1_name, partner2_name, cover_image_url')
+    .select('partner1_name, partner2_name, cover_image_url, pledge_page')
     .eq('user_id', event.user_id)
-    .maybeSingle<{ partner1_name: string | null; partner2_name: string | null; cover_image_url: string | null }>()
+    .maybeSingle<{
+      partner1_name: string | null
+      partner2_name: string | null
+      cover_image_url: string | null
+      pledge_page: PledgePageConfig | null
+    }>()
 
   // This event's own follow-ups, plus the couple's general questions (asked
   // regardless of event) — mirrors what the couple configured for this event
@@ -1207,15 +1258,20 @@ export async function getPublicInvite(slug: string): Promise<PublicInviteData | 
     .order('created_at', { ascending: true })
   const generalQuestions = (questionRows ?? []).map((r) => toRsvpQuestion(r as Record<string, unknown>))
 
-  const names = [profile?.partner1_name, profile?.partner2_name].filter(Boolean)
+  const names = [profile?.partner1_name, profile?.partner2_name]
+    .filter(Boolean)
+    .map((name) => firstNameOf(name!))
   const hasPassed = event.starts_at ? new Date(event.starts_at).getTime() < Date.now() : false
+  const pledgeCover = resolveEventCover(profile?.pledge_page, event.id)
+  const coverImageUrl = pledgeCover.coverImageUrl ?? profile?.cover_image_url ?? null
 
   return {
     slug,
     coupleName: names.length ? names.join(' & ') : 'The Couple',
     weddingDate: event.starts_at,
     city: event.city,
-    coverImageUrl: profile?.cover_image_url ?? null,
+    coverImageUrl,
+    coverIsFullTemplate: Boolean(pledgeCover.coverImageUrl && pledgeCover.coverIsFullTemplate),
     hasPassed,
     allowRsvp: !hasPassed && event.allow_rsvp,
     event: {
@@ -1239,16 +1295,53 @@ export interface InviteShareInfo {
   enabled: boolean
 }
 
+async function reserveUniqueInviteSlugForEvent(
+  supabase: ReturnType<typeof createDashboardClient>,
+  userId: string,
+  eventId: string,
+  base: string,
+): Promise<string> {
+  for (let n = 1; n < 50; n++) {
+    const candidate = n === 1 ? base : `${base}-${n}`
+    const { data, error } = await supabase
+      .from('wedding_events')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('invite_slug', candidate)
+      .neq('id', eventId)
+      .maybeSingle<{ id: string }>()
+    if (error) throw new Error(error.message)
+    if (!data) return candidate
+  }
+  return `${base}-${Math.floor(Date.now() % 100000)}`
+}
+
 export async function getInviteShareInfo(eventId: string): Promise<InviteShareInfo> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('wedding_events')
-    .select('invite_slug, invite_sharing_enabled')
+    .select('name, invite_slug, invite_sharing_enabled')
     .eq('id', eventId)
     .eq('user_id', user.id)
-    .maybeSingle<{ invite_slug: string | null; invite_sharing_enabled: boolean | null }>()
-  return { slug: data?.invite_slug ?? null, enabled: Boolean(data?.invite_sharing_enabled) }
+    .maybeSingle<{ name: string; invite_slug: string | null; invite_sharing_enabled: boolean | null }>()
+  if (error) throw new Error(error.message)
+  if (!data) return { slug: null, enabled: false }
+
+  const enabled = Boolean(data.invite_sharing_enabled)
+  let slug = data.invite_slug
+  const expectedSlugBase = eventSlugBase(data.name)
+  if (enabled && (!slug || slugBaseOf(slug) !== expectedSlugBase)) {
+    slug = await reserveUniqueInviteSlugForEvent(supabase, user.id, eventId, expectedSlugBase)
+    const { error: updateErr } = await supabase
+      .from('wedding_events')
+      .update({ invite_slug: slug, updated_at: new Date().toISOString() })
+      .eq('id', eventId)
+      .eq('user_id', user.id)
+    if (updateErr) throw new Error(updateErr.message)
+  }
+
+  return { slug, enabled }
 }
 
 // ──────────────────────────────────── Guestbook ─────────────────────────────────
@@ -1797,17 +1890,14 @@ export async function fetchPaidOrdersForCouple(
   return (data ?? []) as PaidOrderRow[]
 }
 
-/** Which pledge-card / thank-you-card template designs this couple has
- *  already bought (via the per-template checkout — see
- *  templateCardItemId()). Paid orders aren't scoped to a single event
- *  (a couple could buy a design before assigning it), so a purchase counts
- *  for every one of the couple's events, not just the one active at
- *  purchase time. Returns an empty set for a signed-out caller. */
+/** Which pledge-card / thank-you-card template designs this event has already
+ *  bought (via the per-template checkout — see templateCardItemId()). */
 export async function getPurchasedTemplateIds(
   templateType: TemplateCardType,
+  eventId?: string | null,
 ): Promise<Set<string>> {
   const user = await getDashboardUser()
-  if (!user) return new Set()
+  if (!user || !eventId) return new Set()
   const supabase = createDashboardClient()
   const { data: profile } = await supabase
     .from('couple_profiles')
@@ -1816,7 +1906,7 @@ export async function getPurchasedTemplateIds(
     .maybeSingle<{ whatsapp_phone: string | null }>()
   const orders = await fetchPaidOrdersForCouple(supabase, user.id, user.email, profile?.whatsapp_phone ?? null)
   const ids = new Set<string>()
-  for (const order of orders) {
+  for (const order of orders.filter((o) => o.event_id === eventId)) {
     for (const item of order.items ?? []) {
       if (!item.id) continue
       const parsed = parseTemplateCardItemId(item.id)
@@ -2198,6 +2288,11 @@ export interface SendInvitesData {
     cardImageUrl: string | null
     /** Visual treatment — fallback thumbnail when the card has no hero image. */
     cardTreatment: Treatment | null
+    /** Save the Date template selected for this event. Separate from the
+     * paid invitation card image/quota. */
+    saveDateTemplateId: string | null
+    saveDateTemplateName: string | null
+    saveDateTemplateImageUrl: string | null
     /** Distinct add-ons purchased across paid orders (prints, swag, etc.). */
     addOns: string[]
     hasPaidOrder: boolean
@@ -2224,6 +2319,13 @@ export interface SendInvitesData {
    *  explicitly saved them — every send path requires that first. */
   sendSettings: { hostName: string; eventCategory: string; confirmed: boolean }
   guests: SendGuestRow[]
+  /** Full RSVP/response data reused by the Send Invites pipeline tabs. */
+  responseGuests: GuestWithInvitations[]
+  responseEvents: WeddingEvent[]
+  responseLastSend: Record<string, LastSend>
+  responseQuestions: RsvpQuestion[]
+  responseSummaries: RsvpEventSummary[]
+  responseAnswerSummaries: Record<string, RsvpAnswerSummary>
 }
 
 /**
@@ -2292,6 +2394,9 @@ export async function getSendInvitesData(
         cardName: null,
         cardImageUrl: null,
         cardTreatment: null,
+        saveDateTemplateId: null,
+        saveDateTemplateName: null,
+        saveDateTemplateImageUrl: null,
         addOns: [],
         hasPaidOrder: false,
       },
@@ -2306,12 +2411,22 @@ export async function getSendInvitesData(
       testPhone: profile?.whatsapp_phone ?? null,
       sendSettings: { hostName: '', eventCategory: '', confirmed: false },
       guests: [],
+      responseGuests: guests,
+      responseEvents: events,
+      responseLastSend: {},
+      responseQuestions: [],
+      responseSummaries: [],
+      responseAnswerSummaries: {},
     }
   }
 
-  const [entitlement, publicInvite] = await Promise.all([
+  const [entitlement, publicInvite, responseLastSend, responseQuestions, responseSummaries, responseAnswerSummaries] = await Promise.all([
     getWhatsAppEntitlement(selectedEventId),
     getInviteShareInfo(selectedEventId),
+    getLastSendByGuest(),
+    getRsvpQuestions(),
+    getRsvpEventSummaries(),
+    getRsvpAnswerSummaries(),
   ])
 
   // WhatsApp read receipts → "viewed" (real once delivery webhooks land),
@@ -2419,6 +2534,7 @@ export async function getSendInvitesData(
   const eventName = selectedEvent.name?.trim() || null
   const eventTypeLbl = eventTypeLabel(selectedEvent.event_type)
   const venue = [selectedEvent.venue_name, selectedEvent.city].filter(Boolean).join(', ') || null
+  const saveDateTemplate = profile?.pledge_page?.saveDateTemplates?.[selectedEventId] ?? null
   // Category is already resolved (with any couple override) in entitlement.eventCategory —
   // only the date/time/venue fields are needed from here, computed identically to the real send.
   const entranceVars = computeEntrancePassVars(selectedEvent, null)
@@ -2448,6 +2564,9 @@ export async function getSendInvitesData(
       cardName: entitlement.cardName,
       cardImageUrl: entitlement.cardImageUrl,
       cardTreatment: entitlement.cardTreatment,
+      saveDateTemplateId: saveDateTemplate?.id ?? null,
+      saveDateTemplateName: saveDateTemplate?.name ?? null,
+      saveDateTemplateImageUrl: saveDateTemplate?.imageUrl ?? null,
       addOns: entitlement.addOns,
       hasPaidOrder: entitlement.hasPaidOrder,
     },
@@ -2479,6 +2598,12 @@ export async function getSendInvitesData(
       confirmed: entitlement.sendSettingsConfirmed,
     },
     guests: rows,
+    responseGuests: guests,
+    responseEvents: events,
+    responseLastSend,
+    responseQuestions,
+    responseSummaries,
+    responseAnswerSummaries,
   }
 }
 
@@ -2636,4 +2761,3 @@ export async function getGuestsAwaitingReview(): Promise<GuestWithInvitations[]>
     invitations: byGuest.get(g.id) ?? [],
   }))
 }
-

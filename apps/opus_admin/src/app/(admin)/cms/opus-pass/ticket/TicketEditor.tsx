@@ -7,8 +7,8 @@ import { PaletteEditor } from '@/components/cms/PaletteEditor'
 import { SvgInspector } from '@/components/cms/SvgInspector'
 import { SvgPreview } from '@/components/cms/SvgPreview'
 import { uploadCmsMediaToFixedPath } from '@/lib/cms/upload-client'
-import { upsertInvitationProduct } from '../invitations/products/actions'
-import type { InvitationPalette, InvitationProductRecord } from '@/lib/cms/opus-pass-invitations-products'
+import { upsertDigitalCardProduct } from '../digital-cards/products/actions'
+import type { DigitalCardPalette, DigitalCardProductRecord } from '@/lib/cms/opus-pass-digital-cards-products'
 
 const IMAGE_PREFIX = 'opus-pass/invitations/ticket'
 
@@ -27,11 +27,11 @@ export default function TicketEditor({
   qr,
   barcode,
 }: {
-  qr: InvitationProductRecord
-  barcode: InvitationProductRecord
+  qr: DigitalCardProductRecord
+  barcode: DigitalCardProductRecord
 }) {
-  const [qrRecord, setQrRecord] = useState<InvitationProductRecord>(qr)
-  const [barcodeRecord, setBarcodeRecord] = useState<InvitationProductRecord>(barcode)
+  const [qrRecord, setQrRecord] = useState<DigitalCardProductRecord>(qr)
+  const [barcodeRecord, setBarcodeRecord] = useState<DigitalCardProductRecord>(barcode)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -45,13 +45,13 @@ export default function TicketEditor({
   const [qrBackPreview, setQrBackPreview] = useState(qr.back_image_url)
   const [barcodeBackPreview, setBarcodeBackPreview] = useState(barcode.back_image_url)
 
-  function setQr<K extends keyof InvitationProductRecord>(key: K, value: InvitationProductRecord[K]) {
+  function setQr<K extends keyof DigitalCardProductRecord>(key: K, value: DigitalCardProductRecord[K]) {
     setQrRecord((p) => ({ ...p, [key]: value }))
     setSaved(false)
     if (key === 'back_image_url' && value) setQrBackPreview(value as string)
   }
 
-  function setBarcode<K extends keyof InvitationProductRecord>(key: K, value: InvitationProductRecord[K]) {
+  function setBarcode<K extends keyof DigitalCardProductRecord>(key: K, value: DigitalCardProductRecord[K]) {
     setBarcodeRecord((p) => ({ ...p, [key]: value }))
     setSaved(false)
     if (key === 'back_image_url' && value) setBarcodeBackPreview(value as string)
@@ -68,8 +68,8 @@ export default function TicketEditor({
     startTransition(async () => {
       try {
         await Promise.all([
-          upsertInvitationProduct({ ...qrRecord, swatches: qrSwatches }),
-          upsertInvitationProduct({ ...barcodeRecord, swatches: barcodeSwatches }),
+          upsertDigitalCardProduct({ ...qrRecord, swatches: qrSwatches }),
+          upsertDigitalCardProduct({ ...barcodeRecord, swatches: barcodeSwatches }),
         ])
         setSaved(true)
       } catch (err) {
@@ -150,11 +150,11 @@ function TicketPreviewCard({
 }: {
   label: string
   previewUrl: string
-  palettes: InvitationPalette[]
+  palettes: DigitalCardPalette[]
 }) {
   const [activeIdx, setActiveIdx] = useState(0)
   const safePalettes = palettes ?? []
-  const palette: InvitationPalette | null = safePalettes[activeIdx] ?? null
+  const palette: DigitalCardPalette | null = safePalettes[activeIdx] ?? null
 
   return (
     <div className="space-y-2">
@@ -191,8 +191,8 @@ function TicketCard({
 }: {
   label: string
   description: string
-  record: InvitationProductRecord
-  setField: <K extends keyof InvitationProductRecord>(key: K, value: InvitationProductRecord[K]) => void
+  record: DigitalCardProductRecord
+  setField: <K extends keyof DigitalCardProductRecord>(key: K, value: DigitalCardProductRecord[K]) => void
   frontStoragePath: string
   onFrontUploaded: () => void
 }) {

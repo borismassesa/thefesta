@@ -75,7 +75,7 @@ Priority: 0
    - Ensure the record names match exactly (including subdomains)
    - Set TTL values as recommended
 
-4. **Wait for DNS propagation** (usually 5-60 minutes, can take up to 48 hours)
+4. **Wait for DNS propagation** (usually 5-60 minutes, can take up to 72 hours)
 
 5. **Verify in Resend Dashboard**:
    - Go to https://resend.com/domains

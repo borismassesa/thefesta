@@ -1,8 +1,9 @@
 import ProductCard from './ProductCard'
-import { mostPopularProducts } from '@/lib/registry-products'
+import { getMostPopular } from '@/lib/products-db'
 
-export function PopularGiftsGrid() {
-  const products = mostPopularProducts(9)
+export async function PopularGiftsGrid() {
+  const products = await getMostPopular(9)
+  if (products.length === 0) return null
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 lg:px-8">

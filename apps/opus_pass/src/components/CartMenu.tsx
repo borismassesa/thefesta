@@ -60,7 +60,7 @@ export default function CartMenu() {
             </p>
             {count > 0 && (
               <Link
-                href="/invitations/cart"
+                href="/digital-cards/cart"
                 onClick={() => setOpen(false)}
                 className="text-xs font-semibold text-(--accent) hover:underline"
               >
@@ -79,11 +79,11 @@ export default function CartMenu() {
                 Browse the catalog and add a design to get started.
               </p>
               <Link
-                href="/invitations/catalog"
+                href="/digital-cards/catalog"
                 onClick={() => setOpen(false)}
                 className="mt-5 inline-flex items-center gap-2 rounded-full bg-(--accent) px-5 py-2.5 text-sm font-semibold text-(--on-accent) transition-colors hover:bg-(--accent-hover)"
               >
-                Browse invitations
+                Browse digital cards
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -126,7 +126,7 @@ export default function CartMenu() {
                   <span className="font-bold tabular-nums text-[#1A1A1A]">{formatTzs(subtotal)}</span>
                 </div>
                 <Link
-                  href="/invitations/checkout"
+                  href="/digital-cards/checkout"
                   onClick={() => setOpen(false)}
                   className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-(--accent) px-5 py-3 text-sm font-semibold text-(--on-accent) transition-colors hover:bg-(--accent-hover)"
                 >

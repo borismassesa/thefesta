@@ -219,6 +219,11 @@ export interface GiftRegistryItem {
   is_cash_fund: boolean
   /** Which of the couple's wedding_events this gift is for — null only for pre-events legacy rows. */
   event_id: string | null
+  /** Set when this gift is a real vendor product — enables the paid "Buy this
+   *  gift" flow and reliable product-id dedupe. Null for custom/cash gifts. */
+  product_id: string | null
+  /** Numeric TZS price for a product-backed gift (price_label stays for display / cash funds). */
+  price_tzs: number | null
   claimed_by_name: string | null
   /** Only set for quantity_requested <= 1 — multi-unit claimants live in gift_registry_claims instead. */
   claimed_by_phone: string | null
@@ -461,6 +466,7 @@ export interface PledgeWithContact extends EventPledge {
   phone: string | null
   whatsapp_phone: string | null
   group_tag: string | null
+  max_party_size: number
   /** The contributor's personal RSVP token (so we can deep-link their RSVP). */
   public_token: string
 }

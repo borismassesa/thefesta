@@ -35,7 +35,7 @@ export const GUESTS_SPREAD_FALLBACK: GuestsSpreadContent = {
       id: 'download',
       icon: 'file-down',
       title: 'Download',
-      description: 'Get a digital copy of your invitation by downloading it to your device.',
+      description: 'Get a copy of your digital card by downloading it to your device.',
     },
     {
       id: 'print',

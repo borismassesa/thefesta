@@ -1,7 +1,11 @@
 import { hasCompletePayout } from '../onboarding/payout'
 import { type OnboardingDraft } from '../onboarding/draft'
+import { sellsProducts, type VendorVertical } from '../onboarding/verticals'
 
 export type SectionStatus = 'complete' | 'partial' | 'empty' | 'auto'
+
+/** Sections that only make sense when the vendor sells booked time. */
+const BOOKING_ONLY_SECTIONS = new Set(['services', 'packages', 'availability'])
 
 export type StorefrontSection = {
   id: string
@@ -93,13 +97,28 @@ const recognitionStatus = (d: OnboardingDraft): SectionStatus => {
   return 'empty'
 }
 
-export function getStorefrontSections(d: OnboardingDraft): StorefrontSection[] {
+/**
+ * The storefront checklist, scoped to the vendor's vertical.
+ *
+ * Services, Packages & pricing and Availability all describe booked time:
+ * what couples can book you for, what a tier costs, which dates you're free.
+ * A gift shop or an attire seller has none of that — their offer is the
+ * Products list, which is moderation-driven and deliberately outside the
+ * completeness ring. Including those three for them would leave two required
+ * sections permanently unfinishable and pin the ring below 100%.
+ */
+export function getStorefrontSections(
+  d: OnboardingDraft,
+  vertical: VendorVertical = 'service',
+): StorefrontSection[] {
   // Profile is binary by design — couples need every contact channel before
   // booking, so a half-filled profile is treated as not started.
   const profileFilled =
     aboutComplete(d) && contactComplete(d) && hoursComplete(d) && socialsCount(d) > 0
 
-  return [
+  const bookingSections = !sellsProducts(vertical)
+
+  return ([
     {
       id: 'about',
       label: 'Profile',
@@ -185,7 +204,9 @@ export function getStorefrontSections(d: OnboardingDraft): StorefrontSection[] {
       pageDescription:
         'Block the dates you are already booked and set the weekly hours couples can reach you.',
     },
-  ]
+  ] as StorefrontSection[]).filter((s) =>
+    bookingSections ? true : !BOOKING_ONLY_SECTIONS.has(s.id),
+  )
 }
 
 export function computeCompleteness(sections: StorefrontSection[]) {

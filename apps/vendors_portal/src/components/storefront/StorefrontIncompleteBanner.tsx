@@ -7,16 +7,18 @@ import {
   computeCompleteness,
   getStorefrontSections,
 } from '@/lib/storefront/completion'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 
 export function StorefrontIncompleteBanner() {
   const { draft, hydrated } = useOnboardingDraft()
+  const vertical = useVendorVertical()
 
   if (!hydrated) return null
   // Don't show until the vendor has at least submitted onboarding — otherwise
   // the dashboard banner duplicates the post-submission empty state.
   if (!draft.submittedAt) return null
 
-  const sections = getStorefrontSections(draft)
+  const sections = getStorefrontSections(draft, vertical)
   const { percent, requiredMissing } = computeCompleteness(sections)
 
   if (requiredMissing.length === 0) return null

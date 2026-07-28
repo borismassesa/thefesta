@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/onboard/ConfirmDialog'
 import { useOnboardingDraft } from '@/lib/onboarding/draft'
 import { findCategory } from '@/lib/onboarding/categories'
 import { useOnboardT, type TFn } from '@/lib/onboarding/strings'
+import { useServiceOnlyStep } from '@/lib/onboarding/use-service-only-step'
 import {
   getStarterPackages,
   newPackage,
@@ -34,6 +35,8 @@ export default function PricingPage() {
     if (!draft.categoryId) router.replace('/onboard/category')
     else if (!draft.vowsAccepted) router.replace('/onboard/vows')
   }, [hydrated, draft.categoryId, draft.vowsAccepted, router])
+
+  useServiceOnlyStep('/onboard/pricing/payout')
 
   const packages = draft.packages
   const [confirm, setConfirm] = useState<ConfirmKind | null>(null)

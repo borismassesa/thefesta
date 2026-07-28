@@ -70,7 +70,7 @@ export function ProductInfo({
         {href ? (
           product.name
         ) : (
-          <Link href={`/invitations/p/${product.id}`}>{product.name}</Link>
+          <Link href={`/digital-cards/p/${product.id}`}>{product.name}</Link>
         )}
       </p>
 

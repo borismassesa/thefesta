@@ -15,6 +15,7 @@ import {
   type PayoutEntry,
 } from '@/lib/onboarding/draft'
 import { findCategory } from '@/lib/onboarding/categories'
+import { sellsProducts } from '@/lib/onboarding/verticals'
 import { useOnboardT, type TFn } from '@/lib/onboarding/strings'
 import { useLocale } from '@/lib/cms/locale-store'
 import { pick } from '@/lib/onboarding/localize'
@@ -26,16 +27,24 @@ export default function PayoutPage() {
   const router = useRouter()
   const { draft, update, hydrated } = useOnboardingDraft()
   const category = findCategory(draft.categoryId)
-  const { t } = useOnboardT()
+  const { t, locale } = useOnboardT()
+
+  // Payout is the one money step both verticals share, so it's where the forked
+  // paths rejoin. Product vendors arrive straight from details/about and have
+  // no packages or cancellation policy — guarding on those unconditionally
+  // would bounce them to /onboard/pricing, which bounces them right back here.
+  const isProductVendor = sellsProducts(draft.vertical)
 
   useEffect(() => {
     if (!hydrated) return
     if (!draft.categoryId) router.replace('/onboard/category')
     else if (!draft.vowsAccepted) router.replace('/onboard/vows')
+    else if (isProductVendor) return
     else if (draft.packages.length === 0) router.replace('/onboard/pricing')
     else if (!draft.cancellationLevel) router.replace('/onboard/pricing/policies')
   }, [
     hydrated,
+    isProductVendor,
     draft.categoryId,
     draft.vowsAccepted,
     draft.packages.length,
@@ -101,7 +110,7 @@ export default function PayoutPage() {
     <OnboardShell
       step="pricing"
       profileLabel={category?.profileLabel ?? 'Vendor'}
-      backHref="/onboard/pricing/policies"
+      backHref={isProductVendor ? '/onboard/details/about' : '/onboard/pricing/policies'}
       primaryAction={
         <PrimaryButton onClick={onNext} disabled={!canContinue}>
           {t('common.next_step')}
@@ -110,7 +119,17 @@ export default function PayoutPage() {
     >
       <OnboardHeading
         title={t('payout.title')}
-        description={t('payout.subtitle')}
+        description={
+          // The CMS subtitle is written for bookings ("deposit on confirm,
+          // balance after the event"), which describes nothing a shop does.
+          isProductVendor
+            ? pick(
+                locale,
+                'We collect payment from the guest at checkout, take our commission, and send the rest here. Add one or more destinations: mobile money, Lipa Namba, or any TZ bank. Then pick which one is primary.',
+                'Sisi tunakusanya malipo kutoka kwa mgeni wakati wa kulipa, tunachukua kamisheni yetu, na kukutumia salio hapa. Ongeza njia moja au zaidi: pesa za simu, Lipa Namba, au benki yoyote ya Tanzania. Kisha chagua ipi iwe ya msingi.',
+              )
+            : t('payout.subtitle')
+        }
       />
 
       <div className="space-y-5 max-w-3xl">

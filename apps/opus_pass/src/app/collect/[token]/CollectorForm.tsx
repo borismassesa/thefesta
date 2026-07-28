@@ -17,7 +17,7 @@ import {
   PLEDGE_PREVIEW_READY,
   type PledgePageConfig,
 } from '@/lib/dashboard/pledge-page'
-import Confetti from '@/components/invitations/Confetti'
+import Confetti from '@/components/digital-cards/Confetti'
 
 /** Fixed two-tone backdrop: soft grey behind the cover media, light sage
  *  behind the form — not the couple's customizable accent, just the page's

@@ -95,7 +95,7 @@ const sections: CmsSection[] = [
     href: '/cms/opus-pass/site-ui/checkout-summary',
     status: 'live',
     description:
-      'Checkout order summary card, "ready in 24 hours" and "one free revision" tiles and the secure-payment note — bilingual. Prices and math are not editable here.',
+      'Checkout order summary card, "ready in 48-72 hours" and "one free revision" tiles and the secure-payment note — bilingual. Prices and math are not editable here.',
   },
   {
     key: 'forms-collect',

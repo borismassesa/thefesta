@@ -31,11 +31,11 @@ export const OPUS_PASS_HERO_FALLBACK: OpusPassHeroContent = {
   headline_line_1: 'Your whole wedding day',
   headline_line_2: 'one beautiful pass',
   description:
-    'Digital invitations, live RSVP tracking, and a beautiful wedding website — all in one pass. Free to start, bilingual in Swahili and English, and built for couples in Tanzania.',
-  primary_cta_label: 'Get started',
-  primary_cta_href: '/sign-up',
-  secondary_cta_label: 'Browse invitations',
-  secondary_cta_href: '/invitations',
+    'Digital cards, live RSVP tracking, and a beautiful wedding website — all in one pass. Free to start, bilingual in Swahili and English, and built for couples in Tanzania.',
+  primary_cta_label: 'Browse Designs',
+  primary_cta_href: '/digital-cards/catalog',
+  secondary_cta_label: 'See Pricing',
+  secondary_cta_href: '/pricing',
   trust_count: '1000+',
   rating: '4.5',
   avatars: [

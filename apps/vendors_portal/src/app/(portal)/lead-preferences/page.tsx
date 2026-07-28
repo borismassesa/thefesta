@@ -1,4 +1,5 @@
 import { ChevronRight, Edit3 } from 'lucide-react'
+import { redirectProductVendors } from '@/lib/storefront/vertical-guard'
 
 const SECTIONS = [
   {
@@ -39,7 +40,11 @@ const SECTIONS = [
   },
 ]
 
-export default function LeadPreferencesPage() {
+export default async function LeadPreferencesPage() {
+  // These preferences tune which directory leads reach the vendor. Product
+  // vendors don't receive directory leads, so there's nothing here to tune.
+  await redirectProductVendors()
+
   return (
     <div className="p-8 pb-12">
       <div className="max-w-[1100px] mx-auto">

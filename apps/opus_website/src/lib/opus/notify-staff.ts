@@ -1,7 +1,7 @@
 import 'server-only'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { isEmailConfigured, sendEmail } from '@/lib/email/email'
-import { renderEmail, plaintextLines } from '@/lib/email/email-shell'
+import { buildHandoffEmail } from '@/lib/opus/handoff-email'
 
 // Alerts support staff when a customer needs a human: email (Resend, reliable)
 // plus a best-effort WhatsApp ping. Staff come from workforce_employees
@@ -91,47 +91,15 @@ export async function notifyStaffOfHandoff(input: {
     })
   }
 
-  const link = `${ADMIN_BASE}/support/${input.conversationId}`
-  const topic = input.topic && input.topic !== 'human_request' ? input.topic : 'a support request'
-  const waiting = input.reminderMinutes
-  const heading = waiting
-    ? `Still waiting: a customer needs help (${topic})`
-    : `A customer needs help (${topic})`
-  const snippet = (input.lastUserMessage ?? '').slice(0, 300)
-
-  const html = renderEmail({
-    heading,
-    preheader: 'Open the Support console to reply.',
-    intro: waiting
-      ? `Nobody has replied to this customer for ${waiting} minutes. Please pick it up.`
-      : input.afterHours
-        ? 'A customer asked for a person outside support hours. Please follow up when you can.'
-        : 'A customer just asked to speak with a person on Opus.',
-    rows: [
-      { label: 'Topic', value: input.topic ?? 'general' },
-      ...(input.reason ? [{ label: 'Reason', value: input.reason }] : []),
-      ...(snippet ? [{ label: 'Message', value: snippet }] : []),
-      ...(input.contactName ? [{ label: 'Name', value: input.contactName }] : []),
-      ...(input.contactEmail ? [{ label: 'Email', value: input.contactEmail }] : []),
-      ...(input.contactPhone ? [{ label: 'Phone', value: input.contactPhone }] : []),
-    ],
-    cta: { href: link, label: 'Open in Support console' },
-    closing: 'You are receiving this because you have OpusFesta dashboard access.',
+  const { subject, html, text, link } = buildHandoffEmail({
+    ...input,
+    adminBaseUrl: ADMIN_BASE,
   })
-
-  const text = plaintextLines([
-    heading,
-    '',
-    snippet ? `Message: ${snippet}` : null,
-    input.contactEmail ? `Email: ${input.contactEmail}` : null,
-    input.contactPhone ? `Phone: ${input.contactPhone}` : null,
-    '',
-    `Open: ${link}`,
-  ])
+  const snippet = (input.lastUserMessage ?? '').slice(0, 300)
 
   const result = await sendEmail({
     to: staff.map((s) => s.email),
-    subject: `[Opus] ${heading}`,
+    subject,
     html,
     text,
   }).catch((err) => ({ sent: false as const, reason: 'send_failed' as const, error: String(err) }))

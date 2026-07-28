@@ -19,7 +19,7 @@ const FavoritesContext = createContext<FavoritesContextValue | null>(null)
 
 /**
  * Server-persisted saved designs, shared across the catalog, product pages, the
- * dashboard header heart, and the /invitations/favorites page. Backed by
+ * dashboard header heart, and the /digital-cards/favorites page. Backed by
  * /api/favorites (table invitation_product_favorites) so likes sync with the
  * mobile app and survive reloads — replacing the old per-page local state.
  */
@@ -61,7 +61,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const toggle = useCallback(
     (productId: string) => {
       if (isLoaded && !isSignedIn) {
-        router.push('/sign-in?redirect_url=/invitations/favorites')
+        router.push('/sign-in?redirect_url=/digital-cards/favorites')
         return
       }
       const next = !ids.has(productId)

@@ -1,11 +1,18 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from './supabase'
+import { isVendorVertical, type VendorVertical } from './onboarding/verticals'
 
 export type CurrentVendor = {
   id: string
   slug: string
   businessName: string
   category: string
+  /**
+   * Which business the vendor is actually in: a wedding service, a gift shop,
+   * or attire/rings. Drives which portal surfaces exist for them (a gift shop
+   * has no bookings or availability) and which public directory they appear in.
+   */
+  vertical: VendorVertical
   bio: string | null
   logo: string | null
   coverImage: string | null
@@ -57,6 +64,7 @@ type VendorRow = {
   slug: string
   business_name: string
   category: string
+  vertical: string | null
   bio: string | null
   logo: string | null
   cover_image: string | null
@@ -119,6 +127,9 @@ function stateFromMembership(
       slug: v.slug,
       businessName: v.business_name,
       category: v.category,
+      // The column is NOT NULL with a 'service' default, so this only falls
+      // back for a row written before the verticals migration landed.
+      vertical: isVendorVertical(v.vertical) ? v.vertical : 'service',
       bio: v.bio,
       logo: v.logo,
       coverImage: v.cover_image,
@@ -140,7 +151,7 @@ async function loadActiveMembership(
       vendor_id,
       role,
       vendors (
-        id, slug, business_name, category, bio, logo, cover_image,
+        id, slug, business_name, category, vertical, bio, logo, cover_image,
         onboarding_status, stats
       )
     `,

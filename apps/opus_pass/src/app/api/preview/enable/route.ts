@@ -1,7 +1,7 @@
 import { draftMode } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-const ALLOWED_REDIRECTS = new Set(['/', '/invitations', '/guests-and-rsvp', '/websites'])
+const ALLOWED_REDIRECTS = new Set(['/', '/digital-cards', '/guests-and-rsvp', '/websites'])
 
 function safeRedirect(path: string | null): string {
   if (!path) return '/'
