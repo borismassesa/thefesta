@@ -117,6 +117,16 @@ export function eventInviteUrl(origin: string, slug: string): string {
   return `${origin.replace(/\/$/, '')}${eventInvitePath(slug)}`
 }
 
+/** Public save-the-date alias for the event invite experience. */
+export function saveDatePath(slug: string): string {
+  return `/save-the-date/${slug}`
+}
+
+/** Absolute save-the-date URL given a runtime origin. */
+export function saveDateUrl(origin: string, slug: string): string {
+  return `${origin.replace(/\/$/, '')}${saveDatePath(slug)}`
+}
+
 /**
  * Path to the couple's public guestbook — deliberately independent of the
  * wedding-website builder/publish state (unlike /w/<slug>), so guests can

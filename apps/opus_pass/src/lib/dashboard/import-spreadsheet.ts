@@ -36,7 +36,7 @@ export async function fileToImportLines(file: File): Promise<string> {
   if (isXlsx) {
     const sheets = await parseXlsx(file)
     // A workbook with multiple sheets is often guest-list tabs alongside
-    // unrelated ones (Budget, Instructions, Seating) — the headerless
+    // unrelated ones (Budget, Instructions, Seating). The headerless
     // "column 0/1/2 = name/email/phone" fallback below is safe for a single
     // sheet a couple pasted/exported directly, but applying it to EVERY
     // sheet in a multi-tab workbook would misread a non-guest tab's rows as
@@ -213,6 +213,7 @@ async function parseXlsx(file: File): Promise<string[][][]> {
 async function allSheetPaths(
   xml: (path: string) => Promise<Document | null>
 ): Promise<string[]> {
+  const relationshipsNs = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
   const workbook = await xml('xl/workbook.xml')
   const rels = await xml('xl/_rels/workbook.xml.rels')
   if (workbook && rels) {
@@ -224,16 +225,40 @@ async function allSheetPaths(
     )
     const paths = Array.from(workbook.getElementsByTagName('sheet'))
       .map((sheet) => {
-        const rid = sheet.getAttribute('r:id') ?? sheet.getAttributeNS(null, 'id') ?? null
+        const rid =
+          sheet.getAttribute('r:id') ??
+          sheet.getAttributeNS(relationshipsNs, 'id') ??
+          sheet.getAttribute('id')
         const target = rid ? relByRid.get(rid) : null
         if (!target) return null
-        const clean = target.replace(/^\//, '').replace(/^xl\//, '')
-        return `xl/${clean}`
+        return resolveWorkbookTarget(target)
       })
       .filter((p): p is string => p !== null)
     if (paths.length > 0) return paths
   }
   return ['xl/worksheets/sheet1.xml']
+}
+
+function resolveWorkbookTarget(target: string): string {
+  const fromPackageRoot = target.replace(/^\//, '')
+  const path =
+    target.startsWith('/') || fromPackageRoot.startsWith('xl/')
+      ? fromPackageRoot
+      : `xl/${fromPackageRoot}`
+  return normalizePackagePath(path)
+}
+
+function normalizePackagePath(path: string): string {
+  const parts: string[] = []
+  for (const part of path.split('/')) {
+    if (!part || part === '.') continue
+    if (part === '..') {
+      parts.pop()
+      continue
+    }
+    parts.push(part)
+  }
+  return parts.join('/')
 }
 
 /** Read the workbook's shared-string table into an indexable array. */

@@ -21,7 +21,7 @@ import { loadUiStrings } from '@/lib/cms/ui-strings'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import { getSmsProvider } from '@/lib/sms'
 import { isEmailConfigured } from '@/lib/email'
-import { loadInvitationProducts } from '@/lib/cms/invitations-products'
+import { loadDigitalCardProducts } from '@/lib/cms/digital-cards-products'
 import PledgesManager from './PledgesManager'
 
 /** Only designs from this catalog category are offered as pledge-card templates. */
@@ -31,7 +31,7 @@ const PLEDGE_CARD_CATEGORY = 'Kadi za Michango'
  *  make a reasonable stand-in cover (portrait, name/date-forward) until real
  *  pledge-card designs are uploaded. Remove this fallback once they exist.
  *  Matches the live catalog's category value (plural — see CATEGORY_SW in
- *  lib/cms/invitations-products.ts). */
+ *  lib/cms/digital-cards-products.ts). */
 const PLEDGE_CARD_FALLBACK_CATEGORY = 'Save the Dates'
 
 /** Safety cap on how many designs to offer as free pledge-card templates. */
@@ -99,8 +99,8 @@ export default async function PledgesPage({
     getMyPledgePageConfig(selectedEventId),
     loadDashboardCopy('pledges', locale),
     selectedEventId ? getEventPackageTierId(selectedEventId) : Promise.resolve(null),
-    loadInvitationProducts(locale),
-    getPurchasedTemplateIds('pledge_card'),
+    loadDigitalCardProducts(locale),
+    getPurchasedTemplateIds('pledge_card', selectedEventId),
     loadUiStrings('checkout-form', locale),
     loadUiStrings('checkout-payment', locale),
   ])
@@ -129,6 +129,7 @@ export default async function PledgesPage({
         phone: g.phone,
         whatsapp_phone: g.whatsapp_phone,
         email: g.email,
+        max_party_size: g.max_party_size,
         pledgeInviteSentAt: g.pledge_invite_sent_at,
         hasPledged: pledgedContactIds.has(g.id),
       }))}

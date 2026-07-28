@@ -20,6 +20,7 @@ import {
   type DayHours,
 } from '@/lib/onboarding/draft'
 import { getStorefrontSections } from '@/lib/storefront/completion'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 import { cn } from '@/lib/utils'
 import { usePortalT, type Translator } from '@/components/providers/PortalUIStringsProvider'
 import {
@@ -176,11 +177,12 @@ export default function AvailabilityClient() {
     return order.map((k) => (hydrated ? !draft.hours[k].open : false))
   }, [hydrated, draft.hours])
 
+  const vertical = useVendorVertical()
   const nextHref = useMemo(() => {
-    const sections = getStorefrontSections(draft)
+    const sections = getStorefrontSections(draft, vertical)
     const idx = sections.findIndex((s) => s.id === 'availability')
     return idx >= 0 && idx < sections.length - 1 ? sections[idx + 1].href : null
-  }, [draft])
+  }, [draft, vertical])
 
   const today = new Date()
   const todayISO = toISO(today.getFullYear(), today.getMonth(), today.getDate())

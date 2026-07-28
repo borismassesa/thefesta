@@ -4,7 +4,7 @@ const REGISTRY_BAG_KEY = 'opusfesta:registryBag'
 
 export type RegistryBagItem = {
   category: string
-  id: number
+  id: string
   name: string
   img: string
   price: string
@@ -68,7 +68,7 @@ export function addToRegistryBag(item: Omit<RegistryBagItem, 'quantity'> & { qua
   setRegistryBag(next)
 }
 
-export function removeFromRegistryBag(category: string, id: number): void {
+export function removeFromRegistryBag(category: string, id: string): void {
   setRegistryBag(getRegistryBag().filter((b) => !(b.category === category && b.id === id)))
 }
 

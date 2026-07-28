@@ -208,7 +208,7 @@ export default function HeroEditor({ initial, hasDraft: initialHasDraft }: Props
               type="text"
               value={draft.secondary_cta_href}
               onChange={(e) => set('secondary_cta_href', e.target.value)}
-              placeholder="/invitations"
+              placeholder="/digital-cards"
               className={inputCls}
             />
           </Field>

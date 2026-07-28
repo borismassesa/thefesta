@@ -3,12 +3,26 @@
 import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react'
 import Image from 'next/image'
 import { Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Gift, MapPin, Search, Star, Wallet, X } from 'lucide-react'
-import { claimGiftRegistryItem, type GiftClaimReceipt } from '@/lib/dashboard/actions'
+import { claimCatalogGift, claimGiftRegistryItem, type GiftClaimReceipt } from '@/lib/dashboard/actions'
 import { formatGiftPrice } from '@/lib/dashboard/share'
 import type { GiftRegistryItemWithClaims, PublicGiftRegistryPage } from '@/lib/dashboard/queries'
+import { type CatalogGift } from '@/lib/dashboard/gift-catalog'
 import { GIFT_REGISTRY_CATEGORIES } from '@/lib/dashboard/types'
 import Logo from '@/components/ui/Logo'
 import PoweredByLine from '@/components/ui/PoweredByLine'
+import RegistryCheckoutSheet, { type BuyTarget } from './RegistryCheckoutSheet'
+
+/** A product-backed gift the guest can buy outright (has a product + numeric price). */
+function buyTargetOf(item: GiftRegistryItemWithClaims): BuyTarget | null {
+  if (!item.product_id || !item.price_tzs) return null
+  return {
+    productId: item.product_id,
+    name: item.title,
+    image: item.image_urls[0] ?? '',
+    priceTzs: item.price_tzs,
+    registryItemId: item.id,
+  }
+}
 
 // Restyled to match a dense storefront-style registry (Zola's manage/guest
 // registry page): wide banner hero with an overlapping circular photo, a
@@ -90,6 +104,12 @@ const STR: Record<Lang, Record<string, string>> = {
     sort_price_high: 'Bei: juu kwenda chini',
     no_results: 'Hakuna zawadi zinazolingana',
     no_results_body: 'Jaribu kubadilisha utafutaji au vichujio.',
+    shop_badge: 'Duka',
+    shop_hint_line: 'Zawadi ya mshangao kutoka dukani',
+    shop_claim_body: 'Zawadi hii itaongezwa kwenye orodha ya wenye sherehe ikiwa imechukuliwa na wewe.',
+    buy: 'Nunua',
+    bought_paid: 'Asante! Zawadi yako inakuja. 💚',
+    bought_processing: 'Asante! Malipo yako yanahakikiwa — wenye sherehe wataona zawadi baada ya kuthibitishwa.',
   },
   en: {
     subtitle: "Your presence is present enough, but if you wish to give a gift, here are some things we'd love.",
@@ -151,6 +171,12 @@ const STR: Record<Lang, Record<string, string>> = {
     sort_price_high: 'Price: high to low',
     no_results: 'No gifts match',
     no_results_body: 'Try a different search or filter.',
+    shop_badge: 'Shop',
+    shop_hint_line: 'A surprise gift from the shop',
+    shop_claim_body: "This gift will be added to the couple's registry, claimed by you.",
+    buy: 'Buy',
+    bought_paid: 'Thank you! Your gift is on its way. 💚',
+    bought_processing: "Thank you! Your payment is under review — the couple will see your gift once it's confirmed.",
   },
 }
 
@@ -353,6 +379,7 @@ function ClaimReceiptView({
 
 function ClaimModal({
   item,
+  catalogId,
   slug,
   lang,
   t,
@@ -360,11 +387,14 @@ function ClaimModal({
   onClaimed,
 }: {
   item: GiftRegistryItemWithClaims
+  /** Set when the guest is buying a shop-catalog gift the couple never added —
+   *  the claim then creates the registry item (already claimed) via claimCatalogGift. */
+  catalogId?: string
   slug: string
   lang: Lang
   t: Record<string, string>
   onClose: () => void
-  onClaimed: (name: string) => void
+  onClaimed: (name: string, createdItemId?: string) => void
 }) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -380,9 +410,17 @@ function ClaimModal({
     if (!phone.trim()) return setError(t.error_phone)
     setError(null)
     startTransition(async () => {
-      const res = await claimGiftRegistryItem(slug, item.id, trimmed, phone.trim(), email.trim() || null, lang)
+      let createdItemId: string | undefined
+      let res: { ok: boolean; error?: string; receipt?: GiftClaimReceipt }
+      if (catalogId) {
+        const catalogRes = await claimCatalogGift(slug, catalogId, trimmed, phone.trim(), email.trim() || null, lang)
+        createdItemId = catalogRes.itemId
+        res = catalogRes
+      } else {
+        res = await claimGiftRegistryItem(slug, item.id, trimmed, phone.trim(), email.trim() || null, lang)
+      }
       if (res.ok) {
-        onClaimed(trimmed)
+        onClaimed(trimmed, createdItemId)
         if (res.receipt) setReceipt(res.receipt)
         else onClose()
       } else {
@@ -413,7 +451,11 @@ function ClaimModal({
             {item.title}
           </p>
           <p className="mt-3 text-sm leading-relaxed" style={{ ...sans, color: SECONDARY }}>
-            {item.quantity_requested > 1 ? t.claim_body_multi.replace('{n}', String(item.quantity_requested)) : t.claim_body}
+            {catalogId
+              ? t.shop_claim_body
+              : item.quantity_requested > 1
+                ? t.claim_body_multi.replace('{n}', String(item.quantity_requested))
+                : t.claim_body}
           </p>
           <div className="mt-5 space-y-4">
             <div>
@@ -636,9 +678,22 @@ function GiftCardMedia({ item, claimed, title }: { item: GiftRegistryItemWithCla
   )
 }
 
-function GiftCard({ item, t, onOpenClaim }: { item: GiftRegistryItemWithClaims; t: Record<string, string>; onOpenClaim: () => void }) {
+function GiftCard({
+  item,
+  t,
+  onOpenClaim,
+  onOpenBuy,
+}: {
+  item: GiftRegistryItemWithClaims
+  t: Record<string, string>
+  onOpenClaim: () => void
+  onOpenBuy: () => void
+}) {
   const fullyClaimed = item.claimedCount >= item.quantity_requested
   const remaining = Math.max(item.quantity_requested - item.claimedCount, 0)
+  // Product-backed gifts are bought outright (real price + fulfillment);
+  // custom / cash gifts keep the claim-by-name flow.
+  const buyable = Boolean(item.product_id && item.price_tzs)
   return (
     <div className="group flex flex-col">
       <div className="relative aspect-square overflow-hidden rounded-lg" style={{ border: `1px solid ${BORDER}` }}>
@@ -720,7 +775,7 @@ function GiftCard({ item, t, onOpenClaim }: { item: GiftRegistryItemWithClaims; 
             {remaining}
           </div>
           <button
-            onClick={onOpenClaim}
+            onClick={buyable ? onOpenBuy : onOpenClaim}
             disabled={fullyClaimed}
             className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors"
             style={
@@ -733,6 +788,8 @@ function GiftCard({ item, t, onOpenClaim }: { item: GiftRegistryItemWithClaims; 
               <>
                 <CheckCircle className="h-3.5 w-3.5" /> {t.reserved}
               </>
+            ) : buyable ? (
+              t.buy
             ) : (
               t.claim
             )}
@@ -746,19 +803,121 @@ function GiftCard({ item, t, onOpenClaim }: { item: GiftRegistryItemWithClaims; 
   )
 }
 
+/** A shop-catalog gift viewed as a registry item — feeds the shared ClaimModal
+ *  (title/price/shop rows and the post-claim receipt view all read item fields). */
+function catalogToItem(g: CatalogGift): GiftRegistryItemWithClaims {
+  return {
+    id: `catalog-${g.id}`,
+    title: g.title,
+    description: g.description,
+    image_urls: [g.image],
+    video_url: null,
+    price_label: g.priceLabel,
+    product_link: null,
+    shop_name: g.shopName,
+    shop_location: g.shopLocation,
+    shop_contact: null,
+    category: g.category,
+    quantity_requested: 1,
+    most_wanted: false,
+    group_gift: false,
+    is_cash_fund: g.priceLabel.trim().toLowerCase() === 'any amount',
+    event_id: null,
+    product_id: g.productId ?? null,
+    price_tzs: g.priceTzs ?? null,
+    claimed_by_name: null,
+    claimed_by_phone: null,
+    claimed_by_email: null,
+    claimed_at: null,
+    claimedCount: 0,
+    claimants: [],
+    sort_order: 0,
+    created_at: '',
+    updated_at: '',
+  }
+}
+
+/** Same card design as GiftCard, for a shop gift the couple hasn't added —
+ *  guests can buy it as a surprise; claiming adds it to the couple's registry. */
+function ShopGiftCard({ gift, t, onOpenBuy }: { gift: CatalogGift; t: Record<string, string>; onOpenBuy: () => void }) {
+  return (
+    <div className="group flex flex-col">
+      <div className="relative aspect-square overflow-hidden rounded-lg" style={{ border: `1px solid ${BORDER}` }}>
+        <Image
+          src={gift.image}
+          alt={gift.title}
+          fill
+          sizes="(min-width: 1280px) 260px, (min-width: 768px) 30vw, 45vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+        <span
+          className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow-sm"
+          style={{ ...sans, color: SECONDARY }}
+        >
+          {t.shop_badge}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-1 flex-col">
+        <p className="text-[13px]" style={{ ...sans, color: SECONDARY }}>
+          {gift.category}
+        </p>
+        <h3 className="mt-0.5 line-clamp-2 text-[15px] font-bold leading-snug" style={{ ...sans, color: INK }}>
+          {gift.title}
+        </h3>
+        <p className="mt-1 text-[15px] font-semibold" style={{ ...sans, color: INK }}>
+          {formatGiftPrice(gift.priceLabel)}
+        </p>
+        <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium" style={{ ...sans, color: SECONDARY }}>
+          <MapPin className="h-2.5 w-2.5 shrink-0" /> {gift.shopName}
+        </p>
+
+        <div className="mt-2.5 flex-1" />
+
+        <div className="flex items-center gap-2">
+          <div
+            className="flex h-9 w-11 shrink-0 items-center justify-center rounded-lg text-sm font-medium"
+            style={{ ...sans, border: `1.5px solid ${BORDER}`, color: INK }}
+          >
+            1
+          </div>
+          <button
+            onClick={onOpenBuy}
+            className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors"
+            style={{ ...sans, backgroundColor: ACCENT, color: INK, cursor: 'pointer' }}
+          >
+            {t.buy}
+          </button>
+        </div>
+        <p className="mt-2 text-[12px]" style={{ ...sans, color: SECONDARY }}>
+          {t.shop_hint_line}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function GiftRegistryPublicClient({
   data,
+  catalog,
   hideNav,
 }: {
   data: PublicGiftRegistryPage
+  /** Live vendor products (fetchCatalogProducts) that guests can buy as
+   *  surprise gifts even when the couple never added them. Omitted by the
+   *  Zambarau website-builder embed, which shows only the couple's own list. */
+  catalog?: CatalogGift[]
   /** Zambarau embeds this page directly under its own nav (logo + EN/SW
    *  toggle already there) and above its own footer — skip this page's own
    *  Navbar and footer to avoid duplicates stacked around it. */
   hideNav?: boolean
 }) {
+  const shopCatalog = catalog ?? []
   const [lang, setLang] = useState<Lang>('sw')
   const [items, setItems] = useState(data.items)
-  const [claimTarget, setClaimTarget] = useState<GiftRegistryItemWithClaims | null>(null)
+  const [claimTarget, setClaimTarget] = useState<{ item: GiftRegistryItemWithClaims; catalogId?: string } | null>(null)
+  const [buyTarget, setBuyTarget] = useState<BuyTarget | null>(null)
+  const [boughtMsg, setBoughtMsg] = useState<string | null>(null)
   const [justClaimedName, setJustClaimedName] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
@@ -803,18 +962,64 @@ export default function GiftRegistryPublicClient({
       return Number(b.most_wanted) - Number(a.most_wanted)
     })
 
-  function onClaimed(name: string) {
+  // Shop-catalog gifts guests can buy even though the couple never added them —
+  // same search/category filters as the registry list, deduped by title against
+  // it (once bought, the gift lives in `items` and drops out of the shop), and
+  // hidden under the "reserved" availability filter (shop gifts are never reserved).
+  // Dedupe the shop against gifts already on the registry by product id (the
+  // couple added this product) — falling back to title for any legacy items.
+  const ownedProductIds = new Set(items.map((i) => i.product_id).filter(Boolean) as string[])
+  const ownedTitles = new Set(items.map((i) => i.title.trim().toLowerCase()))
+  const visibleShop =
+    filterAvailability === 'reserved'
+      ? []
+      : shopCatalog.filter((g) => {
+          if (g.productId && ownedProductIds.has(g.productId)) return false
+          if (ownedTitles.has(g.title.trim().toLowerCase())) return false
+          if (filterCategory !== 'all' && g.category !== filterCategory) return false
+          const q = search.trim().toLowerCase()
+          if (!q) return true
+          return g.title.toLowerCase().includes(q) || g.description.toLowerCase().includes(q)
+        })
+
+  function onBought(result: { status: 'paid' | 'processing' }) {
+    // Optimistically reserve a listed gift that was just bought so it flips to
+    // "reserved" without waiting for the revalidation round-trip.
+    const boughtItemId = buyTarget?.registryItemId
+    if (result.status === 'paid' && boughtItemId) {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === boughtItemId ? { ...i, claimedCount: Math.max(i.claimedCount, 1), claimed_at: new Date().toISOString() } : i,
+        ),
+      )
+    }
+    setBuyTarget(null)
+    setBoughtMsg(result.status === 'paid' ? t.bought_paid : t.bought_processing)
+    setTimeout(() => setBoughtMsg(null), 6000)
+  }
+
+  function onClaimed(name: string, createdItemId?: string) {
     if (!claimTarget) return
-    const id = claimTarget.id
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === id
-          ? i.quantity_requested > 1
-            ? { ...i, claimedCount: i.claimedCount + 1 }
-            : { ...i, claimed_by_name: name, claimed_at: new Date().toISOString(), claimedCount: 1 }
-          : i,
-      ),
-    )
+    if (claimTarget.catalogId && createdItemId) {
+      // Shop purchase — the action just created the (already-claimed) registry
+      // row; surface it in the couple's list so the shop card dedupes away.
+      const now = new Date().toISOString()
+      setItems((prev) => [
+        ...prev,
+        { ...claimTarget.item, id: createdItemId, claimed_by_name: name, claimed_at: now, claimedCount: 1, created_at: now, updated_at: now },
+      ])
+    } else {
+      const id = claimTarget.item.id
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === id
+            ? i.quantity_requested > 1
+              ? { ...i, claimedCount: i.claimedCount + 1 }
+              : { ...i, claimed_by_name: name, claimed_at: new Date().toISOString(), claimedCount: 1 }
+            : i,
+        ),
+      )
+    }
     setJustClaimedName(name)
     // Deliberately NOT clearing claimTarget here — the modal switches to its
     // own receipt view (shop info + what was sent) and stays open until the
@@ -822,7 +1027,8 @@ export default function GiftRegistryPublicClient({
     setTimeout(() => setJustClaimedName(null), 4000)
   }
 
-  const giftsCountLabel = items.length === 1 ? t.gifts_count_one : t.gifts_count_other.replace('{n}', String(items.length))
+  const totalListed = items.length + visibleShop.length
+  const giftsCountLabel = totalListed === 1 ? t.gifts_count_one : t.gifts_count_other.replace('{n}', String(totalListed))
 
   return (
     <main className="flex min-h-screen flex-col bg-white" style={{ ...sans, color: INK }}>
@@ -830,7 +1036,7 @@ export default function GiftRegistryPublicClient({
       <Hero data={data} t={t} />
 
       <div className="mx-auto w-full max-w-[1440px] flex-1 px-6 pb-16 pt-8 sm:px-8">
-        {items.length === 0 ? (
+        {items.length === 0 && visibleShop.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl py-20 text-center" style={{ backgroundColor: SURFACE_CONTAINER }}>
             <p className="text-xl font-bold" style={{ ...sans, color: INK }}>
               {t.empty_title}
@@ -886,7 +1092,7 @@ export default function GiftRegistryPublicClient({
               </div>
             </div>
 
-            {visibleItems.length === 0 ? (
+            {visibleItems.length === 0 && visibleShop.length === 0 ? (
               <div className="flex flex-col items-center gap-2 rounded-2xl py-20 text-center" style={{ backgroundColor: SURFACE_CONTAINER }}>
                 <p className="text-xl font-bold" style={{ ...sans, color: INK }}>
                   {t.no_results}
@@ -898,7 +1104,28 @@ export default function GiftRegistryPublicClient({
             ) : (
               <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {visibleItems.map((item) => (
-                  <GiftCard key={item.id} item={item} t={t} onOpenClaim={() => setClaimTarget(item)} />
+                  <GiftCard
+                    key={item.id}
+                    item={item}
+                    t={t}
+                    onOpenClaim={() => setClaimTarget({ item })}
+                    onOpenBuy={() => {
+                      const target = buyTargetOf(item)
+                      if (target) setBuyTarget(target)
+                    }}
+                  />
+                ))}
+                {visibleShop.map((gift) => (
+                  <ShopGiftCard
+                    key={gift.id}
+                    gift={gift}
+                    t={t}
+                    onOpenBuy={() =>
+                      gift.productId && gift.priceTzs
+                        ? setBuyTarget({ productId: gift.productId, name: gift.title, image: gift.image, priceTzs: gift.priceTzs })
+                        : setClaimTarget({ item: catalogToItem(gift), catalogId: gift.id })
+                    }
+                  />
                 ))}
               </div>
             )}
@@ -919,7 +1146,34 @@ export default function GiftRegistryPublicClient({
       )}
 
       {claimTarget ? (
-        <ClaimModal item={claimTarget} slug={data.slug} lang={lang} t={t} onClose={() => setClaimTarget(null)} onClaimed={onClaimed} />
+        <ClaimModal
+          item={claimTarget.item}
+          catalogId={claimTarget.catalogId}
+          slug={data.slug}
+          lang={lang}
+          t={t}
+          onClose={() => setClaimTarget(null)}
+          onClaimed={onClaimed}
+        />
+      ) : null}
+
+      {buyTarget ? (
+        <RegistryCheckoutSheet
+          target={buyTarget}
+          slug={data.slug}
+          lang={lang}
+          onClose={() => setBuyTarget(null)}
+          onDone={onBought}
+        />
+      ) : null}
+
+      {boughtMsg ? (
+        <div
+          className="fixed bottom-6 left-1/2 z-50 max-w-[92vw] -translate-x-1/2 rounded-2xl px-6 py-3 text-center text-sm font-semibold shadow-lg"
+          style={{ ...sans, backgroundColor: INK, color: '#fff' }}
+        >
+          {boughtMsg}
+        </div>
       ) : null}
 
       {justClaimedName ? (

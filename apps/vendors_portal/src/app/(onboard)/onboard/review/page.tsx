@@ -25,6 +25,7 @@ import { PERSONALITY_OPTIONS } from '@/lib/onboarding/personality'
 import { LANGUAGES } from '@/lib/onboarding/languages'
 import { CANCELLATION_OPTIONS, RESCHEDULE_OPTIONS } from '@/lib/onboarding/policies'
 import { LIPA_NAMBA_NETWORKS, PAYOUT_OPTIONS } from '@/lib/onboarding/payouts'
+import { sellsProducts } from '@/lib/onboarding/verticals'
 import { submitApplication } from '@/lib/onboarding/submit'
 import { useOnboardT } from '@/lib/onboarding/strings'
 
@@ -43,6 +44,7 @@ export default function ReviewPage() {
   const categoryLabel = draft.categoryId === 'other'
     ? (draft.customCategoryLabel || t('common.other'))
     : (category ? localizeProfileLabel(category.profileLabel, locale) : t('common.not_set'))
+  const isProductVendor = sellsProducts(draft.vertical)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -316,6 +318,11 @@ export default function ReviewPage() {
           <Row label={t('review.row.locally_owned')}>{draft.locallyOwned ? t('common.yes') : t('common.no')}</Row>
         </Section>
 
+        {/* Style, services, packages and booking policies are steps a product
+            vendor never walked through. Rendering them here would be a wall of
+            "Not set" rows with Edit links into skipped pages. */}
+        {isProductVendor ? null : (
+        <>
         <Section title={t('review.section.style')} editHref="/onboard/details/style">
           <Row label={t('review.row.style')}>{styleLabel ?? t('common.not_set')}</Row>
           <Row label={t('review.row.personality')}>{personalityLabel ?? t('common.not_set')}</Row>
@@ -388,6 +395,8 @@ export default function ReviewPage() {
           </Row>
           <Row label={t('review.row.reschedule')}>{rescheduleLabel ?? t('common.not_set')}</Row>
         </Section>
+        </>
+        )}
 
         <Section title={t('review.section.payout')} editHref="/onboard/pricing/payout">
           {draft.payoutMethods.length === 0 ? (

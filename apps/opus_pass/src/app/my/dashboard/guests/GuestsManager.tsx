@@ -79,6 +79,7 @@ const emptyForm: GuestInput = {
   phone: '',
   whatsapp_phone: '',
   group_tag: '',
+  max_party_size: 1,
   notes: '',
   name_on_envelope: '',
   address_country: '',
@@ -374,6 +375,7 @@ export default function GuestsManager({
       phone: g.phone ?? '',
       whatsapp_phone: g.whatsapp_phone ?? '',
       group_tag: g.group_tag ?? '',
+      max_party_size: g.max_party_size > 1 ? 2 : 1,
       notes: g.notes ?? '',
       name_on_envelope: g.name_on_envelope ?? '',
       address_country: g.address_country ?? '',
@@ -405,6 +407,7 @@ export default function GuestsManager({
       plus_one_last_name: f.plus_one_last_name ?? '',
       plus_one_suffix: f.plus_one_suffix ?? '',
       plus_one_name_unknown: f.plus_one_name_unknown ?? false,
+      max_party_size: 2,
     }))
   }
 
@@ -423,6 +426,7 @@ export default function GuestsManager({
     setForm((f) => ({
       ...f,
       children: [...(f.children ?? []), { first_name: '', last_name: '' }],
+      max_party_size: 2,
     }))
   }
 
@@ -999,8 +1003,8 @@ export default function GuestsManager({
           <div className="rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] p-4">
             <p className="text-sm font-medium text-[#1A1A1A]">Upload a .csv or .xlsx file</p>
             <p className="mt-1 text-xs text-[#1A1A1A]/55">
-              Columns we recognize: <span className="font-medium">Name, Email, Phone</span>. The first
-              row is treated as a header if it looks like one.
+              Columns we recognize: <span className="font-medium">Name, Email, Phone</span>. We import
+              guest rows from every sheet and use the first row as a header if it looks like one.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button variant="secondary" onClick={pickImportFile}>
@@ -1364,6 +1368,29 @@ function GuestInfoTab({
             placeholder="Vegetarian, requires wheelchair access…"
           />
         </Field>
+        <Field label="Ticket type">
+          <div className="grid grid-cols-2 gap-2">
+            {([1, 2] as const).map((size) => {
+              const active = (form.max_party_size ?? 1) === size
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setForm({ ...form, max_party_size: size })}
+                  className={cn(
+                    'rounded-full border px-3 py-2 text-sm font-semibold transition-colors',
+                    active
+                      ? 'border-[#C9A0DC] bg-[#F0DFF6] text-[#5d3a78]'
+                      : 'border-black/[0.12] text-[#1A1A1A]/70 hover:bg-black/[0.04]',
+                  )}
+                >
+                  {size === 2 ? 'Double' : 'Single'}
+                </button>
+              )
+            })}
+          </div>
+        </Field>
       </section>
 
       {plusOneShown ? (
@@ -1635,4 +1662,3 @@ function RsvpsTab({
     </div>
   )
 }
-

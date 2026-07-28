@@ -127,7 +127,7 @@ const PRODUCT_ADDONS_FAQ_FALLBACK: ProductAddonsFaqContent = {
     {
       id: 'cancellation-policy',
       title: 'Cancellation policy',
-      body: 'Cancel for a full refund any time before your invitations are sent. Once invites have gone out, the package is non-refundable — the cards and tickets are already live to your guests. The on-site attendant add-on can be cancelled up to 7 days before your event for a full refund. Read the full {link}.',
+      body: 'Cancel for a full refund any time before your digital cards are sent. Once invites have gone out, the package is non-refundable — the cards and tickets are already live to your guests. The on-site attendant add-on can be cancelled up to 7 days before your event for a full refund. Read the full {link}.',
       link_label: 'Cancellation & Refund Policy',
       link_href: '/cancellation',
     },
@@ -136,7 +136,7 @@ const PRODUCT_ADDONS_FAQ_FALLBACK: ProductAddonsFaqContent = {
 
 /**
  * Global (not per-product) add-ons + FAQ config shown on every
- * apps/opus_pass invitation product detail page (see
+ * apps/opus_pass digital card product detail page (see
  * apps/opus_pass/src/lib/cms/product-addons-faq.ts), read here directly
  * from Supabase so mobile stays in sync as admins edit add-ons/FAQ copy.
  *

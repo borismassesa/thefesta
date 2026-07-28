@@ -3,10 +3,13 @@ import { Heart, Star } from 'lucide-react'
 import AddToRegistryButton from './AddToRegistryButton'
 import type { Product } from '@/lib/registry-products'
 
-export default function ProductCard({ p }: { p: Product }) {
+// `href` overrides where the card links. The registry browse pages use the
+// default category route; the attire shop pages pass their own PDP path, since
+// attire products aren't part of the registry category taxonomy.
+export default function ProductCard({ p, href }: { p: Product; href?: string }) {
   return (
     <div className="group">
-      <Link href={`/registry/${p.category.slug}/p/${p.id}`} className="block">
+      <Link href={href ?? `/registry/${p.category.slug}/p/${p.id}`} className="block">
         <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-100">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -27,11 +30,15 @@ export default function ProductCard({ p }: { p: Product }) {
           </span>
         </div>
         <div className="pt-3">
-          <div className="mb-1 flex items-center gap-1 text-xs text-gray-700">
-            <span className="font-semibold text-gray-900">{p.rating}</span>
-            <Star size={12} className="fill-gray-900 text-gray-900" />
-            <span className="text-gray-500">({p.reviews.toLocaleString()})</span>
-          </div>
+          {/* Only once the product has reviews. Every DB-backed product starts
+              at zero, and "5.0 ★ (0)" is a rating nobody gave it. */}
+          {p.reviews > 0 && (
+            <div className="mb-1 flex items-center gap-1 text-xs text-gray-700">
+              <span className="font-semibold text-gray-900">{p.rating}</span>
+              <Star size={12} className="fill-gray-900 text-gray-900" />
+              <span className="text-gray-500">({p.reviews.toLocaleString()})</span>
+            </div>
+          )}
           <h3 className="mb-1 line-clamp-2 text-[13px] font-medium leading-snug text-gray-900 group-hover:underline">
             {p.name}
           </h3>

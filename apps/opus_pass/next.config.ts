@@ -2,6 +2,9 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Shared product/vendor contracts (Zod schemas, formatTzs) consumed as
+  // source, same as opus_website and vendors_portal.
+  transpilePackages: ['@opusfesta/lib'],
   experimental: {
     // Next's server-action body limit defaults to 1MB. The guestbook's
     // no-auth submitGuestbookEntry action uploads photos/audio/video straight
@@ -45,10 +48,8 @@ const nextConfig: NextConfig = {
     // fast-loading remote images. Serve images raw in dev (fast enough — these are
     // already-sized uploads) and let Vercel's robust optimizer handle production.
     unoptimized: process.env.NODE_ENV !== 'production',
-    // Next 16 rejects any <Image quality> value not explicitly allowlisted
-    // (default is just [75]). 90 is used on the invitation card preview
-    // (SendInvitesView), 100 on the checkout design preview (CheckoutClient).
-    qualities: [75, 90, 100],
+    // Next 16 rejects any <Image quality> value not explicitly allowlisted.
+    qualities: [75, 85, 90, 100],
     remotePatterns: [
       {
         protocol: 'https',
@@ -72,6 +73,19 @@ const nextConfig: NextConfig = {
       {
         source: '/guests',
         destination: '/guests-and-rsvp',
+        permanent: true,
+      },
+      // The digital-card storefront was renamed /invitations -> /digital-cards.
+      // Keep the old paths alive so stored CMS hrefs, bookmarks, and inbound
+      // links (and the installed mobile apps' deep links) don't 404.
+      {
+        source: '/invitations',
+        destination: '/digital-cards',
+        permanent: true,
+      },
+      {
+        source: '/invitations/:path*',
+        destination: '/digital-cards/:path*',
         permanent: true,
       },
     ]

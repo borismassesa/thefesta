@@ -17,6 +17,7 @@ import {
   MapPin,
   Plus,
   Search,
+  ShoppingBag,
   SquarePen,
   X,
 } from 'lucide-react'
@@ -28,11 +29,15 @@ import { VendorAvatar } from './_components/VendorAvatar'
 import { StatusPill, type StatusPillVariant } from './_components/StatusPill'
 import { MergeVendorDialog } from './_components/MergeVendorDialog'
 import { createVendorAccount } from './actions'
-import type {
-  QueueHealth,
-  VendorAccount,
-  VendorStatus,
-  VendorStatusCounts,
+import {
+  VENDOR_VERTICALS,
+  VERTICAL_LABELS,
+  type QueueHealth,
+  type VendorAccount,
+  type VendorStatus,
+  type VendorStatusCounts,
+  type VendorVertical,
+  type VerticalCounts,
 } from './_lib/types'
 
 const NEW_VENDOR_CATEGORIES = [
@@ -53,7 +58,19 @@ const NEW_VENDOR_CATEGORIES = [
 ] as const
 
 type ListStatus = VendorStatus | 'all'
+type ListVertical = VendorVertical | 'all'
 type SortMode = 'oldest' | 'newest' | 'name'
+
+// 'All' first so the filter reads the same way the Status pill does.
+const VERTICAL_FILTER_OPTIONS: Array<{ id: ListVertical; label: string }> = [
+  { id: 'all', label: 'All' },
+  ...VENDOR_VERTICALS.map((v) => ({ id: v as ListVertical, label: VERTICAL_LABELS[v] })),
+]
+
+function verticalOptionLabel(id: ListVertical, counts: VerticalCounts): string {
+  const option = VERTICAL_FILTER_OPTIONS.find((v) => v.id === id)
+  return `${option?.label ?? 'All'} (${counts[id]})`
+}
 
 const SORT_LABELS: Record<SortMode, string> = {
   oldest: 'Oldest in queue',
@@ -124,13 +141,17 @@ const ROW_GRID =
 export default function VendorsListClient({
   vendors,
   status,
+  vertical,
   counts,
+  verticalCounts,
   health,
   slaHours,
 }: {
   vendors: VendorAccount[]
   status: ListStatus
+  vertical: ListVertical
   counts: VendorStatusCounts
+  verticalCounts: VerticalCounts
   health: QueueHealth
   slaHours: number
 }) {
@@ -195,6 +216,12 @@ export default function VendorsListClient({
     writeParam('status', next)
   }
 
+  // Vertical is a server-side filter (the roster is capped at 200 rows), so it
+  // only writes the URL param and lets the page refetch.
+  const handleVerticalChange = (next: ListVertical) => {
+    writeParam('vertical', next)
+  }
+
   const handleSortChange = (next: SortMode) => {
     setSort(next)
     writeParam('sort', next === 'oldest' ? null : next)
@@ -217,10 +244,18 @@ export default function VendorsListClient({
     return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))]
   }, [vendors])
 
+  // One router.replace for the lot. Calling writeParam per filter would have
+  // each call build its URL from the same stale `searchParams`, so only the
+  // last one survived and the others silently stayed in the URL.
   const clearFilters = () => {
     setSearch('')
-    if (categoryFilter !== 'All') handleCategoryChange('All')
-    if (status !== 'all') handleStatusChange('all')
+    setCategoryFilter('All')
+    const next = new URLSearchParams(searchParams?.toString() ?? '')
+    for (const key of ['q', 'category', 'status', 'vertical']) next.delete(key)
+    router.replace(
+      next.toString() ? `/operations/vendors?${next}` : '/operations/vendors',
+      { scroll: false },
+    )
   }
 
   const visibleVendors = useMemo(() => {
@@ -359,6 +394,24 @@ export default function VendorsListClient({
               />
             </div>
             <FilterPill
+              label="Vertical"
+              // Counts ride in the option labels: "Gift shop (3)" answers the
+              // question an admin actually opens this filter to ask, without
+              // having to select it first. `value` carries the same string so
+              // the native <select> stays in sync with the pill.
+              value={verticalOptionLabel(vertical, verticalCounts)}
+              options={VERTICAL_FILTER_OPTIONS.map((v) =>
+                verticalOptionLabel(v.id, verticalCounts),
+              )}
+              active={vertical !== 'all'}
+              onChange={(label) => {
+                const match = VERTICAL_FILTER_OPTIONS.find(
+                  (v) => verticalOptionLabel(v.id, verticalCounts) === label,
+                )
+                if (match) handleVerticalChange(match.id)
+              }}
+            />
+            <FilterPill
               label="Category"
               value={categoryFilter}
               options={categoryOptions}
@@ -384,7 +437,10 @@ export default function VendorsListClient({
                 if (mode) handleSortChange(mode)
               }}
             />
-            {(search.trim() || status !== 'all' || categoryFilter !== 'All') && (
+            {(search.trim() ||
+              status !== 'all' ||
+              vertical !== 'all' ||
+              categoryFilter !== 'All') && (
               <button
                 type="button"
                 onClick={clearFilters}
@@ -473,6 +529,20 @@ export default function VendorsListClient({
 
 // --- Sub-components --------------------------------------------------------
 
+// Vertical badge, shown only for product vendors. 'service' is the default and
+// the overwhelming majority, so labelling every row "Wedding service" would be
+// noise; the exceptions are what an admin needs to spot, because a shop filed
+// under the wrong vertical is published to the wrong public catalogue.
+function VerticalPill({ vertical }: { vertical: VendorVertical }) {
+  if (vertical === 'service') return null
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#9FE870] px-2 py-0.5 text-[11px] font-semibold text-[#14532D]">
+      <ShoppingBag className="h-3 w-3" />
+      {VERTICAL_LABELS[vertical]}
+    </span>
+  )
+}
+
 // Pill-shaped filter with a transparent native <select> overlaid — same
 // pattern as the Employees page so the two pages read identically.
 function FilterPill({
@@ -480,13 +550,17 @@ function FilterPill({
   value,
   onChange,
   options,
+  active: activeOverride,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   options: readonly string[]
+  /** For filters whose "unset" option isn't literally the string 'All'. */
+  active?: boolean
 }) {
-  const active = value !== 'All' && value !== SORT_LABELS.oldest
+  const active =
+    activeOverride ?? (value !== 'All' && value !== SORT_LABELS.oldest)
   return (
     <label
       className={cn(
@@ -612,8 +686,9 @@ function VendorRow({
 
       {/* Category + submitter */}
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-gray-900">
-          {titleCaseCategory(vendor.category) || '—'}
+        <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-gray-900">
+          <span className="truncate">{titleCaseCategory(vendor.category) || '—'}</span>
+          <VerticalPill vertical={vendor.vertical} />
         </p>
         {vendor.submittedByName && (
           <p className="truncate text-xs text-gray-500">
@@ -734,6 +809,7 @@ function VendorCard({
             <span className="inline-flex items-center whitespace-nowrap rounded-full bg-[#F0DFF6] px-2 py-0.5 text-[11px] font-semibold text-[#5B2D8E]">
               {titleCaseCategory(vendor.category) || 'Uncategorized'}
             </span>
+            <VerticalPill vertical={vendor.vertical} />
             {inProgress && (
               <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-[#C9A0DC] px-2 py-0.5 text-[11px] font-semibold text-[#7E5896]">
                 {vendor.documentsTotal > 0

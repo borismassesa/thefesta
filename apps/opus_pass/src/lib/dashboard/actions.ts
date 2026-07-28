@@ -29,6 +29,7 @@ import { getSmsProvider } from '@/lib/sms'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
 import { pledgeRequestEmail } from './pledge-email'
 import { sendGiftClaimReceipts, type ReceiptGift, type ReceiptLang } from './gift-registry-receipt'
+import { GIFT_CATALOG } from './gift-catalog'
 import { MAX_TICKET_PARTY } from './types'
 import type {
   AttendanceAnswer,
@@ -119,10 +120,15 @@ export async function updateEvent(id: string, input: EventInput): Promise<void> 
   // instead of a header edit.
   const { data: existingEvent, error: existingEventErr } = await supabase
     .from('wedding_events')
-    .select('gift_registry_header, gift_registry_slug, guestbook_slug')
+    .select('gift_registry_header, gift_registry_slug, guestbook_slug, invite_slug')
     .eq('id', id)
     .eq('user_id', user.id)
-    .maybeSingle<{ gift_registry_header: string | null; gift_registry_slug: string | null; guestbook_slug: string | null }>()
+    .maybeSingle<{
+      gift_registry_header: string | null
+      gift_registry_slug: string | null
+      guestbook_slug: string | null
+      invite_slug: string | null
+    }>()
   if (existingEventErr) throw new Error(existingEventErr.message)
   const expectedSlugBase = eventHeroSlugBase(existingEvent?.gift_registry_header ?? null, trimmedName)
   let giftRegistrySlug = existingEvent?.gift_registry_slug ?? null
@@ -133,6 +139,11 @@ export async function updateEvent(id: string, input: EventInput): Promise<void> 
   let guestbookSlug = existingEvent?.guestbook_slug ?? null
   if (guestbookSlug && slugBaseOf(guestbookSlug) !== expectedGuestbookSlugBase) {
     guestbookSlug = await reserveUniqueGuestbookSlug(supabase, expectedGuestbookSlugBase)
+  }
+  const previousInviteSlug = existingEvent?.invite_slug ?? null
+  let inviteSlug = existingEvent?.invite_slug ?? null
+  if (inviteSlug && slugBaseOf(inviteSlug) !== expectedGuestbookSlugBase) {
+    inviteSlug = await reserveUniqueInviteSlug(supabase, expectedGuestbookSlugBase)
   }
 
   const { error } = await supabase
@@ -154,10 +165,15 @@ export async function updateEvent(id: string, input: EventInput): Promise<void> 
       sort_order: input.sort_order ?? 0,
       gift_registry_slug: giftRegistrySlug,
       guestbook_slug: guestbookSlug,
+      invite_slug: inviteSlug,
     })
     .eq('id', id)
     .eq('user_id', user.id)
   if (error) throw new Error(error.message)
+  for (const slug of new Set([previousInviteSlug, inviteSlug].filter((s): s is string => Boolean(s)))) {
+    revalidatePath(`/rsvp/event/${slug}`)
+    revalidatePath(`/save-the-date/${slug}`)
+  }
   revalidateDashboard()
 }
 
@@ -330,6 +346,10 @@ function composeName(parts: Array<string | null | undefined>): string {
     .join(' ')
 }
 
+function ticketPartySize(value: number | null | undefined): number {
+  return Math.min(MAX_TICKET_PARTY, Math.max(1, Number(value) || 1))
+}
+
 function guestColumnsFromInput(input: GuestInput): Record<string, unknown> {
   const first = (input.first_name ?? '').trim() || null
   const last = (input.last_name ?? '').trim() || null
@@ -354,7 +374,7 @@ function guestColumnsFromInput(input: GuestInput): Record<string, unknown> {
   // derived count higher, but an invite never covers more than two seats).
   const hasPlusOne = plusOneNameUnknown || Boolean(plusOneFirst) || Boolean(plusOneLast)
   const derivedParty = 1 + (hasPlusOne ? 1 : 0) + children.length
-  const max_party_size = Math.min(MAX_TICKET_PARTY, Math.max(1, input.max_party_size ?? derivedParty))
+  const max_party_size = ticketPartySize(input.max_party_size ?? derivedParty)
 
   return {
     full_name,
@@ -388,25 +408,36 @@ function guestColumnsFromInput(input: GuestInput): Record<string, unknown> {
   }
 }
 
-async function syncInvitations(userId: string, guestId: string, requestedEventIds: string[]) {
+async function syncInvitations(userId: string, guestId: string, requestedEventIds: string[], maxPartySize?: number) {
   const supabase = createDashboardClient()
   const eventIds = await ownedEventIds(userId, requestedEventIds)
+  const party_size = ticketPartySize(maxPartySize)
   const { data: existing } = await supabase
     .from('guest_invitations')
-    .select('id, event_id')
+    .select('id, event_id, rsvp_status')
     .eq('user_id', userId)
     .eq('guest_contact_id', guestId)
 
-  const have = new Map((existing ?? []).map((r) => [r.event_id as string, r.id as string]))
+  const have = new Map((existing ?? []).map((r) => [r.event_id as string, r as { id: string; event_id: string; rsvp_status: RsvpStatus | null }]))
   const want = new Set(eventIds)
 
   const toAdd = eventIds.filter((eid) => !have.has(eid))
-  const toRemove = [...have.entries()].filter(([eid]) => !want.has(eid)).map(([, id]) => id)
+  const toRemove = [...have.entries()].filter(([eid]) => !want.has(eid)).map(([, r]) => r.id)
+  const toAlign = [...have.values()]
+    .filter((r) => want.has(r.event_id) && (r.rsvp_status ?? 'pending') === 'pending')
+    .map((r) => r.id)
 
   if (toAdd.length) {
     const { error } = await supabase.from('guest_invitations').insert(
-      toAdd.map((event_id) => ({ user_id: userId, guest_contact_id: guestId, event_id }))
+      toAdd.map((event_id) => ({ user_id: userId, guest_contact_id: guestId, event_id, party_size }))
     )
+    if (error) throw new Error(error.message)
+  }
+  if (toAlign.length) {
+    const { error } = await supabase
+      .from('guest_invitations')
+      .update({ party_size })
+      .in('id', toAlign)
     if (error) throw new Error(error.message)
   }
   if (toRemove.length) {
@@ -424,13 +455,24 @@ async function allOwnedEventIds(userId: string): Promise<string[]> {
 
 /** Guarantee a guest is linked to every one of the couple's events — the
  *  unified-roster invariant every surface (RSVPs, funnel, taps) relies on. */
-async function ensureInvitationsForAllEvents(userId: string, guestId: string): Promise<void> {
+async function ensureInvitationsForAllEvents(userId: string, guestId: string, maxPartySize?: number): Promise<void> {
   const supabase = createDashboardClient()
   const eventIds = await allOwnedEventIds(userId)
   if (!eventIds.length) return
+  let party_size = ticketPartySize(maxPartySize)
+  if (typeof maxPartySize !== 'number') {
+    const { data: guest, error: guestErr } = await supabase
+      .from('guest_contacts')
+      .select('max_party_size')
+      .eq('id', guestId)
+      .eq('user_id', userId)
+      .maybeSingle<{ max_party_size: number | null }>()
+    if (guestErr) throw new Error(guestErr.message)
+    party_size = ticketPartySize(guest?.max_party_size)
+  }
   const { data: existing } = await supabase
     .from('guest_invitations')
-    .select('event_id')
+    .select('id, event_id, rsvp_status')
     .eq('user_id', userId)
     .eq('guest_contact_id', guestId)
   const have = new Set((existing ?? []).map((r) => r.event_id as string))
@@ -438,8 +480,35 @@ async function ensureInvitationsForAllEvents(userId: string, guestId: string): P
   if (missing.length) {
     await supabase
       .from('guest_invitations')
-      .insert(missing.map((event_id) => ({ user_id: userId, guest_contact_id: guestId, event_id })))
+      .insert(missing.map((event_id) => ({ user_id: userId, guest_contact_id: guestId, event_id, party_size })))
   }
+  const pendingIds = (existing ?? [])
+    .filter((r) => (r.rsvp_status ?? 'pending') === 'pending')
+    .map((r) => r.id as string)
+  if (pendingIds.length) {
+    await supabase
+      .from('guest_invitations')
+      .update({ party_size })
+      .in('id', pendingIds)
+  }
+}
+
+async function alignPendingInvitationPartySize(userId: string, guestId: string, maxPartySize: number): Promise<void> {
+  const supabase = createDashboardClient()
+  const { data, error: readErr } = await supabase
+    .from('guest_invitations')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('guest_contact_id', guestId)
+    .eq('rsvp_status', 'pending')
+  if (readErr) throw new Error(readErr.message)
+  const ids = (data ?? []).map((r) => r.id as string)
+  if (!ids.length) return
+  const { error } = await supabase
+    .from('guest_invitations')
+    .update({ party_size: ticketPartySize(maxPartySize) })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
 }
 
 /** Returned rather than thrown — Next.js strips thrown Server Action error
@@ -480,9 +549,9 @@ export async function createGuest(input: GuestInput): Promise<CreateGuestResult>
   // nothing ticked) — links the guest to every event. Zero-link guests are the
   // drift that made the dashboard surfaces disagree.
   if (input.eventIds?.length) {
-    await syncInvitations(user.id, data.id, input.eventIds)
+    await syncInvitations(user.id, data.id, input.eventIds, input.max_party_size)
   } else {
-    await ensureInvitationsForAllEvents(user.id, data.id)
+    await ensureInvitationsForAllEvents(user.id, data.id, input.max_party_size)
   }
   revalidateDashboard()
   return { ok: true, id: data.id }
@@ -499,7 +568,7 @@ export async function updateGuest(id: string, input: GuestInput): Promise<void> 
   if (error) throw new Error(error.message)
 
   if (input.eventIds) {
-    await syncInvitations(user.id, id, input.eventIds)
+    await syncInvitations(user.id, id, input.eventIds, input.max_party_size)
   }
   revalidateDashboard()
 }
@@ -569,7 +638,7 @@ export async function bulkImportGuests(text: string, eventIds: string[] = []): P
   const { data, error } = await supabase
     .from('guest_contacts')
     .insert(fresh.map((r) => ({ user_id: user.id, ...r })))
-    .select('id')
+    .select('id, max_party_size')
   if (error) throw new Error(error.message)
 
   // Unified roster: no explicit event selection means link to every event.
@@ -578,7 +647,12 @@ export async function bulkImportGuests(text: string, eventIds: string[] = []): P
     : await allOwnedEventIds(user.id)
   if (ownedIds.length && data?.length) {
     const invites = data.flatMap((g) =>
-      ownedIds.map((event_id) => ({ user_id: user.id, guest_contact_id: g.id, event_id }))
+      ownedIds.map((event_id) => ({
+        user_id: user.id,
+        guest_contact_id: g.id,
+        event_id,
+        party_size: ticketPartySize(g.max_party_size as number | null),
+      }))
     )
     const { error: invErr } = await supabase.from('guest_invitations').insert(invites)
     if (invErr) throw new Error(invErr.message)
@@ -655,6 +729,7 @@ export interface PledgeInput {
   whatsapp_phone?: string | null
   email?: string | null
   group_tag?: string | null
+  max_party_size?: number
 
   pledged_amount?: number
   amount_received?: number
@@ -739,6 +814,15 @@ async function resolvePledgeContact(userId: string, input: PledgeInput): Promise
       .eq('user_id', userId)
       .maybeSingle<{ id: string }>()
     if (!data) throw new Error('Contributor not found')
+    if (typeof input.max_party_size === 'number') {
+      const { error } = await supabase
+        .from('guest_contacts')
+        .update({ max_party_size: ticketPartySize(input.max_party_size) })
+        .eq('id', data.id)
+        .eq('user_id', userId)
+      if (error) throw new Error(error.message)
+      await alignPendingInvitationPartySize(userId, data.id, input.max_party_size)
+    }
     return data.id
   }
   const full_name = (input.full_name ?? '').trim()
@@ -752,6 +836,7 @@ async function resolvePledgeContact(userId: string, input: PledgeInput): Promise
       whatsapp_phone: (input.whatsapp_phone ?? '').trim() || null,
       email: (input.email ?? '').trim() || null,
       group_tag: (input.group_tag ?? '').trim() || null,
+      max_party_size: ticketPartySize(input.max_party_size),
     })
     .select('id')
     .single<{ id: string }>()
@@ -785,6 +870,15 @@ export async function createPledge(input: PledgeInput): Promise<string> {
 export async function updatePledge(id: string, input: PledgeInput): Promise<void> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
+  if (input.guestContactId && typeof input.max_party_size === 'number') {
+    const { error } = await supabase
+      .from('guest_contacts')
+      .update({ max_party_size: ticketPartySize(input.max_party_size) })
+      .eq('id', input.guestContactId)
+      .eq('user_id', user.id)
+    if (error) throw new Error(error.message)
+    await alignPendingInvitationPartySize(user.id, input.guestContactId, input.max_party_size)
+  }
   // Allow moving a pledge onto a different existing contributor, but never null it.
   const patch = pledgeColumnsFromInput(input)
   if (input.guestContactId) {
@@ -942,7 +1036,11 @@ export async function sendPledgeReminderEmail(pledgeId: string, message: string)
     .select('partner1_name, partner2_name')
     .eq('user_id', user.id)
     .maybeSingle<{ partner1_name: string | null; partner2_name: string | null }>()
-  const coupleName = [profile?.partner1_name, profile?.partner2_name].filter(Boolean).join(' & ') || 'The Couple'
+  const coupleName =
+    [profile?.partner1_name, profile?.partner2_name]
+      .filter(Boolean)
+      .map((n) => firstNameOf(n!))
+      .join(' & ') || 'The Couple'
 
   let ok = true
   if (live) {
@@ -1133,9 +1231,10 @@ export async function applyPledgeCardTemplate(eventId: string, cardImageUrl: str
   const withImage = items.find((it) => it.image)
   const tierId = withImage?.tierId ?? items[0]?.tierId ?? null
   const hasFreeAccess = Boolean(tierId && PLEDGE_TEMPLATE_FREE_TIER_IDS.includes(tierId))
-  // Individual template purchases aren't scoped to one event — a design
-  // bought for any event counts everywhere, mirroring getPurchasedTemplateIds().
+  // Individual template purchases are event-scoped: buying a design for one
+  // event must not unlock it for another event under the same account.
   const purchasedThisDesign = orders.some((o) =>
+    o.event_id === eventId &&
     (o.items ?? []).some((it) => {
       const parsed = it.id ? parseTemplateCardItemId(it.id) : null
       return parsed?.type === 'pledge_card' && parsed.templateId === templateId
@@ -1214,7 +1313,12 @@ export async function setThankYouCoverImage(
  *  client-supplied tier); everyone else must have individually bought this
  *  exact design (see templateCardItemId/getPurchasedTemplateIds) — also
  *  re-checked server-side, mirroring applyPledgeCardTemplate. */
-export async function applyThankYouCardTemplate(eventId: string, cardImageUrl: string, templateId: string): Promise<void> {
+export async function applyThankYouCardTemplate(
+  eventId: string,
+  cardImageUrl: string,
+  templateId: string,
+  templateName?: string,
+): Promise<void> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
 
@@ -1229,9 +1333,10 @@ export async function applyThankYouCardTemplate(eventId: string, cardImageUrl: s
   const withImage = items.find((it) => it.image)
   const tierId = withImage?.tierId ?? items[0]?.tierId ?? null
   const hasFreeAccess = Boolean(tierId && THANK_YOU_FREE_TIER_IDS.includes(tierId))
-  // Individual template purchases aren't scoped to one event — a design
-  // bought for any event counts everywhere, mirroring getPurchasedTemplateIds().
+  // Individual template purchases are event-scoped: buying a design for one
+  // event must not unlock it for another event under the same account.
   const purchasedThisDesign = orders.some((o) =>
+    o.event_id === eventId &&
     (o.items ?? []).some((it) => {
       const parsed = it.id ? parseTemplateCardItemId(it.id) : null
       return parsed?.type === 'thank_you_card' && parsed.templateId === templateId
@@ -1251,7 +1356,12 @@ export async function applyThankYouCardTemplate(eventId: string, cardImageUrl: s
     ...stored,
     eventCovers: {
       ...stored.eventCovers,
-      [eventId]: { coverImageUrl: cardImageUrl, coverIsFullTemplate: true },
+      [eventId]: {
+        coverImageUrl: cardImageUrl,
+        coverIsFullTemplate: true,
+        templateId,
+        templateName: templateName ?? null,
+      },
     },
   }
   const { data, error } = await supabase
@@ -1504,6 +1614,7 @@ export async function submitPublicRsvp(
       type: 'rsvp_received',
       title: `${guest.full_name} responded to your invitation`,
       body: label,
+      actorName: guest.full_name,
       href: '/my/dashboard/rsvps',
     })
   }
@@ -1777,10 +1888,12 @@ export async function submitPublicInviteRsvp(
     type: 'rsvp_received',
     title: `${fullName} RSVP'd via your shared link`,
     body: `${statusLabel} · needs review`,
+    actorName: fullName,
     href: '/my/dashboard/guests?review=1',
   })
 
   revalidatePath(`/rsvp/event/${slug}`)
+  revalidatePath(`/save-the-date/${slug}`)
   revalidateDashboard()
   return { ok: true }
 }
@@ -1800,9 +1913,11 @@ export async function enableInviteSharing(eventId: string): Promise<{ slug: stri
     .maybeSingle<{ name: string; invite_slug: string | null }>()
   if (!event) throw new Error('Event not found')
 
+  const previousSlug = event.invite_slug
   let slug = event.invite_slug
-  if (!slug) {
-    slug = await reserveUniqueInviteSlug(supabase, eventSlugBase(event.name))
+  const expectedSlugBase = eventSlugBase(event.name)
+  if (!slug || slugBaseOf(slug) !== expectedSlugBase) {
+    slug = await reserveUniqueInviteSlug(supabase, expectedSlugBase)
   }
 
   const { error } = await supabase
@@ -1812,8 +1927,106 @@ export async function enableInviteSharing(eventId: string): Promise<{ slug: stri
     .eq('user_id', user.id)
   if (error) throw new Error(error.message)
 
+  for (const changedSlug of new Set([previousSlug, slug].filter((s): s is string => Boolean(s)))) {
+    revalidatePath(`/rsvp/event/${changedSlug}`)
+    revalidatePath(`/save-the-date/${changedSlug}`)
+  }
   revalidateDashboard()
   return { slug }
+}
+
+/** Select the Save the Date template for one event. This is intentionally
+ * separate from paid invitation order imagery: a save-the-date selection
+ * controls the Save the dates tab's selected preview/share block only. */
+export async function applySaveDateTemplate(
+  eventId: string,
+  template: { id: string; name: string; imageUrl: string },
+): Promise<void> {
+  const user = await requireDashboardUser()
+  const supabase = createDashboardClient()
+
+  const { data: event } = await supabase
+    .from('wedding_events')
+    .select('invite_slug')
+    .eq('id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle<{ invite_slug: string | null }>()
+  if (!event) throw new Error('Event not found')
+
+  // Check the read error: on a transient failure `profile` is null, and merging
+  // onto an empty object would overwrite the couple's whole pledge_page blob
+  // (pledge cover config plus every other event's save-date template).
+  const { data: profile, error: profileErr } = await supabase
+    .from('couple_profiles')
+    .select('pledge_page')
+    .eq('user_id', user.id)
+    .maybeSingle<{ pledge_page: PledgePageConfig | null }>()
+  if (profileErr) throw new Error(profileErr.message)
+  const stored = profile?.pledge_page ?? {}
+  const nextConfig: PledgePageConfig = {
+    ...stored,
+    saveDateTemplates: {
+      ...stored.saveDateTemplates,
+      [eventId]: template,
+    },
+  }
+
+  const { data, error } = await supabase
+    .from('couple_profiles')
+    .update({ pledge_page: nextConfig, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+    .select('id')
+  if (error) throw new Error(error.message)
+  if (!data || data.length === 0) {
+    const { error: insErr } = await supabase
+      .from('couple_profiles')
+      .insert({ user_id: user.id, partner1_name: 'The Couple', pledge_page: nextConfig })
+    if (insErr) throw new Error(insErr.message)
+  }
+  if (event?.invite_slug) revalidatePath(`/save-the-date/${event.invite_slug}`)
+  revalidatePath('/my/dashboard/invitations')
+  revalidateDashboard()
+}
+
+/** Clear the selected Save the Date template for one event. Mirrors the
+ * "click Applied to unselect" behavior used by pledge/thank-you card pickers. */
+export async function removeSaveDateTemplate(eventId: string): Promise<void> {
+  const user = await requireDashboardUser()
+  const supabase = createDashboardClient()
+
+  const { data: event } = await supabase
+    .from('wedding_events')
+    .select('invite_slug')
+    .eq('id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle<{ invite_slug: string | null }>()
+  if (!event) throw new Error('Event not found')
+
+  // See applySaveDateTemplate: an unchecked read error here would clobber the
+  // couple's entire pledge_page blob instead of removing one template.
+  const { data: profile, error: profileErr } = await supabase
+    .from('couple_profiles')
+    .select('pledge_page')
+    .eq('user_id', user.id)
+    .maybeSingle<{ pledge_page: PledgePageConfig | null }>()
+  if (profileErr) throw new Error(profileErr.message)
+  const stored = profile?.pledge_page ?? {}
+  const nextSelections = { ...(stored.saveDateTemplates ?? {}) }
+  delete nextSelections[eventId]
+  const nextConfig: PledgePageConfig = {
+    ...stored,
+    saveDateTemplates: nextSelections,
+  }
+
+  const { error } = await supabase
+    .from('couple_profiles')
+    .update({ pledge_page: nextConfig, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+  if (error) throw new Error(error.message)
+
+  if (event.invite_slug) revalidatePath(`/save-the-date/${event.invite_slug}`)
+  revalidatePath('/my/dashboard/invitations')
+  revalidateDashboard()
 }
 
 /** Turns a specific event's public invite/RSVP link off (couple can re-enable later, same slug). */
@@ -1826,6 +2039,16 @@ export async function disableInviteSharing(eventId: string): Promise<void> {
     .eq('id', eventId)
     .eq('user_id', user.id)
   if (error) throw new Error(error.message)
+  const { data: event } = await supabase
+    .from('wedding_events')
+    .select('invite_slug')
+    .eq('id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle<{ invite_slug: string | null }>()
+  if (event?.invite_slug) {
+    revalidatePath(`/rsvp/event/${event.invite_slug}`)
+    revalidatePath(`/save-the-date/${event.invite_slug}`)
+  }
   revalidateDashboard()
 }
 
@@ -2029,6 +2252,7 @@ export async function submitGuestbookEntry(
     userId: event.user_id,
     type: 'guestbook_received',
     title: `${guestName} left ${event.name} a guestbook message`,
+    actorName: guestName,
     body: message.length > 120 ? `${message.slice(0, 117)}…` : message,
     href: '/my/dashboard/guestbook',
   })
@@ -2370,6 +2594,76 @@ export async function createGiftRegistryItem(input: GiftRegistryInput): Promise<
   return data.id
 }
 
+/**
+ * Add a real vendor product to the couple's registry in one tap. Links the gift
+ * to the product (product_id) with a numeric price_tzs, so guests can BUY it and
+ * it dedupes reliably by product id (not the old fragile title match). Returns
+ * the existing item id if this product is already on the registry.
+ */
+export async function addProductToRegistry(
+  productId: string,
+  eventId: string | null,
+): Promise<{ id: string; alreadyAdded: boolean }> {
+  const user = await requireDashboardUser()
+  const supabase = createDashboardClient()
+
+  const { data: product } = await supabase
+    .from('products')
+    .select('id, name, description, images, price_tzs, vendor:vendors!inner(business_name, location, onboarding_status)')
+    .eq('id', productId)
+    .eq('status', 'approved')
+    .eq('published', true)
+    .eq('vendor.onboarding_status', 'active')
+    .maybeSingle<{
+      id: string
+      name: string
+      description: string | null
+      images: string[] | null
+      price_tzs: number
+      vendor: { business_name: string | null; location: { city?: string; region?: string } | null } | null
+    }>()
+  if (!product) throw new Error('This product is no longer available')
+
+  // Dedupe by product_id within the same event.
+  const existingQuery = supabase
+    .from('gift_registry_items')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('product_id', productId)
+  const { data: existing } = await (eventId
+    ? existingQuery.eq('event_id', eventId)
+    : existingQuery
+  ).maybeSingle<{ id: string }>()
+  if (existing) return { id: existing.id, alreadyAdded: true }
+
+  const location = product.vendor?.location?.city || product.vendor?.location?.region || 'Tanzania'
+  const { count } = await supabase
+    .from('gift_registry_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+  const { data, error } = await supabase
+    .from('gift_registry_items')
+    .insert({
+      user_id: user.id,
+      title: product.name,
+      description: product.description,
+      image_urls: (product.images ?? []).slice(0, 3),
+      price_label: `TZS ${product.price_tzs.toLocaleString('en-US')}`,
+      price_tzs: product.price_tzs,
+      product_id: product.id,
+      shop_name: product.vendor?.business_name ?? null,
+      shop_location: location,
+      quantity_requested: 1,
+      event_id: eventId,
+      sort_order: count ?? 0,
+    })
+    .select('id')
+    .single<{ id: string }>()
+  if (error || !data) throw new Error(error?.message ?? 'Failed to add product')
+  revalidateDashboard()
+  return { id: data.id, alreadyAdded: false }
+}
+
 export async function updateGiftRegistryItem(id: string, input: GiftRegistryInput): Promise<void> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
@@ -2644,12 +2938,21 @@ export async function claimGiftRegistryItem(
     claimedTitle = item.title
   }
 
-  const coupleNames = [profile.partner1_name, profile.partner2_name].filter(Boolean).join(' & ') || 'you'
+  // Couples are addressed by first name only (e.g. "Jonathan & Jenifer", not
+  // "Jonathan David & Jenifer Kasala") everywhere they're shown to guests.
+  const coupleFirstNames = [profile.partner1_name, profile.partner2_name]
+    .filter(Boolean)
+    .map((n) => firstNameOf(n!))
+    .join(' & ')
+  const coupleNames = coupleFirstNames || 'you'
   await createNotification({
     userId: profile.user_id,
     type: 'gift_claimed',
-    title: `${name} claimed a gift from ${coupleNames}'s registry`,
+    title: coupleFirstNames
+      ? `${name} claimed a gift from ${coupleFirstNames}'s registry`
+      : `${name} claimed a gift`,
     body: claimedTitle,
+    actorName: name,
     href: '/my/dashboard/gift-registry',
   })
 
@@ -2687,6 +2990,130 @@ export async function claimGiftRegistryItem(
   revalidatePath(`/gift-registry/${slug}`)
   revalidatePath('/my/dashboard/gift-registry')
   return { ok: true, receipt: { gift: receiptGift, guestEmailSent, guestWhatsAppSent } }
+}
+
+/**
+ * A guest buys a SHOP-CATALOG gift the couple never added ("surprise" gift):
+ * creates the gift_registry_items row for the couple's registry pre-claimed by
+ * the guest in one insert (no unclaimed window for another guest to race on),
+ * then notifies the couple and sends the guest the usual purchase receipt.
+ *
+ * Resolves the registry via wedding_events.gift_registry_slug (the slug this
+ * public page is actually served under) — NOT couple_profiles.public_slug,
+ * which is the older account-wide slug that diverges after an event rename.
+ */
+export async function claimCatalogGift(
+  slug: string,
+  catalogId: string,
+  guestName: string,
+  guestPhoneRaw: string,
+  guestEmailRaw: string | null,
+  lang: ReceiptLang = 'sw',
+): Promise<{ ok: boolean; error?: string; receipt?: GiftClaimReceipt; itemId?: string }> {
+  const name = guestName.trim().slice(0, 80)
+  if (!name) return { ok: false, error: 'Please enter your name.' }
+  const guestPhone = normalizePhone(guestPhoneRaw)
+  if (!guestPhone) return { ok: false, error: 'Please enter a valid phone number.' }
+  const guestEmail = guestEmailRaw?.trim() || null
+
+  const gift = GIFT_CATALOG.find((g) => g.id === catalogId)
+  if (!gift) return { ok: false, error: 'This gift is no longer in the shop.' }
+
+  const supabase = createDashboardClient()
+  const { data: event, error: eventErr } = await supabase
+    .from('wedding_events')
+    .select('id, user_id, gift_registry_sharing_enabled')
+    .eq('gift_registry_slug', slug)
+    .maybeSingle<{ id: string; user_id: string; gift_registry_sharing_enabled: boolean }>()
+  if (eventErr) {
+    console.error('[gift-registry] catalog claim event lookup failed', eventErr)
+    return { ok: false, error: 'Something went wrong — please try again in a moment.' }
+  }
+  if (!event || !event.gift_registry_sharing_enabled) {
+    return { ok: false, error: 'This registry link is no longer active.' }
+  }
+
+  const { data: inserted, error: insErr } = await supabase
+    .from('gift_registry_items')
+    .insert({
+      user_id: event.user_id,
+      event_id: event.id,
+      title: gift.title,
+      description: gift.description,
+      image_urls: [gift.image],
+      price_label: gift.priceLabel,
+      shop_name: gift.shopName,
+      shop_location: gift.shopLocation,
+      category: gift.category,
+      quantity_requested: 1,
+      is_cash_fund: gift.priceLabel.trim().toLowerCase() === 'any amount',
+      claimed_by_name: name,
+      claimed_by_phone: guestPhone,
+      claimed_by_email: guestEmail,
+      claimed_at: new Date().toISOString(),
+    })
+    .select('id')
+    .maybeSingle<{ id: string }>()
+  if (insErr || !inserted) {
+    console.error('[gift-registry] catalog claim insert failed', insErr)
+    return { ok: false, error: 'Something went wrong — please try again in a moment.' }
+  }
+
+  const { data: profile } = await supabase
+    .from('couple_profiles')
+    .select('partner1_name, partner2_name, whatsapp_phone')
+    .eq('user_id', event.user_id)
+    .maybeSingle<{ partner1_name: string | null; partner2_name: string | null; whatsapp_phone: string | null }>()
+
+  const coupleFirstNames = [profile?.partner1_name, profile?.partner2_name]
+    .filter(Boolean)
+    .map((n) => firstNameOf(n!))
+    .join(' & ')
+  await createNotification({
+    userId: event.user_id,
+    type: 'gift_claimed',
+    title: coupleFirstNames
+      ? `${name} is gifting ${coupleFirstNames} something from the shop`
+      : `${name} is gifting you something from the shop`,
+    body: gift.title,
+    actorName: name,
+    href: '/my/dashboard/gift-registry',
+  })
+
+  const receiptGift: ReceiptGift = {
+    title: gift.title,
+    priceLabel: gift.priceLabel,
+    shopName: gift.shopName,
+    shopLocation: gift.shopLocation,
+    shopContact: null,
+    productLink: null,
+  }
+
+  // Best-effort, same as claimGiftRegistryItem — receipt delivery must never
+  // turn a successful purchase into an error response.
+  let guestEmailSent = false
+  let guestWhatsAppSent = false
+  try {
+    const { data: coupleUser } = await supabase.from('users').select('email').eq('id', event.user_id).maybeSingle<{ email: string | null }>()
+    const result = await sendGiftClaimReceipts({
+      gift: receiptGift,
+      coupleName: coupleFirstNames || 'you',
+      guestName: name,
+      guestPhone,
+      guestEmail,
+      coupleEmail: coupleUser?.email ?? null,
+      couplePhone: normalizePhone(profile?.whatsapp_phone ?? null),
+      lang,
+    })
+    guestEmailSent = result.guestEmailSent
+    guestWhatsAppSent = result.guestWhatsAppSent
+  } catch (err) {
+    console.error('[gift-registry] catalog claim receipt send failed', err)
+  }
+
+  revalidatePath(`/gift-registry/${slug}`)
+  revalidatePath('/my/dashboard/gift-registry')
+  return { ok: true, receipt: { gift: receiptGift, guestEmailSent, guestWhatsAppSent }, itemId: inserted.id }
 }
 
 // ---------------------------------------------------------------- WhatsApp invitations
@@ -3500,21 +3927,28 @@ export async function updateGuestBasics(guestId: string, name: string, rawPhone:
 
 /**
  * Lightweight inline edit from the Pledges guest table: guest display name,
- * phone, and email. Same narrow philosophy as updateGuestBasics — a blank
- * phone or email means "leave it as it is", so a quick edit can never
- * silently strip a guest's existing contact info.
+ * phone, and email. By default, blank phone/email fields mean "leave it as it
+ * is" for quick inline edits; pledge-row edits can opt into clearing blanks.
  */
 export async function updateGuestContactInfo(
   guestId: string,
   name: string,
   rawPhone: string,
   email: string,
+  options: { clearBlankFields?: boolean; groupTag?: string | null; maxPartySize?: number } = {},
 ): Promise<void> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
   const fullName = name.replace(/\s+/g, ' ').trim().slice(0, 120)
   if (!fullName) throw new Error('Enter the guest name')
-  const updatePayload: { full_name: string; phone?: string; whatsapp_phone?: string; email?: string } = {
+  const updatePayload: {
+    full_name: string
+    phone?: string | null
+    whatsapp_phone?: string | null
+    email?: string | null
+    group_tag?: string | null
+    max_party_size?: number
+  } = {
     full_name: fullName,
   }
   if (rawPhone.trim()) {
@@ -3522,9 +3956,20 @@ export async function updateGuestContactInfo(
     if (!phone || phone.length < 9) throw new Error('Enter a valid phone number')
     updatePayload.phone = phone
     updatePayload.whatsapp_phone = phone
+  } else if (options.clearBlankFields) {
+    updatePayload.phone = null
+    updatePayload.whatsapp_phone = null
   }
   if (email.trim()) {
     updatePayload.email = email.trim()
+  } else if (options.clearBlankFields) {
+    updatePayload.email = null
+  }
+  if ('groupTag' in options) {
+    updatePayload.group_tag = (options.groupTag ?? '').trim() || null
+  }
+  if (typeof options.maxPartySize === 'number') {
+    updatePayload.max_party_size = ticketPartySize(options.maxPartySize)
   }
   const { error } = await supabase
     .from('guest_contacts')
@@ -3532,6 +3977,9 @@ export async function updateGuestContactInfo(
     .eq('id', guestId)
     .eq('user_id', user.id)
   if (error) throw new Error(error.message)
+  if (typeof options.maxPartySize === 'number') {
+    await alignPendingInvitationPartySize(user.id, guestId, options.maxPartySize)
+  }
   revalidateDashboard()
 }
 
@@ -3666,6 +4114,7 @@ async function sendWhatsAppLinkRequests(
       coupleName: ent.coupleName,
       headerImageUrl,
       token,
+      eventId: resolvedEventId,
     })
 
     await supabase.from('whatsapp_messages').insert({

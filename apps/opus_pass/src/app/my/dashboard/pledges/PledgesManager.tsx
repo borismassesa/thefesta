@@ -63,7 +63,7 @@ import {
 } from '@/lib/dashboard/pledge-card-templates'
 import TemplatePurchaseModal, { type TemplatePurchaseTarget } from '@/components/dashboard/TemplatePurchaseModal'
 import PaymentSummaryModal from '@/components/dashboard/PaymentSummaryModal'
-import Confetti from '@/components/invitations/Confetti'
+import Confetti from '@/components/digital-cards/Confetti'
 import { getLastOrder, setLastOrder, getOrders, getPendingTemplateIds, type StoredOrder } from '@/lib/cart-storage'
 import {
   pledgeUrl,
@@ -106,6 +106,7 @@ type ContactLite = {
   phone: string | null
   whatsapp_phone: string | null
   email: string | null
+  max_party_size: number
   pledgeInviteSentAt: string | null
   hasPledged: boolean
 }
@@ -142,6 +143,10 @@ function formatDueDate(value: string | null): string {
     month: 'short',
     year: 'numeric',
   })
+}
+
+function cardTypeLabel(maxPartySize: number): 'Single' | 'Double' {
+  return maxPartySize > 1 ? 'Double' : 'Single'
 }
 
 /** Days until the promised date — negative when overdue, null when no date. */
@@ -241,6 +246,8 @@ const emptyForm = {
   phone: '',
   whatsapp_phone: '',
   email: '',
+  group_tag: '',
+  max_party_size: 1,
   pledged_amount: '',
   amount_received: '',
   currency: 'TZS',
@@ -360,9 +367,10 @@ export default function PledgesManager({
   useEffect(() => {
     setOrigin(window.location.origin)
   }, [])
-  // Multi-event couples share an event-tagged link so public pledges land on
-  // the event they're collecting for; single-event links stay clean.
-  const shareEventId = events.length > 1 ? selectedEventId : null
+  // Share an event-tagged link whenever the dashboard is scoped to an event so
+  // guests land on that event's actual pledge card. Without this, single-event
+  // couples with an event-scoped card fall back to the generic pledge panel.
+  const shareEventId = selectedEventId
   const shareLink = pledgeToken && origin ? pledgeUrl(origin, pledgeToken, shareEventId) : null
 
   // Close the filter popover on an outside click.
@@ -405,9 +413,11 @@ export default function PledgesManager({
       mode: 'existing',
       guestContactId: p.guest_contact_id,
       full_name: p.full_name,
-      phone: p.phone ?? '',
-      whatsapp_phone: p.whatsapp_phone ?? '',
+      phone: p.whatsapp_phone ?? p.phone ?? '',
+      whatsapp_phone: p.whatsapp_phone ?? p.phone ?? '',
       email: p.email ?? '',
+      group_tag: p.group_tag ?? '',
+      max_party_size: p.max_party_size > 1 ? 2 : 1,
       pledged_amount: p.pledged_amount ? String(p.pledged_amount) : '',
       amount_received: p.amount_received ? String(p.amount_received) : '',
       currency: p.currency || 'TZS',
@@ -426,6 +436,7 @@ export default function PledgesManager({
     const base: PledgeInput = {
       eventId: selectedEventId ?? undefined,
       pledged_amount: Number(f.pledged_amount) || 0,
+      max_party_size: f.max_party_size,
       amount_received: Number(f.amount_received) || 0,
       currency: f.currency || 'TZS',
       promised_date: f.promised_date || null,
@@ -447,6 +458,7 @@ export default function PledgesManager({
       phone: f.phone || null,
       whatsapp_phone: f.whatsapp_phone || null,
       email: f.email || null,
+      group_tag: f.group_tag || null,
     }
   }
 
@@ -462,6 +474,10 @@ export default function PledgesManager({
     startTransition(async () => {
       try {
         if (form.id) {
+          await updateGuestContactInfo(form.guestContactId, form.full_name, form.phone, form.email, {
+            clearBlankFields: true,
+            groupTag: form.group_tag,
+          })
           await updatePledge(form.id, buildInput(form))
           toast.success('Pledge updated')
         } else {
@@ -532,13 +548,14 @@ export default function PledgesManager({
 
   function exportCsv() {
     const headers = [
-      'Contributor', 'Group', 'Phone', 'Email', 'Currency', 'Pledged', 'Received',
-      'Outstanding', 'Status', 'Payment method', 'Promised by', 'Coming', 'Card',
+      'Contributor', 'Group', 'Card Type', 'Phone', 'Email', 'Currency', 'Pledged', 'Received',
+      'Outstanding', 'Status', 'Payment method', 'Promised by',
       'Reminders sent', 'Last reminded',
     ]
     const rows = initialPledges.map((p) => [
       p.full_name,
       p.group_tag ?? '',
+      cardTypeLabel(p.max_party_size),
       p.whatsapp_phone ?? p.phone ?? '',
       p.email ?? '',
       p.currency,
@@ -548,8 +565,6 @@ export default function PledgesManager({
       PLEDGE_STATUS_LABELS[p.status],
       p.payment_method ? PAYMENT_METHOD_LABELS[p.payment_method] : '',
       p.promised_date ?? '',
-      p.will_attend ? ATTENDANCE_LABELS[p.will_attend] : '',
-      CARD_STATUS_LABELS[p.card_status],
       p.reminder_count,
       p.last_reminded_at ? new Date(p.last_reminded_at).toISOString().slice(0, 10) : '',
     ])
@@ -602,10 +617,19 @@ export default function PledgesManager({
           .join('')
       : '<tr><td colspan="3" class="muted">Nothing outstanding</td></tr>'
 
+    const cardTypeRows = ([1, 2] as const)
+      .map((size) => {
+        const rows = initialPledges.filter((p) => (p.max_party_size > 1 ? 2 : 1) === size)
+        return `<tr><td>${cardTypeLabel(size)}</td><td class="r">${rows.length}</td><td class="r">${fmt(
+          rows.reduce((n, p) => n + toTzs(p.pledged_amount, p.currency), 0),
+        )}</td><td class="r">${fmt(rows.reduce((n, p) => n + toTzs(p.amount_received, p.currency), 0))}</td></tr>`
+      })
+      .join('')
+
     const topRows = topContributors(initialPledges, 10)
       .map(
         (p) =>
-          `<tr><td>${esc(p.full_name)}</td><td class="r">${formatMoney(p.pledged_amount, p.currency)}</td><td class="r">${formatMoney(
+          `<tr><td>${esc(p.full_name)}</td><td>${cardTypeLabel(p.max_party_size)}</td><td class="r">${formatMoney(p.pledged_amount, p.currency)}</td><td class="r">${formatMoney(
             p.amount_received,
             p.currency,
           )}</td></tr>`,
@@ -644,11 +668,13 @@ export default function PledgesManager({
       </div>
       <h2>By status</h2>
       <table><thead><tr><th>Status</th><th class="r">Count</th><th class="r">Pledged</th><th class="r">Received</th></tr></thead><tbody>${statusRows}</tbody></table>
+      <h2>By card type</h2>
+      <table><thead><tr><th>Card type</th><th class="r">Count</th><th class="r">Pledged</th><th class="r">Received</th></tr></thead><tbody>${cardTypeRows}</tbody></table>
       <h2>Outstanding by age</h2>
       <table><thead><tr><th>Age</th><th class="r">Count</th><th class="r">Outstanding</th></tr></thead><tbody>${agingRows}</tbody></table>
       <h2>Top contributors</h2>
-      <table><thead><tr><th>Contributor</th><th class="r">Pledged</th><th class="r">Received</th></tr></thead><tbody>${
-        topRows || '<tr><td colspan="3" class="muted">No pledges yet</td></tr>'
+      <table><thead><tr><th>Contributor</th><th>Card type</th><th class="r">Pledged</th><th class="r">Received</th></tr></thead><tbody>${
+        topRows || '<tr><td colspan="4" class="muted">No pledges yet</td></tr>'
       }</tbody></table>
       <p class="foot">Generated by OpusPass · ${esc(coupleName)} contributions</p>
     </body></html>`
@@ -1000,8 +1026,7 @@ export default function PledgesManager({
                 <Th>Outstanding</Th>
                 <Th>Due</Th>
                 <Th>Status</Th>
-                <Th>Coming?</Th>
-                <Th>Card</Th>
+                <Th>Card Type</Th>
                 <Th>Payment</Th>
                 <th className="w-1 py-3 pr-3"><span className="sr-only">Actions</span></th>
               </tr>
@@ -1043,16 +1068,9 @@ export default function PledgesManager({
                     </td>
                     <td className="py-3.5 pr-4"><PledgeStatusPill status={p.status} /></td>
                     <td className="py-3.5 pr-4">
-                      {p.will_attend ? (
-                        <span className="rounded-full bg-[#9FE870]/25 px-2 py-0.5 text-xs font-medium text-[#3f6b1f]">
-                          {ATTENDANCE_LABELS[p.will_attend]}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-[#1A1A1A]/35">—</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 pr-4">
-                      <span className="text-xs text-[#1A1A1A]/65">{CARD_STATUS_LABELS[p.card_status]}</span>
+                      <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-xs font-medium text-[#1A1A1A]/70">
+                        {cardTypeLabel(p.max_party_size)}
+                      </span>
                     </td>
                     <td className="py-3.5 pr-4">
                       <button
@@ -1724,6 +1742,7 @@ const PLEDGE_TABLE_CSS = `
 .si .pill-whatsapp{ color:#1a8a4a; border-color:#bfe8d2; background:#eefaf3; }
 .si .pill-sms{ color:var(--purple-d); border-color:var(--lav); background:#faf6fd; }
 .si .pill-email{ color:var(--purple-d); border-color:var(--lav); background:#faf6fd; }
+.si .pill-card{ color:#4b5563; border-color:#e5e7eb; background:#f8fafc; }
 .si .pill-none{ color:var(--faint); }
 .si .pillselect{ display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:4px 10px; font-size:11.5px;
   font-weight:600; border:1px solid var(--line); color:var(--ink); white-space:nowrap; cursor:pointer; background:#fff; }
@@ -1796,6 +1815,7 @@ function InviteSection({
     name: string
     phone: string
     email: string
+    max_party_size: number
     askDelete: boolean
   } | null>(null)
   const [pending, startTransition] = useTransition()
@@ -1803,7 +1823,7 @@ function InviteSection({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkSending, startBulkSend] = useTransition()
   const [addingGuest, setAddingGuest] = useState(false)
-  const [newGuest, setNewGuest] = useState({ name: '', phone: '', email: '' })
+  const [newGuest, setNewGuest] = useState({ name: '', phone: '', email: '', max_party_size: 1 })
   const [savingNewGuest, startSaveNewGuest] = useTransition()
   // Per-contact channel override — the "Preferred channel" column defaults to
   // preferredChannel(c) but the couple can pick a different one for any row.
@@ -1859,13 +1879,14 @@ function InviteSection({
   // dashboard, so a couple returning later (no purchase_ref in the URL)
   // still needs to see a design unlock once it's been confirmed.
   useEffect(() => {
-    const pending = getPendingTemplateIds('pledge_card')
+    const pending = getPendingTemplateIds('pledge_card', selectedEventId)
     setPendingTemplateIds(pending)
     if (pending.size === 0) return
     let cancelled = false
     ;(async () => {
       for (const order of getOrders()) {
         if (order.paymentStatus !== 'verifying') continue
+        if (selectedEventId && order.eventId !== selectedEventId) continue
         for (const item of order.items) {
           const parsed = parseTemplateCardItemId(item.id)
           if (!parsed || parsed.type !== 'pledge_card') continue
@@ -1925,6 +1946,7 @@ function InviteSection({
                 for (const item of paidOrder.items) {
                   const parsed = parseTemplateCardItemId(item.id)
                   if (!parsed || parsed.type !== 'pledge_card') continue
+                  if (selectedEventId && paidOrder.eventId !== selectedEventId) continue
                   setPurchasedIds((prev) => new Set(prev).add(parsed.templateId))
                   setPendingTemplateIds((prev) => {
                     const next = new Set(prev)
@@ -2086,10 +2108,10 @@ function InviteSection({
 
   function saveRowEdit() {
     if (!rowEdit) return
-    const { id, name, phone, email } = rowEdit
+    const { id, name, phone, email, max_party_size } = rowEdit
     startTransition(async () => {
       try {
-        await updateGuestContactInfo(id, name, phone, email)
+        await updateGuestContactInfo(id, name, phone, email, { maxPartySize: max_party_size })
         toast.success('Guest saved')
         setRowEdit(null)
       } catch (err) {
@@ -2157,10 +2179,11 @@ function InviteSection({
         phone: newGuest.phone.trim() || null,
         whatsapp_phone: newGuest.phone.trim() || null,
         email: newGuest.email.trim() || null,
+        max_party_size: newGuest.max_party_size,
       })
       if (res.ok) {
         toast.success('Guest added')
-        setNewGuest({ name: '', phone: '', email: '' })
+        setNewGuest({ name: '', phone: '', email: '', max_party_size: 1 })
         setAddingGuest(false)
       } else {
         toast.error(res.error)
@@ -2553,6 +2576,7 @@ function InviteSection({
                           </th>
                           <th>Guest</th>
                           <th>Contact</th>
+                          <th>Card Type</th>
                           <th>Preferred channel</th>
                           <th>Status</th>
                           <th style={{ textAlign: 'right' }}>Send</th>
@@ -2575,7 +2599,7 @@ function InviteSection({
                                 }}
                               />
                             </td>
-                            <td className="contact" colSpan={2}>
+                            <td className="contact">
                               <div style={{ display: 'flex', gap: 8 }}>
                                 <input
                                   className="einp"
@@ -2601,6 +2625,20 @@ function InviteSection({
                                 />
                               </div>
                             </td>
+                            <td>
+                              <select
+                                className="einp"
+                                value={newGuest.max_party_size}
+                                onChange={(e) =>
+                                  setNewGuest({ ...newGuest, max_party_size: Number(e.target.value) > 1 ? 2 : 1 })
+                                }
+                                aria-label="Card Type"
+                              >
+                                <option value={1}>Single</option>
+                                <option value={2}>Double</option>
+                              </select>
+                            </td>
+                            <td />
                             <td />
                             <td>
                               <div className="ra">
@@ -2630,7 +2668,7 @@ function InviteSection({
                                   }}
                                 />
                               </td>
-                              <td className="contact" colSpan={2}>
+                              <td className="contact">
                                 <div style={{ display: 'flex', gap: 8 }}>
                                   <input
                                     className="einp"
@@ -2656,6 +2694,20 @@ function InviteSection({
                                   />
                                 </div>
                               </td>
+                              <td>
+                                <select
+                                  className="einp"
+                                  value={rowEdit.max_party_size}
+                                  onChange={(e) =>
+                                    setRowEdit({ ...rowEdit, max_party_size: Number(e.target.value) > 1 ? 2 : 1 })
+                                  }
+                                  aria-label="Card Type"
+                                >
+                                  <option value={1}>Single</option>
+                                  <option value={2}>Double</option>
+                                </select>
+                              </td>
+                              <td />
                               <td />
                               <td>
                                 <div className="ra">
@@ -2696,6 +2748,9 @@ function InviteSection({
                                   </td>
                                   <td className="who">{c.full_name}</td>
                                   <td className="contact">{phone || c.email || 'No contact'}</td>
+                                  <td>
+                                    <span className="pill pill-card">{cardTypeLabel(c.max_party_size)}</span>
+                                  </td>
                                   <td style={{ position: 'relative' }}>
                                     {channel ? (
                                       <div data-channel-menu style={{ position: 'relative', display: 'inline-block' }}>
@@ -2785,6 +2840,7 @@ function InviteSection({
                                             name: c.full_name,
                                             phone: phone ?? '',
                                             email: c.email ?? '',
+                                            max_party_size: c.max_party_size > 1 ? 2 : 1,
                                             askDelete: false,
                                           })
                                         }
@@ -2998,6 +3054,16 @@ function ReportsSection({
     }, {}),
   ).sort((a, b) => b[1].received - a[1].received)
 
+  const byCardType = ([1, 2] as const).map((size) => {
+    const rows = pledges.filter((p) => (p.max_party_size > 1 ? 2 : 1) === size)
+    return {
+      label: cardTypeLabel(size),
+      count: rows.length,
+      pledged: rows.reduce((n, p) => n + toTzs(p.pledged_amount, p.currency), 0),
+      received: rows.reduce((n, p) => n + toTzs(p.amount_received, p.currency), 0),
+    }
+  })
+
   const totalReminders = pledges.reduce((n, p) => n + p.reminder_count, 0)
   const aging = outstandingAging(pledges)
 
@@ -3145,6 +3211,12 @@ function ReportsSection({
         rows={byStatus.map((r) => [r.label, String(r.count), formatMoney(r.pledged, 'TZS'), formatMoney(r.received, 'TZS')])}
       />
 
+      <ReportTable
+        title="By card type"
+        head={['Card type', 'Count', 'Pledged', 'Received']}
+        rows={byCardType.map((r) => [r.label, String(r.count), formatMoney(r.pledged, 'TZS'), formatMoney(r.received, 'TZS')])}
+      />
+
       {/* Charts */}
       <div className="grid gap-3 lg:grid-cols-2">
         <ChartCard title="Pledges over time" subtitle="Cumulative committed amount">
@@ -3178,8 +3250,13 @@ function ReportsSection({
       {top.length > 0 ? (
         <ReportTable
           title="Top contributors"
-          head={['Contributor', 'Pledged', 'Received']}
-          rows={top.map((p) => [p.full_name, formatMoney(p.pledged_amount, p.currency), formatMoney(p.amount_received, p.currency)])}
+          head={['Contributor', 'Card type', 'Pledged', 'Received']}
+          rows={top.map((p) => [
+            p.full_name,
+            cardTypeLabel(p.max_party_size),
+            formatMoney(p.pledged_amount, p.currency),
+            formatMoney(p.amount_received, p.currency),
+          ])}
         />
       ) : null}
 
@@ -3355,7 +3432,14 @@ function PledgeSlideover({
               <select
                 className={inputClass}
                 value={form.guestContactId}
-                onChange={(e) => setForm((f) => ({ ...f, guestContactId: e.target.value }))}
+                onChange={(e) => {
+                  const contact = contacts.find((c) => c.id === e.target.value)
+                  setForm((f) => ({
+                    ...f,
+                    guestContactId: e.target.value,
+                    max_party_size: contact && contact.max_party_size > 1 ? 2 : 1,
+                  }))
+                }}
               >
                 <option value="">Select…</option>
                 {contacts.map((c) => (
@@ -3371,38 +3455,52 @@ function PledgeSlideover({
                 <input
                   className={inputClass}
                   value={form.full_name}
-                  disabled={isEdit}
                   onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
                   placeholder="e.g. Mzee Juma Said"
                 />
               </Field>
-              {!isEdit ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label="Mobile / WhatsApp">
-                    <input
-                      className={inputClass}
-                      value={form.phone}
-                      onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value, whatsapp_phone: e.target.value }))}
-                      placeholder="07XX XXX XXX"
-                    />
-                  </Field>
-                  <Field label="Email">
-                    <input
-                      type="email"
-                      className={inputClass}
-                      value={form.email}
-                      onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                      placeholder="you@example.com"
-                    />
-                  </Field>
-                </div>
-              ) : (
-                <p className="text-xs text-[#1A1A1A]/50">
-                  Edit this person’s contact details from the Guest list.
-                </p>
-              )}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Mobile / WhatsApp">
+                  <input
+                    className={inputClass}
+                    value={form.phone}
+                    onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value, whatsapp_phone: e.target.value }))}
+                    placeholder="07XX XXX XXX"
+                  />
+                </Field>
+                <Field label="Email">
+                  <input
+                    type="email"
+                    className={inputClass}
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                    placeholder="you@example.com"
+                  />
+                </Field>
+              </div>
+              <Field label="Group" hint="Optional">
+                <input
+                  className={inputClass}
+                  value={form.group_tag}
+                  onChange={(e) => setForm((f) => ({ ...f, group_tag: e.target.value }))}
+                  placeholder="e.g. Family, Friends, Office"
+                />
+              </Field>
             </>
           )}
+          <Field label="Card Type">
+            <div className="grid grid-cols-2 gap-2">
+              {[1, 2].map((size) => (
+                <ModeChip
+                  key={size}
+                  active={form.max_party_size === size}
+                  onClick={() => setForm((f) => ({ ...f, max_party_size: size }))}
+                >
+                  {size === 2 ? 'Double' : 'Single'}
+                </ModeChip>
+              ))}
+            </div>
+          </Field>
         </section>
 
         {/* The pledge */}
@@ -3515,7 +3613,7 @@ function PledgeSlideover({
                 ))}
               </select>
             </Field>
-            <Field label="Card">
+            <Field label="Card progress">
               <select
                 className={inputClass}
                 value={form.card_status}

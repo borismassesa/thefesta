@@ -11,7 +11,7 @@ function buildColumns(s: FooterStrings): FooterColumn[] {
     {
       title: s.col_products,
       links: [
-        { label: s.link_invitations, href: '/invitations' },
+        { label: s.link_invitations, href: '/digital-cards' },
         { label: s.link_guests, href: '/guests-and-rsvp' },
         { label: s.link_website, href: '/websites' },
       ],
@@ -19,10 +19,10 @@ function buildColumns(s: FooterStrings): FooterColumn[] {
     {
       title: s.col_templates,
       links: [
-        { label: s.link_save_the_dates, href: '/invitations/save-the-date' },
-        { label: s.link_wedding_invitations, href: '/invitations/wedding' },
-        { label: s.link_send_off, href: '/invitations/send-off' },
-        { label: s.link_kadi_michango, href: '/invitations/kadi-za-michango' },
+        { label: s.link_save_the_dates, href: '/digital-cards/save-the-date' },
+        { label: s.link_wedding_invitations, href: '/digital-cards/wedding' },
+        { label: s.link_send_off, href: '/digital-cards/send-off' },
+        { label: s.link_kadi_michango, href: '/digital-cards/kadi-za-michango' },
       ],
     },
     {
@@ -36,10 +36,10 @@ function buildColumns(s: FooterStrings): FooterColumn[] {
     {
       title: s.col_company,
       links: [
-        { label: s.link_about, href: '/about' },
-        { label: s.link_careers, href: '/careers' },
-        { label: s.link_press, href: '/press' },
-        { label: s.link_status, href: '/status' },
+        { label: s.link_about, href: 'https://opusfesta.com' },
+        { label: s.link_careers, href: '/contact' },
+        { label: s.link_press, href: '/contact' },
+        { label: s.link_status, href: '/help' },
       ],
     },
   ]
@@ -58,7 +58,7 @@ export default function Footer({ strings }: { strings: FooterStrings }) {
               <h4 className="font-bold mb-4 text-[#1A1A1A]">{col.title}</h4>
               <ul className="space-y-3 text-gray-500">
                 {col.links.map((link) => (
-                  <li key={link.href}>
+                  <li key={`${col.title}-${link.label}-${link.href}`}>
                     <Link href={link.href} className="hover:text-[#1A1A1A] transition-colors">
                       {link.label}
                     </Link>

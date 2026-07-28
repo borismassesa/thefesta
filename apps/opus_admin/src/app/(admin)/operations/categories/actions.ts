@@ -59,6 +59,7 @@ export async function updateCategory(
     icon: string
     sortOrder: number
     active: boolean
+    sellsProducts: boolean
   }>,
 ): Promise<ActionResult> {
   try {
@@ -71,6 +72,7 @@ export async function updateCategory(
     if (patch.icon !== undefined) update.icon = patch.icon.trim() || 'Tag'
     if (patch.sortOrder !== undefined) update.sort_order = patch.sortOrder
     if (patch.active !== undefined) update.active = patch.active
+    if (patch.sellsProducts !== undefined) update.sells_products = patch.sellsProducts
     const { error } = await admin
       .from('vendor_categories')
       .update(update)

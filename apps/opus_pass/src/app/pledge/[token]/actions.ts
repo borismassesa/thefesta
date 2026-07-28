@@ -4,12 +4,14 @@ import { revalidatePath } from 'next/cache'
 import { createDashboardClient } from '@/lib/dashboard/supabase'
 import { createNotification } from '@/lib/dashboard/notifications'
 import { resolveEventIdOrDefault } from '@/lib/dashboard/queries'
+import { MAX_TICKET_PARTY } from '@/lib/dashboard/types'
 
 export interface PublicPledgeInput {
   full_name: string
   phone: string | null
   email: string | null
   amount: number
+  max_party_size: number
   promised_date: string | null
   message: string | null
   /**
@@ -33,6 +35,7 @@ export async function submitPublicPledge(token: string, input: PublicPledgeInput
   if (!cleanName) throw new Error('Name is required')
   const amount = Math.max(0, Number(input.amount) || 0)
   if (amount <= 0) throw new Error('Please enter the amount you can pledge')
+  const maxPartySize = Math.min(MAX_TICKET_PARTY, Math.max(1, Number(input.max_party_size) || 1))
 
   const supabase = createDashboardClient()
   const { data: owner, error: ownerErr } = await supabase
@@ -63,6 +66,7 @@ export async function submitPublicPledge(token: string, input: PublicPledgeInput
         phone,
         whatsapp_phone: phone,
         email,
+        max_party_size: maxPartySize,
         group_tag: 'From Pledge link',
         notes: 'Self-submitted via /pledge link',
       })
@@ -89,6 +93,7 @@ export async function submitPublicPledge(token: string, input: PublicPledgeInput
     type: 'pledge_received',
     title: `${cleanName} pledged a contribution`,
     body: `TZS ${amount.toLocaleString('en-US')}${input.promised_date ? ` · by ${input.promised_date}` : ''}`,
+    actorName: cleanName,
     href: '/my/dashboard/pledges',
   })
 

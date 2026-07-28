@@ -6,6 +6,8 @@ import { getLocale } from '@/lib/cms/locale'
 import { loadPortalUiStrings } from '@/lib/cms/portal-ui'
 import { PortalUIStringsProvider } from '@/components/providers/PortalUIStringsProvider'
 import { ActiveVendorProvider } from '@/lib/onboarding/active-vendor-context'
+import { VendorVerticalProvider } from '@/lib/onboarding/vertical-context'
+import type { VendorVertical } from '@/lib/onboarding/verticals'
 import PortalShell from './PortalShell'
 
 // Count leads that still need a first response (status 'pending' = "new" in the
@@ -63,6 +65,12 @@ export default async function PortalLayout({
   const activeVendorId = state.kind === 'live' ? state.vendor.id : null
 
   const newLeadCount = state.kind === 'live' ? await loadNewLeadCount(state.vendor.id) : 0
+  // The vendor's vertical drives the whole shape of the portal: a gift shop or
+  // an attire seller gets Products and Payments but no Bookings, Leads,
+  // Packages or Availability, because they sell goods rather than booked time.
+  // This used to be a separate `vendor_categories.sells_products` lookup; the
+  // column on `vendors` is now the source of truth and saves a round-trip.
+  const vertical: VendorVertical = state.kind === 'live' ? state.vendor.vertical : 'service'
 
   const locale = await getLocale()
   const portalChrome = await loadPortalUiStrings('portal-chrome', locale)
@@ -70,9 +78,15 @@ export default async function PortalLayout({
   return (
     <PortalUIStringsProvider bundles={{ 'portal-chrome': portalChrome }}>
       <ActiveVendorProvider vendorId={activeVendorId}>
-        <PortalShell vendorName={vendorName} vendorSlug={vendorSlug} newLeadCount={newLeadCount}>
-          {children}
-        </PortalShell>
+        <VendorVerticalProvider vertical={vertical}>
+          <PortalShell
+            vendorName={vendorName}
+            vendorSlug={vendorSlug}
+            newLeadCount={newLeadCount}
+          >
+            {children}
+          </PortalShell>
+        </VendorVerticalProvider>
       </ActiveVendorProvider>
     </PortalUIStringsProvider>
   )

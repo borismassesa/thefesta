@@ -345,7 +345,7 @@ function ItemRow({ item }: { item: StoredOrder['items'][number] }) {
         ) : null}
         <View style={s.delivery}>
           <ClockIcon />
-          <Text style={{ fontSize: 9, color: '#6b7280' }}>Delivered within 24 hours</Text>
+          <Text style={{ fontSize: 9, color: '#6b7280' }}>Delivered within 48-72 hours</Text>
         </View>
       </View>
       <View style={s.itemRight}>
@@ -440,8 +440,8 @@ export function InvoicePdf({ order }: { order: StoredOrder }) {
             ) : null}
             {paidDate ? (
               <View style={s.mi}>
-                <Text style={s.label}>Delivery date</Text>
-                <Text>{formatDate(order.paidAt, 1)}</Text>
+                <Text style={s.label}>Delivery window</Text>
+                <Text>{formatDate(order.paidAt, 2)} - {formatDate(order.paidAt, 3)}</Text>
               </View>
             ) : null}
             {eventDate ? (
@@ -510,15 +510,15 @@ export function InvoicePdf({ order }: { order: StoredOrder }) {
         ) : null}
 
         <Text style={s.footer} wrap={false}>
-          Thank you for choosing OpusPass. Your invitation will be prepared and activated within 24
-          hours. We look forward to being part of your special day.
+          Thank you for choosing OpusPass. Your invitation will be prepared and activated within
+          48-72 hours. We look forward to being part of your special day.
         </Text>
 
         <Text style={s.supportNote} wrap={false}>
           <Text style={{ fontFamily: 'Helvetica-Bold', color: BRAND }}>Need changes? </Text>
           Message us on WhatsApp at{' '}
           <Text style={{ fontFamily: 'Helvetica-Bold', color: '#1a1a1a' }}>+255 799 202 171</Text> within
-          24 hours of delivery — one free round of revisions is included.
+          48-72 hours of delivery — one free round of revisions is included.
         </Text>
 
         <View style={s.letterhead} fixed>

@@ -53,7 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_created_at
   ON audit_log (created_at DESC);
 
 -- Filter by event_type or severity (e.g. "show me all permission
--- denials in the last 24h").
+-- denials in the last 72h").
 CREATE INDEX IF NOT EXISTS idx_audit_log_event_type
   ON audit_log (event_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_severity

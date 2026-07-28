@@ -645,6 +645,11 @@ export interface FormsRsvpStrings {
   // Header
   eyebrow: string
   header_greeting: string // uses {name}
+  followup_eyebrow: string
+  followup_title: string
+  followup_greeting: string
+  followup_empty_title: string
+  followup_empty_body: string
   // Submitted state
   submitted_title: string
   submitted_body: string
@@ -667,6 +672,7 @@ export interface FormsRsvpStrings {
   // Send button
   send_pending: string
   send_cta: string
+  send_details_cta: string
   // Footer
   powered_by: string // uses {coupleName} and {icon}
 }
@@ -679,6 +685,9 @@ export interface FormsPledgeStrings {
   label_amount: string
   amount_currency: string
   placeholder_amount: string
+  label_ticket_type: string
+  ticket_single: string
+  ticket_double: string
   label_promised_date: string
   label_whatsapp: string
   placeholder_whatsapp: string
@@ -970,8 +979,32 @@ export interface DashboardSendStrings {
   chip_open: string
   // Send-invites sub-tabs
   tab_digital_cards: string
+  tab_guest_responses: string
+  tab_follow_up_questions: string
   tab_pass_ticket: string
   tab_checkins: string
+  tab_thank_you: string
+  tab_save_the_dates: string
+  responses_title: string
+  responses_desc: string
+  followups_title: string
+  followups_desc: string
+  save_dates_title: string
+  save_dates_desc: string
+  save_dates_no_design_desc: string
+  save_dates_card_badge: string
+  save_dates_templates_title: string
+  save_dates_templates_desc: string
+  save_dates_template_use: string
+  save_dates_template_applied: string
+  save_dates_share_title: string
+  save_dates_share_description: string
+  save_dates_preview_guest: string
+  save_dates_enable_cta: string
+  save_dates_link_enabled: string
+  save_dates_scan_label: string
+  save_dates_send_title: string
+  save_dates_send_desc: string
   // Live check-ins tab — arrivals as attendants scan entrance passes
   checkin_title: string
   checkin_desc: string
@@ -1034,6 +1067,7 @@ export interface DashboardSendStrings {
   th_contact: string
   th_channel: string
   th_ticket: string
+  th_card_type: string
   th_status: string
   th_send: string
   channel_whatsapp: string
@@ -1108,6 +1142,8 @@ export interface DashboardSendStrings {
   entrance_needs_whatsapp: string
   entrance_status_sent: string
   entrance_status_notsent: string
+  entrance_status_eligible: string
+  entrance_status_noteligible: string
   ticket_legend: string
   ticket_note: string
   ticket_field_category: string
@@ -1257,12 +1293,12 @@ export type UiStringsByArea = {
 
 export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
   navbar: {
-    nav_invitations: 'Invitations',
+    nav_invitations: 'Digital Cards',
     nav_guests: "Guests & RSVP's",
     nav_website: 'Wedding Website',
-    mega_inv_title: 'WEDDING INVITATIONS',
+    mega_inv_title: 'WEDDING DIGITAL CARDS',
     mega_inv_desc:
-      'Designer-worthy digital invitations for every wedding moment, sent by WhatsApp or SMS.',
+      'Designer-worthy digital cards for every wedding moment, sent by WhatsApp or SMS.',
     mega_inv_cta: 'Browse all designs',
     mega_inv_image:
       'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=800&q=80',
@@ -1270,7 +1306,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     inv_col_resources: 'Resources',
     inv_link_all_designs: 'All Designs',
     inv_link_save_the_dates: 'Save the Dates',
-    inv_link_wedding: 'Wedding Invitations',
+    inv_link_wedding: 'Wedding Digital Cards',
     inv_link_send_off: 'Send-Off & Kitchen Party',
     inv_link_kadi: 'Kadi za Michango',
     inv_link_wording: 'Invitation Wording',
@@ -1280,7 +1316,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     inv_grid_guest_list_image: '/assets/images/mauzo_crew.jpg',
     inv_grid_rsvp_tracking: 'RSVP Tracking',
     inv_grid_rsvp_tracking_image: '/assets/images/churchcouples.jpg',
-    inv_grid_invitations: 'Invitations',
+    inv_grid_invitations: 'Digital Cards',
     inv_grid_invitations_image: '/assets/images/cutesy_couple.jpg',
     inv_grid_seating_plan: 'Seating Plan',
     inv_grid_seating_plan_image: '/assets/images/couples_together.jpg',
@@ -1302,7 +1338,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     guests_grid_guest_list_image: '/assets/images/mauzo_crew.jpg',
     guests_grid_rsvp_tracking: 'RSVP Tracking',
     guests_grid_rsvp_tracking_image: '/assets/images/churchcouples.jpg',
-    guests_grid_invitations: 'Invitations',
+    guests_grid_invitations: 'Digital Cards',
     guests_grid_invitations_image: '/assets/images/cutesy_couple.jpg',
     guests_grid_seating_plan: 'Seating Plan',
     guests_grid_seating_plan_image: '/assets/images/couples_together.jpg',
@@ -1343,11 +1379,11 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     col_templates: 'Templates',
     col_help: 'Help',
     col_company: 'Company',
-    link_invitations: 'Invitations',
+    link_invitations: 'Digital Cards',
     link_guests: "Guests & RSVP's",
     link_website: 'Wedding Website',
     link_save_the_dates: 'Save the Dates',
-    link_wedding_invitations: 'Wedding Invitations',
+    link_wedding_invitations: 'Wedding Digital Cards',
     link_send_off: 'Send-Off & Kitchen Party',
     link_kadi_michango: 'Kadi za Michango',
     link_help_centre: 'Help Centre',
@@ -1367,16 +1403,16 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     eyebrow: 'Help Centre',
     title: 'How can we help?',
     intro:
-      'Answers about invitations, RSVPs, payments and your wedding website — plus a direct line to our team when you need a person.',
+      'Answers about digital cards, RSVPs, payments and your wedding website — plus a direct line to our team when you need a person.',
     topic_getting_started_title: 'Getting started',
     topic_getting_started_body:
-      'Create your event, build a guest list and send your first invitation in minutes.',
+      'Create your event, build a guest list and send your first digital card in minutes.',
     topic_getting_started_cta: 'Get started',
     topic_pricing_title: 'Pricing & payments',
     topic_pricing_body:
       'Per-guest packages, what each one includes, and the mobile-money and card options we accept.',
     topic_pricing_cta: 'View pricing',
-    topic_invitations_title: 'Invitations & cards',
+    topic_invitations_title: 'Digital Cards',
     topic_invitations_body:
       'Choose a design, customise your wording, preview a proof and deliver by WhatsApp or SMS.',
     topic_invitations_cta: 'Browse designs',
@@ -1406,7 +1442,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
       'We accept M-Pesa, Airtel Money, Mixx by Yas and Selcom Pesa, plus Visa and Mastercard. Contribution collection (where guests pledge straight into one event account) is available on the Classic, Elegant and Signature packages.',
     faq_guest_experience_q: 'What does a guest receive?',
     faq_guest_experience_a:
-      'Each guest gets a digital invitation card with all your event details and a personal ticket with a unique barcode. They RSVP on a private bilingual page (English & Kiswahili), and on the day their ticket is scanned at the entrance to verify entry.',
+      'Each guest gets a digital card with all your event details and a personal ticket with a unique barcode. They RSVP on a private bilingual page (English & Kiswahili), and on the day their ticket is scanned at the entrance to verify entry.',
     faq_rsvp_tracking_q: 'Can I see who has confirmed and who has arrived?',
     faq_rsvp_tracking_a:
       'Yes. Your RSVP dashboard shows live confirmations and headcount, and on the higher packages it tracks check-ins at the door and shows analytics — so you can plan food and seating accurately.',
@@ -1475,7 +1511,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     cart_title: 'Your Cart',
     count_one: '{n} item in cart',
     count_other: '{n} items in cart',
-    item_delivered: 'Delivered within 24 hours',
+    item_delivered: 'Delivered within 48-72 hours',
     item_package_suffix: '{tier} Package',
     remove_aria: 'Remove {name}',
     remove_confirm: 'Remove this design from your cart?',
@@ -1486,7 +1522,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     guests_input_aria: 'Number of guests',
     guests_label: 'Guests',
     empty_title: 'Your cart is empty.',
-    empty_body: 'Browse invitation designs and add one to get started.',
+    empty_body: 'Browse digital card designs and add one to get started.',
     empty_cta: 'Browse designs',
     coupon_title: 'Apply Coupon',
     coupon_subtitle: 'Have a promo code?',
@@ -1502,9 +1538,9 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     total_label: 'Total',
     checkout_cta: 'Continue to checkout',
     we_accept: 'We accept:',
-    secure_note: 'Secure checkout · designs delivered within 24 hours',
+    secure_note: 'Secure checkout · designs delivered within 48-72 hours',
     explore_title_has: 'You might also like',
-    explore_title_empty: 'Explore invitation designs',
+    explore_title_empty: 'Explore digital card designs',
     explore_subtitle_has: 'More designs in the styles you’re shopping.',
     explore_subtitle_empty: 'Popular designs to get you started.',
     explore_view_all: 'View all',
@@ -1516,9 +1552,9 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     back_to_cart: '← Back to cart',
     header_title: 'How should we deliver?',
     header_desc:
-      'Every order includes your digital invitation, sent via WhatsApp and email. Add printed cards to have them mailed to you too.',
+      'Every order includes your digital card, sent via WhatsApp and email. Add printed cards to have them mailed to you too.',
     mode_digital_title: 'Digital delivery',
-    mode_digital_caption: 'Sent via WhatsApp, SMS, and email within 24 hours of payment.',
+    mode_digital_caption: 'Sent via WhatsApp, SMS, and email within 48-72 hours of payment.',
     mode_print_title: 'Digital + printed cards',
     mode_print_caption:
       'Everything digital, plus high-quality prints mailed to your address in 7–14 days.',
@@ -1540,9 +1576,9 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     continue_cta: 'Continue to payment',
     expect_title: 'What to expect',
     expect_confirmation: 'Instant order confirmation in your inbox',
-    expect_personalised: 'Your design personalised by our team within 24 hours',
+    expect_personalised: 'Your design personalised by our team within 48-72 hours',
     expect_revisions: 'One free round of revisions to get every detail right',
-    expect_link: 'A shareable invitation link for WhatsApp, SMS & email',
+    expect_link: 'A shareable digital card link for WhatsApp, SMS & email',
     expect_rsvp: 'Live RSVP tracking as your guests respond',
     expect_ticket:
       'An OpusPass ticket with QR code — save it to Apple or Google Wallet and scan at the entrance',
@@ -1555,9 +1591,9 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     success_heading_verifying: 'Asante — we’ve received your order',
     success_heading_confirmed: 'Thank you — your order is confirmed',
     success_body_verifying:
-      'The OpusFesta team is verifying your payment{refClause}. Once confirmed, we’ll email your receipt to {email} and your design goes live within 24 hours.',
+      'The OpusFesta team is verifying your payment{refClause}. Once confirmed, we’ll email your receipt to {email} and your design goes live within 48-72 hours.',
     success_body_confirmed:
-      'We’ve emailed your receipt to {email}. Your design goes live within 24 hours.',
+      'We’ve emailed your receipt to {email}. Your design goes live within 48-72 hours.',
     status_verifying_title: 'Payment Under Review',
     status_confirmed_title: 'Payment Confirmed',
     status_verifying_body: 'Your payment has been received and is being verified.',
@@ -1572,16 +1608,16 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     status_payment_label: 'Payment',
     status_details_summary: 'Payment details',
     order_title: 'Your order',
-    meta_delivery_date: 'Delivery date',
+    meta_delivery_date: 'Delivery window',
     meta_order_id: 'Order ID',
     meta_payment_method: 'Payment method',
     item_package_suffix: '{tier} Package',
-    item_delivered: 'Delivered within 24 hours',
+    item_delivered: 'Delivered within 48-72 hours',
     item_guests_label: 'Guests',
     next_title: 'What happens next',
     next_personalise_title: 'We personalise your design',
     next_personalise_body:
-      'Our team tailors your invitation with your details, ready within 24 hours.',
+      'Our team tailors your digital card with your details, ready within 48-72 hours.',
     next_proof_title: 'You review a proof',
     next_proof_body:
       'We send a proof for your approval — one free round of revisions is included.',
@@ -1597,8 +1633,8 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     summary_total_paid: 'Total paid',
     download_invoice: 'Download invoice',
     browse_more: 'Browse more designs',
-    back_to_invitations: 'Back to invitations',
-    delivered_note: 'Designs delivered within 24 hours',
+    back_to_invitations: 'Back to digital cards',
+    delivered_note: 'Designs delivered within 48-72 hours',
     badge_card: 'Card',
     celebration_aria: 'Celebration',
   },
@@ -1708,11 +1744,11 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     pay_lipa_cta: "I've paid {amount} — submit order",
     pay_push_cta: 'Pay {amount}',
     reassure_lipa:
-      'Your order is confirmed once the OpusFesta team verifies the transaction. Your design goes live within 24 hours of confirmation.',
+      'Your order is confirmed once the OpusFesta team verifies the transaction. Your design goes live within 48-72 hours of confirmation.',
     reassure_card:
-      'Card payments are processed securely by our payment partner (3-D Secure). Your design goes live within 24 hours of confirmation.',
+      'Card payments are processed securely by our payment partner (3-D Secure). Your design goes live within 48-72 hours of confirmation.',
     reassure_push:
-      'Approve the prompt on your phone to pay. Your design goes live within 24 hours of confirmation.',
+      'Approve the prompt on your phone to pay. Your design goes live within 48-72 hours of confirmation.',
     overlay_aria: 'Awaiting payment approval',
     overlay_title: 'Check your phone',
     overlay_body:
@@ -1727,12 +1763,12 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     delivery_label: 'Delivery charges',
     delivery_free: 'Free delivery',
     total_label: 'Total',
-    ready_title: 'Ready in 24 hours',
+    ready_title: 'Ready in 48-72 hours',
     ready_body:
-      'Your personalised design and OpusPass tickets are delivered within a day of payment.',
+      'Your personalised design and OpusPass tickets are delivered within 48-72 hours of payment.',
     revision_title: 'One free revision',
     revision_body:
-      "We'll fine-tune the details until your invitation looks just right.",
+      "We'll fine-tune the details until your digital card looks just right.",
     secure_note: 'Your payment details are encrypted and processed securely.',
   },
   'forms-collect': {
@@ -1752,14 +1788,19 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
   'forms-rsvp': {
     date_tbc: 'Date to be confirmed',
     error_answer_each: 'Please answer for each event',
-    toast_saved: 'Thank you! Your RSVP is saved.',
+    toast_saved: 'Thank you! Your details are saved.',
     error_save: 'Could not save your reply',
     empty_greeting: 'Hi {name}!',
     empty_body: 'Your invitation details are being finalised. Please check back soon.',
     eyebrow: "You're invited",
     header_greeting: "Hi {name}, we'd love to celebrate with you.",
-    submitted_title: 'Your RSVP is saved',
-    submitted_body: 'Thank you! You can update your response below if anything changes.',
+    followup_eyebrow: 'Follow-up questions',
+    followup_title: 'A few more details',
+    followup_greeting: 'The couple added a few quick questions for you.',
+    followup_empty_title: 'No follow-up questions yet',
+    followup_empty_body: 'The couple has not added any extra questions for you right now.',
+    submitted_title: 'Your details are saved',
+    submitted_body: 'Thank you! You can update your details below if anything changes.',
     submitted_change: 'Change my response',
     dress_code_prefix: 'Dress code:',
     status_attending: "I'll be there",
@@ -1775,6 +1816,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     message_optional: '(optional)',
     send_pending: 'Sending…',
     send_cta: 'Send my RSVP',
+    send_details_cta: 'Send my details',
     powered_by: 'Powered with {icon} by OpusPass · {coupleName}',
   },
   'forms-pledge': {
@@ -1783,6 +1825,9 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     label_amount: 'Amount you’d like to pledge',
     amount_currency: 'TZS',
     placeholder_amount: '100,000',
+    label_ticket_type: 'Ticket type',
+    ticket_single: 'Single',
+    ticket_double: 'Double',
     label_promised_date: 'When can you pay by?',
     label_whatsapp: 'WhatsApp / mobile',
     placeholder_whatsapp: '0712 345 678',
@@ -1824,9 +1869,9 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
   },
   'dashboard-orders': {
     header_title: 'Orders',
-    header_subtitle: 'Track your invitation orders and download invoices.',
+    header_subtitle: 'Track your digital card orders and download invoices.',
     empty_title: 'No orders yet',
-    empty_description: 'When you purchase an invitation design, your order and tracking will appear here.',
+    empty_description: 'When you purchase a digital card design, your order and tracking will appear here.',
     empty_action: 'Browse designs',
     stat_total: 'Total orders',
     stat_in_progress: 'In progress',
@@ -1834,7 +1879,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     note_delivered: 'Delivered. Your design and OpusPass tickets are ready.',
     note_payment_review_ref: 'Awaiting payment confirmation from the OpusFesta team. Ref {ref}.',
     note_payment_review: 'Awaiting payment confirmation from the OpusFesta team.',
-    note_personalising: 'Being personalised. Ready within 24 hours of payment.',
+    note_personalising: 'Being personalised. Ready within 48-72 hours of payment.',
     unit_guests: 'guests',
     unit_design: 'design',
     unit_designs: 'designs',
@@ -1912,7 +1957,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     linked_order_pick_label: 'Link a paid order to this event',
     linked_order_pick_placeholder: 'Choose an unassigned order',
     linked_order_pick_cta: 'Link',
-    linked_order_none_available: "You haven't purchased an invitation design yet. Designs you buy show up here to link.",
+    linked_order_none_available: "You haven't purchased a digital card design yet. Designs you buy show up here to link.",
     toast_order_linked: 'Design linked to this event.',
     toast_order_link_error: 'Could not link that order. Please try again.',
     unlink_aria: 'Unlink {name}',
@@ -2008,7 +2053,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     funnel_invited: 'Invited',
     funnel_delivered: 'Delivered',
     funnel_viewed: 'Viewed',
-    funnel_rsvpd: 'RSVP’d',
+    funnel_rsvpd: 'Responded',
     quota_label: 'Paid invitations',
     quota_used_suffix: 'of {m} used',
     quota_remaining: '{n} remaining',
@@ -2016,7 +2061,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     broadcast_tag: 'Broadcast',
     broadcast_title: 'Public invite link',
     broadcast_desc:
-      'One link you can drop into any WhatsApp group or status. It unfurls into a branded preview, and self-RSVPs land in a review queue, so no one can reply as someone else.',
+      'One link you can drop into any WhatsApp group or status. It unfurls into a branded preview, and public responses land in a review queue, so no one can reply as someone else.',
     broadcast_best_for: 'Big group chats and status. Fast reach, lighter control.',
     best_for: 'Best for',
     sharing_on: 'Sharing on',
@@ -2030,8 +2075,39 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     chip_copy_link: 'Copy link',
     chip_open: 'Open',
     tab_digital_cards: 'Digital Cards',
+    tab_guest_responses: 'Guest Responses',
+    tab_follow_up_questions: 'Follow-up Questions',
     tab_pass_ticket: 'Entrance Pass Ticket',
     tab_checkins: 'Live Check-ins',
+    tab_thank_you: 'Thank you',
+    tab_save_the_dates: 'Save the dates',
+    responses_title: 'Guest responses',
+    responses_desc:
+      'Track WhatsApp attendance replies, guest details, ticket type, party size, and entrance pass readiness.',
+    followups_title: 'Follow-up questions',
+    followups_desc:
+      'Ask for details after attendance is known, like meals, dietary needs, transport, song requests, and notes.',
+    save_dates_title: 'Share save the dates',
+    save_dates_desc:
+      'Preview your save-the-date card, share the public link, or send it to selected guests.',
+    save_dates_no_design_desc:
+      'Pick a Save the Date design for this event, then share it from here.',
+    save_dates_card_badge: 'Your save the date',
+    save_dates_templates_title: 'Save the Date Templates',
+    save_dates_templates_desc:
+      'Give your save-the-date page a designed look - pick a save-the-date template below.',
+    save_dates_template_use: 'Use this template',
+    save_dates_template_applied: 'Applied',
+    save_dates_share_title: 'Share your save the date link',
+    save_dates_share_description:
+      'Post it in a family WhatsApp group, or send it directly. Anyone who opens it can view the details - no app or sign-in needed.',
+    save_dates_preview_guest: 'Preview as guest',
+    save_dates_enable_cta: 'Enable link',
+    save_dates_link_enabled: 'Save-the-date link enabled',
+    save_dates_scan_label: 'Scan to open',
+    save_dates_send_title: 'Send to your guests',
+    save_dates_send_desc:
+      'Send each guest their save-the-date link via WhatsApp, SMS, or Email - individually or in bulk.',
     checkin_title: 'Live arrivals at the door',
     checkin_desc:
       'Watch guests check in as your attendants scan their Entrance Pass at the door.',
@@ -2050,7 +2126,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     checkin_duplicate: 'already scanned',
     checkin_just_arrived: 'Just arrived',
     checkin_empty_none:
-      'No confirmed guests yet. Once guests RSVP as attending, their arrivals show here the moment they are scanned at the door.',
+      'No confirmed guests yet. Once guests respond as attending, their arrivals show here the moment they are scanned at the door.',
     checkin_empty_arrived:
       'No arrivals yet. Guests appear here as your attendants scan their Entrance Pass.',
     checkin_empty_pending: 'Everyone has arrived. 🎉',
@@ -2072,8 +2148,8 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     entrance_tag: 'Entrance Passes',
     entrance_title: 'Send tickets to confirmed guests',
     entrance_desc:
-      "Guests who RSVP'd get a personal Entrance Pass Ticket with their own scannable QR code.",
-    entrance_best_for: 'Guests who already RSVP’d yes. Real check-in QR codes.',
+      'Guests marked as attending get a personal Entrance Pass Ticket with their own scannable QR code.',
+    entrance_best_for: 'Guests who already responded yes. Real check-in QR codes.',
     entrance_quota_label: 'Entrance passes',
     guest_list: 'Guest list',
     guest_count: '{n} guests',
@@ -2095,6 +2171,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     th_contact: 'Contact',
     th_channel: 'Preferred channel',
     th_ticket: 'Ticket',
+    th_card_type: 'Card Type',
     th_status: 'Status',
     th_send: 'Send',
     channel_whatsapp: 'WhatsApp',
@@ -2163,8 +2240,10 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     entrance_needs_whatsapp: 'Entrance passes are sent by WhatsApp only — add a WhatsApp number for this guest',
     entrance_status_sent: 'Sent',
     entrance_status_notsent: 'Not sent',
+    entrance_status_eligible: 'Eligible',
+    entrance_status_noteligible: 'Not eligible',
     ticket_legend: 'Ticket details',
-    ticket_note: 'These appear on every Entrance Pass Ticket for this event. Changes update the event itself, so invites and RSVP pages stay in sync.',
+    ticket_note: 'These appear on every Entrance Pass Ticket for this event. Changes update the event itself, so invites and guest response pages stay in sync.',
     ticket_field_category: 'Event category',
     ticket_field_partner1: 'Partner 1 name',
     ticket_field_partner2: 'Partner 2 name (optional)',

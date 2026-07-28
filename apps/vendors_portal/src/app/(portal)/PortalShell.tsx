@@ -6,6 +6,9 @@ import { Sidebar } from '@/components/Sidebar'
 import { Header } from '@/components/Header'
 import { StorefrontSidebar } from '@/components/storefront/StorefrontSidebar'
 
+// The vertical isn't a prop here: Sidebar, StorefrontSidebar and Header all
+// read it from VendorVerticalProvider, so they can't drift apart or from the
+// storefront editors that derive the same section list.
 export default function PortalShell({
   children,
   vendorName,

@@ -8,7 +8,7 @@ import { loadWebsitesSellingPointsContent } from '@/lib/cms/websites-selling-poi
 import { loadWebsitesFeaturesContent } from '@/lib/cms/websites-features'
 import { loadWebsitesFaqsContent } from '@/lib/cms/websites-faqs'
 import { loadWebsitesTestimonialsContent } from '@/lib/cms/websites-testimonials'
-import { InvitationShowcase } from '@/components/home/InvitationShowcase'
+import { DigitalCardShowcase } from '@/components/home/DigitalCardShowcase'
 import WebsitesLandingClient from './WebsitesLandingClient'
 
 // CMS-driven AND locale-aware: sections resolve content from the per-visitor
@@ -45,7 +45,7 @@ export default async function WebsitesLandingPage() {
         sellingPoints={sellingPoints}
         features={features}
         faqs={faqs}
-        testimonials={<InvitationShowcase content={testimonials} />}
+        testimonials={<DigitalCardShowcase content={testimonials} />}
       />
     </>
   )

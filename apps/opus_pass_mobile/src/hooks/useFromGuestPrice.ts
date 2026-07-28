@@ -4,7 +4,7 @@ import { getFromGuestPrice } from '@/lib/api/wedding-packages';
 
 export function useFromGuestPrice() {
   return useQuery({
-    queryKey: ['invitations', 'from-guest-price'],
+    queryKey: ['digital-cards', 'from-guest-price'],
     queryFn: () => {
       if (!supabase) throw new Error('Supabase is not configured');
       return getFromGuestPrice(supabase);

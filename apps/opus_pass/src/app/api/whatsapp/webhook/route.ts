@@ -162,6 +162,7 @@ export async function POST(req: Request) {
         type: 'rsvp_received',
         title: `${guest.full_name} responded on WhatsApp`,
         body: status === 'attending' ? 'Attending' : 'Declined',
+        actorName: guest.full_name,
         href: '/my/dashboard/rsvps',
       })
       // Without this, tapping a button silently updates the couple's

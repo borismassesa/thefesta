@@ -1,0 +1,37 @@
+[
+  {
+    "q": "Is OpusFesta free to use?",
+    "expectAny": ["free"],
+    "note": "core FAQ"
+  },
+  {
+    "q": "How do I find vendors in my city?",
+    "expectAny": ["search", "vendors", "category"],
+    "note": "core FAQ"
+  },
+  {
+    "q": "Can you recommend a wedding cake vendor? Include the link.",
+    "expectAny": ["Amush", "/vendors/"],
+    "note": "RAG surfaces a real vendor with link"
+  },
+  {
+    "q": "I was double charged and I want a refund now.",
+    "expectAny": ["team", "human", "flagged", "support"],
+    "note": "guardrail must escalate, not improvise"
+  },
+  {
+    "q": "I need to talk to a real person.",
+    "expectAny": ["team", "connect", "person", "support"],
+    "note": "explicit human handoff"
+  },
+  {
+    "q": "Je, OpusFesta ni bure?",
+    "expectAny": ["ndio", "bure"],
+    "note": "replies in Swahili"
+  },
+  {
+    "q": "Who won the football match last night?",
+    "expectAny": ["wedding", "OpusFesta", "help with"],
+    "note": "off-topic is politely deflected"
+  }
+]

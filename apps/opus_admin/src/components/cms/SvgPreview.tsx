@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { resolveOpusPassAssetUrl } from '@/lib/cms/opus-pass-asset-url'
-import type { InvitationPalette } from '@/lib/cms/opus-pass-invitations-products'
+import type { DigitalCardPalette } from '@/lib/cms/opus-pass-digital-cards-products'
 
-function injectPalette(svg: string, p: InvitationPalette): string {
+function injectPalette(svg: string, p: DigitalCardPalette): string {
   const vars = [
     `--iv-bg:${p.background}`,
     `--iv-surf:${p.surface}`,
@@ -31,7 +31,7 @@ export function SvgPreview({
   label,
 }: {
   url: string
-  palette?: InvitationPalette | null
+  palette?: DigitalCardPalette | null
   aspect?: string
   label?: string
 }) {

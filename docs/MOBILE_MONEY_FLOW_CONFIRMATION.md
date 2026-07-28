@@ -88,11 +88,11 @@ Vendor or customer marks work as completed:
 - `work_completed_at = NOW()`
 - `work_verified_by = user_id`
 
-### ✅ STEP 7: Escrow Release (24h after completion)
+### ✅ STEP 7: Escrow Release (48-72h after completion)
 **API:** `POST /api/escrow/[id]/release`
 **Database Function:** `release_escrow_funds()`
 
-After 24 hours (or manual release):
+After 48-72 hours (or manual release):
 - Escrow status → `'released'`
 - Vendor revenue status → `'released'`
 - Funds ready for transfer

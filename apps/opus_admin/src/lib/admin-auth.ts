@@ -290,6 +290,9 @@ const ALL_PERMISSION_KEYS: readonly PermissionKey[] = [
   'growth.write',
   // Growth Tracker: edit KPI targets, the vendor-outreach roster, challenge definitions, content-ideas bank.
   'growth.admin',
+  // Opus customer-support console: view conversations / reply as an agent.
+  'support.read',
+  'support.write',
 ] as const
 
 // Wrapped in React.cache so that the layout's permission lookup and
@@ -358,6 +361,8 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
         'md_tracker.review',
         'growth.write',
         'growth.admin',
+        'support.read',
+        'support.write',
       ])
     case 'editor':
       return new Set(['cms.read', 'cms.write', 'cms.publish', 'vendor.read'])

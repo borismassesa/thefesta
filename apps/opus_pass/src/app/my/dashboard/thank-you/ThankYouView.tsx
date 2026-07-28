@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { useBodyLock } from '@/hooks/useBodyLock'
 import {
@@ -16,6 +17,12 @@ import {
   Clock,
   HeartHandshake,
   Check,
+  CalendarHeart,
+  CalendarCheck,
+  Ticket,
+  ClipboardCheck,
+  ListChecks,
+  Pencil,
 } from 'lucide-react'
 import {
   sendThankYouMessages,
@@ -33,7 +40,7 @@ import type { DashboardThankYouStrings, CheckoutFormStrings, CheckoutPaymentStri
 import { EventPicker } from '@/components/dashboard/EventScope'
 import TemplatePurchaseModal, { type TemplatePurchaseTarget } from '@/components/dashboard/TemplatePurchaseModal'
 import PaymentSummaryModal from '@/components/dashboard/PaymentSummaryModal'
-import Confetti from '@/components/invitations/Confetti'
+import Confetti from '@/components/digital-cards/Confetti'
 import { getLastOrder, setLastOrder, getOrders, getPendingTemplateIds, type StoredOrder } from '@/lib/cart-storage'
 
 /** Substitute `{var}` placeholders in a CMS template with runtime values. */
@@ -67,6 +74,8 @@ export default function ThankYouView({
   strings,
   coverImageUrl,
   coverIsFullTemplate,
+  templateId,
+  templateName,
   cardCatalog,
   purchasedTemplateIds,
   contactEmail,
@@ -80,6 +89,8 @@ export default function ThankYouView({
   scopeStrings: DashboardEventScopeStrings
   coverImageUrl: string | null
   coverIsFullTemplate: boolean
+  templateId: string | null
+  templateName: string | null
   cardCatalog: PledgeCardCatalogItem[]
   purchasedTemplateIds: string[]
   contactEmail: string
@@ -95,6 +106,7 @@ export default function ThankYouView({
 
   const [pending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<'all' | 'notsent' | 'thanked'>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmSend, setConfirmSend] = useState<PendingSend | null>(null)
   const [report, setReport] = useState<ThankYouSendSummary | null>(null)
@@ -104,9 +116,16 @@ export default function ThankYouView({
 
   // Thank-you card: a design applied from the catalog (used as the WhatsApp
   // message's header image) — mirrors the Pledges card-template picker.
-  const [cover, setCover] = useState<{ url: string | null; isTemplate: boolean }>({
+  const [cover, setCover] = useState<{
+    url: string | null
+    isTemplate: boolean
+    templateId: string | null
+    templateName: string | null
+  }>({
     url: coverImageUrl,
     isTemplate: coverIsFullTemplate,
+    templateId,
+    templateName,
   })
   const [savingCover, startCoverSave] = useTransition()
   const [applyingTemplateId, setApplyingTemplateId] = useState<string | null>(null)
@@ -143,13 +162,14 @@ export default function ThankYouView({
   // dashboard, so a couple returning later (no purchase_ref in the URL)
   // still needs to see a design unlock once it's been confirmed.
   useEffect(() => {
-    const pendingIds = getPendingTemplateIds('thank_you_card')
+    const pendingIds = getPendingTemplateIds('thank_you_card', selectedEventId)
     setPendingTemplateIds(pendingIds)
     if (pendingIds.size === 0) return
     let cancelled = false
     ;(async () => {
       for (const order of getOrders()) {
         if (order.paymentStatus !== 'verifying') continue
+        if (selectedEventId && order.eventId !== selectedEventId) continue
         for (const item of order.items) {
           const parsed = parseTemplateCardItemId(item.id)
           if (!parsed || parsed.type !== 'thank_you_card') continue
@@ -207,6 +227,7 @@ export default function ThankYouView({
                 for (const item of paidOrder.items) {
                   const parsed = parseTemplateCardItemId(item.id)
                   if (!parsed || parsed.type !== 'thank_you_card') continue
+                  if (selectedEventId && paidOrder.eventId !== selectedEventId) continue
                   setPurchasedIds((prev) => new Set(prev).add(parsed.templateId))
                   setPendingTemplateIds((prev) => {
                     const next = new Set(prev)
@@ -247,8 +268,8 @@ export default function ThankYouView({
     setApplyingTemplateId(item.id)
     startCoverSave(async () => {
       try {
-        await applyThankYouCardTemplate(selectedEventId, item.imageUrl, item.id)
-        setCover({ url: item.imageUrl, isTemplate: true })
+        await applyThankYouCardTemplate(selectedEventId, item.imageUrl, item.id, item.name)
+        setCover({ url: item.imageUrl, isTemplate: true, templateId: item.id, templateName: item.name })
         setAppliedTemplateId(item.id)
         toast.success(strings.card_applied_toast)
       } catch (err) {
@@ -261,7 +282,7 @@ export default function ThankYouView({
 
   function removeCardTemplate(item: PledgeCardCatalogItem) {
     setApplyingTemplateId(item.id)
-    setCover({ url: null, isTemplate: false })
+    setCover({ url: null, isTemplate: false, templateId: null, templateName: null })
     setAppliedTemplateId(null)
     startCoverSave(async () => {
       try {
@@ -278,7 +299,7 @@ export default function ThankYouView({
   /** Clear a legacy non-template cover (an uploaded photo, not a catalog
    *  pick) — no catalog item involved, unlike removeCardTemplate. */
   function clearCover() {
-    setCover({ url: null, isTemplate: false })
+    setCover({ url: null, isTemplate: false, templateId: null, templateName: null })
     setAppliedTemplateId(null)
     startCoverSave(async () => {
       try {
@@ -292,11 +313,18 @@ export default function ThankYouView({
 
   const hasPhone = (g: ThankYouGuestRow) => Boolean(g.whatsappPhone || g.phone)
 
+  const notSentCount = guests.filter((g) => !g.thankYouSent).length
+  const thankedCount = guests.length - notSentCount
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return guests
-    return guests.filter((g) => g.name.toLowerCase().includes(q))
-  }, [guests, search])
+    return guests.filter((g) => {
+      if (filter === 'notsent' && g.thankYouSent) return false
+      if (filter === 'thanked' && !g.thankYouSent) return false
+      if (!q) return true
+      return g.name.toLowerCase().includes(q)
+    })
+  }, [filter, guests, search])
 
   const allVisibleSelected = visible.length > 0 && visible.every((g) => selected.has(g.id))
   function toggleAllVisible() {
@@ -375,6 +403,30 @@ export default function ThankYouView({
     .replace('{{1}}', sampleGuest)
     .replace('{{2}}', event.coupleName)
     .replace('{{3}}', event.eventCategorySw)
+  const selectedCatalogCard = cover.templateId
+    ? cardCatalog.find((t) => t.id === cover.templateId) ?? null
+    : cover.url
+      ? cardCatalog.find((t) => t.imageUrl === cover.url) ?? null
+      : null
+  const selectedThankYouCard = cover.url
+    ? {
+        id: selectedCatalogCard?.id ?? cover.templateId ?? null,
+        name: selectedCatalogCard?.name ?? cover.templateName ?? (cover.isTemplate ? strings.card_heading : strings.card_uploaded_label),
+        imageUrl: cover.url,
+      }
+    : null
+  const selectedCardEditHref = selectedThankYouCard?.id
+    ? `/digital-cards/p/${selectedThankYouCard.id}/customise${
+        selectedEventId ? `?event=${encodeURIComponent(selectedEventId)}` : ''
+      }`
+    : null
+
+  const inviteHref = (tab: 'saveDates' | 'cards' | 'responses' | 'followups' | 'ticket' | 'checkins') => {
+    const qs = new URLSearchParams()
+    qs.set('tab', tab)
+    if (selectedEventId) qs.set('event', selectedEventId)
+    return `/my/dashboard/invitations?${qs.toString()}`
+  }
 
   const reportGroups: { label: string; outcome: WhatsAppSendResult['outcome'] }[] = [
     { label: strings.results_failed, outcome: 'failed' },
@@ -386,16 +438,43 @@ export default function ThankYouView({
     <div className="ty">
       <style>{css}</style>
 
-      <div className="head">
+      <div className="head dash-header-safe">
         <div>
           <h1>{strings.heading}</h1>
-          {/* Subtitle + event switcher share one row so the dropdown sits on
-              the subtitle line, not up beside the title. */}
-          <div className="subrow">
-            <p className="sub">{strings.subheading}</p>
-            <EventPicker events={events} selectedId={selectedEventId ?? ''} strings={scopeStrings} disabled={pending} />
-          </div>
+          <p className="sub">{strings.subheading}</p>
         </div>
+      </div>
+
+      <div className="sendtabs" role="tablist">
+        <Link role="tab" aria-selected={false} className="stb" href={inviteHref('saveDates')}>
+          <CalendarHeart size={14} /> Save the dates
+        </Link>
+        <Link role="tab" aria-selected={false} className="stb" href={inviteHref('cards')}>
+          <MessageCircle size={14} /> Digital Cards
+        </Link>
+        <Link role="tab" aria-selected={false} className="stb" href={inviteHref('responses')}>
+          <ClipboardCheck size={14} /> Guest Responses
+        </Link>
+        <Link role="tab" aria-selected={false} className="stb" href={inviteHref('followups')}>
+          <ListChecks size={14} /> Follow-up Questions
+        </Link>
+        <Link role="tab" aria-selected={false} className="stb" href={inviteHref('ticket')}>
+          <Ticket size={14} /> Entrance Pass Ticket
+        </Link>
+        <Link role="tab" aria-selected={false} className="stb" href={inviteHref('checkins')}>
+          <CalendarCheck size={14} /> Live Check-ins
+        </Link>
+        <button role="tab" aria-selected className="stb on" type="button">
+          <HeartHandshake size={14} /> Thank you
+          {guests.length > 0 ? <span className="stbcnt">{guests.length}</span> : null}
+        </button>
+        <EventPicker
+          events={events}
+          selectedId={selectedEventId ?? ''}
+          strings={scopeStrings}
+          disabled={pending}
+          className="ml-auto"
+        />
       </div>
 
       {/* Thank-you card: a design pulled from the invitation catalog, used as
@@ -405,7 +484,7 @@ export default function ThankYouView({
           request-to-unlock flow Pledges uses for Classic/Essential. */}
       <div className="cardpicker">
         <div className="cphead">
-          <h2>{strings.card_heading}</h2>
+          <h2>{strings.card_heading} Templates</h2>
           <p className="mutedp">{strings.card_desc}</p>
         </div>
         {cover.url && !cover.isTemplate ? (
@@ -494,6 +573,68 @@ export default function ThankYouView({
         )}
       </div>
 
+      {selectedThankYouCard ? (
+        <div className="selectedcard">
+          <div className="selectedmedia">
+            <Image
+              src={selectedThankYouCard.imageUrl}
+              alt={`${selectedThankYouCard.name} thank-you card`}
+              fill
+              sizes="220px"
+              quality={90}
+              className="object-cover"
+              unoptimized
+            />
+            <span className="selectedbadge">
+              <Check size={12} /> Your thank-you card
+            </span>
+          </div>
+          <div className="selectedmain">
+            <div className="selectedtop">
+              <div>
+                <h3>Your thank-you card</h3>
+                <p>
+                  This card appears at the top of the thank-you WhatsApp message before it is sent to attending guests.
+                </p>
+              </div>
+            </div>
+
+            <div className="selectedlinkrow">
+              <div className="selectedlink">
+                <span>Selected design</span>
+                <b>{selectedThankYouCard.name}</b>
+              </div>
+            </div>
+
+            <div className="selectedtools">
+              <div className="selectedactions">
+                {selectedCardEditHref ? (
+                  <Link className="btn ghost" href={selectedCardEditHref}>
+                    <Pencil size={14} /> Edit card
+                  </Link>
+                ) : null}
+                <button className="btn ghost" disabled={pending} onClick={() => setPreviewOpen(true)}>
+                  <Eye size={14} /> {strings.preview_test}
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={savingCover}
+                  onClick={() => (selectedCatalogCard ? removeCardTemplate(selectedCatalogCard) : clearCover())}
+                >
+                  <X size={14} /> {strings.card_remove}
+                </button>
+              </div>
+              <div className="selectednote">
+                <span>{event.eventName ?? event.coupleName}</span>
+                <span>{guests.length} attending guests</span>
+                <span>{notSentCount} not sent</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {purchaseTarget ? (
         <TemplatePurchaseModal
           target={purchaseTarget}
@@ -523,15 +664,39 @@ export default function ThankYouView({
       {summaryOrder ? <PaymentSummaryModal order={summaryOrder} onClose={() => setSummaryOrder(null)} /> : null}
 
       <div className="gt">
+        <div className="tyguesthead">
+          <h3>Send to your guests</h3>
+          <p>Send each attending guest their thank-you message via WhatsApp — individually or in bulk.</p>
+        </div>
         <div className="gth">
           <input
+            type="checkbox"
+            className="ck"
+            checked={allVisibleSelected}
+            onChange={toggleAllVisible}
+            aria-label={strings.select_all_aria}
+          />
+          <h2>Guest list</h2>
+          <input
             className="gsearch"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={strings.search_placeholder}
             aria-label={strings.search_aria}
           />
           <div className="acts">
+            <div className="seg" role="tablist" aria-label="Thank-you status">
+              <button className={`sg ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
+                All{guests.length ? ` ${guests.length}` : ''}
+              </button>
+              <button className={`sg ${filter === 'notsent' ? 'on' : ''}`} onClick={() => setFilter('notsent')}>
+                Not sent{notSentCount ? ` ${notSentCount}` : ''}
+              </button>
+              <button className={`sg ${filter === 'thanked' ? 'on' : ''}`} onClick={() => setFilter('thanked')}>
+                Thanked{thankedCount ? ` ${thankedCount}` : ''}
+              </button>
+            </div>
             {selected.size > 0 ? <span className="selcnt">{fmt(strings.selected_count, { n: selected.size })}</span> : null}
             <button className="btn ghost" disabled={pending} onClick={() => setPreviewOpen(true)}>
               <Eye size={14} /> {strings.preview_test}
@@ -552,17 +717,10 @@ export default function ThankYouView({
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 30 }}>
-                    <input
-                      type="checkbox"
-                      className="ck"
-                      checked={allVisibleSelected}
-                      onChange={toggleAllVisible}
-                      aria-label={strings.select_all_aria}
-                    />
-                  </th>
+                  <th style={{ width: 30 }}></th>
                   <th>{strings.th_guest}</th>
                   <th>{strings.th_contact}</th>
+                  <th>Preferred channel</th>
                   <th>{strings.th_status}</th>
                   <th style={{ textAlign: 'right' }}>{strings.th_send}</th>
                 </tr>
@@ -580,6 +738,11 @@ export default function ThankYouView({
                     </td>
                     <td className="who">{g.name}</td>
                     <td className="contact">{g.whatsappPhone || g.phone || strings.no_phone}</td>
+                    <td>
+                      <span className="pillselect pill-whatsapp">
+                        <MessageCircle size={13} /> WhatsApp
+                      </span>
+                    </td>
                     <td>
                       <span className={`status ${g.thankYouSent ? 's-yes' : 's-none'}`}>
                         {g.thankYouSent ? strings.status_thanked : strings.status_notsent}
@@ -727,12 +890,20 @@ const css = `
    of the dashboard. The .serif class stays for any deliberate accent. */
 .ty .serif{ font-family:var(--font-cormorant),Georgia,serif; }
 .ty h1{ font-weight:700; font-size:30px; letter-spacing:-.3px; }
-.ty .head > div{ width:100%; }
-.ty .subrow{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:6px; }
+.ty .head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
 .ty .sub{ color:var(--muted); font-size:14px; max-width:640px; line-height:1.5; }
-.ty .gt{ background:#fff; border:1px solid var(--line); border-radius:var(--radius); margin-top:18px; box-shadow:var(--soft); overflow:hidden; }
-.ty .cardpicker{ background:#fff; border:1px solid var(--line); border-radius:var(--radius); margin-top:18px; padding:18px 20px; box-shadow:var(--soft); }
-.ty .cphead h2{ font-size:16px; font-weight:600; }
+.ty .sendtabs{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; margin-top:22px;
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding-top:12px; }
+.ty .stb{ display:inline-flex; align-items:center; gap:7px; margin-bottom:-9px; background:none; border:none;
+  border-bottom:2px solid transparent; padding:0 0 14px; color:var(--muted); font-size:14px; font-weight:600; cursor:pointer; text-decoration:none; }
+.ty .stb:hover{ color:var(--ink); }
+.ty .stb.on{ border-bottom-color:var(--ink); color:var(--ink); font-weight:700; }
+.ty .stbcnt{ display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px;
+  border-radius:999px; background:var(--lav-soft); color:var(--purple-d); padding:0 6px; font-size:11px; }
+.ty .stb.on .stbcnt{ background:var(--ink); color:#fff; }
+.ty .gt{ background:#fff; border:1px solid var(--line); border-radius:var(--radius); margin-top:24px; box-shadow:var(--soft); overflow:hidden; }
+.ty .cardpicker{ background:#fff; border:1px solid var(--line); border-radius:20px; margin:22px 0 18px; padding:18px 20px; box-shadow:var(--soft); }
+.ty .cphead h2{ font-size:16px; font-weight:700; }
 .ty .curcover{ display:flex; align-items:flex-start; gap:10px; margin-top:14px; padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--hover); }
 .ty .curthumb{ width:56px; height:56px; flex:none; border-radius:8px; overflow:hidden; border:1px solid var(--line); }
 .ty .curthumb img{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -743,37 +914,62 @@ const css = `
    smaller viewports — same breakpoint math as the Pledges card picker
    (auto-cols-[42%]/[31%]/[23%]/6-up), just expressed as plain CSS. */
 .ty .cardgridwrap{ position:relative; margin-top:14px; }
-.ty .cardgrid{ display:grid; grid-auto-flow:column; grid-auto-columns:42%; gap:10px; overflow-x:auto; padding-bottom:4px;
-  scroll-snap-type:x mandatory; -ms-overflow-style:none; scrollbar-width:none; }
+.ty .cardgrid{ display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; scroll-snap-type:x mandatory; -ms-overflow-style:none; scrollbar-width:none; }
 .ty .cardgrid::-webkit-scrollbar{ display:none; }
-@media(min-width:640px){ .ty .cardgrid{ grid-auto-columns:31%; } }
-@media(min-width:768px){ .ty .cardgrid{ grid-auto-columns:23%; } }
-@media(min-width:1024px){ .ty .cardgrid{ grid-auto-columns:calc((100% - 5*10px)/6); } }
 .ty .cardfade{ position:absolute; right:0; top:0; bottom:4px; width:40px; pointer-events:none;
   background:linear-gradient(to left, #fff, transparent); display:none; }
 @media(min-width:1024px){ .ty .cardfade{ display:block; } }
-.ty .cardtile{ scroll-snap-align:start; border:1px solid var(--line); border-radius:12px; padding:8px; }
+.ty .cardtile{ position:relative; width:210px; flex:0 0 210px; scroll-snap-align:start; border:1px solid var(--line); border-radius:12px; padding:8px; }
 .ty .cardtile.on{ border-color:var(--wa); box-shadow:0 0 0 1px var(--wa); }
 .ty .cardimg{ position:relative; aspect-ratio:5/7; width:100%; border-radius:8px; overflow:hidden; background:var(--hover); }
-.ty .cardimg img{ width:100%; height:100%; object-fit:contain; display:block; }
+.ty .cardimg img{ width:100%; height:100%; object-fit:cover; display:block; }
 .ty .cardcheck{ position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:50%; background:var(--wa); color:#fff; display:grid; place-items:center; }
 .ty .cardlockbadge{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
   background:rgba(28,27,31,.45); color:#fff; font-size:10px; font-weight:600; }
 .ty .cardlockbadge.pending{ background:rgba(138,109,26,.72); }
 .ty .cardpendingbtn{ border-color:var(--amber-bd); background:var(--amber-bg); color:var(--amber-tx); cursor:not-allowed; }
 .ty .cardname{ margin-top:6px; font-size:11px; font-weight:600; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ty .cardbtn{ margin-top:6px; width:100%; border:1px solid #C9A0DC; background:#C9A0DC; border-radius:999px; padding:6px 8px; font-size:10.5px; font-weight:600; color:#1A1A1A; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.ty .cardbtn{ margin-top:7px; min-height:28px; width:100%; border:1px solid #C9A0DC; background:#C9A0DC; border-radius:999px; padding:6px 8px; font-size:10.5px; font-weight:700; color:#1A1A1A; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
 .ty .cardbtn:hover:not(:disabled){ filter:brightness(.95); }
 .ty .cardbtn:disabled{ opacity:.5; cursor:not-allowed; }
 .ty .cardtile.on .cardbtn{ border-color:var(--wa); color:var(--ok-tx); background:var(--ok-bg); }
 .ty .cardbuybtn{ border-color:var(--ink); background:var(--ink); color:#fff; }
 .ty .cardbuybtn:hover:not(:disabled){ background:var(--ink); opacity:.9; }
+.ty .selectedcard{ display:flex; margin:22px 0 24px; overflow:hidden; background:#fff; border:1px solid var(--line);
+  border-radius:20px; box-shadow:var(--soft); }
+.ty .selectedmedia{ position:relative; width:190px; min-height:266px; flex:none; overflow:hidden; background:linear-gradient(155deg,var(--purple),var(--lav)); }
+.ty .selectedbadge{ position:absolute; left:10px; top:10px; display:inline-flex; align-items:center; gap:5px; border-radius:999px;
+  background:rgba(255,255,255,.95); padding:4px 9px; color:var(--ok-tx); font-size:10.5px; font-weight:700; box-shadow:var(--soft); }
+.ty .selectedmain{ min-width:0; flex:1; padding:22px; display:flex; flex-direction:column; justify-content:center; gap:16px; }
+.ty .selectedtop{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+.ty .selectedtop h3{ font-size:19px; font-weight:600; color:var(--ink); }
+.ty .selectedtop p{ margin-top:5px; max-width:620px; color:var(--muted); font-size:13.5px; line-height:1.5; }
+.ty .selectedlinkrow{ display:flex; align-items:center; gap:9px; }
+.ty .selectedlink{ min-width:0; flex:1; border:1px solid var(--line); border-radius:12px; background:#fff; padding:10px 12px;
+  color:var(--muted); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ty .selectedlink span{ margin-right:10px; color:var(--faint); font-size:10.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; }
+.ty .selectedlink b{ color:var(--ink); font-weight:700; }
+.ty .selectedtools{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.ty .selectedactions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.ty .selectednote{ margin-left:auto; display:flex; flex-wrap:wrap; gap:8px; }
+.ty .selectednote span{ display:inline-flex; align-items:center; border-radius:999px; background:var(--hover); border:1px solid var(--line);
+  padding:5px 10px; color:var(--muted); font-size:12px; font-weight:600; }
+.ty .tyguesthead{ padding:22px 20px 0; }
+.ty .tyguesthead h3{ font-size:17px; font-weight:700; color:var(--ink); }
+.ty .tyguesthead p{ margin-top:6px; color:var(--muted); font-size:13.5px; line-height:1.45; }
+.ty .tyguesthead + .gth{ border-top:none; }
 .ty .gth{ display:flex; align-items:center; gap:14px; padding:18px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.ty .gth h2{ font-size:18px; font-weight:600; }
 .ty .gth .gsearch{ flex:0 1 240px; min-width:150px; border:1px solid var(--line); border-radius:10px;
   padding:8px 12px; font-size:13px; color:var(--ink); background:#fff; }
 .ty .gth .gsearch:focus{ outline:none; border-color:var(--lav); }
 .ty .gth .acts{ margin-left:auto; display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
 .ty .selcnt{ font-size:12px; font-weight:600; color:var(--purple-d); background:var(--lav-soft); padding:5px 11px; border-radius:999px; }
+.ty .seg{ display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.ty .seg .sg{ display:inline-flex; align-items:center; gap:4px; background:#fff; border:none; padding:8px 12px; font-size:12.5px; font-weight:600; color:var(--muted); cursor:pointer; }
+.ty .seg .sg + .sg{ border-left:1px solid var(--line); }
+.ty .seg .sg.on{ background:var(--lav-soft); color:var(--purple-d); }
+.ty .seg .sg:hover:not(.on){ background:var(--hover); }
 .ty .btn{ border:none; border-radius:999px; font-weight:600; font-size:13.5px; padding:9px 16px; cursor:pointer;
   display:inline-flex; align-items:center; gap:7px; transition:filter .12s, transform .08s; text-decoration:none; }
 .ty .btn:hover{ filter:brightness(.97); transform:translateY(-1px); }
@@ -787,7 +983,7 @@ const css = `
 @keyframes ty-spin{ to{ transform:rotate(360deg); } }
 .ty .empty{ padding:40px 20px; text-align:center; color:var(--muted); font-size:14px; }
 .ty .scroll{ overflow-x:auto; }
-.ty table{ width:100%; border-collapse:collapse; font-size:13.5px; min-width:600px; }
+.ty table{ width:100%; border-collapse:collapse; font-size:13.5px; min-width:720px; }
 .ty th{ text-align:left; font-size:10.5px; letter-spacing:.6px; text-transform:uppercase; color:var(--faint);
   padding:12px 20px; border-bottom:1px solid var(--line); font-weight:600; position:sticky; top:0; background:#fff; z-index:1; }
 .ty td{ padding:14px 20px; border-bottom:1px solid var(--line); }
@@ -798,6 +994,9 @@ const css = `
 .ty .status{ display:inline-flex; align-items:center; font-size:11.5px; font-weight:600; padding:4px 11px; border-radius:999px; }
 .ty .s-none{ background:#f3f2f5; color:var(--muted); }
 .ty .s-yes{ background:var(--ok-bg); color:var(--ok-tx); }
+.ty .pillselect{ display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:4px 10px; font-size:11.5px;
+  font-weight:600; border:1px solid var(--line); background:#fff; }
+.ty .pillselect.pill-whatsapp{ color:#1a8a4a; border-color:#bfe8d2; background-color:#eefaf3; }
 .ty .ra{ display:flex; gap:7px; justify-content:flex-end; align-items:center; }
 .ty .ia{ height:32px; min-width:32px; padding:0 8px; border-radius:9px; border:1px solid var(--line); background:#fff; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:600; color:var(--ink); }
@@ -849,5 +1048,10 @@ const css = `
 .ty .dname{ font-weight:600; }
 .ty .derr{ font-size:11.5px; color:var(--bad-tx); }
 
+@media(max-width:760px){ .ty .selectedcard{ flex-direction:column; }
+  .ty .selectedmedia{ width:100%; min-height:0; aspect-ratio:5/7; }
+  .ty .selectedtools{ align-items:stretch; flex-direction:column; }
+  .ty .selectedactions{ width:100%; }
+  .ty .selectedactions .btn{ justify-content:center; flex:1; } }
 @media(max-width:640px){ .ty .gth .acts{ margin-left:0; width:100%; justify-content:flex-start; } }
 `

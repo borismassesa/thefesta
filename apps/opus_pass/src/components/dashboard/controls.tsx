@@ -39,12 +39,14 @@ export function Dialog({
   title,
   children,
   footer,
+  width = 'md',
 }: {
   open: boolean
   onClose: () => void
   title: string
   children: ReactNode
   footer?: ReactNode
+  width?: 'md' | 'lg' | 'xl'
 }) {
   useEffect(() => {
     if (!open) return
@@ -58,11 +60,12 @@ export function Dialog({
   }, [open, onClose])
 
   if (!open) return null
+  const widthClass = width === 'xl' ? 'max-w-6xl' : width === 'lg' ? 'max-w-2xl' : 'max-w-lg'
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+      <div className={cn('relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl', widthClass)}>
         <div className="flex items-center justify-between border-b border-black/[0.06] px-6 py-4">
           <h3 className="text-base font-semibold text-[#1A1A1A]">{title}</h3>
           <button

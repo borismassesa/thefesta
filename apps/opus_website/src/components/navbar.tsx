@@ -1,10 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
 import { UserButton, useUser } from '@clerk/nextjs'
 import type { LucideIcon } from 'lucide-react'
 import Logo from '@/components/ui/Logo'
+import RegistryBagButton from '@/components/registry/RegistryBagButton'
+import NotificationBell from '@/components/NotificationBell'
 import {
   ADVICE_IDEAS_BASE_PATH,
   adviceIdeasNavLinks,
@@ -61,7 +64,7 @@ const registryPhotoGrid: PhotoGridItem[] = [
   { label: 'Kitchen & Dining', image: 'https://images.unsplash.com/photo-1556909212-d5b604d0c90d?auto=format&fit=crop&w=400&q=80', href: '/registry/kitchen-dining' },
   { label: 'Tabletop & Bar', image: 'https://images.unsplash.com/photo-1630527152680-500b5453fb04?auto=format&fit=crop&w=400&q=80', href: '/registry/tabletop-bar' },
   { label: 'Bed & Bath', image: 'https://images.unsplash.com/photo-1601276174812-63280a55656e?auto=format&fit=crop&w=400&q=80', href: '/registry/bed-bath' },
-  { label: 'Cash Funds', image: 'https://images.unsplash.com/photo-1608111283577-43d930222227?auto=format&fit=crop&w=400&q=80', href: '/registry/cash-funds' },
+  { label: 'Gifts & Keepsakes', image: 'https://images.unsplash.com/photo-1513201099705-a9746e1e201f?auto=format&fit=crop&w=400&q=80', href: '/registry/gifts-keepsakes' },
 ]
 
 const attirePhotoGrid: PhotoGridItem[] = [
@@ -81,7 +84,7 @@ const planningPhotoGrid: PhotoGridItem[] = [
 const guestsPhotoGrid: PhotoGridItem[] = [
   { label: 'Guest List', image: '/assets/images/mauzo_crew.jpg' },
   { label: 'RSVP Tracking', image: '/assets/images/churchcouples.jpg' },
-  { label: 'Invitations', image: '/assets/images/cutesy_couple.jpg' },
+  { label: 'Digital Cards', image: '/assets/images/cutesy_couple.jpg' },
   { label: 'Seating Plan', image: '/assets/images/couples_together.jpg' },
 ]
 
@@ -184,23 +187,23 @@ const navItems: Array<{
     photoGrid: vendorPhotoGrid,
   },
   {
-    label: 'Invitations',
+    label: 'Digital Cards',
     card: {
       image: 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=800&q=80',
-      title: 'WEDDING INVITATIONS',
-      description: 'Designer-worthy digital invitations for every wedding moment, sent by WhatsApp or SMS.',
+      title: 'WEDDING DIGITAL CARDS',
+      description: 'Designer-worthy digital cards for every wedding moment, sent by WhatsApp or SMS.',
       linkText: 'Browse all designs',
-      href: '/opuspass/invitations',
+      href: '/opuspass/digital-cards',
     },
     columns: [
       {
         title: 'Browse',
         links: [
-          { Icon: Users, label: 'All Designs', href: '/opuspass/invitations/catalog' },
-          { Icon: CheckCircle2, label: 'Save the Dates', href: '/opuspass/invitations/catalog' },
-          { Icon: MessageCircle, label: 'Wedding Invitations', href: '/opuspass/invitations/catalog' },
-          { Icon: MapPin, label: 'Send-Off & Kitchen Party', href: '/opuspass/invitations/catalog' },
-          { Icon: Heart, label: 'Kadi za Michango', href: '/opuspass/invitations/catalog' },
+          { Icon: Users, label: 'All Designs', href: '/opuspass/digital-cards/catalog' },
+          { Icon: CheckCircle2, label: 'Save the Dates', href: '/opuspass/digital-cards/catalog' },
+          { Icon: MessageCircle, label: 'Wedding Digital Cards', href: '/opuspass/digital-cards/catalog' },
+          { Icon: MapPin, label: 'Send-Off & Kitchen Party', href: '/opuspass/digital-cards/catalog' },
+          { Icon: Heart, label: 'Kadi za Michango', href: '/opuspass/digital-cards/catalog' },
         ],
       },
       {
@@ -212,7 +215,7 @@ const navItems: Array<{
       },
     ],
     photoGridTitle: 'Wedding Paper',
-    photoGrid: guestsPhotoGrid.map((item) => ({ ...item, href: '/opuspass/invitations' })),
+    photoGrid: guestsPhotoGrid.map((item) => ({ ...item, href: '/opuspass/digital-cards' })),
   },
   {
     label: 'Guests & RSVP',
@@ -405,6 +408,8 @@ function NavAnchor({
 
 export default function Navbar() {
   const { isSignedIn, isLoaded } = useUser()
+  const pathname = usePathname()
+  const onRegistry = pathname?.startsWith('/registry') ?? false
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null)
@@ -460,6 +465,8 @@ export default function Navbar() {
 
         {/* Right: auth + hamburger */}
         <div className="flex shrink-0 items-center gap-2 font-semibold text-sm sm:gap-3 lg:text-[15px]">
+          <NotificationBell />
+          {onRegistry && <RegistryBagButton variant="light" />}
           {isLoaded && !isSignedIn ? (
             <>
               <Link

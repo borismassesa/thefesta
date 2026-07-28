@@ -64,6 +64,14 @@ export default function CategoriesClient({ categories }: { categories: CategoryR
     })
   }
 
+  const toggleSellsProducts = (slug: string, current: boolean) => {
+    setError(null)
+    startTransition(async () => {
+      const result = await updateCategory(slug, { sellsProducts: !current })
+      if (!result.ok) setError(result.error)
+    })
+  }
+
   const saveAdd = () => {
     setError(null)
     startTransition(async () => {
@@ -141,7 +149,7 @@ export default function CategoriesClient({ categories }: { categories: CategoryR
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              {['#', 'Slug', 'Onboarding label', 'Profile label', 'DB value', 'Icon', 'Status', ''].map((h) => (
+              {['#', 'Slug', 'Onboarding label', 'Profile label', 'DB value', 'Icon', 'Products', 'Status', ''].map((h) => (
                 <th key={h} className="text-left text-xs font-semibold text-gray-500 px-4 py-3">{h}</th>
               ))}
             </tr>
@@ -174,6 +182,22 @@ export default function CategoriesClient({ categories }: { categories: CategoryR
                           {ICON_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
                         </select>
                       : cat.icon}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => toggleSellsProducts(cat.slug, cat.sells_products)}
+                      disabled={isPending}
+                      title={cat.sells_products ? 'Sells products — click to disable' : 'Enable the Products tab for this category'}
+                      className={cn(
+                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border',
+                        cat.sells_products
+                          ? 'bg-violet-50 text-violet-700 border-violet-200'
+                          : 'bg-gray-50 text-gray-400 border-gray-200',
+                      )}
+                    >
+                      {cat.sells_products ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                      {cat.sells_products ? 'Yes' : 'No'}
+                    </button>
                   </td>
                   <td className="px-4 py-3">
                     <span className={cn(

@@ -46,7 +46,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               SecondarySidebarSlot so the Header stays only above the content. */}
           <div id="secondary-sidebar" className="shrink-0" />
           <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
-            <Header />
+            <Header profile={profile} />
             <main className="flex-1 overflow-y-auto overflow-x-hidden">
               {children}
             </main>

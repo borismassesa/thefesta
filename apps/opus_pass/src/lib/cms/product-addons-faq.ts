@@ -278,7 +278,7 @@ export const PRODUCT_ADDONS_FAQ_FALLBACK: ProductAddonsFaqContent = {
       title: 'Cancellation policy',
       title_sw: 'Sera ya kughairi',
       body:
-        'Cancel for a full refund any time before your invitations are sent. Once invites have gone out, the package is non-refundable — the cards and tickets are already live to your guests. The on-site attendant add-on can be cancelled up to 7 days before your event for a full refund. Read the full {link}.',
+        'Cancel for a full refund any time before your digital cards are sent. Once invites have gone out, the package is non-refundable — the cards and tickets are already live to your guests. The on-site attendant add-on can be cancelled up to 7 days before your event for a full refund. Read the full {link}.',
       body_sw:
         'Ghairi kwa marejesho kamili wakati wowote kabla ya mialiko yako kutumwa. Mialiko ikishatumwa, kifurushi hakirejeshwi — kadi na tiketi tayari ziko hai kwa wageni wako. Nyongeza ya mhudumu wa eneo la tukio inaweza kughairiwa hadi siku 7 kabla ya tukio lako kwa marejesho kamili. Soma {link} kamili.',
       link_label: 'Cancellation & Refund Policy',

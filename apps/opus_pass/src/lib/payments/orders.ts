@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase'
 import type { StoredOrder } from '@/lib/cart-storage'
 import type { FulfillmentStatus, InitiateItem, OrderStatus } from './types'
 import { isTerminal } from './types'
+import { deriveOrderCategory, type OrderCategory } from './order-category'
 
 // Data-access layer for invitation_orders / invitation_payment_events. All
 // reads/writes go through the service-role client (RLS denies everyone else).
@@ -36,11 +37,20 @@ export type OrderRow = {
   fulfillment_updated_by: string | null
   receipt_emailed_at: string | null
   purchase_notified_at: string | null
+  /** 'invitation' (default) or 'product' — product orders ride the same ledger. */
+  kind: string
+  /** Product family this order belongs to (digital_card, gift_registry, …) —
+   *  what the admin Payments console segments by. See order-category.ts. */
+  category: OrderCategory
+  /** Guest delivery details for product orders. */
+  delivery: Record<string, unknown> | null
+  /** Set once finalize_product_order has run its once-only side effects. */
+  product_finalized_at: string | null
   created_at: string
 }
 
 export const ORDER_SELECT_COLS =
-  'id, ref, user_id, status, currency, subtotal, discount, amount_total, contact_name, contact_email, contact_phone, event_date, event_id, items, provider, payment_method, payer_phone, payer_name, payment_reference, provider_order_id, payment_label, payment_submitted_at, paid_at, fulfillment_status, fulfillment_updated_at, fulfillment_updated_by, receipt_emailed_at, purchase_notified_at, created_at'
+  'id, ref, user_id, status, currency, subtotal, discount, amount_total, contact_name, contact_email, contact_phone, event_date, event_id, items, provider, payment_method, payer_phone, payer_name, payment_reference, provider_order_id, payment_label, payment_submitted_at, paid_at, fulfillment_status, fulfillment_updated_at, fulfillment_updated_by, receipt_emailed_at, purchase_notified_at, kind, category, delivery, product_finalized_at, created_at'
 const SELECT_COLS = ORDER_SELECT_COLS
 
 export async function createPendingOrder(input: {
@@ -62,6 +72,12 @@ export async function createPendingOrder(input: {
   paymentReference?: string | null
   paymentLabel?: string | null
   paymentSubmittedAt?: string | null
+  kind?: 'invitation' | 'product'
+  /** Product family — defaults to a value derived from kind + item ids so no
+   *  order is ever left uncategorized. Pass explicitly only when the flow knows
+   *  better than the derivation (e.g. the future attire/rings checkout). */
+  category?: OrderCategory
+  delivery?: Record<string, unknown> | null
 }): Promise<OrderRow> {
   const supabase = createSupabaseServerClient()
   const { data, error } = await supabase
@@ -87,6 +103,9 @@ export async function createPendingOrder(input: {
       payment_reference: input.paymentReference ?? null,
       payment_label: input.paymentLabel ?? null,
       payment_submitted_at: input.paymentSubmittedAt ?? null,
+      kind: input.kind ?? 'invitation',
+      category: input.category ?? deriveOrderCategory(input.kind ?? 'invitation', input.items),
+      delivery: input.delivery ?? null,
     })
     .select(SELECT_COLS)
     .single()
@@ -112,6 +131,7 @@ export function orderRowToStoredOrder(order: OrderRow): StoredOrder {
   return {
     ref: order.ref,
     paidAt: order.paid_at ?? order.payment_submitted_at ?? order.created_at,
+    eventId: order.event_id,
     eventDate: order.event_date ?? undefined,
     paymentLabel: order.payment_label ?? undefined,
     payment: {
@@ -232,13 +252,23 @@ export async function transitionOrder(
     return latest?.status ?? current.status
   }
 
-  // This call genuinely just flipped the order to 'paid' (current.status was
-  // non-terminal, and the guarded UPDATE above matched a row) — send the
-  // customer receipt + admin new-purchase email exactly once, for every
-  // payment method. Lipa Namba never reaches 'paid' through this function
-  // (its admin-approval action writes status='paid' directly), so this only
-  // covers card/mobile — which previously got no email at all.
-  if (next === 'paid') await notifyOrderPaid(ref)
+  // This call genuinely just flipped the order to a terminal state (current
+  // was non-terminal, and the guarded UPDATE matched a row) — run the
+  // once-only side effects for that state, by order kind. Lipa Namba product
+  // orders finalize via the admin approval path instead (which writes
+  // status='paid' directly), but the finalize RPC is idempotent so a Selcom
+  // product order finalizing here is equally safe.
+  if (next === 'paid') {
+    if (current.kind === 'product') {
+      const { finalizeProductOrder } = await import('./product-orders')
+      await finalizeProductOrder(ref)
+    } else {
+      await notifyOrderPaid(ref)
+    }
+  } else if ((next === 'failed' || next === 'expired') && current.kind === 'product') {
+    const { releaseProductOrder } = await import('./product-orders')
+    await releaseProductOrder(ref)
+  }
 
   return next
 }

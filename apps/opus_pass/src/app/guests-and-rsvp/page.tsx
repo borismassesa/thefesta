@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { draftMode } from 'next/headers'
 import { PreviewBanner } from '@/components/PreviewBanner'
-import { InvitationShowcase } from '@/components/home/InvitationShowcase'
+import { DigitalCardShowcase } from '@/components/home/DigitalCardShowcase'
 import { getLocale } from '@/lib/cms/locale'
 import { loadGuestsHeroContent } from '@/lib/cms/guests-hero'
 import { loadGuestsFeaturesContent } from '@/lib/cms/guests-features'
@@ -41,7 +41,7 @@ export default async function GuestsLandingPage() {
         features={features}
         spread={spread}
         faqs={faqs}
-        testimonials={<InvitationShowcase content={testimonials} />}
+        testimonials={<DigitalCardShowcase content={testimonials} />}
       />
     </>
   )

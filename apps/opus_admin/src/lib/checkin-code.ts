@@ -31,18 +31,18 @@ export function formatScannerAccessCode(rawToken: string): string {
  * option that tracks the shift the code actually exists for; the fixed
  * durations are deliberate overrides (testing, or an event with no time set).
  */
-export type AccessCodeValidity = 'event' | '12h' | '24h' | '7d'
+export type AccessCodeValidity = 'event' | '12h' | '72h' | '7d'
 
 export const ACCESS_CODE_VALIDITY_OPTIONS: { value: AccessCodeValidity; label: string }[] = [
   { value: 'event', label: 'Until the event ends' },
   { value: '12h', label: '12 hours' },
-  { value: '24h', label: '24 hours' },
+  { value: '72h', label: '72 hours' },
   { value: '7d', label: '7 days' },
 ]
 
 const FIXED_VALIDITY_HOURS: Record<Exclude<AccessCodeValidity, 'event'>, number> = {
   '12h': 12,
-  '24h': 24,
+  '72h': 72,
   '7d': 24 * 7,
 }
 
@@ -52,14 +52,14 @@ const EVENT_WINDOW_LEAD_HOURS = 12
 const EVENT_WINDOW_TRAIL_HOURS = 12
 
 /** Fallback when 'event' is asked for but the event has no start time. */
-const NO_START_FALLBACK_HOURS = 24
+const NO_START_FALLBACK_HOURS = 72
 
 const HOUR_MS = 60 * 60 * 1000
 
 /**
  * When a door code should expire.
  *
- * The naive `now + 24h` is wrong in both directions: a code minted a week
+ * The naive fixed-duration expiry is wrong in both directions: a code minted a week
  * before the wedding is dead by the time the doors open, and one minted on
  * the morning stays live long after the last guest has gone. Anchoring to
  * the event instead means the credential lasts exactly as long as the shift

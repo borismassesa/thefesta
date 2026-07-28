@@ -13,6 +13,7 @@ import { useOnboardingDraft } from '@/lib/onboarding/draft'
 import { findCategory } from '@/lib/onboarding/categories'
 import { pick } from '@/lib/onboarding/localize'
 import { useOnboardT } from '@/lib/onboarding/strings'
+import { useServiceOnlyStep } from '@/lib/onboarding/use-service-only-step'
 import {
   CANCELLATION_OPTIONS,
   DEPOSIT_PRESETS,
@@ -32,6 +33,8 @@ export default function PoliciesPage() {
     else if (!draft.vowsAccepted) router.replace('/onboard/vows')
     else if (draft.packages.length === 0) router.replace('/onboard/pricing')
   }, [hydrated, draft.categoryId, draft.vowsAccepted, draft.packages.length, router])
+
+  useServiceOnlyStep('/onboard/pricing/payout')
 
   const depositNum = Number(draft.depositPercent)
   const validDeposit =

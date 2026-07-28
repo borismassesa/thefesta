@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { FieldLabel, TextInput } from '@/components/onboard/FormField'
 import { getStorefrontSections } from '@/lib/storefront/completion'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 import { useOnboardingDraft } from '@/lib/onboarding/draft'
 import { cn } from '@/lib/utils'
 import {
@@ -202,11 +203,12 @@ export default function PhotosClient() {
   const portfolio = photos
   const portfolioRemaining = Math.max(0, MIN_PORTFOLIO - photos.length)
 
+  const vertical = useVendorVertical()
   const nextHref = useMemo(() => {
-    const sections = getStorefrontSections(draft)
+    const sections = getStorefrontSections(draft, vertical)
     const idx = sections.findIndex((s) => s.id === 'photos')
     return idx >= 0 && idx < sections.length - 1 ? sections[idx + 1].href : null
-  }, [draft])
+  }, [draft, vertical])
 
   // Track in-flight uploads so the user gets a visible loading state and
   // can't double-pick the same slot.

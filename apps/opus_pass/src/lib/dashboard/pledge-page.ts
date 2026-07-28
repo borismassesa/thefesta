@@ -76,6 +76,15 @@ export interface PledgePageConfig {
    *  ask for completely different things. Mirrors eventCovers, but scopes
    *  every editable field, not just the cover. */
   eventContent?: Record<string, CollectorEventContent>
+  /** Per-event Save the Date dashboard selection. Stored here because this
+   * config JSON is explicitly allowed to evolve without schema changes. */
+  saveDateTemplates?: Record<string, SaveDateTemplateSelection>
+}
+
+export interface SaveDateTemplateSelection {
+  id: string
+  name: string
+  imageUrl: string
 }
 
 /** One event's worth of Contact Collector content — everything the customize

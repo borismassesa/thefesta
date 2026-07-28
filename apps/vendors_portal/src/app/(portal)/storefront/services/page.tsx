@@ -4,6 +4,7 @@ import { getServicesForCategory } from '@/lib/onboarding/services'
 import { getLocale } from '@/lib/cms/locale'
 import { loadPortalUiStrings } from '@/lib/cms/portal-ui'
 import { PortalUIStringsProvider } from '@/components/providers/PortalUIStringsProvider'
+import { redirectProductVendors } from '@/lib/storefront/vertical-guard'
 import ServicesEditor, { type ServicesSource } from './ServicesEditor'
 import { dbServicesToUi } from './mapping'
 
@@ -104,6 +105,10 @@ async function loadServices(): Promise<{
 }
 
 export default async function StorefrontServicesPage() {
+  // Services describe what couples can book you for. A shop's offer is its
+  // Products list, so this section isn't part of their storefront.
+  await redirectProductVendors('/storefront')
+
   const [props, locale] = await Promise.all([loadServices(), getLocale()])
   const servicesStrings = await loadPortalUiStrings('storefront-services', locale)
   return (

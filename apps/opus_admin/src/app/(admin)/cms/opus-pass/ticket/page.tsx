@@ -1,19 +1,19 @@
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { emptyInvitationProduct, type InvitationProductRecord } from '@/lib/cms/opus-pass-invitations-products'
+import { emptyDigitalCardProduct, type DigitalCardProductRecord } from '@/lib/cms/opus-pass-digital-cards-products'
 import TicketEditor from './TicketEditor'
 
 export const dynamic = 'force-dynamic'
 
-async function loadTicketProduct(id: string): Promise<InvitationProductRecord> {
+async function loadTicketProduct(id: string): Promise<DigitalCardProductRecord> {
   const supabase = createSupabaseAdminClient()
   const { data } = await supabase
     .from('website_invitations_products')
     .select('*')
     .eq('id', id)
-    .maybeSingle<InvitationProductRecord>()
+    .maybeSingle<DigitalCardProductRecord>()
   return (
     data ??
-    emptyInvitationProduct({
+    emptyDigitalCardProduct({
       id,
       slug: id,
       category: 'Event Tickets',

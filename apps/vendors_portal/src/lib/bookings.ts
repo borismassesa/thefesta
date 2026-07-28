@@ -169,10 +169,10 @@ export function deriveAttention(bookings: Booking[], now: Date, t: Translator): 
   for (const b of bookings) {
     if (b.stage === 'cancelled') continue
 
-    // Slot hold expiring within 24h.
+    // Slot hold expiring within 72h.
     if (b.stage === 'reserved' && b.slotHeldUntil) {
       const left = new Date(b.slotHeldUntil).getTime() - now.getTime()
-      if (left > 0 && left < ms(24)) {
+      if (left > 0 && left < ms(72)) {
         items.push({
           kind: 'slot_expiring',
           bookingId: b.id,
@@ -184,10 +184,10 @@ export function deriveAttention(bookings: Booking[], now: Date, t: Translator): 
       }
     }
 
-    // Deposit overdue: contract signed > 24h ago, deposit not paid.
+    // Deposit overdue: contract signed > 72h ago, deposit not paid.
     if (b.stage === 'reserved' && b.contractSigned && !b.depositPaid && b.contractSentAt) {
       const since = now.getTime() - new Date(b.contractSentAt).getTime()
-      if (since > ms(24)) {
+      if (since > ms(72)) {
         items.push({
           kind: 'deposit_overdue',
           bookingId: b.id,

@@ -273,11 +273,13 @@ export default function CollectorCustomizeClient({
 
         {/* Live preview column */}
         <div className="lg:h-full">
-          <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] bg-white/70 px-5 py-3 backdrop-blur">
+          <div className="dash-header-safe flex min-h-[58px] flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] bg-white/70 px-5 py-3 backdrop-blur">
             <p className="text-xs font-medium uppercase tracking-wide text-[#1A1A1A]/45">Live preview</p>
-            <DeviceToggle device={device} onChange={setDevice} />
+            <div className="shrink-0">
+              <DeviceToggle device={device} onChange={setDevice} />
+            </div>
           </div>
-          <div data-lenis-prevent className="flex justify-center overflow-auto p-4 sm:p-6 lg:h-[calc(100%-49px)]">
+          <div data-lenis-prevent className="flex justify-center overflow-auto p-4 sm:p-6 lg:h-[calc(100%-58px)]">
             {previewUrl ? (
               <div
                 className="mx-auto w-full self-start overflow-hidden rounded-2xl border border-black/[0.12] bg-white shadow-[0_24px_60px_-30px_rgba(0,0,0,0.4)] transition-all duration-300"

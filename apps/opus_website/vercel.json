@@ -5,5 +5,15 @@
   "installCommand": "cd ../.. && npm install",
   "git": {
     "deploymentEnabled": false
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/opus/reindex",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/opus/support-sla",
+      "schedule": "*/15 5-17 * * 1-6"
+    }
+  ]
 }

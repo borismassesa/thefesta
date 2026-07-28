@@ -1,6 +1,6 @@
 'use server'
 
-const ALLOWED_REDIRECTS = new Set(['/', '/invitations', '/guests-and-rsvp', '/websites'])
+const ALLOWED_REDIRECTS = new Set(['/', '/digital-cards', '/guests-and-rsvp', '/websites'])
 
 export async function getOpusPassPreviewUrl(redirectPath: string = '/'): Promise<string | null> {
   const url = process.env.NEXT_PUBLIC_OPUS_PASS_URL ?? 'http://localhost:3008'

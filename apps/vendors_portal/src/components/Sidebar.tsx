@@ -10,6 +10,7 @@ import {
   Inbox,
   LayoutDashboard,
   MessageSquare,
+  Package,
   PanelLeftClose,
   PanelLeftOpen,
   Rocket,
@@ -19,32 +20,59 @@ import {
   Sparkles,
   Star,
   Store,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePortalT, type Translator } from '@/components/providers/PortalUIStringsProvider'
+import { sellsProducts } from '@/lib/onboarding/verticals'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 import Logo from './ui/Logo'
 
 type NavItem = { icon: LucideIcon; label: string; href: string; badge?: string }
 
-function buildTopItems(t: Translator): NavItem[] {
+// The nav is built per vertical. A gift shop or an attire seller sells goods,
+// not booked time: nobody sends them an enquiry, they have no calendar, and
+// there are no lead preferences to tune. Showing those tabs anyway would hand
+// them four screens that can only ever be empty. What they get instead is
+// Products (under Storefront) and Payments, which service vendors don't have.
+
+function buildTopItems(t: Translator, sells: boolean): NavItem[] {
   return [
     { icon: LayoutDashboard, label: t('nav_dashboard'), href: '/dashboard' },
-    { icon: Inbox, label: t('nav_leads'), href: '/leads' },
+    // Leads come from the wedding vendor directory, which product vendors
+    // aren't listed in.
+    ...(sells ? [] : [{ icon: Inbox, label: t('nav_leads'), href: '/leads' }]),
   ]
 }
 
-function buildMainItems(t: Translator): NavItem[] {
+function buildMainItems(t: Translator, sells: boolean): NavItem[] {
   return [
     { icon: Store, label: t('nav_storefront'), href: '/storefront' },
-    { icon: CalendarCheck, label: t('nav_bookings'), href: '/bookings' },
+    ...(sells
+      ? [
+          // Their equivalent of a calendar: the stock they've listed and its
+          // moderation state. Lives under Storefront, surfaced here too because
+          // it's the tab a seller opens every day.
+          { icon: Package, label: 'Products', href: '/storefront/products' },
+          { icon: Wallet, label: 'Payments', href: '/payments' },
+        ]
+      : [{ icon: CalendarCheck, label: t('nav_bookings'), href: '/bookings' }]),
     { icon: Star, label: t('nav_reviews'), href: '/reviews' },
   ]
 }
 
-function buildGrowthItems(t: Translator): NavItem[] {
+function buildGrowthItems(t: Translator, sells: boolean): NavItem[] {
   return [
-    { icon: SlidersHorizontal, label: t('nav_lead_preferences'), href: '/lead-preferences' },
+    ...(sells
+      ? []
+      : [
+          {
+            icon: SlidersHorizontal,
+            label: t('nav_lead_preferences'),
+            href: '/lead-preferences',
+          },
+        ]),
     { icon: Sparkles, label: t('nav_plans'), href: '/plans' },
     { icon: Rocket, label: t('nav_boost_storefront'), href: '/boost', badge: t('badge_new') },
     { icon: BarChart3, label: t('nav_insights'), href: '/insights' },
@@ -115,13 +143,15 @@ function SidebarLink({
 
 export function Sidebar({ newLeadCount = 0 }: { newLeadCount?: number }) {
   const pathname = usePathname()
+  const vertical = useVendorVertical()
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState(false)
   const t = usePortalT('portal-chrome')
 
-  const topItems = buildTopItems(t)
-  const mainItems = buildMainItems(t)
-  const growthItems = buildGrowthItems(t)
+  const sells = sellsProducts(vertical)
+  const topItems = buildTopItems(t, sells)
+  const mainItems = buildMainItems(t, sells)
+  const growthItems = buildGrowthItems(t, sells)
   const bottomNavItems = buildBottomNavItems(t)
 
   // Live "new leads" count badge. Capped display at 99+ to keep the pill tidy.

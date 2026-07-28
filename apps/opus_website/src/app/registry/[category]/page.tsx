@@ -5,11 +5,12 @@ import { ChevronDown } from 'lucide-react'
 import Navbar from '@/components/navbar'
 import Footer from '@/components/footer'
 import ProductCard from '@/components/registry/ProductCard'
-import RegistryBagButton from '@/components/registry/RegistryBagButton'
 import { REGISTRY_CATEGORIES, getRegistryCategory, type RegistryCategory } from '@/lib/registry-categories'
-import { listProducts } from '@/lib/registry-products'
+import { getShopProducts } from '@/lib/products-db'
 
 type Params = Promise<{ category: string }>
+
+export const revalidate = 600
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { category } = await params
@@ -65,15 +66,11 @@ export default async function RegistryCategoryPage({ params }: { params: Params 
     .map((slug) => getRegistryCategory(slug))
     .filter((c): c is RegistryCategory => Boolean(c))
 
-  const products = listProducts(cat.slug, 24, 0)
+  const products = await getShopProducts({ category: cat.slug, limit: 24 })
 
   return (
     <>
       <Navbar />
-
-      <div className="sticky top-0 z-30 flex items-center justify-end gap-3 bg-black px-4 py-2.5 text-white lg:px-8">
-        <RegistryBagButton />
-      </div>
 
       <main className="bg-white font-sans text-gray-900">
         <section className="border-b border-gray-200 bg-[#f7f4ee] px-4 pb-12 pt-10 md:pb-16 md:pt-14">
@@ -98,17 +95,35 @@ export default async function RegistryCategoryPage({ params }: { params: Params 
             </FilterPill>
           </div>
           <p className="mt-4 text-sm text-gray-600">
-            Showing curated <strong className="font-semibold text-gray-900">{cat.name.toLowerCase()}</strong> gifts for
-            your registry.
+            {products.length > 0 ? (
+              <>
+                Showing <strong className="font-semibold text-gray-900">{products.length}</strong>{' '}
+                <strong className="font-semibold text-gray-900">{cat.name.toLowerCase()}</strong> gifts for your registry.
+              </>
+            ) : (
+              <>
+                No <strong className="font-semibold text-gray-900">{cat.name.toLowerCase()}</strong> gifts listed yet.
+              </>
+            )}
           </p>
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-12 pt-8 lg:px-8">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-5">
-            {products.map((p) => (
-              <ProductCard key={p.id} p={p} />
-            ))}
-          </div>
+          {products.length > 0 ? (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-5">
+              {products.map((p) => (
+                <ProductCard key={p.id} p={p} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-gray-200 py-16 text-center">
+              <p className="text-base font-semibold text-gray-900">Nothing here yet</p>
+              <p className="max-w-sm text-sm text-gray-600">
+                Our shops haven&apos;t added {cat.name.toLowerCase()} gifts yet. Check back soon, or explore another
+                category.
+              </p>
+            </div>
+          )}
         </section>
 
         <RelatedRow items={relatedCats} />

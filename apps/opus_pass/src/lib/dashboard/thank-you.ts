@@ -10,7 +10,15 @@ export const THANK_YOU_FREE_TIER_IDS = ['elegant', 'signature']
  *  invitation catalog) applied as the WhatsApp message's header image,
  *  scoped per event. Mirrors PledgePageConfig.eventCovers. */
 export interface ThankYouCardConfig {
-  eventCovers?: Record<string, { coverImageUrl: string | null; coverIsFullTemplate: boolean }>
+  eventCovers?: Record<
+    string,
+    {
+      coverImageUrl: string | null
+      coverIsFullTemplate: boolean
+      templateId?: string | null
+      templateName?: string | null
+    }
+  >
 }
 
 /** Resolve the card cover for a specific event from the couple's raw stored
@@ -18,8 +26,13 @@ export interface ThankYouCardConfig {
 export function resolveThankYouCover(
   stored: ThankYouCardConfig | null | undefined,
   eventId: string | null,
-): { coverImageUrl: string | null; coverIsFullTemplate: boolean } {
+): { coverImageUrl: string | null; coverIsFullTemplate: boolean; templateId: string | null; templateName: string | null } {
   const key = eventId ?? EVENTLESS_COVER_KEY
   const cover = stored?.eventCovers?.[key]
-  return { coverImageUrl: cover?.coverImageUrl ?? null, coverIsFullTemplate: cover?.coverIsFullTemplate ?? false }
+  return {
+    coverImageUrl: cover?.coverImageUrl ?? null,
+    coverIsFullTemplate: cover?.coverIsFullTemplate ?? false,
+    templateId: cover?.templateId ?? null,
+    templateName: cover?.templateName ?? null,
+  }
 }

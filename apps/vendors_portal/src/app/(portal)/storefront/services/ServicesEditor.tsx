@@ -8,6 +8,7 @@ import { FieldLabel, TextInput } from '@/components/onboard/FormField'
 import { findCategory } from '@/lib/onboarding/categories'
 import { useOnboardingDraft } from '@/lib/onboarding/draft'
 import { getStorefrontSections } from '@/lib/storefront/completion'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 import { usePortalT, type Translator } from '@/components/providers/PortalUIStringsProvider'
 import { saveServices } from './actions'
 
@@ -79,11 +80,12 @@ export default function ServicesEditor({
   const banner = buildBannerBySource(t)[source.kind]
   const categoryMeta = findCategory(category)
 
+  const vertical = useVendorVertical()
   const nextHref = useMemo(() => {
-    const sections = getStorefrontSections(draft)
+    const sections = getStorefrontSections(draft, vertical)
     const idx = sections.findIndex((s) => s.id === 'services')
     return idx >= 0 && idx < sections.length - 1 ? sections[idx + 1].href : null
-  }, [draft])
+  }, [draft, vertical])
 
   const onNext = () => {
     if (nextHref) router.push(nextHref)

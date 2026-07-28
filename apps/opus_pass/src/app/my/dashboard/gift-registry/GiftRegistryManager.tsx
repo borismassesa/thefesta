@@ -17,12 +17,16 @@ import {
   Lightbulb,
   Link2,
   Mail,
+  MapPin,
   Pencil,
   Phone,
   Play,
+  Plus,
   RotateCcw,
   Search,
+  Settings,
   Star,
+  Store,
   Tag,
   Trash2,
   UploadCloud,
@@ -32,6 +36,7 @@ import {
   X,
 } from 'lucide-react'
 import {
+  addProductToRegistry,
   createGiftRegistryItem,
   deleteGiftRegistryClaim,
   deleteGiftRegistryItem,
@@ -59,6 +64,8 @@ import { Button, ConfirmDialog, Field, Slideover, inputClass } from '@/component
 import { EventPicker } from '@/components/dashboard/EventScope'
 import type { DashboardEventScopeStrings } from '@/lib/cms/ui-strings-fallback'
 import ImagePickerModal from '@/components/dashboard/ImagePickerModal'
+import CatalogGiftCard from '@/components/dashboard/CatalogGiftCard'
+import { type CatalogGift } from '@/lib/dashboard/gift-catalog'
 import { cn } from '@/lib/utils'
 
 /** Days remaining until an ISO date (DATE column), or null if unset/past. Mirrors PledgesManager's daysUntil. */
@@ -240,6 +247,7 @@ export default function GiftRegistryManager({
   events,
   selectedEventId,
   scopeStrings,
+  catalog,
 }: {
   initial: GiftRegistryItemWithClaims[]
   shareSlug: string | null
@@ -250,6 +258,8 @@ export default function GiftRegistryManager({
   events: { id: string; name: string }[]
   selectedEventId: string | null
   scopeStrings: DashboardEventScopeStrings
+  /** Live vendor products the couple can add to their registry, from the shop. */
+  catalog: CatalogGift[]
 }) {
   const [items, setItems] = useState(initial)
   // Adding/editing a gift calls a server action that revalidates this route,
@@ -300,6 +310,8 @@ export default function GiftRegistryManager({
   const [filterCategory, setFilterCategory] = useState('all')
   const [filterAvailability, setFilterAvailability] = useState<Availability>('all')
   const [sortKey, setSortKey] = useState<SortKey>('newest')
+  const [activeTab, setActiveTab] = useState<'gifts' | 'claims'>('gifts')
+  const [catalogBusyId, setCatalogBusyId] = useState<string | null>(null)
 
   const [heroBannerUrl, setHeroBannerUrl] = useState(hero.registryBannerImageUrl)
   const [heroCoverUrl, setHeroCoverUrl] = useState(hero.registryCoverImageUrl)
@@ -473,6 +485,27 @@ export default function GiftRegistryManager({
       return 0 // 'newest' — keep the server's sort_order/created_at order
     })
 
+  // Shop-catalog gifts shown in the same grid as the couple's own — same search and
+  // category filters, hidden once added (deduped by title against owned items) and
+  // under the "purchased" availability filter (catalog gifts are never purchased).
+  const ownedProductIds = new Set(items.map((i) => i.product_id).filter(Boolean) as string[])
+  const ownedTitles = new Set(items.map((i) => i.title.trim().toLowerCase()))
+  const visibleCatalog =
+    filterAvailability === 'purchased'
+      ? []
+      : catalog.filter((g) => {
+          if (g.productId && ownedProductIds.has(g.productId)) return false
+          if (ownedTitles.has(g.title.trim().toLowerCase())) return false
+          if (filterCategory !== 'all' && g.category !== filterCategory) return false
+          const q = search.trim().toLowerCase()
+          if (!q) return true
+          return (
+            g.title.toLowerCase().includes(q) ||
+            g.shopName.toLowerCase().includes(q) ||
+            g.description.toLowerCase().includes(q)
+          )
+        })
+
   function openCreate() {
     setForm({ ...emptyForm, event_id: selectedEventId })
     setEditingItem(null)
@@ -637,6 +670,8 @@ export default function GiftRegistryManager({
               group_gift: input.group_gift ?? false,
               is_cash_fund: input.is_cash_fund ?? false,
               event_id: input.event_id ?? null,
+              product_id: null,
+              price_tzs: null,
               claimed_by_name: null,
               claimed_by_phone: null,
               claimed_by_email: null,
@@ -655,6 +690,151 @@ export default function GiftRegistryManager({
         toast.error(err instanceof Error ? err.message : 'Something went wrong')
       }
     })
+  }
+
+  /** Opens the full add form pre-filled from a shop-catalog gift, so the couple can
+   *  tweak quantity / most-wanted / group-gift / note before saving (create mode). */
+  function openCatalogEdit(gift: CatalogGift) {
+    const isCashFund = gift.priceLabel.trim().toLowerCase() === 'any amount'
+    setForm({
+      id: undefined,
+      title: gift.title,
+      description: gift.description,
+      image_urls: [gift.image],
+      video_url: '',
+      price_label: gift.priceLabel,
+      product_link: '',
+      shop_name: gift.shopName,
+      shop_location: gift.shopLocation,
+      shop_contact: '',
+      category: gift.category,
+      quantity_requested: 1,
+      most_wanted: false,
+      group_gift: false,
+      is_cash_fund: isCashFund,
+      event_id: selectedEventId,
+    })
+    setEditingItem(null)
+    setMarkedReceived(false)
+    setOpen(true)
+  }
+
+  /** One-tap add of a shop-catalog gift — creates a real registry item pre-filled
+   *  from the catalog entry, then optimistically appends it (mirrors save()'s create branch). */
+  async function addCatalogGift(gift: CatalogGift) {
+    if (catalogBusyId) return
+    setCatalogBusyId(gift.id)
+
+    // Real vendor product — add it product-linked (dedupes by product id, keeps
+    // a numeric price so guests can buy it) via the dedicated action.
+    const productId = gift.productId
+    if (productId) {
+      try {
+        const res = await addProductToRegistry(productId, selectedEventId)
+        if (!res.alreadyAdded) {
+          const now = new Date().toISOString()
+          setItems((prev) => [
+            ...prev,
+            {
+              id: res.id,
+              title: gift.title,
+              description: gift.description || null,
+              image_urls: [gift.image],
+              video_url: null,
+              price_label: gift.priceLabel,
+              product_link: null,
+              shop_name: gift.shopName,
+              shop_location: gift.shopLocation,
+              shop_contact: null,
+              category: null,
+              quantity_requested: 1,
+              most_wanted: false,
+              group_gift: false,
+              is_cash_fund: false,
+              event_id: selectedEventId,
+              product_id: productId,
+              price_tzs: gift.priceTzs ?? null,
+              claimed_by_name: null,
+              claimed_by_phone: null,
+              claimed_by_email: null,
+              claimed_at: null,
+              claimedCount: 0,
+              claimants: [],
+              sort_order: prev.length,
+              created_at: now,
+              updated_at: now,
+            },
+          ])
+        }
+        toast.success(
+          res.alreadyAdded ? `"${gift.title}" is already on your registry` : `Added "${gift.title}" to your registry`,
+        )
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not add gift')
+      } finally {
+        setCatalogBusyId(null)
+      }
+      return
+    }
+
+    const isCashFund = gift.priceLabel.trim().toLowerCase() === 'any amount'
+    const input: GiftRegistryInput = {
+      title: gift.title,
+      description: gift.description,
+      image_urls: [gift.image],
+      video_url: null,
+      price_label: gift.priceLabel,
+      product_link: null,
+      shop_name: gift.shopName,
+      shop_location: gift.shopLocation,
+      shop_contact: null,
+      category: gift.category,
+      quantity_requested: 1,
+      most_wanted: false,
+      group_gift: false,
+      is_cash_fund: isCashFund,
+      event_id: selectedEventId,
+    }
+    try {
+      const id = await createGiftRegistryItem(input)
+      setItems((prev) => [
+        ...prev,
+        {
+          id,
+          title: input.title.trim(),
+          description: input.description ?? null,
+          image_urls: input.image_urls ?? [],
+          video_url: null,
+          price_label: input.price_label ?? null,
+          product_link: null,
+          shop_name: input.shop_name ?? null,
+          shop_location: input.shop_location ?? null,
+          shop_contact: null,
+          category: input.category ?? null,
+          quantity_requested: 1,
+          most_wanted: false,
+          group_gift: false,
+          is_cash_fund: input.is_cash_fund ?? false,
+          event_id: input.event_id ?? null,
+          product_id: null,
+          price_tzs: null,
+          claimed_by_name: null,
+          claimed_by_phone: null,
+          claimed_by_email: null,
+          claimed_at: null,
+          claimedCount: 0,
+          claimants: [],
+          sort_order: prev.length,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      toast.success(`Added "${gift.title}" to your registry`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not add gift')
+    } finally {
+      setCatalogBusyId(null)
+    }
   }
 
   function confirmRemove() {
@@ -753,13 +933,51 @@ export default function GiftRegistryManager({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-[#1A1A1A] sm:text-3xl">Gift registry</h1>
-        {/* Event picker rides the right end of the subtitle row; Add-a-gift
-            lives on the search/filter toolbar below. */}
+        {/* Event picker rides the right end of the subtitle row; Settings /
+            Add gifts sit on their own toolbar just above the hero below. */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="min-w-0 flex-1 text-sm text-[#1A1A1A]/65 sm:text-base">
             Add gifts you&apos;d love to receive — guests reserve one from your public link so nobody doubles up.
           </p>
           <EventPicker events={events} selectedId={selectedEventId ?? ''} strings={scopeStrings} />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex rounded-full bg-black/[0.05] p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('gifts')}
+            className={cn(
+              'rounded-full px-4 py-1.5 text-sm font-semibold transition-colors',
+              activeTab === 'gifts' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#1A1A1A]/55 hover:text-[#1A1A1A]',
+            )}
+          >
+            Gifts
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('claims')}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors',
+              activeTab === 'claims' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#1A1A1A]/55 hover:text-[#1A1A1A]',
+            )}
+          >
+            Claims
+            {claims.length > 0 ? (
+              <span className="rounded-full bg-[#C9A0DC]/25 px-1.5 text-[11px] font-bold text-[#6b3f82]">
+                {claims.length}
+              </span>
+            ) : null}
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={openHeroEditor}>
+            <Settings className="h-4 w-4" /> Settings
+          </Button>
+          <Button onClick={openCreate}>
+            <Gift className="h-4 w-4" /> Add gifts
+          </Button>
         </div>
       </div>
 
@@ -859,6 +1077,8 @@ export default function GiftRegistryManager({
         onConfirm={onConfirmPhotoImage}
       />
 
+      {activeTab === 'gifts' && (
+      <>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr_1fr]">
         <div className="rounded-2xl bg-black/[0.04] p-6">
           <h3 className="text-lg font-semibold text-[#1A1A1A]">Add gifts to your registry</h3>
@@ -889,6 +1109,8 @@ export default function GiftRegistryManager({
         </div>
         <ShareLinkCard shareSlug={shareSlug} shareEnabled={shareEnabled} eventId={selectedEventId} />
       </div>
+      </>
+      )}
 
       <Slideover
         open={heroOpen}
@@ -1038,18 +1260,7 @@ export default function GiftRegistryManager({
         </div>
       </Slideover>
 
-      {items.length === 0 ? (
-        <EmptyState
-          icon={<Gift className="h-7 w-7" />}
-          title="No gifts yet"
-          description="Add the gifts you'd love guests to bring — they'll show up on your public registry link for guests to reserve."
-          action={
-            <Button onClick={openCreate}>
-              <Gift className="h-4 w-4" /> Add your first gift
-            </Button>
-          }
-        />
-      ) : (
+      {activeTab === 'gifts' && (
         <>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[180px]">
@@ -1081,12 +1292,9 @@ export default function GiftRegistryManager({
                 </option>
               ))}
             </FilterSelect>
-            <Button onClick={openCreate}>
-              <Gift className="h-4 w-4" /> Add a gift
-            </Button>
           </div>
 
-          {visibleItems.length === 0 ? (
+          {visibleItems.length === 0 && visibleCatalog.length === 0 ? (
             <EmptyState
               icon={<Gift className="h-7 w-7" />}
               title="No gifts match these filters"
@@ -1094,15 +1302,30 @@ export default function GiftRegistryManager({
             />
           ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <button
+            type="button"
+            onClick={openCreate}
+            className="group flex h-full min-h-[280px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-black/[0.15] bg-black/[0.02] p-4 text-center transition hover:border-black/30 hover:bg-black/[0.04]"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1A1A1A] text-white transition-transform group-hover:scale-105">
+              <Plus className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-bold text-[#1A1A1A]">Add your own gift</span>
+            <span className="text-xs text-[#1A1A1A]/50">It joins the shop below for guests to claim</span>
+          </button>
           {visibleItems.map((item) => (
-            <Card key={item.id} className="flex h-full flex-col overflow-hidden">
+            <div key={item.id} className="flex h-full flex-col overflow-hidden rounded-2xl border border-black/[0.08] bg-white">
               <div className="relative aspect-square w-full shrink-0 bg-black/[0.04]">
                 <GiftMediaCarousel item={item} />
                 {item.most_wanted ? (
                   <span className="absolute left-2 top-2 inline-flex items-center gap-0.5 rounded-full bg-[#9FE870] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#3f6b1f] shadow-sm">
                     <Star className="h-2 w-2 fill-current" /> Most wanted
                   </span>
-                ) : null}
+                ) : (
+                  <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#1A1A1A]/60 shadow-sm">
+                    On registry
+                  </span>
+                )}
                 {item.claimed_by_name ? (
                   <span className="absolute right-2 top-2 rounded-full bg-[#9FE870] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-[#3f6b1f] shadow-sm">
                     Purchased
@@ -1110,37 +1333,42 @@ export default function GiftRegistryManager({
                 ) : null}
               </div>
               <div className="flex flex-1 flex-col p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="min-w-0 flex-1 truncate font-semibold text-[#1A1A1A]">{item.title}</h3>
-                  {item.price_label ? (
-                    <span className="shrink-0 rounded-full bg-[#F0DFF6] px-2.5 py-1 text-xs font-bold text-[#5d3a78]">
-                      {formatGiftPrice(item.price_label)}
-                    </span>
-                  ) : null}
-                </div>
-                {item.is_cash_fund || item.category ? (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    {item.is_cash_fund ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A0DC]/20 px-2 py-0.5 text-[10px] font-semibold text-[#6b3f82]">
-                        <Wallet className="h-2.5 w-2.5" /> Cash fund
-                      </span>
-                    ) : null}
-                    {item.category ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#9FE870]/15 px-2 py-0.5 text-[10px] font-semibold text-[#3f6b1f]">
-                        <Tag className="h-2.5 w-2.5" /> {item.category}
-                      </span>
-                    ) : null}
-                  </div>
+                <h3 className="line-clamp-2 font-semibold leading-snug text-[#1A1A1A]">{item.title}</h3>
+                {item.price_label ? (
+                  <p className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-[#1A1A1A]">
+                    <Tag className="h-3.5 w-3.5 shrink-0 text-[#1A1A1A]/40" />
+                    {formatGiftPrice(item.price_label)}
+                  </p>
                 ) : null}
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <span className="inline-flex items-center rounded-full bg-[#C9A0DC]/20 px-2 py-0.5 text-[10px] font-semibold text-[#6b3f82]">
-                    Asking for {item.quantity_requested}
-                  </span>
-                  {item.claimedCount > 0 ? (
-                    <span className="inline-flex items-center rounded-full bg-[#9FE870]/15 px-2 py-0.5 text-[10px] font-semibold text-[#3f6b1f]">
-                      Purchased {item.claimedCount}
+                <div className="mt-1.5 flex flex-col gap-0.5 text-[11px] text-[#1A1A1A]/50">
+                  {item.category ? (
+                    <span className="inline-flex min-w-0 items-center gap-1">
+                      <Tag className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{item.category}</span>
                     </span>
                   ) : null}
+                  {item.is_cash_fund ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Wallet className="h-3 w-3 shrink-0" /> Cash fund
+                    </span>
+                  ) : null}
+                  {item.shop_name ? (
+                    <span className="inline-flex min-w-0 items-center gap-1">
+                      <Store className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{item.shop_name}</span>
+                    </span>
+                  ) : null}
+                  {item.shop_location ? (
+                    <span className="inline-flex min-w-0 items-center gap-1">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{item.shop_location}</span>
+                    </span>
+                  ) : null}
+                  <span className="inline-flex items-center gap-1">
+                    <Gift className="h-3 w-3 shrink-0" />
+                    Asking for {item.quantity_requested}
+                    {item.claimedCount > 0 ? ` · ${item.claimedCount} purchased` : ''}
+                  </span>
                 </div>
                 {/* Pushes the action row to the bottom of the card, so Edit/Reopen/Delete line up across a
                     grid row regardless of how much content (category pill, purchased pill, ...) sits above. */}
@@ -1170,17 +1398,30 @@ export default function GiftRegistryManager({
                   </button>
                 </div>
               </div>
-            </Card>
+            </div>
+          ))}
+          {visibleCatalog.map((gift) => (
+            <CatalogGiftCard
+              key={gift.id}
+              gift={gift}
+              onAdd={addCatalogGift}
+              onEdit={openCatalogEdit}
+              busy={catalogBusyId === gift.id}
+            />
           ))}
           </div>
           )}
         </>
       )}
 
-      <SectionTitle
-        title="Claims"
-        subtitle="Everyone who's claimed a gift — fix a typo, or free up one a guest backed out of."
-      />
+      {activeTab === 'claims' && (
+      <>
+      <div id="claims" className="scroll-mt-24">
+        <SectionTitle
+          title="Claims"
+          subtitle="Everyone who's claimed a gift — fix a typo, or free up one a guest backed out of."
+        />
+      </div>
       {claims.length === 0 ? (
         <EmptyState
           icon={<Users className="h-7 w-7" />}
@@ -1295,6 +1536,8 @@ export default function GiftRegistryManager({
             </Card>
           )}
         </>
+      )}
+      </>
       )}
 
       <Slideover

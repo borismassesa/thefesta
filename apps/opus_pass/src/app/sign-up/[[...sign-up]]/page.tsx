@@ -15,13 +15,13 @@ export default async function SignUpPage() {
   return (
     <AuthShell
       panelTitle="Plan your celebration with OpusPass"
-      panelSubtitle="Beautiful digital invitations, a free wedding website, live RSVPs and a gift registry — everything for your big day, in one account."
+      panelSubtitle="Beautiful digital cards, a free wedding website, live RSVPs and a gift registry — everything for your big day, in one account."
     >
       <h1 className="text-[28px] font-bold leading-tight tracking-tight text-[#1A1A1A]">
         Create your account
       </h1>
       <p className="mt-2 text-[15px] text-gray-500">
-        One account for your invitations, wedding website, and RSVPs.
+        One account for your digital cards, wedding website, and RSVPs.
       </p>
 
       {/*

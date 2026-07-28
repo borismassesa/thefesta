@@ -4,6 +4,7 @@ import type { PackageDraft } from '@/lib/onboarding/packages'
 import { getLocale } from '@/lib/cms/locale'
 import { loadPortalUiStrings } from '@/lib/cms/portal-ui'
 import { PortalUIStringsProvider } from '@/components/providers/PortalUIStringsProvider'
+import { redirectProductVendors } from '@/lib/storefront/vertical-guard'
 import { dbPackagesToUi } from './mapping'
 import { ensurePackageIds } from './actions'
 import PackagesEditor, {
@@ -124,6 +125,10 @@ async function loadPackages(): Promise<{
 }
 
 export default async function StorefrontPackagesPage() {
+  // Packages price up booked time. Product vendors price per item instead, on
+  // the Products tab, so this section isn't in their storefront checklist.
+  await redirectProductVendors('/storefront')
+
   const [props, locale] = await Promise.all([loadPackages(), getLocale()])
   const packagesStrings = await loadPortalUiStrings('storefront-packages', locale)
   return (

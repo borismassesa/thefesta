@@ -6,6 +6,7 @@ import { getCurrentVendor } from '@/lib/vendor'
 import { getLocale } from '@/lib/cms/locale'
 import { loadPortalUiStrings } from '@/lib/cms/portal-ui'
 import { PortalUIStringsProvider } from '@/components/providers/PortalUIStringsProvider'
+import { redirectProductVendors } from '@/lib/storefront/vertical-guard'
 import LeadsClient, { type LeadsSource } from './LeadsClient'
 
 type DbInquiryStatus =
@@ -186,6 +187,10 @@ async function loadInquiries(dateTbcLabel: string, defaultVendorName: string, an
 }
 
 export default async function LeadsPage() {
+  // Leads come from the wedding vendor directory, which product vendors aren't
+  // listed in, so this inbox can only ever be empty for them.
+  await redirectProductVendors()
+
   const locale = await getLocale()
   const leadsStrings = await loadPortalUiStrings('leads', locale)
   const { inquiries, source, vendorName, packages } = await loadInquiries(

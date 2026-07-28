@@ -1,6 +1,6 @@
 -- Auto-Release Escrow Funds (Airbnb-style)
--- Automatically releases funds 24-48 hours after work completion
--- Similar to Airbnb's 24h after check-in release
+-- Automatically releases funds 48-72 hours after work completion
+-- Similar to Airbnb's 48-72h after check-in release
 
 -- Add configuration table for escrow settings
 CREATE TABLE IF NOT EXISTS escrow_settings (
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS escrow_settings (
 -- Insert default settings
 INSERT INTO escrow_settings (setting_key, setting_value, description) VALUES
   ('auto_release_enabled', 'true', 'Enable automatic release of escrow funds'),
-  ('release_delay_hours', '24', 'Hours to wait after work completion before auto-release (like Airbnb 24h)'),
+  ('release_delay_hours', '72', 'Hours to wait after work completion before auto-release (48-72h window)'),
   ('customer_confirmation_required', 'false', 'Require customer confirmation before release'),
   ('dispute_window_hours', '48', 'Hours customer can open dispute after work completion'),
   ('admin_review_threshold', '1000000', 'Amount (TZS) requiring admin review before release')
@@ -67,12 +67,12 @@ BEGIN
   END IF;
   
   -- Get release delay setting
-  SELECT COALESCE(get_escrow_setting('release_delay_hours')::INTEGER, 24) INTO release_delay_hours;
+  SELECT COALESCE(get_escrow_setting('release_delay_hours')::INTEGER, 72) INTO release_delay_hours;
   
   -- Calculate hours since work completion
   hours_since_completion := EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - hold_rec.work_completed_at)) / 3600;
   
-  -- Check if delay period has passed (like Airbnb's 24h after check-in)
+  -- Check if delay period has passed (48-72h review window)
   IF hours_since_completion >= release_delay_hours THEN
     RETURN true;
   END IF;

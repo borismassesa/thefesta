@@ -52,10 +52,20 @@ export type InitiateItem = {
   /** Client-computed line total (TZS) — re-derived server-side, never trusted.
    *  Ignored when `kind` names a flat-price product (see `kind`). */
   total: number
-  /** Marks a non-invitation flat-price line (e.g. a single pledge/thank-you
-   *  card template unlock) so priceOrder() can authoritatively re-price it
-   *  instead of trusting the client or the guest-tier math. */
-  kind?: 'template_unlock'
+  /** Marks a non-invitation flat-price line so priceOrder() re-prices it
+   *  authoritatively instead of trusting the client or guest-tier math:
+   *  'template_unlock' (a pledge/thank-you card unlock) or 'product' (a real
+   *  vendor product from the registry shop, priced from products.price_tzs). */
+  kind?: 'template_unlock' | 'product'
+  // ── Product-line fields (kind === 'product') ──────────────────────────────
+  /** The products.id being bought. */
+  productId?: string
+  /** How many units. Price = products.price_tzs × quantity (server-authoritative). */
+  quantity?: number
+  /** When the buyer is fulfilling a gift already on the couple's registry,
+   *  the gift_registry_items.id — links the purchase to that gift so it's
+   *  marked reserved/purchased. Absent for a surprise shop gift. */
+  registryItemId?: string
 }
 
 export type InitiateContact = {
@@ -77,6 +87,19 @@ export type InitiateRequest = {
   eventDate?: string
   /** Which of the couple's wedding_events this order's design/quota is for. */
   eventId?: string
+  /** For a product/registry purchase: the couple's public registry slug
+   *  (wedding_events.gift_registry_slug) the gifts are being bought from. The
+   *  server resolves the event + couple from this, never trusting the client. */
+  registrySlug?: string
+  /** Guest delivery details for a product order. */
+  delivery?: {
+    name?: string
+    phone?: string
+    region?: string
+    city?: string
+    address?: string
+    notes?: string
+  }
   /** Label persisted for the invoice, e.g. "M-Pesa +255…". */
   paymentLabel?: string
   /** Where Selcom returns the buyer after a card payment. Defaults to the

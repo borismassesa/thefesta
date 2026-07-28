@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -17,6 +17,13 @@ import {
   Building2,
   HelpCircle,
   Tag,
+  CookingPot,
+  BedDouble,
+  Gift,
+  Shirt,
+  Gem,
+  Sparkles,
+  ArrowLeft,
   type LucideIcon,
 } from 'lucide-react'
 import Logo from '@/components/ui/Logo'
@@ -25,6 +32,7 @@ import { OnboardHeading } from '@/components/onboard/OnboardHeading'
 import { OptionCard } from '@/components/onboard/OptionCard'
 import { useOnboardingDraft } from '@/lib/onboarding/draft'
 import { categorySw } from '@/lib/onboarding/categories'
+import { findVertical, type VendorVertical } from '@/lib/onboarding/verticals'
 import { pick } from '@/lib/onboarding/localize'
 import { useOnboardT } from '@/lib/onboarding/strings'
 
@@ -33,12 +41,14 @@ export type ClientCategory = {
   id: string
   label: string
   iconName: string
+  vertical: VendorVertical
   hint?: string
 }
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Building2, ChefHat, Camera, Cake, Flower2, ClipboardList,
   Music2, Heart, Video, PartyPopper, Wand2, HelpCircle, Tag,
+  CookingPot, BedDouble, Gift, Shirt, Gem, Sparkles,
 }
 
 function resolveIcon(name: string): LucideIcon {
@@ -57,6 +67,23 @@ export default function CategoryPageClient({ categories, otherCategory }: Props)
   const { draft, update, hydrated } = useOnboardingDraft()
   const { t, locale } = useOnboardT()
   const [customLabel, setCustomLabel] = useState(draft.customCategoryLabel ?? '')
+
+  const vertical = draft.vertical
+  const verticalOption = findVertical(vertical)
+
+  // The vertical is step zero and lives in the draft, so a vendor who deep-links
+  // or bookmarks this page can land here without one. Send them back to pick it
+  // rather than showing the flat, unfiltered list this fork exists to replace.
+  useEffect(() => {
+    if (hydrated && !vertical) router.replace('/onboard')
+  }, [hydrated, vertical, router])
+
+  const visibleCategories = categories.filter((cat) => cat.vertical === vertical)
+
+  // "Something else" is a service-vendor escape hatch: it files a
+  // vendor_category_request for the team to triage. Product verticals have a
+  // fixed catalogue of shop types, so it isn't offered there.
+  const showOther = vertical === 'service'
 
   const select = (id: string) => {
     if (id !== 'other') {
@@ -89,10 +116,20 @@ export default function CategoryPageClient({ categories, otherCategory }: Props)
 
       <main className="px-6 lg:px-12 py-10 lg:py-14">
         <div className="max-w-3xl mx-auto pb-24">
+          <Link
+            href="/onboard"
+            className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 transition-colors hover:text-gray-900"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {verticalOption
+              ? pick(locale, verticalOption.label, verticalOption.labelSw)
+              : pick(locale, 'Back', 'Rudi')}
+          </Link>
+
           <OnboardHeading title={t('category.title')} />
 
           <div className="grid sm:grid-cols-2 gap-3 lg:gap-4">
-            {categories.map((cat) => {
+            {visibleCategories.map((cat) => {
               const Icon = resolveIcon(cat.iconName)
               return (
                 <OptionCard
@@ -108,20 +145,32 @@ export default function CategoryPageClient({ categories, otherCategory }: Props)
             })}
           </div>
 
-          <div className="mt-3 lg:mt-4">
-            {(() => {
-              const Icon = resolveIcon(otherCategory.iconName)
-              return (
-                <OptionCard
-                  variant="plain"
-                  selected={isOtherSelected}
-                  onToggle={() => select('other')}
-                  label={pick(locale, otherCategory.label, categorySw('other')?.label)}
-                  icon={<Icon className="w-5 h-5" />}
-                />
-              )
-            })()}
-          </div>
+          {hydrated && vertical && visibleCategories.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-gray-200 px-5 py-8 text-center text-sm text-gray-500">
+              {pick(
+                locale,
+                'We could not load the shop types just now. Please refresh, or come back in a moment.',
+                'Hatukuweza kupakia aina za maduka kwa sasa. Tafadhali onyesha upya, au rudi baadaye kidogo.',
+              )}
+            </p>
+          ) : null}
+
+          {showOther ? (
+            <div className="mt-3 lg:mt-4">
+              {(() => {
+                const Icon = resolveIcon(otherCategory.iconName)
+                return (
+                  <OptionCard
+                    variant="plain"
+                    selected={isOtherSelected}
+                    onToggle={() => select('other')}
+                    label={pick(locale, otherCategory.label, categorySw('other')?.label)}
+                    icon={<Icon className="w-5 h-5" />}
+                  />
+                )
+              })()}
+            </div>
+          ) : null}
 
           {isOtherSelected && (
             <div className="mt-4 flex flex-col gap-3">

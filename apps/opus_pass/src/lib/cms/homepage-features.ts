@@ -1,6 +1,7 @@
 import { draftMode } from 'next/headers'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { DEFAULT_LOCALE, resolveLocalized, type Locale, type MaybeLocalized } from './localized'
+import { canonicalOpusPassHref } from './opus-pass-hrefs'
 
 export type HomepageFeatureBlock = {
   id: string
@@ -41,11 +42,11 @@ export const HOMEPAGE_FEATURES_FALLBACK: HomepageFeaturesContent = {
       media_secondary: '/assets/images/flowers_pinky.jpg',
       media_overlay: '/assets/images/authentic_couple.jpg',
       overlay_eyebrow: 'Invites', overlay_caption_line_1: 'Tap, RSVP,', overlay_caption_line_2: 'done.',
-      headline_line_1: 'Designer-worthy', headline_line_2: 'digital invitations',
+      headline_line_1: 'Designer-worthy', headline_line_2: 'digital cards',
       body: 'For save-the-dates, weddings, kitchen parties and send-offs. Delivered by WhatsApp or SMS, with RSVP built in.',
       pills: ['Save the Dates', 'Wedding Invites', 'Kitchen Party', 'Send-Off'],
-      primary_cta_label: 'Browse designs', primary_cta_href: '/invitations',
-      secondary_cta_label: 'See pricing', secondary_cta_href: '/invitations/catalog',
+      primary_cta_label: 'Browse designs', primary_cta_href: '/digital-cards/catalog',
+      secondary_cta_label: 'See pricing', secondary_cta_href: '/pricing',
     },
     {
       id: 'guests', reverse: true,
@@ -104,6 +105,9 @@ type StoredHomepageFeatures = {
 }
 
 function resolveBlock(block: StoredFeatureBlock, locale: Locale, i: number): HomepageFeatureBlock {
+  const fallback =
+    HOMEPAGE_FEATURES_FALLBACK.blocks.find((item) => item.id === block.id) ??
+    HOMEPAGE_FEATURES_FALLBACK.blocks[i]
   return {
     id: block.id ?? `block-${i}`,
     reverse: block.reverse ?? false,
@@ -119,9 +123,9 @@ function resolveBlock(block: StoredFeatureBlock, locale: Locale, i: number): Hom
     body: resolveLocalized(block.body, locale),
     pills: Array.isArray(block.pills) ? block.pills.map((p) => resolveLocalized(p, locale)) : [],
     primary_cta_label: resolveLocalized(block.primary_cta_label, locale),
-    primary_cta_href: block.primary_cta_href ?? '',
+    primary_cta_href: canonicalOpusPassHref(block.primary_cta_href, fallback?.primary_cta_href ?? '/'),
     secondary_cta_label: resolveLocalized(block.secondary_cta_label, locale),
-    secondary_cta_href: block.secondary_cta_href ?? '',
+    secondary_cta_href: canonicalOpusPassHref(block.secondary_cta_href, fallback?.secondary_cta_href ?? '/'),
   }
 }
 

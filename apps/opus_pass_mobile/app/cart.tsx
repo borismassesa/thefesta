@@ -12,16 +12,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { BackButton } from '@/components/navigation/BackButton';
-import { Stepper } from '@/components/invitations/Stepper';
+import { Stepper } from '@/components/digital-cards/Stepper';
 import { useCart } from '@/hooks/useCart';
 import { useFromGuestPrice } from '@/hooks/useFromGuestPrice';
-import { useInvitationProducts } from '@/hooks/useInvitationProducts';
+import { useDigitalCardProducts } from '@/hooks/useDigitalCardProducts';
 import { usePackagesContent } from '@/hooks/usePackagesContent';
 import { formatTzs, GUEST_STEP, MIN_GUESTS } from '@/lib/cart';
 import { ACCENT, ON_ACCENT, TIER_PILL, TIER_PILL_DEFAULT } from '@/theme/brand';
 import { useTheme } from '@/theme/useTheme';
 import type { CartItem } from '@/types/cart';
-import type { InvitationProduct } from '@/types/invitations';
+import type { DigitalCardProduct } from '@/types/digital-cards';
 
 /** Max designs in the "You might also like" cross-sell grid (2×2 on phones). */
 const EXPLORE_LIMIT = 4;
@@ -164,7 +164,7 @@ function RecommendCard({
   perGuestLabel,
   onPress,
 }: {
-  product: InvitationProduct;
+  product: DigitalCardProduct;
   fromGuestPrice: number;
   fromLabel: string;
   perGuestLabel: string;
@@ -201,7 +201,7 @@ export default function CartScreen() {
   const router = useRouter();
   const { editorial } = useTheme();
   const { items, count, subtotal, isPending, removeItem, setGuests } = useCart();
-  const products = useInvitationProducts();
+  const products = useDigitalCardProducts();
   const packagesQuery = usePackagesContent();
   const fromGuestPriceQuery = useFromGuestPrice();
 

@@ -46,7 +46,7 @@ export const DASHBOARD_HERO_FALLBACK: Record<DashboardHeroSlug, DashboardHeroCon
     media_alt: '',
   },
   invitations: {
-    eyebrow: 'Invitations',
+    eyebrow: 'Digital Cards',
     title: 'Send invitations',
     subtitle: "Share each guest's personal RSVP link — no app needed on their end.",
     media_url: '',
@@ -109,7 +109,7 @@ export const DASHBOARD_HERO_PUBLIC_PATH: Record<DashboardHeroSlug, string> = {
 
 export const DASHBOARD_HERO_LABEL: Record<DashboardHeroSlug, string> = {
   home: 'Dashboard home',
-  invitations: 'Invitations',
+  invitations: 'Digital Cards',
   guests: 'Guest list',
   rsvps: 'RSVPs',
   website: 'Wedding website',

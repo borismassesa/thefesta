@@ -2,9 +2,17 @@
 
 import { useState } from 'react'
 import { Star, ChevronDown, ChevronRight, Search, Users } from 'lucide-react'
-import type { Product, ProductReview } from '@/lib/bridal-products'
+import type { ProductReview } from '@/lib/bridal-products'
 
 const PAGE_SIZE = 4
+
+/** Structural subset both bridal and registry products satisfy. */
+type ReviewsProduct = {
+  rating: string
+  reviews: number
+  gallery: string[]
+  reviewSnippets: ProductReview[]
+}
 
 function authorColor(name: string) {
   const palette = ['#f59e0b', '#2D6A4F', '#5B2D8E', '#ea580c', '#0ea5e9']
@@ -51,7 +59,7 @@ function ReviewText({ text }: { text: string }) {
   )
 }
 
-export default function ProductReviewsSection({ product }: { product: Product }) {
+export default function ProductReviewsSection({ product }: { product: ReviewsProduct }) {
   const allReviews: ProductReview[] = product.reviewSnippets
   const [sortBy, setSortBy] = useState<'top' | 'recent'>('top')
   const [filterStar, setFilterStar] = useState<number | null>(null)
@@ -93,6 +101,25 @@ export default function ProductReviewsSection({ product }: { product: Product })
     reviewMedia.length > 0
       ? reviewMedia.slice(0, 8)
       : product.gallery.slice(0, 8).map((src) => ({ type: 'photo' as const, src }))
+
+  // Everything below this line assumes a reviewed product: the summary card
+  // averages to 5.0 when there's nothing to average, the distribution bars all
+  // read 0%, and the media strip falls back to the product's own photos under
+  // a "Review photos" heading. That's fine for the curated bridal catalogue,
+  // which ships with snippets, but every seller-listed product starts at zero.
+  if (allReviews.length === 0 && product.reviews === 0) {
+    return (
+      <section id="reviews" className="scroll-mt-28 border-t border-gray-200 pt-12">
+        <h2 className="text-2xl font-bold mb-6">Reviews</h2>
+        <div className="rounded-2xl border border-dashed border-gray-200 p-10 text-center">
+          <p className="text-sm font-semibold text-[#1A1A1A]">No reviews yet</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Be the first to review this after it arrives.
+          </p>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section id="reviews" className="scroll-mt-28 border-t border-gray-200 pt-12">

@@ -93,7 +93,7 @@ insert into studio_page_sections (page_key, section_key, content, sort_order) va
     "tagline": "How It Works",
     "description": "From first contact to final delivery. Four clear steps, zero surprises.",
     "steps": [
-      {"title": "ENQUIRY", "description": "Tell us about your event, your vision, and the moments that matter most. We respond within 24 hours.", "detail": "Free consultation call"},
+      {"title": "ENQUIRY", "description": "Tell us about your event, your vision, and the moments that matter most. We respond within 48-72 hours.", "detail": "Free consultation call"},
       {"title": "PLANNING", "description": "We build a custom timeline and shot list tailored to your day. Every angle, every detail, mapped out in advance.", "detail": "Bespoke creative brief"},
       {"title": "SHOOT DAY", "description": "Our team arrives early, captures everything — the quiet moments, the big reveals, the in-betweens nobody else notices.", "detail": "Full-day coverage"},
       {"title": "DELIVERY", "description": "Cinematic edits, colour-graded photos, and a private online gallery — delivered within 4–6 weeks.", "detail": "Private gallery access"}

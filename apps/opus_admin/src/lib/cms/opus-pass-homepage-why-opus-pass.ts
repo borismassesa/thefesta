@@ -41,9 +41,9 @@ export const OPUS_PASS_HOMEPAGE_WHY_OPUS_PASS_FALLBACK: OpusPassHomepageWhyOpusP
   floating_cta_href: '/sign-up',
   subheadline: 'Planning that actually feels effortless',
   body:
-    'Couples tell us everything just flows — invitations, live RSVPs, your guest list and a free wedding website all talk to each other, so nothing slips through the cracks. Spend less time on admin, and more time celebrating.',
+    'Couples tell us everything just flows — digital cards, live RSVPs, your guest list and a free wedding website all talk to each other, so nothing slips through the cracks. Spend less time on admin, and more time celebrating.',
   primary_button_label: 'How it works',
   primary_button_href: '/guests-and-rsvp',
   secondary_button_label: 'Browse designs',
-  secondary_button_href: '/invitations',
+  secondary_button_href: '/digital-cards/catalog',
 }

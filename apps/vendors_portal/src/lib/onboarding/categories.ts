@@ -12,8 +12,15 @@ import {
   Building2,
   HelpCircle,
   Tag,
+  CookingPot,
+  BedDouble,
+  Gift,
+  Shirt,
+  Gem,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react'
+import type { VendorVertical } from './verticals'
 
 export type VendorCategory = {
   id: string
@@ -21,9 +28,16 @@ export type VendorCategory = {
   profileLabel: string
   icon: LucideIcon
   hint?: string
+  /** Which vertical this business category belongs to (mirrors
+   *  vendor_categories.vertical). Absent on the fallback list means 'service'. */
+  vertical?: VendorVertical
 }
 
 // Fallback list used when the DB query fails or the table doesn't exist yet.
+// Service categories only — the product verticals are DB-driven (a vendor can't
+// meaningfully register a shop when the categories table is unreachable, and a
+// stale hardcoded product list would submit a category that fails the
+// vendors.category foreign key).
 export const VENDOR_CATEGORIES: VendorCategory[] = [
   { id: 'venue', label: 'Venue or event space', profileLabel: 'Venue', icon: Building2 },
   { id: 'caterer', label: 'Caterer / Bar services', profileLabel: 'Caterer', icon: ChefHat },
@@ -42,6 +56,23 @@ export const VENDOR_CATEGORIES: VendorCategory[] = [
     hint: 'Photo booths, decor, lighting, transport, security, MC',
   },
   { id: 'beauty', label: 'Beauty professional', profileLabel: 'Beauty pro', icon: Wand2 },
+]
+
+// Display metadata for the product verticals. Kept out of VENDOR_CATEGORIES on
+// purpose: that list doubles as the category *picker's* offline fallback, and
+// offering a shop type we can't verify against `vendor_categories` would submit
+// a category that fails the vendors.category foreign key. These entries are
+// display-only, resolved through findCategory so every downstream screen (the
+// step header, the stepper, the review summary) can name a shop instead of
+// falling back to the generic "Vendor".
+export const PRODUCT_CATEGORIES: VendorCategory[] = [
+  { id: 'home-kitchen', label: 'Home & kitchen goods', profileLabel: 'Home & kitchen shop', icon: CookingPot, vertical: 'gift_shop' },
+  { id: 'decor-gifts', label: 'Décor & gifts shop', profileLabel: 'Décor & gifts shop', icon: Gift, vertical: 'gift_shop' },
+  { id: 'linens', label: 'Linens & textiles', profileLabel: 'Linens shop', icon: BedDouble, vertical: 'gift_shop' },
+  { id: 'bridal-wear', label: 'Bridal wear & gowns', profileLabel: 'Bridal wear', icon: Shirt, vertical: 'attire_rings' },
+  { id: 'suits', label: 'Suits & menswear', profileLabel: 'Suits', icon: Shirt, vertical: 'attire_rings' },
+  { id: 'rings', label: 'Wedding & engagement rings', profileLabel: 'Rings', icon: Gem, vertical: 'attire_rings' },
+  { id: 'jewelry', label: 'Jewellery & accessories', profileLabel: 'Jewellery', icon: Gem, vertical: 'attire_rings' },
 ]
 
 export const OTHER_CATEGORY: VendorCategory = {
@@ -74,6 +105,15 @@ export const CATEGORY_SW: Record<
   },
   beauty: { label: 'Mtaalam wa urembo', profileLabel: 'Mtaalam wa urembo' },
   other: { label: 'Kitu kingine', profileLabel: 'Nyingine' },
+  // gift_shop vertical
+  'home-kitchen': { label: 'Bidhaa za nyumbani na jikoni', profileLabel: 'Nyumbani na jikoni' },
+  'decor-gifts': { label: 'Duka la mapambo na zawadi', profileLabel: 'Mapambo na zawadi' },
+  linens: { label: 'Shuka na nguo za nyumbani', profileLabel: 'Shuka' },
+  // attire_rings vertical
+  'bridal-wear': { label: 'Nguo za bibi harusi', profileLabel: 'Nguo za harusi' },
+  suits: { label: 'Suti na mavazi ya wanaume', profileLabel: 'Suti' },
+  rings: { label: 'Pete za harusi na uchumba', profileLabel: 'Pete' },
+  jewelry: { label: 'Vito na mapambo ya kuvaa', profileLabel: 'Vito' },
 }
 
 export function categorySw(id: string | null | undefined) {
@@ -97,6 +137,8 @@ export function localizeProfileLabel(profileLabel: string, locale: string): stri
 const ICON_MAP: Record<string, LucideIcon> = {
   Building2, ChefHat, Camera, Cake, Flower2, ClipboardList, Music2,
   Heart, Video, PartyPopper, Wand2, HelpCircle, Tag,
+  // Product verticals (gift_shop / attire_rings)
+  CookingPot, BedDouble, Gift, Shirt, Gem, Sparkles,
 }
 
 function iconFromName(name: string): LucideIcon {
@@ -110,6 +152,7 @@ export type VendorCategoryRow = {
   db_value: string
   icon: string
   sort_order: number
+  vertical: VendorVertical
 }
 
 export function rowToCategory(row: VendorCategoryRow): VendorCategory {
@@ -118,6 +161,7 @@ export function rowToCategory(row: VendorCategoryRow): VendorCategory {
     label: row.label,
     profileLabel: row.profile_label,
     icon: iconFromName(row.icon),
+    vertical: row.vertical,
   }
 }
 
@@ -141,7 +185,10 @@ export const FALLBACK_ICON_NAMES: Record<string, string> = {
 export function findCategory(id: string | null | undefined): VendorCategory | undefined {
   if (!id) return undefined
   if (id === 'other') return OTHER_CATEGORY
-  return VENDOR_CATEGORIES.find((c) => c.id === id)
+  return (
+    VENDOR_CATEGORIES.find((c) => c.id === id) ??
+    PRODUCT_CATEGORIES.find((c) => c.id === id)
+  )
 }
 
 export function displayCategoryLabel(

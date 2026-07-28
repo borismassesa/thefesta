@@ -33,7 +33,9 @@ export type SaveResult =
   | { ok: true }
   | { ok: false; error: string; reason: 'unauth' | 'permission' | 'invalid' | 'unknown' }
 
-async function ensureLiveVendor() {
+// Exported so sibling storefront sections (e.g. products/actions.ts) reuse the
+// same live-vendor guard instead of re-deriving it.
+export async function ensureLiveVendor() {
   const state = await getCurrentVendor()
   if (state.kind !== 'live') {
     return {
@@ -356,7 +358,7 @@ export async function loadRecognition(): Promise<
 // so admin can identify which vendor owns a file at a glance, and so cover
 // photos can be replaced without orphaning gallery entries.
 
-export type UploadKind = 'cover' | 'gallery' | 'avatar' | 'logo'
+export type UploadKind = 'cover' | 'gallery' | 'avatar' | 'logo' | 'products'
 export type UploadResult =
   | { ok: true; url: string; path: string }
   | { ok: false; error: string; reason: 'unauth' | 'invalid' | 'unknown' }
@@ -385,7 +387,8 @@ export async function uploadStorefrontPhoto(
     kindRaw !== 'cover' &&
     kindRaw !== 'gallery' &&
     kindRaw !== 'avatar' &&
-    kindRaw !== 'logo'
+    kindRaw !== 'logo' &&
+    kindRaw !== 'products'
   ) {
     return { ok: false, reason: 'invalid', error: 'Unknown upload kind.' }
   }

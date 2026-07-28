@@ -10,7 +10,7 @@ import { submitContactMessage } from './actions'
 const TOPICS = [
   'Getting started',
   'Pricing & payments',
-  'Invitations & cards',
+  'Digital cards',
   'Guests & RSVPs',
   'Wedding website',
   'Something else',

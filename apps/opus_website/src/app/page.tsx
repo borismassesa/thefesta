@@ -16,7 +16,7 @@ import Footer from '@/components/footer'
 export const metadata: Metadata = {
   title: 'OpusFesta — Plan Your Perfect Wedding',
   description:
-    'Everything you need to plan your wedding, all in one place. Discover venues, connect with vendors, and manage your invitations in Tanzania.',
+    'Everything you need to plan your wedding, all in one place. Discover venues, connect with vendors, and manage your digital cards in Tanzania.',
   openGraph: {
     title: 'OpusFesta — Plan Your Perfect Wedding',
     description:

@@ -11,6 +11,7 @@ export type CategoryRow = {
   icon: string
   sort_order: number
   active: boolean
+  sells_products: boolean
   created_at: string
   updated_at: string
 }
@@ -19,7 +20,7 @@ export default async function CategoriesPage() {
   const admin = createSupabaseAdminClient()
   const { data, error } = await admin
     .from('vendor_categories')
-    .select('slug, label, profile_label, db_value, icon, sort_order, active, created_at, updated_at')
+    .select('slug, label, profile_label, db_value, icon, sort_order, active, sells_products, created_at, updated_at')
     .order('sort_order', { ascending: true })
     .returns<CategoryRow[]>()
 

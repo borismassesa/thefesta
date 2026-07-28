@@ -185,7 +185,7 @@ export function QuestionEditorSlideover({
                     <textarea
                       value={opt.description}
                       onChange={(e) => updateOption(i, { description: e.target.value })}
-                      placeholder="Description (optional)"
+                      placeholder="If selected, ask for details (optional)"
                       rows={2}
                       className={cn(inputClass, 'resize-none')}
                     />

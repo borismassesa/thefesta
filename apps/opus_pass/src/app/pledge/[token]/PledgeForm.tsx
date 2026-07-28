@@ -58,6 +58,7 @@ export default function PledgeForm({
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [amount, setAmount] = useState('')
+  const [ticketType, setTicketType] = useState<1 | 2>(1)
   const [promisedDate, setPromisedDate] = useState('')
   const [message, setMessage] = useState('')
   const [done, setDone] = useState(false)
@@ -114,6 +115,7 @@ export default function PledgeForm({
           phone: phone.trim() || null,
           email: email.trim() || null,
           amount: Number(amount),
+          max_party_size: ticketType,
           promised_date: promisedDate || null,
           message: message.trim() || null,
           event_id: eventId ?? null,
@@ -254,6 +256,12 @@ export default function PledgeForm({
                     {t('amount_currency')} {Number(amount || 0).toLocaleString('en-US')}
                   </dd>
                 </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-[#1A1A1A]/50">{t('label_ticket_type')}</dt>
+                  <dd className="font-semibold text-[#1A1A1A]">
+                    {ticketType === 2 ? t('ticket_double') : t('ticket_single')}
+                  </dd>
+                </div>
                 {promisedDate ? (
                   <div className="flex items-center justify-between gap-3">
                     <dt className="text-[#1A1A1A]/50">{t('label_promised_date')}</dt>
@@ -269,6 +277,7 @@ export default function PledgeForm({
                   setPhone('')
                   setEmail('')
                   setAmount('')
+                  setTicketType(1)
                   setPromisedDate('')
                   setMessage('')
                   setDone(false)
@@ -336,6 +345,31 @@ export default function PledgeForm({
                     onChange={(e) => setPromisedDate(e.target.value)}
                     className={fieldClass}
                   />
+                </Field>
+
+                <Field label={t('label_ticket_type')} required accent={cfg.accent}>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([1, 2] as const).map((value) => {
+                      const active = ticketType === value
+                      const label = value === 2 ? t('ticket_double') : t('ticket_single')
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setTicketType(value)}
+                          style={
+                            active
+                              ? { borderColor: cfg.accent, backgroundColor: `${cfg.accent}22`, color: '#1A1A1A' }
+                              : undefined
+                          }
+                          className="rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-center text-base font-semibold text-[#1A1A1A]/70 transition hover:border-black/25 hover:text-[#1A1A1A]"
+                        >
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </Field>
 
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -437,4 +471,3 @@ function Field({
     </label>
   )
 }
-

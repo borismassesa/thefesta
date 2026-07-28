@@ -25,7 +25,7 @@ export const GUESTS_HERO_FALLBACK: GuestsHeroContent = {
   headline_line_1: 'Your guest list, replying in',
   headline_line_2: 'real time',
   description:
-    'Send digital invitations by WhatsApp or SMS and watch the “Joyful yes” replies roll in — a free guest list and bilingual RSVP page in English & Swahili.',
+    'Send digital cards by WhatsApp or SMS and watch the “Joyful yes” replies roll in — a free guest list and bilingual RSVP page in English & Swahili.',
   primary_cta_label: 'Start your guest list',
   // Go straight to the dashboard. /my is auth-protected, so a signed-in couple
   // (shared OpusFesta session) lands directly on it, while a signed-out visitor

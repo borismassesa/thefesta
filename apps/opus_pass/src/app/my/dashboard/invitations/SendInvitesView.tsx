@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'r
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import QRCode from 'qrcode'
 import { toast } from 'sonner'
 import { useBodyLock } from '@/hooks/useBodyLock'
 import { InvitationVisual } from '@/components/guests/InvitationVisual'
@@ -25,11 +26,20 @@ import {
   ImagePlus,
   Send,
   CheckCheck,
+  CalendarHeart,
   CalendarCheck,
+  ClipboardCheck,
+  ListChecks,
   Download,
+  ExternalLink,
+  HeartHandshake,
+  Mail,
   Share2,
 } from 'lucide-react'
 import {
+  enableInviteSharing,
+  applySaveDateTemplate,
+  removeSaveDateTemplate,
   sendWhatsAppInvites,
   sendWhatsAppTestInvite,
   sendEntrancePasses,
@@ -48,17 +58,23 @@ import {
 import {
   whatsappShareUrl,
   smsShareUrl,
+  emailShareUrl,
   inviteMessage,
   reminderMessage,
   firstNameOf,
   fullNameOf,
+  saveDateUrl,
 } from '@/lib/dashboard/share'
 import { INVITE_TEMPLATE, ENTRANCE_PASS_TEMPLATE } from '@/lib/whatsapp/types'
 import { EVENT_TYPE_LABELS, EVENT_TYPE_LABELS_SW } from '@/lib/dashboard/types'
 import type { EventType, TicketLanguage } from '@/lib/dashboard/types'
 import type { SendInvitesData, SendGuestRow } from '@/lib/dashboard/queries'
+import type { RsvpsDashboardCopy } from '@/lib/cms/dashboard-copy'
 import type { DashboardSendStrings, DashboardEventScopeStrings } from '@/lib/cms/ui-strings-fallback'
 import { setActiveEventCookie, EventPicker } from '@/components/dashboard/EventScope'
+import { ALL_EVENTS } from '@/lib/dashboard/event-scope-constants'
+import RsvpSetupPanel from '../rsvps/RsvpSetupPanel'
+import RsvpTracker from '../rsvps/RsvpTracker'
 import { createCheckinRealtimeClient } from '@/lib/checkin/realtimeClient'
 import { checkinChannelName, type CheckinBroadcastPayload } from '@/lib/checkin/shared'
 import type { CheckinReportData } from '@/lib/checkin-report-pdf'
@@ -176,19 +192,36 @@ interface PendingSend {
   credits: number
 }
 
+type SendTab = 'saveDates' | 'cards' | 'responses' | 'followups' | 'ticket' | 'checkins'
+const SEND_TABS: SendTab[] = ['saveDates', 'cards', 'responses', 'followups', 'ticket', 'checkins']
+type SaveDateTemplate = {
+  id: string
+  name: string
+  imageUrl: string
+}
+
 export default function SendInvitesView({
   data,
   strings,
   scopeStrings,
+  rsvpsCopy,
+  saveDateTemplates = [],
+  initialTab,
 }: {
   data: SendInvitesData
   strings: DashboardSendStrings
   scopeStrings: DashboardEventScopeStrings
+  rsvpsCopy: RsvpsDashboardCopy
+  saveDateTemplates?: SaveDateTemplate[]
+  initialTab?: string
 }) {
   const router = useRouter()
   const pathname = usePathname()
   const { event, funnel, quota, entranceQuota, whatsappLive, guests, events, selectedEventId, unassignedOrders } = data
   const eventId = selectedEventId ?? undefined
+  const thankYouHref = selectedEventId
+    ? `/my/dashboard/thank-you?event=${encodeURIComponent(selectedEventId)}`
+    : '/my/dashboard/thank-you'
 
   const [pending, startTransition] = useTransition()
   const [filter, setFilter] = useState<'all' | 'notsent' | 'awaiting' | 'attending'>('all')
@@ -196,7 +229,9 @@ export default function SendInvitesView({
   // `filter` above so switching tabs never leaks one tab's filter state into
   // the other.
   const [ticketFilter, setTicketFilter] = useState<'all' | 'notsent' | 'sent'>('all')
-  const [sendTab, setSendTab] = useState<'cards' | 'ticket' | 'checkins'>('cards')
+  const [sendTab, setSendTab] = useState<SendTab>(
+    SEND_TABS.includes(initialTab as SendTab) ? (initialTab as SendTab) : 'saveDates',
+  )
   // Live Check-ins tab sub-filter (attended roster is always scoped to
   // "attending"), kept separate so switching tabs never leaks filter state.
   const [checkinFilter, setCheckinFilter] = useState<'all' | 'arrived' | 'pending'>('all')
@@ -254,6 +289,76 @@ export default function SendInvitesView({
   // The details card is a form only while unconfirmed or explicitly editing;
   // once saved it collapses into a confirmed summary.
   const [editingSettings, setEditingSettings] = useState(!data.sendSettings.confirmed)
+  const isCardSendTab = sendTab === 'saveDates' || sendTab === 'cards'
+  const cardDesignHref = '/digital-cards/catalog'
+  const [saveDateSelection, setSaveDateSelection] = useState<SaveDateTemplate | null>(() =>
+    event.saveDateTemplateImageUrl
+      ? {
+          id: event.saveDateTemplateId ?? 'selected-save-date',
+          name: event.saveDateTemplateName ?? strings.save_dates_card_badge,
+          imageUrl: event.saveDateTemplateImageUrl,
+        }
+      : null,
+  )
+  const [applyingSaveDateId, setApplyingSaveDateId] = useState<string | null>(null)
+  useEffect(() => {
+    setSaveDateSelection(
+      event.saveDateTemplateImageUrl
+        ? {
+            id: event.saveDateTemplateId ?? 'selected-save-date',
+            name: event.saveDateTemplateName ?? strings.save_dates_card_badge,
+            imageUrl: event.saveDateTemplateImageUrl,
+          }
+        : null,
+    )
+  }, [
+    event.saveDateTemplateId,
+    event.saveDateTemplateImageUrl,
+    event.saveDateTemplateName,
+    selectedEventId,
+    strings.save_dates_card_badge,
+  ])
+  const selectedSaveDateTemplate = saveDateSelection
+  const hasSelectedSaveDate = Boolean(selectedSaveDateTemplate)
+  const selectedSaveDateEditHref = selectedSaveDateTemplate
+    ? `/digital-cards/p/${selectedSaveDateTemplate.id}/customise${
+        selectedEventId ? `?event=${encodeURIComponent(selectedEventId)}` : ''
+      }`
+    : null
+  const saveDateShareLink =
+    hasSelectedSaveDate && data.publicLink.enabled && data.publicLink.slug && data.publicLink.url
+      ? saveDateUrl(new URL(data.publicLink.url).origin, data.publicLink.slug)
+      : null
+  const saveDateShareMessage = saveDateShareLink
+    ? `Save the date for ${event.coupleName}. Please open this link for the details: ${saveDateShareLink}`
+    : ''
+  const saveDateWaUrl = whatsappShareUrl({ full_name: '', phone: null, whatsapp_phone: null }, saveDateShareMessage)
+  const saveDateSmsUrl = smsShareUrl({ phone: null, whatsapp_phone: null }, saveDateShareMessage)
+  const saveDateEmailUrl = emailShareUrl(
+    { email: null },
+    `Save the date - ${event.eventName ?? event.coupleName}`,
+    saveDateShareMessage,
+  )
+  const [saveDateQrDataUrl, setSaveDateQrDataUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!saveDateShareLink) {
+      setSaveDateQrDataUrl(null)
+      return
+    }
+    let cancelled = false
+    QRCode.toDataURL(saveDateShareLink, {
+      margin: 1,
+      width: 200,
+      color: { dark: '#1A1A1A', light: '#00000000' },
+    })
+      .then((url) => {
+        if (!cancelled) setSaveDateQrDataUrl(url)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [saveDateShareLink])
 
   // The Pass Ticket tab's thumbnail: this event's real ticket art. Falls
   // back to the packaged sample only when there's no event to render yet.
@@ -458,7 +563,70 @@ export default function SendInvitesView({
    *  since entitlement itself is scoped server-side). */
   function switchEvent(id: string) {
     setActiveEventCookie(id)
-    router.push(`${pathname}?event=${id}`)
+    const qs = new URLSearchParams()
+    qs.set('event', id)
+    qs.set('tab', sendTab)
+    router.push(`${pathname}?${qs.toString()}`)
+  }
+
+  function enableSaveDateLink() {
+    if (!selectedEventId) return
+    startTransition(async () => {
+      try {
+        await enableInviteSharing(selectedEventId)
+        toast.success(strings.save_dates_link_enabled)
+        router.refresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : strings.toast_sharing_error)
+      }
+    })
+  }
+
+  function useSaveDateTemplate(template: SaveDateTemplate) {
+    if (!selectedEventId) return
+    setApplyingSaveDateId(template.id)
+    setSaveDateSelection(template)
+    startTransition(async () => {
+      try {
+        await applySaveDateTemplate(selectedEventId, template)
+        toast.success(strings.save_dates_template_applied)
+        router.refresh()
+      } catch (err) {
+        setSaveDateSelection(null)
+        toast.error(err instanceof Error ? err.message : strings.toast_send_failed)
+      } finally {
+        setApplyingSaveDateId(null)
+      }
+    })
+  }
+
+  function clearSaveDateTemplate() {
+    if (!selectedEventId || !selectedSaveDateTemplate) return
+    const previous = selectedSaveDateTemplate
+    setApplyingSaveDateId(previous.id)
+    setSaveDateSelection(null)
+    startTransition(async () => {
+      try {
+        await removeSaveDateTemplate(selectedEventId)
+        toast.success('Save the date template removed')
+        router.refresh()
+      } catch (err) {
+        setSaveDateSelection(previous)
+        toast.error(err instanceof Error ? err.message : strings.toast_send_failed)
+      } finally {
+        setApplyingSaveDateId(null)
+      }
+    })
+  }
+
+  async function copySaveDateLink() {
+    if (!saveDateShareLink) return
+    try {
+      await navigator.clipboard.writeText(saveDateShareLink)
+      toast.success(strings.toast_link_copied)
+    } catch {
+      toast.error(strings.toast_sharing_error)
+    }
   }
 
   // ── Downloadable / shareable check-in report ───────────────────────────────
@@ -937,6 +1105,8 @@ export default function SendInvitesView({
     { label: strings.results_sent, outcome: 'sent' },
   ]
 
+  const responseEventFilter = selectedEventId ?? ALL_EVENTS
+
   return (
     <div className="si">
       <style>{css}</style>
@@ -948,24 +1118,44 @@ export default function SendInvitesView({
               ? strings.checkin_title
               : sendTab === 'ticket'
                 ? strings.entrance_title
-                : strings.heading}
+                : sendTab === 'followups'
+                  ? strings.followups_title
+                  : sendTab === 'responses'
+                    ? strings.responses_title
+                    : sendTab === 'saveDates'
+                      ? strings.save_dates_title
+                      : strings.heading}
           </h1>
           <p className="sub">
             {sendTab === 'checkins'
               ? strings.checkin_desc
               : sendTab === 'ticket'
                 ? strings.entrance_desc
-                : event.hasPaidOrder
-                  ? strings.subheading
-                  : strings.no_design_subheading}
+                : sendTab === 'followups'
+                  ? strings.followups_desc
+                  : sendTab === 'responses'
+                    ? strings.responses_desc
+                    : sendTab === 'saveDates'
+                      ? hasSelectedSaveDate
+                        ? strings.save_dates_desc
+                        : strings.save_dates_no_design_desc
+                    : event.hasPaidOrder
+                      ? strings.subheading
+                      : strings.no_design_subheading}
           </p>
         </div>
       </div>
 
-      {/* Digital Cards (invite sends: Targeted + Broadcast) vs. Pass Ticket
-          (post-RSVP entrance passes) — kept as separate tabs so the two
-          distinct WhatsApp sends are never visually confused. */}
+      {/* The guest communication pipeline: from first card to final thank-you. */}
       <div className="sendtabs" role="tablist">
+        <button
+          role="tab"
+          aria-selected={sendTab === 'saveDates'}
+          className={`stb ${sendTab === 'saveDates' ? 'on' : ''}`}
+          onClick={() => { setSendTab('saveDates'); setSelected(new Set()) }}
+        >
+          <CalendarHeart size={14} /> {strings.tab_save_the_dates}
+        </button>
         <button
           role="tab"
           aria-selected={sendTab === 'cards'}
@@ -973,6 +1163,23 @@ export default function SendInvitesView({
           onClick={() => { setSendTab('cards'); setSelected(new Set()) }}
         >
           <MessageCircle size={14} /> {strings.tab_digital_cards}
+        </button>
+        <button
+          role="tab"
+          aria-selected={sendTab === 'responses'}
+          className={`stb ${sendTab === 'responses' ? 'on' : ''}`}
+          onClick={() => { setSendTab('responses'); setSelected(new Set()) }}
+        >
+          <ClipboardCheck size={14} /> {strings.tab_guest_responses}
+          {funnel.rsvpd > 0 ? <span className="stbcnt">{funnel.rsvpd}</span> : null}
+        </button>
+        <button
+          role="tab"
+          aria-selected={sendTab === 'followups'}
+          className={`stb ${sendTab === 'followups' ? 'on' : ''}`}
+          onClick={() => { setSendTab('followups'); setSelected(new Set()) }}
+        >
+          <ListChecks size={14} /> {strings.tab_follow_up_questions}
         </button>
         <button
           role="tab"
@@ -992,6 +1199,9 @@ export default function SendInvitesView({
           <CalendarCheck size={14} /> {strings.tab_checkins}
           {arrivedCount > 0 ? <span className="stbcnt">{arrivedCount}</span> : null}
         </button>
+        <Link role="tab" aria-selected={false} className="stb" href={thankYouHref}>
+          <HeartHandshake size={14} /> {strings.tab_thank_you}
+        </Link>
         {events.length > 1 ? (
           <EventPicker
             events={events}
@@ -1035,9 +1245,188 @@ export default function SendInvitesView({
         </div>
       ) : null}
 
+      {sendTab === 'responses' ? (
+        <div className="pipelinepanel">
+          <RsvpTracker
+            guests={data.responseGuests}
+            events={data.responseEvents}
+            eventFilter={responseEventFilter}
+            lastSend={data.responseLastSend}
+            copy={rsvpsCopy}
+            sendRows={guests}
+            sendStrings={strings}
+          />
+        </div>
+      ) : null}
+
+      {sendTab === 'followups' ? (
+        <div className="pipelinepanel">
+          <RsvpSetupPanel
+            events={data.responseEvents}
+            selectedEventId={selectedEventId}
+            questions={data.responseQuestions}
+            summaries={data.responseSummaries}
+            answerSummaries={data.responseAnswerSummaries}
+            mode="followups"
+            followupShareGuests={guests}
+            followupPreview={{ coupleName: event.coupleName, cardImageUrl: event.cardImageUrl }}
+            onShareFollowups={() => setSendTab('responses')}
+          />
+        </div>
+      ) : null}
+
+      {sendTab === 'saveDates' ? (
+        <>
+        {saveDateTemplates.length > 0 ? (
+          <div className="sdtemplates">
+            <div>
+              <h3>{strings.save_dates_templates_title}</h3>
+              <p>{strings.save_dates_templates_desc}</p>
+            </div>
+            <div className="sdtrail" aria-label={strings.save_dates_templates_title}>
+              {saveDateTemplates.slice(0, 6).map((template) => {
+                const applied = selectedSaveDateTemplate?.imageUrl === template.imageUrl
+                const applying = applyingSaveDateId === template.id && pending
+                return (
+                  <div key={template.id} className={`sdtile${applied ? ' applied' : ''}`}>
+                    <div className="sdthumb">
+                      <Image
+                        src={template.imageUrl}
+                        alt={template.name}
+                        fill
+                        sizes="210px"
+                        quality={85}
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                    {applied ? (
+                      <span className="sdcheck" aria-hidden="true">
+                        <Check size={13} />
+                      </span>
+                    ) : null}
+                    <div className="sdname">{template.name}</div>
+                    {applied ? (
+                      <button
+                        type="button"
+                        className="templatebtn applied"
+                        disabled={pending}
+                        onClick={clearSaveDateTemplate}
+                        title="Remove selected template"
+                      >
+                        {applying ? <Loader2 size={12} className="spin" /> : <Check size={12} />}
+                        {strings.save_dates_template_applied}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="templatebtn"
+                        disabled={pending || !selectedEventId}
+                        onClick={() => useSaveDateTemplate(template)}
+                      >
+                        {applying ? <Loader2 size={12} className="spin" /> : null}
+                        {strings.save_dates_template_use}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {hasSelectedSaveDate ? (
+        <div className="sdshare">
+          <div className="sdmedia">
+            {selectedSaveDateTemplate ? (
+              <Image
+                src={selectedSaveDateTemplate.imageUrl}
+                alt={`${selectedSaveDateTemplate.name} save the date card`}
+                fill
+                sizes="220px"
+                quality={90}
+                className="object-cover"
+                unoptimized
+              />
+            ) : null}
+              <span className="sdbadge">
+                <Check size={12} /> {strings.save_dates_card_badge}
+              </span>
+          </div>
+
+          <div className="sdmain">
+            <div className="sdtop">
+              <div>
+                <h3>{strings.save_dates_share_title}</h3>
+                <p>{strings.save_dates_share_description}</p>
+              </div>
+              <div className="sdactions">
+                {selectedSaveDateEditHref ? (
+                  <Link href={selectedSaveDateEditHref} className="btn ghost">
+                    <Pencil size={14} /> Edit card
+                  </Link>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={pending}
+                  onClick={clearSaveDateTemplate}
+                >
+                  <X size={14} /> Remove
+                </button>
+                {saveDateShareLink ? (
+                  <a href={saveDateShareLink} target="_blank" rel="noopener noreferrer" className="btn ghost">
+                    <ExternalLink size={14} /> {strings.save_dates_preview_guest}
+                  </a>
+                ) : (
+                  <button className="btn solid" disabled={pending || !selectedEventId} onClick={enableSaveDateLink}>
+                    {pending ? <Loader2 size={14} className="spin" /> : <Check size={14} />}
+                    {strings.save_dates_enable_cta}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="sdlinkrow">
+              <div className="sdlink">
+                {saveDateShareLink
+                  ? saveDateShareLink.replace(/^https?:\/\//, '')
+                  : strings.link_off_placeholder}
+              </div>
+              <button className="btn ghost" disabled={!saveDateShareLink} onClick={copySaveDateLink}>
+                <Copy size={14} /> {strings.copy}
+              </button>
+            </div>
+
+            {saveDateShareLink ? (
+              <div className="sdsharetools">
+                <a href={saveDateWaUrl} target="_blank" rel="noopener noreferrer" className="btn send">
+                  <MessageCircle size={15} /> {strings.chip_whatsapp}
+                </a>
+                <a href={saveDateSmsUrl} className="btn ghost">
+                  <Smartphone size={15} /> {strings.chip_sms}
+                </a>
+                <a href={saveDateEmailUrl} className="btn ghost">
+                  <Mail size={15} /> Email
+                </a>
+                {saveDateQrDataUrl ? (
+                  <div className="sdqr">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={saveDateQrDataUrl} alt="QR code for the save the date link" />
+                    <span>{strings.save_dates_scan_label}</span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        ) : null}
+        </>
+      ) : null}
+
       {/* Event context — cards/ticket only; the Check-ins tab has its own
           live summary card below. */}
-      {sendTab !== 'checkins' ? (
+      {sendTab !== 'checkins' && sendTab !== 'saveDates' && sendTab !== 'responses' && sendTab !== 'followups' ? (
       <div className="ctx">
         <div className="ctxbody">
           {sendTab === 'ticket' ? (
@@ -1068,7 +1457,7 @@ export default function SendInvitesView({
               ) : event.cardTreatment ? (
                 <InvitationVisual treatment={event.cardTreatment} />
               ) : (
-                <a href={unassignedOrders.length > 0 ? '#unassigned-orders' : '/invitations/catalog'} className="ci noDesign">
+                <a href={unassignedOrders.length > 0 ? '#unassigned-orders' : cardDesignHref} className="ci noDesign">
                   <ImagePlus size={20} />
                   <b>{unassignedOrders.length > 0 ? strings.no_design_pick_cta : strings.no_design_cta}</b>
                 </a>
@@ -1078,7 +1467,7 @@ export default function SendInvitesView({
           <div className="cinfo">
             <div className="cinfo-head">
               <h3>{headingName}</h3>
-              {sendTab === 'cards' && !editingSettings ? (
+              {isCardSendTab && !editingSettings ? (
                 <div className="ctxhead">
                   <button className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
                     <Pencil size={13} /> {strings.settings_edit}
@@ -1158,7 +1547,7 @@ export default function SendInvitesView({
               </>
             ) : null}
 
-            {sendTab === 'cards' && event.hasPaidOrder ? (
+            {isCardSendTab && event.hasPaidOrder ? (
               <>
                 <div className="pmeta">
                   {showCategoryPill ? (
@@ -1189,7 +1578,7 @@ export default function SendInvitesView({
           </div>
         </div>
 
-        {sendTab === 'cards' ? (
+        {isCardSendTab ? (
           <div className="ctxsend">
             {editingSettings ? (
               <div className="vars">
@@ -1342,7 +1731,7 @@ export default function SendInvitesView({
           <div className="fc quota">
             <div className="top"><span>{strings.quota_label}</span><span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span></div>
             <div className="bar"><i style={{ width: `${pct}%` }} /></div>
-            <div className="ft">{fmt(strings.quota_remaining, { n: quota.remaining })} · <Link href="/invitations/catalog">{strings.quota_topup}</Link></div>
+            <div className="ft">{fmt(strings.quota_remaining, { n: quota.remaining })} · <Link href={cardDesignHref}>{strings.quota_topup}</Link></div>
           </div>
         </div>
       ) : null}
@@ -1474,9 +1863,15 @@ export default function SendInvitesView({
         </div>
       ) : null}
 
-      {/* Guest table — cards/ticket only. */}
-      {sendTab !== 'checkins' ? (
+      {/* Guest table — save-the-dates/cards/ticket only. */}
+      {sendTab !== 'checkins' && sendTab !== 'responses' && sendTab !== 'followups' && (sendTab !== 'saveDates' || hasSelectedSaveDate) ? (
       <div className="gt">
+        {sendTab === 'saveDates' ? (
+          <div className="sdguesthead">
+            <h3>{strings.save_dates_send_title}</h3>
+            <p>{strings.save_dates_send_desc}</p>
+          </div>
+        ) : null}
         <div className="gth">
           <input
             type="checkbox"
@@ -1494,7 +1889,7 @@ export default function SendInvitesView({
             aria-label={strings.search_aria}
           />
           <div className="acts">
-            {sendTab === 'cards' ? (
+            {isCardSendTab ? (
               <div className="seg" role="tablist" aria-label={strings.filter_aria}>
                 <button className={`sg ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
                   {strings.filter_all}
@@ -1555,7 +1950,7 @@ export default function SendInvitesView({
               <thead>
                 <tr>
                   <th style={{ width: 30 }}></th><th>{strings.th_guest}</th><th>{strings.th_contact}</th>
-                  <th>{strings.th_ticket}</th>
+                  {sendTab !== 'saveDates' ? <th>{strings.th_ticket}</th> : null}
                   <th>{strings.th_channel}</th><th>{strings.th_status}</th><th style={{ textAlign: 'right' }}>{strings.th_send}</th>
                 </tr>
               </thead>
@@ -1583,7 +1978,7 @@ export default function SendInvitesView({
                         inputMode="tel"
                       />
                     </td>
-                    <td colSpan={3}></td>
+                    <td colSpan={sendTab === 'saveDates' ? 2 : 3}></td>
                     <td>
                       <div className="ra">
                         <button className="ia send" disabled={pending || !newGuest.name.trim()} onClick={addGuest}>
@@ -1617,7 +2012,7 @@ export default function SendInvitesView({
                           inputMode="tel"
                         />
                       </td>
-                      <td colSpan={3}></td>
+                      <td colSpan={sendTab === 'saveDates' ? 2 : 3}></td>
                       <td>
                         <div className="ra">
                           <button className="ia send" disabled={pending} onClick={saveRowEdit}>
@@ -1661,16 +2056,15 @@ export default function SendInvitesView({
                         )
                       )}
                     </td>
-                    {/* Cards tab: the invite type the couple assigned. Pass
-                        Ticket tab: what the guest confirmed at RSVP — the same
-                        Single/Double their ticket pill shows. */}
-                    <td>
-                      <span className="ppill">
-                        {(sendTab === 'ticket' ? (g.rsvpPartySize ?? g.assignedPartySize) : g.assignedPartySize) >= 2
-                          ? strings.party_double
-                          : strings.party_single}
-                      </span>
-                    </td>
+                    {sendTab !== 'saveDates' ? (
+                      <td>
+                        <span className="ppill">
+                          {(sendTab === 'ticket' ? (g.rsvpPartySize ?? g.assignedPartySize) : g.assignedPartySize) >= 2
+                            ? strings.party_double
+                            : strings.party_single}
+                        </span>
+                      </td>
+                    ) : null}
                     <td style={{ position: 'relative' }}>
                       {(() => {
                           const channel = effectiveChannel(g)
@@ -2094,6 +2488,42 @@ const css = `
 .si .ccard .ci.noDesign b{ font-size:11.5px; line-height:1.3; text-decoration:underline; }
 .si .ctx h3{ font-size:19px; font-weight:600; }
 .si .ctx .row{ display:flex; gap:14px; color:var(--muted); font-size:13px; margin-top:6px; flex-wrap:wrap; align-items:center; }
+.si .sdtemplates{ margin:22px 0 18px; padding:18px 20px; background:#fff; border:1px solid var(--line);
+  border-radius:20px; box-shadow:var(--soft); }
+.si .sdtemplates h3{ font-size:16px; font-weight:700; color:var(--ink); }
+.si .sdtemplates p{ margin-top:5px; color:var(--muted); font-size:13px; line-height:1.45; }
+.si .sdtrail{ display:flex; gap:10px; margin-top:14px; padding-bottom:4px; overflow-x:auto; }
+.si .sdtile{ position:relative; width:210px; flex:0 0 210px; padding:8px; border:1px solid var(--line);
+  border-radius:14px; background:#fff; transition:border-color .14s ease, background .14s ease; }
+.si .sdtile.applied{ border-color:var(--green); background:#F2FFE8; }
+.si .sdthumb{ position:relative; aspect-ratio:5/7; overflow:hidden; border-radius:9px; background:var(--lav-soft); }
+.si .sdcheck{ position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:999px; display:grid; place-items:center;
+  background:var(--green); color:var(--green-tx); box-shadow:0 2px 8px rgba(35,50,20,.12); }
+.si .sdname{ margin-top:7px; min-height:30px; color:var(--ink); font-size:11.5px; font-weight:700; line-height:1.25; }
+.si .templatebtn{ margin-top:7px; min-height:28px; width:100%; display:inline-flex; align-items:center; justify-content:center; gap:5px;
+  border:none; border-radius:999px; background:var(--lav-btn); color:var(--ink); font-size:11px; font-weight:700; text-decoration:none; cursor:pointer; }
+.si .templatebtn.applied{ background:#E8FCDC; color:var(--green-tx); cursor:default; }
+.si .sdshare{ display:flex; margin:22px 0 24px; overflow:hidden; background:#fff; border:1px solid var(--line);
+  border-radius:20px; box-shadow:var(--soft); }
+.si .sdmedia{ position:relative; width:220px; min-height:308px; flex:none; overflow:hidden; background:linear-gradient(155deg,var(--purple),var(--lav)); }
+.si .sdmedia.noDesign{ background:linear-gradient(155deg,var(--lav-soft),#fff); border-right:1px dashed var(--lav); }
+.si .sdempty{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+  padding:18px; text-align:center; color:var(--purple-d); text-decoration:none; }
+.si .sdempty b{ font-size:13px; line-height:1.3; text-decoration:underline; }
+.si .sdbadge{ position:absolute; left:10px; top:10px; display:inline-flex; align-items:center; gap:5px; border-radius:999px;
+  background:rgba(255,255,255,.95); padding:4px 9px; color:var(--green-tx); font-size:10.5px; font-weight:700; box-shadow:var(--soft); }
+.si .sdmain{ min-width:0; flex:1; padding:22px; display:flex; flex-direction:column; gap:16px; }
+.si .sdtop{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+.si .sdtop h3{ font-size:19px; font-weight:600; color:var(--ink); }
+.si .sdtop p{ margin-top:5px; max-width:620px; color:var(--muted); font-size:13.5px; line-height:1.5; }
+.si .sdactions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.si .sdlinkrow{ display:flex; align-items:center; gap:9px; }
+.si .sdlink{ min-width:0; flex:1; border:1px solid var(--line); border-radius:12px; background:#fff; padding:10px 12px;
+  color:var(--muted); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.si .sdsharetools{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.si .sdqr{ margin-left:auto; display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:14px;
+  background:var(--hover); padding:10px; color:var(--ink); font-size:12px; font-weight:600; }
+.si .sdqr img{ width:64px; height:64px; flex:none; }
 .si .badge, .si .catpill{ display:inline-flex; align-items:center; gap:5px; background:var(--green); color:var(--green-tx);
   font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:999px; }
 .si .cinfo{ min-width:0; flex:1; }
@@ -2128,7 +2558,7 @@ const css = `
 .si .equota{ margin-top:12px; padding:10px 12px; max-width:520px; border:1px solid var(--line); border-radius:12px; background:#fff; }
 .si .equota .top{ display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:7px; }
 .si .equota .top b{ color:var(--ink); }
-.si .sendtabs{ display:flex; flex-wrap:wrap; align-items:center; gap:24px; margin-top:22px;
+.si .sendtabs{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; margin-top:22px;
   padding-bottom:8px; border-bottom:1px solid var(--line); }
 .si .stb{ display:inline-flex; align-items:center; gap:7px; margin-bottom:-9px; background:none; border:none;
   border-bottom:2px solid transparent; padding:0 0 10px; font-size:14px; font-weight:500; color:var(--muted);
@@ -2138,6 +2568,7 @@ const css = `
 .si .stbcnt{ display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px;
   padding:0 6px; background:rgba(0,0,0,.06); color:var(--muted); font-size:10.5px; font-weight:700; border-radius:999px; }
 .si .stb.on .stbcnt{ background:var(--ink); color:#fff; }
+.si .pipelinepanel{ margin-top:18px; }
 .si .ctxsend{ margin-top:18px; }
 .si .ctxsend .chips{ margin-top:0; }
 .si .chips{ display:flex; gap:9px; margin-top:16px; flex-wrap:wrap; align-items:center; }
@@ -2151,6 +2582,10 @@ const css = `
   background:var(--amber-bg); border:1px solid var(--amber-bd); font-size:12.5px; color:var(--amber-tx); line-height:1.4; }
 .si .connect .dp{ background:var(--amber-bd); color:var(--amber-tx); font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; flex:none; }
 .si .gt{ background:#fff; border:1px solid var(--line); border-radius:var(--radius); margin-top:24px; box-shadow:var(--soft); overflow:hidden; }
+.si .sdguesthead{ padding:22px 20px 0; }
+.si .sdguesthead h3{ font-size:17px; font-weight:700; color:var(--ink); }
+.si .sdguesthead p{ margin-top:6px; color:var(--muted); font-size:13.5px; line-height:1.45; }
+.si .sdguesthead + .gth{ border-top:none; }
 .si .gth{ display:flex; align-items:center; gap:14px; padding:18px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
 .si .gth h2{ font-size:18px; font-weight:600; }
 .si .gth .gsearch{ flex:0 1 240px; min-width:150px; border:1px solid var(--line); border-radius:10px;
@@ -2308,5 +2743,10 @@ const css = `
 
 @media(max-width:900px){ .si .funnel{ grid-template-columns:repeat(2,1fr); }
   .si .funnel .quota{ grid-column:span 2; } }
+@media(max-width:760px){ .si .sdshare{ flex-direction:column; }
+  .si .sdmedia{ width:100%; min-height:0; aspect-ratio:5/7; }
+  .si .sdlinkrow{ align-items:stretch; flex-direction:column; }
+  .si .sdlinkrow .btn{ justify-content:center; }
+  .si .sdqr{ margin-left:0; width:100%; justify-content:flex-start; } }
 @media(max-width:640px){ .si .gth .acts{ margin-left:0; width:100%; justify-content:flex-start; } }
 `

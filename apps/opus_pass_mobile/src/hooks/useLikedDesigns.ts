@@ -4,9 +4,9 @@ import {
   addFavorite,
   getLikedProductIds,
   removeFavorite,
-} from '@/lib/api/invitation-favorites';
+} from '@/lib/api/digital-card-favorites';
 
-const QUERY_KEY = ['invitations', 'liked-product-ids'];
+const QUERY_KEY = ['digital-cards', 'liked-product-ids'];
 
 /**
  * Synced, per-account favorites (replaces the earlier local-only

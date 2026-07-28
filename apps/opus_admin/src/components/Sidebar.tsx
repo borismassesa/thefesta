@@ -21,6 +21,7 @@ import {
   Globe,
   Globe2,
   HandHeart,
+  Headset,
   Home,
   Landmark,
   LayoutDashboard,
@@ -143,7 +144,7 @@ const sections: NavSection[] = [
     requiredPermission: "cms.read",
     items: [
       { icon: Home, label: "Homepage", href: "/cms/opus-pass/homepage", requiredPermission: "cms.read" },
-      { icon: FileText, label: "Invitations", href: "/cms/opus-pass/invitations", requiredPermission: "cms.read" },
+      { icon: FileText, label: "Digital Cards", href: "/cms/opus-pass/digital-cards", requiredPermission: "cms.read" },
       { icon: UserCheck, label: "Guests & RSVPs", href: "/cms/opus-pass/guests-rsvps", requiredPermission: "cms.read" },
       { icon: Globe2, label: "Wedding Website", href: "/cms/opus-pass/wedding-website", requiredPermission: "cms.read" },
       { icon: LayoutDashboard, label: "OpusPass Dashboard", href: "/cms/opus-pass/dashboard", requiredPermission: "cms.read" },
@@ -157,8 +158,9 @@ const sections: NavSection[] = [
     items: [
       { icon: Users, label: "Couple Accounts", href: "/opus-pass/couples", requiredPermission: "opuspass.couples.read" },
       { icon: QrCode, label: "Event Check-in", href: "/operations/checkin", requiredPermission: "opuspass.checkin" },
-      { icon: CreditCard, label: "Invitation Payments", href: "/finance/payments", requiredPermission: "finance.read" },
+      { icon: CreditCard, label: "Payments", href: "/finance/payments", requiredPermission: "finance.read" },
       { icon: Package, label: "Order Fulfilment", href: "/finance/orders", requiredPermission: "finance.read" },
+      { icon: Wallet, label: "Vendor Payouts", href: "/finance/payouts", requiredPermission: "finance.read" },
       { icon: HandHeart, label: "Pledge Concierge", href: "/opus-pass/pledges", requiredPermission: "opuspass.pledges.read" },
     ],
   },
@@ -178,12 +180,23 @@ const sections: NavSection[] = [
     ],
   },
   {
+    id: "support",
+    label: "Support",
+    icon: Headset,
+    items: [
+      { icon: Headset, label: "Conversations", href: "/support", exact: true, requiredPermission: "support.read" },
+      { icon: BarChart3, label: "Analytics", href: "/support/analytics", requiredPermission: "support.read" },
+    ],
+  },
+  {
     id: "vendors-portal",
     label: "Vendors Portal",
     icon: Building2,
     items: [
       { icon: Building2, label: "Vendor Accounts", href: "/operations/vendors", requiredPermission: "vendor.read" },
       { icon: Store, label: "Vendor Categories", href: "/operations/categories", requiredPermission: "vendor.read" },
+      { icon: Package, label: "Products", href: "/operations/products", requiredPermission: "vendor.moderate" },
+      { icon: Package, label: "Product Categories", href: "/operations/product-categories", requiredPermission: "vendor.moderate" },
       { icon: Star, label: "Reviews & Moderation", href: "/operations/reviews", requiredPermission: "vendor.moderate" },
       { icon: Wallet, label: "Vendor Payouts", href: "/finance/payouts", requiredPermission: "finance.write" },
     ],

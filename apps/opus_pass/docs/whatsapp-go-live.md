@@ -237,10 +237,10 @@ Vercel project. After setting them, redeploy.
   invitation order (it supplies both the header image and the credit quota). A
   couple with no purchased card sees the send do nothing. This is intentional
   monetization; loosen it in `getWhatsAppEntitlement` if you want a default card.
-- **24-hour window.** Business-initiated template messages are always allowed.
+- **Customer-service window.** Business-initiated template messages are always allowed.
   Free-form replies (the "View Location" text) are only delivered if the guest
-  messaged in the last 24 hours, which a button tap satisfies.
-- **Template approval lag.** New templates can take minutes to ~a day. The name
+  has opened an active customer-service conversation, which a button tap satisfies.
+- **Template approval lag.** New templates can take minutes to 48-72 hours. The name
   and language in the env vars must exactly match the APPROVED template.
 - **Header image must be a public URL.** The card image comes from the paid
   order in Supabase storage; the bucket must be publicly readable for Meta to

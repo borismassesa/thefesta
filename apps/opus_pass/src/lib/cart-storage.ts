@@ -62,6 +62,8 @@ export type StoredOrderPayment = {
 export type StoredOrder = {
   ref: string
   paidAt: string
+  /** Dashboard event this order is linked to, when applicable. */
+  eventId?: string | null
   /** Wedding/event date (ISO), when known — surfaced on the invoice. */
   eventDate?: string
   paymentLabel?: string
@@ -159,10 +161,12 @@ export function getOrder(ref: string): StoredOrder | undefined {
  * review" badge on the card grid relies on this device's local order
  * history instead.
  */
-export function getPendingTemplateIds(type: TemplateCardType): Set<string> {
+export function getPendingTemplateIds(type: TemplateCardType, eventId?: string | null): Set<string> {
   const ids = new Set<string>()
+  if (!eventId) return ids
   for (const order of getOrders()) {
     if (order.paymentStatus !== 'verifying') continue
+    if (order.eventId !== eventId) continue
     for (const item of order.items) {
       const parsed = parseTemplateCardItemId(item.id)
       if (parsed && parsed.type === type) ids.add(parsed.templateId)

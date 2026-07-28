@@ -31,7 +31,7 @@ export function Hero() {
         </div>
 
         <Link
-          href="/registry/cash-funds"
+          href="/registry/gifts-keepsakes"
           className="group relative block aspect-[4/3] cursor-pointer overflow-hidden rounded-2xl shadow-sm md:rounded-3xl lg:aspect-auto lg:min-h-[360px]"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}

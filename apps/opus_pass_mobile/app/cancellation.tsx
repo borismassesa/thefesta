@@ -26,7 +26,7 @@ const SECTIONS: PolicySection[] = [
     body: (
       <Text className="font-work-sans text-[14px] leading-6 text-ed-on-surface-variant">
         You can cancel for a{' '}
-        <Bold>full refund any time before your invitations are sent</Bold>. Once invites have
+        <Bold>full refund any time before your digital cards are sent</Bold>. Once invites have
         gone out, the package is non-refundable — the cards and tickets are already live to your
         guests and the work has been delivered.
       </Text>
@@ -61,7 +61,7 @@ const SECTIONS: PolicySection[] = [
     title: 'Changing your event details',
     body: (
       <Text className="font-work-sans text-[14px] leading-6 text-ed-on-surface-variant">
-        Because your invitations are digital, you can{' '}
+        Because your digital cards are delivered digitally, you can{' '}
         <Bold>update event details — venue, date, or time — at no cost</Bold>, even after invites
         are sent. Every guest sees the change instantly, so a reschedule never means buying again.
       </Text>

@@ -6,7 +6,7 @@ import { Hero } from '@/components/home/Hero'
 import { Manifesto } from '@/components/home/Manifesto'
 import { Showcase } from '@/components/home/Showcase'
 import { WhyOpusPass } from '@/components/home/WhyOpusPass'
-import { InvitationShowcase } from '@/components/home/InvitationShowcase'
+import { DigitalCardShowcase } from '@/components/home/DigitalCardShowcase'
 import { Promises } from '@/components/home/Promises'
 import { Features } from '@/components/home/Features'
 
@@ -23,11 +23,11 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'OpusPass — Your wedding, in one digital pass',
   description:
-    'Digital invitations, live RSVP tracking, and a beautiful wedding website — all in one pass. Free to start. Built for couples in Tanzania.',
+    'Digital cards, live RSVP tracking, and a beautiful wedding website — all in one pass. Free to start. Built for couples in Tanzania.',
   openGraph: {
     title: 'OpusPass — Your wedding, in one digital pass',
     description:
-      'Digital invitations, live RSVP tracking, and a beautiful wedding website — all in one pass.',
+      'Digital cards, live RSVP tracking, and a beautiful wedding website — all in one pass.',
     // Absolute URL so link scrapers resolve the OG image against the subdomain.
     images: [{ url: OPUS_PASS_LOGO, alt: 'OpusPass' }],
     type: 'website',
@@ -48,7 +48,7 @@ export default async function HomePage() {
         <Showcase />
         <WhyOpusPass />
         <Features />
-        <InvitationShowcase />
+        <DigitalCardShowcase />
         <div className="bg-[#FAF6EF]">
           <Manifesto />
           <Promises />

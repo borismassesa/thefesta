@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { ClerkProvider } from '@clerk/nextjs'
 import SmoothScrollProvider from '@/components/providers/SmoothScrollProvider'
 import ToastProvider from '@/components/providers/ToastProvider'
+import OpusChat from '@/components/opus/OpusChat'
 import JsonLd from '@/components/JsonLd'
 import './globals.css'
 
@@ -37,7 +38,7 @@ const organizationSchema = {
   url: BASE,
   logo: `${BASE}/assets/logo/opusfesta-logo-black.png`,
   description:
-    'Wedding planning marketplace for Tanzania — venues, vendors, digital invitations, attire and more.',
+    'Wedding planning marketplace for Tanzania — venues, vendors, digital cards, attire and more.',
 }
 
 const websiteSchema = {
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <JsonLd data={organizationSchema} />
           <JsonLd data={websiteSchema} />
           <SmoothScrollProvider>{children}</SmoothScrollProvider>
+          <OpusChat />
           <ToastProvider />
         </body>
       </html>

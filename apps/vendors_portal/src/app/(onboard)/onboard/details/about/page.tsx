@@ -10,6 +10,7 @@ import { FieldLabel, TextArea, TextInput } from '@/components/onboard/FormField'
 import { useOnboardingDraft } from '@/lib/onboarding/draft'
 import { findCategory } from '@/lib/onboarding/categories'
 import { LANGUAGES } from '@/lib/onboarding/languages'
+import { sellsProducts } from '@/lib/onboarding/verticals'
 import { pick } from '@/lib/onboarding/localize'
 import { useOnboardT } from '@/lib/onboarding/strings'
 
@@ -39,9 +40,16 @@ export default function AboutPage() {
     draft.yearsInBusiness.trim() &&
     draft.languages.length > 0
 
+  // The one branch point in the wizard. Service vendors continue into the
+  // service-shaped steps (services checklist → style → personality → packages →
+  // booking policies → payout). Product vendors sell goods, not booked time, so
+  // they go straight to payout and then review; their catalogue, delivery and
+  // returns are set up in the portal once they're approved.
   const onNext = () => {
     if (!canContinue) return
-    router.push('/onboard/details/services')
+    router.push(
+      sellsProducts(draft.vertical) ? '/onboard/pricing/payout' : '/onboard/details/services',
+    )
   }
 
   const bioLength = draft.bio.trim().length

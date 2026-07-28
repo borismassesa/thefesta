@@ -16,14 +16,21 @@ export default function LegalDoc({
   updated,
   intro,
   sections,
+  labels,
 }: {
   eyebrow?: string
   title: string
   updated?: string
   intro?: ReactNode
   sections: LegalSection[]
+  labels?: {
+    lastUpdated?: string
+    tableOfContents?: string
+  }
 }) {
   const [active, setActive] = useState(sections[0]?.id)
+  const lastUpdatedLabel = labels?.lastUpdated ?? 'Last updated'
+  const tableOfContentsLabel = labels?.tableOfContents ?? 'Table of Contents'
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -56,7 +63,7 @@ export default function LegalDoc({
         </h1>
         {updated && (
           <p className="text-center text-[13px] text-gray-400 mt-5">
-            Last updated {updated}
+            {lastUpdatedLabel} {updated}
           </p>
         )}
 
@@ -86,7 +93,7 @@ export default function LegalDoc({
           <aside className="order-1 lg:order-2">
             <div className="lg:sticky lg:top-10">
               <p className="text-[13px] font-bold text-[#1A1A1A] mb-4">
-                Table of Contents
+                {tableOfContentsLabel}
               </p>
               <nav>
                 <ul className="border-l border-gray-200 text-[13.5px]">

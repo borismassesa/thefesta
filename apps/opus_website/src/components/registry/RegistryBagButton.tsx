@@ -5,7 +5,8 @@ import { ShoppingBag } from 'lucide-react'
 import { getRegistryBag, getRegistryBagServerSnapshot, subscribeRegistryBag } from '@/lib/registry-storage'
 import RegistryBagDrawer from './RegistryBagDrawer'
 
-export default function RegistryBagButton() {
+// `light` suits a white header (dark icon); `dark` suits a dark bar (white icon).
+export default function RegistryBagButton({ variant = 'dark' }: { variant?: 'light' | 'dark' }) {
   const items = useSyncExternalStore(subscribeRegistryBag, getRegistryBag, getRegistryBagServerSnapshot)
   const [open, setOpen] = useState(false)
 
@@ -15,8 +16,10 @@ export default function RegistryBagButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        aria-label="Your registry picks"
-        className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white hover:bg-white/10"
+        aria-label="Your cart"
+        className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+          variant === 'light' ? 'text-gray-800 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+        }`}
       >
         <ShoppingBag size={18} />
         {count > 0 && (

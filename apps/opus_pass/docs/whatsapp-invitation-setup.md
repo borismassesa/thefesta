@@ -64,7 +64,7 @@ Samples: `{{1}}` = `Asha`, `{{2}}` = `Asha & Juma`.
 2. `Sitafika, Ninaudhuru`
 3. `View Location`
 
-Submit → approval takes minutes to ~24h.
+Submit → approval takes minutes to 48-72h.
 
 > The button **text** is fixed by this approved template. The app supplies the
 > dynamic **payload** per send (`rsvp_yes:<token>` / `rsvp_no:<token>` /
@@ -132,7 +132,7 @@ the **dry-run stub** (logs, no send) so the dashboard still works.
   step before sending (Meta rejects SVG headers).
 - **Category = Marketing:** business-initiated, billed per conversation;
   recipients can block/report — follow opt-in norms.
-- **View Location reply:** allowed because the guest's tap opens a 24-hour
+- **View Location reply:** allowed because the guest's tap opens an active
   customer-service window, within which the free-form text reply is permitted.
 - **Quota:** sending is gated by what the couple paid for (sum of `guests`
   across paid orders); see `getWhatsAppEntitlement()` / `sendWhatsAppInvites()`.

@@ -9,6 +9,7 @@ import { PrimaryButton } from '@/components/onboard/PrimaryButton'
 import { useOnboardingDraft } from '@/lib/onboarding/draft'
 import { findCategory } from '@/lib/onboarding/categories'
 import { PERSONALITY_OPTIONS } from '@/lib/onboarding/personality'
+import { useServiceOnlyStep } from '@/lib/onboarding/use-service-only-step'
 import { pick } from '@/lib/onboarding/localize'
 import { useOnboardT } from '@/lib/onboarding/strings'
 
@@ -23,6 +24,8 @@ export default function PersonalityPage() {
     if (!draft.categoryId) router.replace('/onboard/category')
     else if (!draft.vowsAccepted) router.replace('/onboard/vows')
   }, [hydrated, draft.categoryId, draft.vowsAccepted, router])
+
+  useServiceOnlyStep('/onboard/pricing/payout')
 
   const onNext = () => {
     if (!draft.personality) return

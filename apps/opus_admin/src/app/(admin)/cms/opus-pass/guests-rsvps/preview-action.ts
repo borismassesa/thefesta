@@ -1,6 +1,6 @@
 'use server'
 
-const ALLOWED_REDIRECTS = new Set(['/', '/invitations', '/guests-and-rsvp', '/websites'])
+const ALLOWED_REDIRECTS = new Set(['/', '/digital-cards', '/guests-and-rsvp', '/websites'])
 
 export async function getOpusPassGuestsPreviewUrl(
   redirectPath: string = '/guests-and-rsvp',

@@ -1,6 +1,7 @@
 import { draftMode } from 'next/headers'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { DEFAULT_LOCALE, resolveLocalized, type Locale, type MaybeLocalized } from './localized'
+import { canonicalOpusPassHref } from './opus-pass-hrefs'
 
 export type HomepageHeroContent = {
   headline_line_1: string
@@ -22,11 +23,11 @@ export const HOMEPAGE_HERO_FALLBACK: HomepageHeroContent = {
   headline_line_1: 'Your whole wedding day',
   headline_line_2: 'one beautiful pass',
   description:
-    'Digital invitations, live RSVP tracking, and a beautiful wedding website — all in one pass. Free to start, bilingual in Swahili and English, and built for couples in Tanzania.',
-  primary_cta_label: 'Get started',
-  primary_cta_href: '/sign-up',
-  secondary_cta_label: 'Browse invitations',
-  secondary_cta_href: '/invitations',
+    'Digital cards, live RSVP tracking, and a beautiful wedding website — all in one pass. Free to start, bilingual in Swahili and English, and built for couples in Tanzania.',
+  primary_cta_label: 'Browse Designs',
+  primary_cta_href: '/digital-cards/catalog',
+  secondary_cta_label: 'See Pricing',
+  secondary_cta_href: '/pricing',
   trust_count: '1000+',
   rating: '4.5',
   avatars: [
@@ -87,9 +88,9 @@ export async function loadHomepageHeroContent(
         headline_line_2: resolveLocalized(stored.headline_line_2 ?? F.headline_line_2, locale),
         description: resolveLocalized(stored.description ?? F.description, locale),
         primary_cta_label: resolveLocalized(stored.primary_cta_label ?? F.primary_cta_label, locale),
-        primary_cta_href: stored.primary_cta_href ?? F.primary_cta_href,
+        primary_cta_href: canonicalOpusPassHref(stored.primary_cta_href, F.primary_cta_href),
         secondary_cta_label: resolveLocalized(stored.secondary_cta_label ?? F.secondary_cta_label, locale),
-        secondary_cta_href: stored.secondary_cta_href ?? F.secondary_cta_href,
+        secondary_cta_href: canonicalOpusPassHref(stored.secondary_cta_href, F.secondary_cta_href),
         trust_count: stored.trust_count ?? F.trust_count,
         rating: stored.rating ?? F.rating,
         avatars:

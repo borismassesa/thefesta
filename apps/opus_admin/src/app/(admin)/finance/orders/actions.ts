@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase'
 import { getCallerEmail, requirePermission } from '@/lib/admin-auth'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
 import { renderEmail, plaintextLines } from '@/lib/email-shell'
+import { fetchInvoiceAttachment } from '@/lib/opus-pass-invoice'
 import type { FulfillmentStatus } from './queries'
 
 const FULFILLMENT_STATUSES: FulfillmentStatus[] = ['not_started', 'in_progress', 'ready', 'delivered']
@@ -23,6 +24,12 @@ type OrderEmailRow = {
   contact_email: string
 }
 
+/**
+ * Paid orders only. The list now also shows orders awaiting a Lipa Namba
+ * approval, and those must not be advanced through fulfilment — the UI hides
+ * the controls, and maybeSingle() turns the race (or a hand-crafted POST) into
+ * a message a human can act on rather than a raw PostgREST "no rows" error.
+ */
 async function getOrder(id: string): Promise<OrderEmailRow> {
   const supabase = createSupabaseAdminClient()
   const { data, error } = await supabase
@@ -30,8 +37,9 @@ async function getOrder(id: string): Promise<OrderEmailRow> {
     .select('id, ref, user_id, fulfillment_status, amount_total, contact_name, contact_email')
     .eq('id', id)
     .eq('status', 'paid')
-    .single<OrderEmailRow>()
+    .maybeSingle<OrderEmailRow>()
   if (error) throw new Error(error.message)
+  if (!data) throw new Error('This order is not paid yet. Approve the payment first.')
   return data
 }
 
@@ -49,27 +57,6 @@ async function createCustomerNotification(args: { userId: string | null; title: 
     if (error) console.error('[fulfillment] notification insert failed', error)
   } catch (error) {
     console.error('[fulfillment] notification insert threw', error)
-  }
-}
-
-/** Fetch the persisted order's invoice PDF from opus_pass (same
- *  authenticated ref-mode endpoint finance/payments/actions.ts already
- *  uses) — best-effort, a failure must never block the email. */
-async function fetchInvoicePdf(ref: string): Promise<{ filename: string; content: Buffer } | null> {
-  const base = process.env.NEXT_PUBLIC_OPUS_PASS_URL
-  const secret = process.env.OPUS_PASS_REVALIDATE_SECRET
-  if (!base || !secret) return null
-  try {
-    const res = await fetch(`${base.replace(/\/$/, '')}/api/invoice`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-      body: JSON.stringify({ ref }),
-    })
-    if (!res.ok) return null
-    return { filename: `OpusFesta-Invoice-${ref}.pdf`, content: Buffer.from(await res.arrayBuffer()) }
-  } catch (error) {
-    console.error('[fulfillment] invoice fetch error', error)
-    return null
   }
 }
 
@@ -104,7 +91,7 @@ async function sendDesignReadyEmail(order: OrderEmailRow, kind: 'ready' | 'deliv
     footerNote: 'You received this because you placed an order with OpusFesta. This is an automated message about your purchase.',
   })
 
-  const invoice = await fetchInvoicePdf(order.ref)
+  const invoice = await fetchInvoiceAttachment(order.ref)
   await sendEmail({
     to: order.contact_email,
     subject,

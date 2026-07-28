@@ -168,6 +168,11 @@ function toPriceRangeLabel(price_range: string | null): string {
  * The `onboarding_status='active'` gate is intentional — without it, a vendor
  * that's mid-onboarding (or suspended) would still resolve when someone hits
  * `/vendors/<slug>` directly, even though the listing pages hide them.
+ *
+ * The `vertical='service'` gate is the same idea for vendor TYPE: this
+ * directory is for wedding service vendors. Gift-shop and attire/rings vendors
+ * are also `active`, but they belong on the registry shop and attire surfaces —
+ * without this filter they'd show up here as if they were caterers.
  */
 export async function getVendorFromDb(slug: string): Promise<Vendor | null> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -180,6 +185,7 @@ export async function getVendorFromDb(slug: string): Promise<Vendor | null> {
       .select('*, application_snapshot, onboarding_status')
       .eq('slug', slug)
       .eq('onboarding_status', 'active')
+      .eq('vertical', 'service')
       .maybeSingle<VendorRow & { onboarding_status: string }>()
     if (error || !data) return null
 
@@ -251,6 +257,9 @@ export async function getVendorFromDb(slug: string): Promise<Vendor | null> {
  * website_vendors rows take precedence (richer content, hand-tuned hero
  * media), and marketplace-only vendors are appended for any slug not
  * already represented.
+ *
+ * Scoped to `vertical='service'` — see getVendorFromDb. Product vendors
+ * (gift_shop / attire_rings) live on their own surfaces, not this directory.
  */
 export async function getActiveMarketplaceVendors(): Promise<Vendor[]> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -263,6 +272,7 @@ export async function getActiveMarketplaceVendors(): Promise<Vendor[]> {
         .from('vendors')
         .select('*, application_snapshot')
         .eq('onboarding_status', 'active')
+        .eq('vertical', 'service')
         .order('updated_at', { ascending: false }),
       supabase
         .from('vendor_review_stats')

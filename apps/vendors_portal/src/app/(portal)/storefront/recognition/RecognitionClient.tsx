@@ -25,6 +25,7 @@ import {
   type AwardCertStatus,
 } from '@/lib/onboarding/draft'
 import { getStorefrontSections } from '@/lib/storefront/completion'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 import { cn } from '@/lib/utils'
 import { usePortalT, type Translator } from '@/components/providers/PortalUIStringsProvider'
 
@@ -86,11 +87,12 @@ export default function RecognitionClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const vertical = useVendorVertical()
   const nextHref = useMemo(() => {
-    const sections = getStorefrontSections(draft)
+    const sections = getStorefrontSections(draft, vertical)
     const idx = sections.findIndex((s) => s.id === 'recognition')
     return idx >= 0 && idx < sections.length - 1 ? sections[idx + 1].href : null
-  }, [draft])
+  }, [draft, vertical])
 
   const [saving, startSaving] = useTransition()
   const [saveError, setSaveError] = useState<string | null>(null)

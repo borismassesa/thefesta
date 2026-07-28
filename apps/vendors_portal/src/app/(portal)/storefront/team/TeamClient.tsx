@@ -6,6 +6,7 @@ import { ArrowRight, Camera, Loader2, Plus, Save, Trash2, User, X } from 'lucide
 import { FieldLabel, TextArea, TextInput } from '@/components/onboard/FormField'
 import { useOnboardingDraft, type TeamMember } from '@/lib/onboarding/draft'
 import { getStorefrontSections } from '@/lib/storefront/completion'
+import { useVendorVertical } from '@/lib/onboarding/vertical-context'
 import { cn } from '@/lib/utils'
 import { usePortalT } from '@/components/providers/PortalUIStringsProvider'
 import { loadTeam, saveTeam, uploadStorefrontPhoto } from '../sections/actions'
@@ -42,11 +43,12 @@ export default function TeamClient() {
     }
   }, [])
 
+  const vertical = useVendorVertical()
   const nextHref = useMemo(() => {
-    const sections = getStorefrontSections(draft)
+    const sections = getStorefrontSections(draft, vertical)
     const idx = sections.findIndex((s) => s.id === 'team')
     return idx >= 0 && idx < sections.length - 1 ? sections[idx + 1].href : null
-  }, [draft])
+  }, [draft, vertical])
 
   const [saving, startSaving] = useTransition()
   const [saveError, setSaveError] = useState<string | null>(null)

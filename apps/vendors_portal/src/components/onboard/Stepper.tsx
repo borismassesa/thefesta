@@ -11,6 +11,8 @@ import {
   type OnboardingDraft,
 } from '@/lib/onboarding/draft'
 import { localizeProfileLabel } from '@/lib/onboarding/categories'
+import { sellsProducts } from '@/lib/onboarding/verticals'
+import { pick } from '@/lib/onboarding/localize'
 import { useOnboardT } from '@/lib/onboarding/strings'
 import { cn } from '@/lib/utils'
 
@@ -38,21 +40,28 @@ const profileComplete = (d: OnboardingDraft) =>
       d.serviceMarkets.length >= 0,
   )
 
+// Product vendors skip the service-shaped steps (style, personality, packages,
+// booking policies), so requiring those here would leave their Details and
+// Pricing circles grey however much they fill in. Both predicates drop to the
+// parts their vertical actually walks through.
 const detailsComplete = (d: OnboardingDraft) =>
   Boolean(
     d.bio.trim().length >= 80 &&
       d.yearsInBusiness.trim() &&
       d.languages.length > 0 &&
-      d.style &&
-      d.personality,
+      (sellsProducts(d.vertical) || (d.style && d.personality)),
   )
 
-const pricingComplete = (d: OnboardingDraft) =>
-  d.packages.length > 0 &&
-  d.packages.every((p) => p.name.trim() && p.price.trim()) &&
-  Boolean(d.cancellationLevel) &&
-  Boolean(d.reschedulePolicy) &&
-  hasCompletePayout(d)
+const pricingComplete = (d: OnboardingDraft) => {
+  if (!hasCompletePayout(d)) return false
+  if (sellsProducts(d.vertical)) return true
+  return (
+    d.packages.length > 0 &&
+    d.packages.every((p) => p.name.trim() && p.price.trim()) &&
+    Boolean(d.cancellationLevel) &&
+    Boolean(d.reschedulePolicy)
+  )
+}
 
 const reviewComplete = (d: OnboardingDraft) => Boolean(d.submittedAt)
 
@@ -66,6 +75,14 @@ export function Stepper({
   const { draft, hydrated } = useOnboardingDraft()
   const { t, locale } = useOnboardT()
 
+  // "Pricing" is packages-and-policies language. A shop never sets those, so
+  // for product verticals the step is named and linked by what it really is.
+  const isProductVendor = hydrated && sellsProducts(draft.vertical)
+  const pricingLabel = isProductVendor
+    ? pick(locale, 'Payout', 'Malipo yako')
+    : t('stepper.pricing')
+  const pricingHref = isProductVendor ? '/onboard/pricing/payout' : '/onboard/pricing'
+
   const steps: Step[] = [
     {
       key: 'profile',
@@ -74,7 +91,7 @@ export function Stepper({
       isComplete: profileComplete,
     },
     { key: 'details', label: t('stepper.details'), href: '/onboard/details/about', isComplete: detailsComplete },
-    { key: 'pricing', label: t('stepper.pricing'), href: '/onboard/pricing', isComplete: pricingComplete },
+    { key: 'pricing', label: pricingLabel, href: pricingHref, isComplete: pricingComplete },
     { key: 'review', label: t('stepper.review'), href: '/onboard/review', isComplete: reviewComplete },
   ]
 

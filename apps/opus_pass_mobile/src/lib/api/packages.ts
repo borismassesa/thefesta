@@ -120,7 +120,7 @@ const PACKAGES_FALLBACK: PackagesContent = {
 
 /**
  * Global (not per-product) package-tier pricing config — the same
- * admin-editable source every apps/opus_pass invitation product detail page
+ * admin-editable source every apps/opus_pass digital card product detail page
  * renders (see apps/opus_pass/src/lib/cms/packages.ts), read here directly
  * from Supabase so mobile stays in sync as admins edit tiers/pricing.
  *

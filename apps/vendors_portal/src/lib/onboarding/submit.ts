@@ -15,6 +15,7 @@ import { LIPA_NAMBA_NETWORKS, PAYOUT_OPTIONS } from './payouts'
 import { SERVICE_MARKETS, TZ_REGIONS } from './regions'
 import { getServicesForCategory } from './services'
 import { getStylesForCategory } from './styles'
+import { sellsProducts } from './verticals'
 import { type OnboardingDraft } from './draft'
 import {
   hasCompletePayout,
@@ -26,9 +27,15 @@ export type SubmitApplicationResult =
   | { ok: true; vendorId: string }
   | { ok: false; error: string; reason: 'unauth' | 'incomplete' | 'unknown' }
 
-// Maps the onboarding-flow category IDs to the legacy `vendor_category` enum
-// values used by the public website + storefront. Keep these in sync if the
-// onboarding category list changes.
+// Last-resort map from onboarding category id → `vendors.category` value, used
+// only when the `vendor_categories` table can't be read at submit time.
+//
+// The table IS the source of truth (vendors.category is a text column with a
+// foreign key to vendor_categories.db_value — see migration 20260611000002), so
+// `resolveCategory` below looks the value up there first. This map is
+// service-only and deliberately not extended: every category added since
+// (product shops, attire, ushers, bridal assistance) exists only in the table,
+// and hardcoding new ones here is exactly how they went missing before.
 const CATEGORY_TO_DB: Record<string, string> = {
   venue: 'Venues',
   caterer: 'Caterers',
@@ -178,6 +185,7 @@ function buildServicesOffered(draft: OnboardingDraft): string[] {
 }
 
 function validateDraft(draft: OnboardingDraft): string | null {
+  if (!draft.vertical) return 'Pick what you offer before submitting.'
   if (!draft.categoryId) return 'Pick a category before submitting.'
   if (!draft.vowsAccepted) return 'Vendor Vows must be accepted before submitting.'
   if (!draft.businessName.trim()) return 'Add a business name before submitting.'
@@ -186,8 +194,13 @@ function validateDraft(draft: OnboardingDraft): string | null {
   if (!draft.phone.trim() && !draft.email.trim()) {
     return 'Add at least one contact method (phone or email).'
   }
-  if (draft.packages.length === 0) return 'Add at least one package.'
-  if (!draft.cancellationLevel) return 'Pick a cancellation policy.'
+  // Packages and cancellation policies price booked TIME. Product vendors sell
+  // goods with a per-item price and are never asked these steps — requiring
+  // them here would make a shop application unsubmittable.
+  if (!sellsProducts(draft.vertical)) {
+    if (draft.packages.length === 0) return 'Add at least one package.'
+    if (!draft.cancellationLevel) return 'Pick a cancellation policy.'
+  }
   if (!hasCompletePayout(draft)) {
     return 'Add at least one complete payout method.'
   }
@@ -326,7 +339,17 @@ export async function submitApplication(
   const supabaseUserId = upsertUser.data.id
 
   // 2) Build the vendors row payload.
-  const dbCategory = CATEGORY_TO_DB[draft.categoryId!]
+  //
+  // Resolve the category from the table so any category an admin adds works
+  // without a code change, and cross-check its vertical: the two are written to
+  // the same row and a mismatch would publish the vendor on the wrong surface.
+  const categoryRow = await admin
+    .from('vendor_categories')
+    .select('db_value, vertical')
+    .eq('slug', draft.categoryId!)
+    .maybeSingle<{ db_value: string; vertical: string }>()
+
+  const dbCategory = categoryRow.data?.db_value ?? CATEGORY_TO_DB[draft.categoryId!]
   if (!dbCategory) {
     return {
       ok: false,
@@ -334,6 +357,9 @@ export async function submitApplication(
       error: `[submit] no DB category mapping for '${draft.categoryId}'`,
     }
   }
+  // The category's own vertical wins over the draft's — the draft is
+  // localStorage a vendor could have edited, the table is authoritative.
+  const dbVertical = categoryRow.data?.vertical ?? draft.vertical ?? 'service'
 
   const baseSlug = slugify(draft.businessName) || 'vendor'
 
@@ -408,6 +434,7 @@ export async function submitApplication(
     user_id: supabaseUserId,
     business_name: draft.businessName.trim(),
     category: dbCategory,
+    vertical: dbVertical,
     bio: draft.bio || null,
     description: draft.description?.trim() || null,
     location: buildLocation(draft),

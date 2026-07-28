@@ -11,6 +11,7 @@ import { resolveEventScope } from '@/lib/dashboard/event-scope'
 import { EventChooser } from '@/components/dashboard/EventScope'
 import { getLocale } from '@/lib/cms/locale'
 import { loadUiStrings } from '@/lib/cms/ui-strings'
+import { fetchCatalogProducts } from '@/lib/dashboard/gift-catalog-db'
 import GiftRegistryManager from './GiftRegistryManager'
 
 // A couple who hasn't created any wedding_events yet has nothing to scope
@@ -51,12 +52,13 @@ export default async function GiftRegistryPage({
   }
 
   const selectedEventId = scope.selected?.id ?? null
-  const [items, share, heroBase, guestCount, claims] = await Promise.all([
+  const [items, share, heroBase, guestCount, claims, catalog] = await Promise.all([
     getGiftRegistryItems(selectedEventId),
     selectedEventId ? getGiftRegistryShareInfo(selectedEventId) : Promise.resolve({ slug: null, enabled: false }),
     selectedEventId ? getGiftRegistryHero(selectedEventId) : Promise.resolve(NO_EVENT_HERO),
     getGuestCount(),
     getGiftRegistryClaims(selectedEventId),
+    fetchCatalogProducts(),
   ])
   // The link is built client-side from window.location.origin (see
   // ShareLinkCard) rather than a server-computed origin, so it resolves to
@@ -72,6 +74,7 @@ export default async function GiftRegistryPage({
       events={events.map((e) => ({ id: e.id, name: e.name }))}
       selectedEventId={selectedEventId}
       scopeStrings={scopeStrings}
+      catalog={catalog}
     />
   )
 }

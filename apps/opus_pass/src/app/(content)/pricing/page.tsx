@@ -20,7 +20,7 @@ import {
   Package,
 } from 'lucide-react'
 import { loadPackagesContent, type PackageAddon, type PackageTier } from '@/lib/cms/packages'
-import { FAQItem } from '@/app/invitations/FAQAccordion'
+import { FAQItem } from '@/app/digital-cards/FAQAccordion'
 import { getLocale } from '@/lib/cms/locale'
 import { loadUiStrings } from '@/lib/cms/ui-strings'
 
@@ -146,7 +146,7 @@ const ADDON_CAPTION_BY_CATEGORY: Record<keyof typeof ADDON_ICON_BY_CATEGORY, { e
     sw: 'Wageni wanaweza kuona na kuchangia zawadi unazotaka kwa siku yako kuu.',
   },
   'save-date': {
-    en: 'An early digital announcement sent to guests ahead of your full invitation.',
+    en: 'An early digital announcement sent to guests ahead of your full digital card.',
     sw: 'Tangazo la awali la kidijitali linalotumwa kwa wageni kabla ya mwaliko wako kamili.',
   },
   guestbook: {
@@ -267,7 +267,7 @@ export default async function PricingPage() {
                   <span className="text-[14px] text-gray-500"> {t.per_guest_suffix}</span>
                 </p>
                 <Link
-                  href="/invitations/catalog"
+                  href="/digital-cards/catalog"
                   className={`mt-6 inline-flex items-center justify-center gap-1.5 rounded-full px-6 py-3 text-[14px] font-bold transition-colors ${card.cta}`}
                 >
                   {ctaLabel}
