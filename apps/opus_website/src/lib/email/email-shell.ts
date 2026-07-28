@@ -35,8 +35,12 @@ const BADGE_TONES = {
 
 export type BadgeTone = keyof typeof BADGE_TONES
 
+// Coerces rather than trusting the annotation: these values come from DB rows
+// and JSON payloads that are typed loosely upstream, and a thrown TypeError
+// here loses the whole notification. Nullish renders as empty, not "null".
 export function escapeHtml(value: string): string {
-  return value
+  if (value === null || value === undefined) return ''
+  return String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -95,6 +99,8 @@ export function renderEmail(args: {
   badge?: { label: string; tone: BadgeTone }
   /** Someone else's words, rendered as a pull quote above the detail rows. */
   quote?: string
+  /** Optional eyebrow above the pull quote, e.g. "Client message". */
+  quoteLabel?: string
   rows?: Array<{ label: string; value: string }>
   cta?: { href: string; label: string }
   /** Raw HTML — callers escape their own interpolations. */
@@ -108,8 +114,13 @@ export function renderEmail(args: {
       ? `<tr><td class="px-32" style="padding:14px 32px 0;"><span style="display:inline-block;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:700;color:${badgeTone.fg};background:${badgeTone.bg};border:1px solid ${badgeTone.border};padding:5px 12px;border-radius:999px;">${escapeHtml(args.badge.label)}</span></td></tr>`
       : ''
 
+  const quoteLabel = args.quoteLabel
+    ? `<p class="ink-muted" style="margin:0 0 8px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:700;color:${BRAND.ink.muted};">${escapeHtml(args.quoteLabel)}</p>`
+    : ''
+  // pre-line keeps the sender's own line breaks; the text is escaped, so it
+  // cannot smuggle markup in through them.
   const quote = args.quote
-    ? `<tr><td class="px-32" style="padding:18px 32px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:2px 0 2px 16px;border-left:3px solid ${BRAND.accent};"><p class="ink-secondary" style="margin:0;font-size:16px;line-height:1.6;font-style:italic;color:${BRAND.ink.secondary};">&ldquo;${escapeHtml(args.quote)}&rdquo;</p></td></tr></table></td></tr>`
+    ? `<tr><td class="px-32" style="padding:18px 32px 0;">${quoteLabel}<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:2px 0 2px 16px;border-left:3px solid ${BRAND.accent};"><p class="ink-secondary" style="margin:0;font-size:16px;line-height:1.6;font-style:italic;white-space:pre-line;color:${BRAND.ink.secondary};">&ldquo;${escapeHtml(args.quote)}&rdquo;</p></td></tr></table></td></tr>`
     : ''
 
   // Two-column rows so the labels line up instead of running inline with the

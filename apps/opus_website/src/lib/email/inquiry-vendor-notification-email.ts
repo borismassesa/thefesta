@@ -39,13 +39,18 @@ export function buildInquiryVendorNotificationEmail(input: Input) {
 
   const html = renderEmail({
     heading: 'You have a new inquiry',
-    preheader: `New inquiry from ${input.clientName}.`,
+    eyebrow: 'New inquiry',
+    // Lead the inbox preview with what the client actually said.
+    preheader: input.message
+      ? `${input.clientName}: ${input.message}`
+      : `New inquiry from ${input.clientName}.`,
     intro,
+    // The message sits above the button on purpose: a vendor should be able to
+    // read what was asked before deciding to open the portal.
+    quote: input.message ?? undefined,
+    quoteLabel: input.message ? 'Client message' : undefined,
     rows,
     cta: { href: input.portalUrl, label: 'Open vendor portal' },
-    closing: input.message
-      ? `<strong>Client message:</strong><br/>${escapeHtml(input.message).replace(/\n/g, '<br/>')}`
-      : undefined,
   })
 
   return { subject, text, html }
