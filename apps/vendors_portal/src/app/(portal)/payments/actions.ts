@@ -218,7 +218,10 @@ export async function requestPayout(): Promise<RequestPayoutResult> {
 
 // ── Payout method management ────────────────────────────────────────────────
 
-export const PAYOUT_METHOD_TYPES = ['mpesa', 'airtel', 'tigo', 'lipa_namba', 'bank'] as const
+// Not exported: a 'use server' file may only export async functions, and a
+// const array export fails the production build. Nothing outside this module
+// needs it. Types are erased, so the derived type can still be exported.
+const PAYOUT_METHOD_TYPES = ['mpesa', 'airtel', 'tigo', 'lipa_namba', 'bank'] as const
 export type PayoutMethodType = (typeof PAYOUT_METHOD_TYPES)[number]
 
 export type SavePayoutMethodResult =
