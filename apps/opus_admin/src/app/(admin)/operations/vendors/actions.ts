@@ -1612,11 +1612,16 @@ export async function loadVendorCategoryOptions(): Promise<VendorCategoryOption[
  * the one way to produce a vendor the schema considers self-contradictory: a
  * "Venues" row published in the gift registry.
  *
- * This moves the vendor between PUBLIC CATALOGUES — out of the wedding vendor
- * directory and into the registry, or back — so it also busts the website's ISR
- * cache for the affected pages. It reshapes their portal too: a vendor moved to
- * a product vertical loses Bookings, Leads, Packages and Availability and gains
- * Products and Payments (see the guards in vendors_portal).
+ * When the new category sits in a different vertical this moves the vendor
+ * between PUBLIC CATALOGUES (out of the wedding vendor directory and into the
+ * registry, or back) and, if it crosses the service/product line, reshapes their
+ * portal: they lose Bookings, Leads, Packages and Availability and gain Products
+ * and Payments, or the reverse (see the guards in vendors_portal).
+ *
+ * The ISR cache bust runs on EVERY save, not just vertical moves. A vendor's
+ * public page renders its category, so a same-vertical rename is stale too, and
+ * over-purging a handful of paths is cheaper than reasoning about which ones
+ * actually changed.
  */
 export async function updateVendorCategory(
   vendorId: string,
@@ -1647,11 +1652,21 @@ export async function updateVendorCategory(
     return { ok: false, reason: 'invalid', error: 'Pick an active vendor category.' }
   }
 
-  const { data: before } = await admin
+  // Read the slug BEFORE the write, because it's what names the public paths to
+  // purge. A failure here doesn't block the re-file, but it must not pass in
+  // silence: the write would succeed while the public site kept serving the old
+  // listing for a full ISR window, which is exactly the "publish does nothing"
+  // failure the revalidate helper's own header warns about.
+  const { data: before, error: beforeError } = await admin
     .from('vendors')
     .select('slug, category, vertical')
     .eq('id', vendorId)
     .maybeSingle<{ slug: string; category: string; vertical: string | null }>()
+  if (beforeError) {
+    console.error(
+      `[admin] vendor lookup before category change failed: ${beforeError.code} ${beforeError.message} — public cache will not be purged for vendor ${vendorId}.`,
+    )
+  }
 
   const { error } = await admin
     .from('vendors')
@@ -1684,6 +1699,33 @@ export async function updateVendorCategory(
       `/attire-and-rings/shops/${before.slug}`,
       '/attire-and-rings/shops',
     )
+  } else {
+    console.error(
+      `[admin] no slug resolved for vendor ${vendorId} — public cache not purged after category change.`,
+    )
+  }
+
+  // A vendor filed under "Other" carries a pending `vendor_category_requests`
+  // row, which renders a standing "this vendor doesn't fit an existing
+  // category" banner on this page and sits in the category-requests queue.
+  // Re-filing them into a real category IS the answer to that request: the
+  // admin has decided they do fit one, so no new category will be created.
+  // Resolving it here is the same write an admin would otherwise make by hand
+  // in the queue; leaving it pending would strand the banner and the queue
+  // entry forever. Best-effort — the re-file itself has already succeeded.
+  if (before?.category === 'Other' && category.db_value !== 'Other') {
+    const { error: requestError } = await admin
+      .from('vendor_category_requests')
+      .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+      .eq('vendor_id', vendorId)
+      .eq('status', 'pending')
+    if (requestError) {
+      console.error(
+        `[admin] could not resolve pending category request for vendor ${vendorId}: ${requestError.code} ${requestError.message}`,
+      )
+    } else {
+      revalidatePath('/operations/category-requests')
+    }
   }
 
   return { ok: true }

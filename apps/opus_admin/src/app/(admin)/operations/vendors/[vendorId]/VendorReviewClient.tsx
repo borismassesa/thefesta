@@ -1009,9 +1009,11 @@ export default function VendorReviewClient(props: VendorReviewProps) {
  * self-contradictory (a "Venues" row published in the gift registry).
  *
  * A change that also moves the vertical moves the vendor between public
- * catalogues and reshapes their portal, so that case asks for confirmation and
- * spells out both consequences. A same-vertical change (Venues → Caterers) is
- * ordinary bookkeeping and saves straight away.
+ * catalogues, so that case is called out with a warning naming the catalogue
+ * they leave and the one they land in. There is deliberately no extra
+ * confirmation gate: the move is one click, and reversible by picking the old
+ * category back. A same-vertical change (Venues → Caterers) is ordinary
+ * bookkeeping and saves without ceremony.
  */
 function CategoryCard({
   vendorId,
@@ -1041,6 +1043,13 @@ function CategoryCard({
   const nextVertical = (selected?.vertical ?? 'service') as VendorVertical
   const dirty = choice !== currentCategory
   const movesVertical = dirty && nextVertical !== currentVertical
+  // The catalogue move and the portal reshape are separate consequences, and
+  // they don't always travel together: gift_shop and attire_rings are different
+  // catalogues but the same portal shape, so a move between them changes where
+  // the vendor is published without touching a single tab. Only mention the
+  // portal when it actually changes.
+  const reshapesPortal =
+    movesVertical && isProductVertical(nextVertical) !== isProductVertical(currentVertical)
 
   const save = () => {
     onError(null)
@@ -1117,14 +1126,25 @@ function CategoryCard({
             This moves <strong>{businessName}</strong> out of{' '}
             {SURFACE_BY_VERTICAL[currentVertical]} and into{' '}
             {SURFACE_BY_VERTICAL[nextVertical]}.{' '}
-            {nextVertical === 'service'
-              ? 'In their portal they get Bookings, Leads, Packages and Availability back, and lose Products and Payments.'
-              : 'In their portal they lose Bookings, Leads, Packages and Availability, and gain Products and Payments.'}
+            {reshapesPortal
+              ? nextVertical === 'service'
+                ? 'In their portal they get Bookings, Leads, Packages and Availability back, and lose Products and Payments.'
+                : 'In their portal they lose Bookings, Leads, Packages and Availability, and gain Products and Payments.'
+              : 'Their portal is unchanged: both sell goods rather than booked time.'}
           </p>
         </div>
       )}
     </div>
   )
+}
+
+/**
+ * Whether a vertical sells goods rather than booked time. Mirrors
+ * `sellsProducts()` in the vendors portal, which is what actually decides the
+ * portal's shape — the two product verticals are indistinguishable there.
+ */
+function isProductVertical(vertical: VendorVertical): boolean {
+  return vertical === 'gift_shop' || vertical === 'attire_rings'
 }
 
 const SURFACE_BY_VERTICAL: Record<VendorVertical, string> = {
