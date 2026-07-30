@@ -37,6 +37,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useSetPageHeading } from '@/components/PageHeading'
 import { HeaderActionsSlot, HeaderBadgeSlot } from '@/components/HeaderPortals'
+import { VERTICAL_LABELS, type VendorVertical } from '../_lib/types'
 import {
   approveDocument,
   approveVendor,
@@ -53,6 +54,8 @@ import {
   saveVendorPayoutMethod,
   setPrimaryPayoutMethod,
   suspendVendor,
+  updateVendorCategory,
+  type VendorCategoryOption,
   type VendorDeletionImpact,
   type VendorPayoutMethodType,
   type VendorPayoutStatus,
@@ -95,12 +98,14 @@ export type DocSummary = {
 
 export type VendorReviewProps = {
   categoryRequest: { requested_label: string; status: string } | null
+  categoryOptions: VendorCategoryOption[]
   vendor: {
     id: string
     vendorCode: string | null
     slug: string
     businessName: string
     category: string
+    vertical: VendorVertical
     bio: string | null
     description: string | null
     yearsInBusiness: number | null
@@ -305,6 +310,7 @@ const TAB_ORDER: ReadonlyArray<{ id: VendorTab; label: string }> = [
 export default function VendorReviewClient(props: VendorReviewProps) {
   const {
     categoryRequest,
+    categoryOptions,
     vendor,
     tin,
     license,
@@ -357,9 +363,13 @@ export default function VendorReviewClient(props: VendorReviewProps) {
   // Drive the global Header from real vendor data. The status pill and the
   // Approve / Suspend / Request-corrections buttons portal into the Header
   // slots below; here we just feed the title + subtitle text.
+  // The vertical rides in the subtitle only when it isn't the 'service'
+  // default, matching the list: it's the exception that needs spotting, because
+  // it decides which public catalogue this vendor is published to.
   const subtitleParts = [
     vendor.vendorCode,
     vendor.category,
+    vendor.vertical === 'service' ? null : VERTICAL_LABELS[vendor.vertical],
     `/${vendor.slug}`,
     `last update ${formatRelative(vendor.updatedAt)}`,
   ].filter(Boolean) as string[]
@@ -548,6 +558,17 @@ export default function VendorReviewClient(props: VendorReviewProps) {
             </p>
           </div>
         )}
+
+        <CategoryCard
+          vendorId={vendor.id}
+          businessName={vendor.businessName}
+          currentCategory={vendor.category}
+          currentVertical={vendor.vertical}
+          options={categoryOptions}
+          pending={pending}
+          onError={setBannerError}
+          onSaved={() => router.refresh()}
+        />
 
         {/* Un-sent rejections guardrail — rejecting a document neither emails
             the vendor nor changes their status. This makes sure the admin
@@ -978,6 +999,159 @@ export default function VendorReviewClient(props: VendorReviewProps) {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+/**
+ * Re-file a vendor under a different business category.
+ *
+ * The admin picks a CATEGORY, never a vertical directly: `vendor_categories`
+ * owns the mapping and `vendors.vertical` is a denormalised copy of it, so
+ * exposing both would be the one way to create a vendor the schema considers
+ * self-contradictory (a "Venues" row published in the gift registry).
+ *
+ * A change that also moves the vertical moves the vendor between public
+ * catalogues, so that case is called out with a warning naming the catalogue
+ * they leave and the one they land in. There is deliberately no extra
+ * confirmation gate: the move is one click, and reversible by picking the old
+ * category back. A same-vertical change (Venues → Caterers) is ordinary
+ * bookkeeping and saves without ceremony.
+ */
+function CategoryCard({
+  vendorId,
+  businessName,
+  currentCategory,
+  currentVertical,
+  options,
+  pending,
+  onError,
+  onSaved,
+}: {
+  vendorId: string
+  businessName: string
+  currentCategory: string
+  currentVertical: VendorVertical
+  options: VendorCategoryOption[]
+  pending: boolean
+  onError: (msg: string | null) => void
+  onSaved: () => void
+}) {
+  const [choice, setChoice] = useState(currentCategory)
+  const [saving, startSaving] = useTransition()
+
+  if (options.length === 0) return null
+
+  const selected = options.find((o) => o.dbValue === choice)
+  const nextVertical = (selected?.vertical ?? 'service') as VendorVertical
+  const dirty = choice !== currentCategory
+  const movesVertical = dirty && nextVertical !== currentVertical
+  // The catalogue move and the portal reshape are separate consequences, and
+  // they don't always travel together: gift_shop and attire_rings are different
+  // catalogues but the same portal shape, so a move between them changes where
+  // the vendor is published without touching a single tab. Only mention the
+  // portal when it actually changes.
+  const reshapesPortal =
+    movesVertical && isProductVertical(nextVertical) !== isProductVertical(currentVertical)
+
+  const save = () => {
+    onError(null)
+    startSaving(async () => {
+      const res = await updateVendorCategory(vendorId, choice)
+      if (!res.ok) {
+        onError(res.error ?? 'Could not change the category.')
+        setChoice(currentCategory)
+        return
+      }
+      onSaved()
+    })
+  }
+
+  // Group the picker by vertical so the consequence of a choice is visible
+  // before it's made, rather than only in the warning afterwards.
+  const groups = (['service', 'gift_shop', 'attire_rings'] as const)
+    .map((v) => ({ vertical: v, items: options.filter((o) => o.vertical === v) }))
+    .filter((g) => g.items.length > 0)
+
+  return (
+    <div className="mb-4 rounded-lg border border-gray-200 bg-white px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <Tag className="h-4 w-4 shrink-0 text-gray-400" />
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-gray-900">Business category</p>
+          <p className="text-[11px] text-gray-500">
+            Decides which public catalogue this vendor appears in.
+          </p>
+        </div>
+        <select
+          value={choice}
+          onChange={(e) => setChoice(e.target.value)}
+          disabled={pending || saving}
+          aria-label="Business category"
+          className="ml-auto rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC] disabled:opacity-50"
+        >
+          {groups.map((g) => (
+            <optgroup key={g.vertical} label={VERTICAL_LABELS[g.vertical]}>
+              {g.items.map((o) => (
+                <option key={o.slug} value={o.dbValue}>
+                  {o.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {dirty && (
+          <button
+            type="button"
+            onClick={save}
+            disabled={pending || saving}
+            className="shrink-0 rounded-full bg-[#5B2D8E] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#4A2472] disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : movesVertical ? 'Move vendor' : 'Save'}
+          </button>
+        )}
+        {dirty && (
+          <button
+            type="button"
+            onClick={() => setChoice(currentCategory)}
+            disabled={pending || saving}
+            className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-900 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+
+      {movesVertical && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+          <p className="text-xs leading-relaxed text-amber-900">
+            This moves <strong>{businessName}</strong> out of{' '}
+            {SURFACE_BY_VERTICAL[currentVertical]} and into{' '}
+            {SURFACE_BY_VERTICAL[nextVertical]}.{' '}
+            {reshapesPortal
+              ? nextVertical === 'service'
+                ? 'In their portal they get Bookings, Leads, Packages and Availability back, and lose Products and Payments.'
+                : 'In their portal they lose Bookings, Leads, Packages and Availability, and gain Products and Payments.'
+              : 'Their portal is unchanged: both sell goods rather than booked time.'}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Whether a vertical sells goods rather than booked time. Mirrors
+ * `sellsProducts()` in the vendors portal, which is what actually decides the
+ * portal's shape — the two product verticals are indistinguishable there.
+ */
+function isProductVertical(vertical: VendorVertical): boolean {
+  return vertical === 'gift_shop' || vertical === 'attire_rings'
+}
+
+const SURFACE_BY_VERTICAL: Record<VendorVertical, string> = {
+  service: 'the wedding vendor directory',
+  gift_shop: 'the gift registry',
+  attire_rings: 'the Attire & Rings pages',
+}
 
 // Header "⋯" overflow menu. Keeps destructive / rare lifecycle actions out of
 // the always-visible primary buttons (Approve / Suspend) and off the editing

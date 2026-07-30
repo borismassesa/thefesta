@@ -21,6 +21,26 @@ export type StoredContact = {
   notes?: string
 }
 
+/**
+ * A purchased add-on, kept structured instead of only as a display string.
+ *
+ * `addOns: string[]` renders the label a customer saw ("25 premium printed
+ * cards") and stays for that. But it is display copy: the CMS title drifts
+ * (the 'paper-prints' add-on has been "Paper prints" and "Premium printed
+ * cards"), so the quantity a designer or printer needs cannot be recovered
+ * from it reliably. `code` is the stable CMS add-on id.
+ */
+export type StoredOrderAddOn = {
+  /** Stable CMS add-on id, e.g. 'paper-prints' or 'door-scan'. */
+  code: string
+  /** Title at the time of purchase — frozen, so a later CMS rename can't rewrite history. */
+  label: string
+  /** Units bought. Always 1 for flat-fee add-ons. */
+  qty: number
+  /** Line amount in TZS. */
+  amount: number
+}
+
 export type StoredOrderItem = {
   id: string
   name: string
@@ -35,6 +55,8 @@ export type StoredOrderItem = {
   tierId?: string
   guests?: number
   addOns?: string[]
+  /** Structured form of `addOns`. Absent on orders placed before this shipped. */
+  addOnItems?: StoredOrderAddOn[]
 }
 
 export type StoredOrderContact = {

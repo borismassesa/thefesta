@@ -36,7 +36,7 @@ export default async function CoupleAccountPage({
   const selectedEvent = events.find((e) => e.id === requestedEventId) ?? events[0] ?? null
   const eventNameById = new Map(events.map((e) => [e.id, e.name]))
 
-  const [orders, linkableOrders, notes, creditUsage, guests, tier, canWrite] = await Promise.all([
+  const [orders, linkableOrders, notes, creditUsage, guests, tier, canWrite, canDelete] = await Promise.all([
     getCoupleOrders(userId, eventNameById),
     getLinkableOrdersForCouple(userId),
     getCoupleNotes(userId),
@@ -44,6 +44,7 @@ export default async function CoupleAccountPage({
     selectedEvent ? getEventGuests(selectedEvent.id) : Promise.resolve([]),
     getCoupleTier(userId),
     hasPermission('opuspass.couples.write'),
+    hasPermission('opuspass.couples.delete'),
   ])
 
   return (
@@ -59,6 +60,7 @@ export default async function CoupleAccountPage({
         notes={notes}
         tier={tier}
         canWrite={canWrite}
+        canDelete={canDelete}
       />
     </div>
   )

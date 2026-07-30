@@ -20,6 +20,8 @@ import type { EventCreditUsage } from '../../../finance/payments/queries'
 import type { CoupleAccountDetail, CoupleEvent, CoupleGuestRow, CoupleNote, CoupleOrder } from './queries'
 import { GUEST_PAGE_SIZE } from './constants'
 import { addCoupleNote, adjustCoupleCredits, linkOrderToAccount, type ActionResult } from './actions'
+import { toDateInputValue, type CoupleEditable } from '../editable'
+import { CoupleConsoleActions } from '../CoupleAccountControls'
 
 const TABS = ['Overview', 'Events', 'Guests & RSVPs', 'Orders & Credits', 'Notes'] as const
 type Tab = (typeof TABS)[number]
@@ -98,6 +100,7 @@ export default function CoupleConsole({
   notes,
   tier,
   canWrite,
+  canDelete,
 }: {
   couple: CoupleAccountDetail
   events: CoupleEvent[]
@@ -109,12 +112,30 @@ export default function CoupleConsole({
   notes: CoupleNote[]
   tier: 'elegant' | 'signature' | null
   canWrite: boolean
+  canDelete: boolean
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>('Overview')
 
   const selectedEvent = events.find((e) => e.id === selectedEventId) ?? null
+
+  const editable: CoupleEditable = {
+    userId: couple.userId,
+    coupleName: couple.coupleName,
+    partner1Name: couple.partner1Name ?? '',
+    partner2Name: couple.partner2Name ?? '',
+    email: couple.email ?? '',
+    phone: couple.phone ?? '',
+    whatsappPhone: couple.whatsappPhone ?? '',
+    city: couple.city ?? '',
+    region: couple.region ?? '',
+    weddingDate: toDateInputValue(couple.weddingDate),
+    dateUndecided: couple.dateUndecided,
+    budgetRange: couple.budgetRange ?? '',
+    guestCount: couple.expectedGuestCount === null ? '' : String(couple.expectedGuestCount),
+    canSignIn: couple.clerkLinked,
+  }
 
   function selectEvent(eventId: string) {
     const next = new URLSearchParams(searchParams.toString())
@@ -156,15 +177,18 @@ export default function CoupleConsole({
           </div>
         </div>
 
-        {tier ? (
-          <Link
-            href={`/opus-pass/pledges/${couple.userId}`}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#C9A0DC] hover:text-[#7E5896]"
-          >
-            <HandHeart className="h-4 w-4" />
-            Pledge Concierge
-          </Link>
-        ) : null}
+        <div className="flex flex-col items-end gap-2">
+          {tier ? (
+            <Link
+              href={`/opus-pass/pledges/${couple.userId}`}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#C9A0DC] hover:text-[#7E5896]"
+            >
+              <HandHeart className="h-4 w-4" />
+              Pledge Concierge
+            </Link>
+          ) : null}
+          <CoupleConsoleActions couple={editable} canWrite={canWrite} canDelete={canDelete} />
+        </div>
       </div>
 
       {events.length > 0 ? (

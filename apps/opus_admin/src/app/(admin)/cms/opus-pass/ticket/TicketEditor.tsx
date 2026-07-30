@@ -7,7 +7,7 @@ import { PaletteEditor } from '@/components/cms/PaletteEditor'
 import { SvgInspector } from '@/components/cms/SvgInspector'
 import { SvgPreview } from '@/components/cms/SvgPreview'
 import { uploadCmsMediaToFixedPath } from '@/lib/cms/upload-client'
-import { upsertDigitalCardProduct } from '../digital-cards/products/actions'
+import { upsertDigitalCardProduct } from '../../../opus-pass/digital-cards/cards/actions'
 import type { DigitalCardPalette, DigitalCardProductRecord } from '@/lib/cms/opus-pass-digital-cards-products'
 
 const IMAGE_PREFIX = 'opus-pass/invitations/ticket'

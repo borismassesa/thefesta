@@ -29,7 +29,7 @@ export default function ProductRowActions({ id, name }: Props) {
   return (
     <div className={cn('flex items-center justify-end gap-0.5', pending && 'opacity-60')}>
       <Link
-        href={`/cms/opus-pass/digital-cards/products/${id}`}
+        href={`/opus-pass/digital-cards/cards/${id}`}
         title="Edit"
         className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
       >

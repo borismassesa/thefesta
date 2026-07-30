@@ -46,11 +46,27 @@ export const PRODUCT_BADGE_LABELS: Record<ProductBadge, string> = {
   trending: '🔥 Trending This Week',
 }
 
+/**
+ * The canonical card categories. These strings are STORED VERBATIM in
+ * `website_invitations_products.category`, so they are data, not labels —
+ * renaming one orphans every card already filed under the old string.
+ *
+ * The storefront routes a card to its category page by matching these against
+ * `DigitalCardCategory.productMatchers` (case-insensitive SUBSTRING match, see
+ * opus_pass/src/data/digital-cards-categories.ts), so every value here must
+ * contain the matcher of exactly one storefront category:
+ *
+ *   'Wedding Invitations' → wedding          'Kadi za Michango' → kadi-za-michango
+ *   'Sendoff'            → send-off          'Anniversary'      → anniversary
+ *   'Kitchen Party'      → kitchen-party     'Communio'         → communio
+ *   'Save the Dates'     → save-the-date      'Birthday'         → birthday
+ *   'Gala Dinner'        → gala-dinner        'Muslim Wedding'   → muslim-wedding
+ */
 export const PRODUCT_CATEGORIES = [
-  'Wedding',
+  'Wedding Invitations',
   'Sendoff',
   'Kitchen Party',
-  'Save the Date',
+  'Save the Dates',
   'Kadi za Michango',
   'Anniversary',
   'Communio',
@@ -58,6 +74,42 @@ export const PRODUCT_CATEGORIES = [
   'Gala Dinner',
   'Muslim Wedding',
 ] as const
+
+// ── Catalogue list sorting ────────────────────────────────────────────────
+//
+// Sort orders the list; it never hides a card (that's what the filters do).
+// 'curated' is the default because sort_order is the hand-picked sequence the
+// storefront shows, so the admin list reads in the same order as the shop.
+//
+// Deliberately no price sort: a card's cost comes from the per-guest package
+// tiers (see the Packages CMS section), and price_now / digital_unit_price are
+// uniform across the whole catalogue. Sorting on either would be a control that
+// visibly does nothing. Add one if per-card pricing ever varies.
+//
+// Sorting by units sold isn't here either. The units themselves now exist as a
+// view (website_invitations_product_sales, migration
+// 20260729000001_digital_card_sales_and_auto_badges), and the list DISPLAYS
+// them, but PostgREST can't order the products table by a column from a view it
+// has no foreign key to. Sorting on it needs one relation carrying both sides:
+// either a joined view of products + units, or a units column maintained on the
+// products table itself.
+export const PRODUCT_SORTS = {
+  curated: { label: 'Curated order' },
+  newest: { label: 'Newest first' },
+  updated: { label: 'Recently updated' },
+  name: { label: 'Name A–Z' },
+} as const
+
+export type ProductSort = keyof typeof PRODUCT_SORTS
+
+export const DEFAULT_PRODUCT_SORT: ProductSort = 'curated'
+
+export function isProductSort(value: string): value is ProductSort {
+  return Object.prototype.hasOwnProperty.call(PRODUCT_SORTS, value)
+}
+
+/** Sentinel for "card carries no promotional badge" — badge IS NULL. */
+export const NO_BADGE = 'none'
 
 export type DigitalCardProductRecord = {
   id: string
@@ -108,6 +160,49 @@ export type DigitalCardProductRecord = {
 
   created_at: string
   updated_at: string
+}
+
+/**
+ * Columns the admin must never write back.
+ *
+ * `badge_effective` is GENERATED (coalesce of badge/badge_auto) — Postgres
+ * rejects any write to it. `badge_auto` belongs to the nightly
+ * refresh_digital_card_auto_badges() job. The editor loads rows with
+ * `select('*')`, so both arrive in the record and would otherwise be echoed
+ * straight back on save.
+ */
+export const READ_ONLY_PRODUCT_COLUMNS = [
+  'badge_effective',
+  'badge_auto',
+  'created_at',
+  'updated_at',
+] as const
+
+/**
+ * Force a row from the database into the shape the record type promises.
+ *
+ * name_sw and description_sw are nullable in Postgres but typed `string` here,
+ * so a legacy row hands React `value={null}` and turns a controlled input into
+ * an uncontrolled one mid-edit. Coalescing at the boundary keeps that lie out
+ * of the component.
+ */
+export function normalizeDigitalCardProduct(
+  row: DigitalCardProductRecord,
+): DigitalCardProductRecord {
+  return {
+    ...row,
+    name: row.name ?? '',
+    name_sw: row.name_sw ?? '',
+    designer: row.designer ?? '',
+    description: row.description ?? '',
+    description_sw: row.description_sw ?? '',
+    image_url: row.image_url ?? '',
+    back_image_url: row.back_image_url ?? '',
+    swatches: row.swatches ?? [],
+    palettes: row.palettes ?? [],
+    gallery: row.gallery ?? [],
+    designs: row.designs ?? [],
+  }
 }
 
 export function emptyDigitalCardProduct(

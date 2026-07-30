@@ -158,6 +158,7 @@ export function orderRowToStoredOrder(order: OrderRow): StoredOrder {
       tierId: i.tierId,
       guests: i.guests,
       addOns: i.addOns,
+      addOnItems: i.addOnItems,
     })),
     subtotal: order.subtotal,
     discount: order.discount,

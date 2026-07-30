@@ -2,6 +2,9 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Escape hatch so a verification build can be run without writing over the
+  // .next a running `next dev` is using. Same pattern as apps/opus_pass.
+  distDir: process.env.ADMIN_DIST_DIR || '.next',
   // Transpile the shared workspace package (TS source, not pre-built).
   transpilePackages: ['@opusfesta/lib'],
   experimental: {

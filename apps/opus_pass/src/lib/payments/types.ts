@@ -1,3 +1,4 @@
+import type { StoredOrderAddOn } from '@/lib/cart-storage'
 import type { Treatment } from '@/components/guests/InvitationVisual'
 
 // Shared payment types — safe to import from both client and server (no
@@ -49,6 +50,8 @@ export type InitiateItem = {
   /** Non-guest-scaling extras already folded into `total` (prints, swag, etc.). */
   extrasTotal?: number
   addOns?: string[]
+  /** Structured add-ons (code/qty) — carried through to the stored order. */
+  addOnItems?: StoredOrderAddOn[]
   /** Client-computed line total (TZS) — re-derived server-side, never trusted.
    *  Ignored when `kind` names a flat-price product (see `kind`). */
   total: number

@@ -10,7 +10,6 @@ import {
   HelpCircle,
   Heart,
   LayoutPanelTop,
-  Mail,
   Megaphone,
   PanelTop,
   Save,
@@ -25,15 +24,10 @@ import { CmsSecondarySidebar, type CmsSection } from '@/components/cms/CmsSecond
 import { EditorActionsProvider, useEditorActions } from './EditorActionsContext'
 import { getOpusPassDigitalCardsPreviewUrl } from './preview-action'
 
+// The card catalogue itself lives outside the CMS, under
+// OpusPass › Digital Cards — it's product data, not page copy. Everything
+// below edits the storefront's marketing sections.
 const sections: CmsSection[] = [
-  {
-    key: 'products',
-    label: 'Cards',
-    icon: Mail,
-    href: '/cms/opus-pass/digital-cards/products',
-    status: 'live',
-    description: 'Digital card catalog — designs, prices, designer and details per card.',
-  },
   {
     key: 'packages',
     label: 'Packages',

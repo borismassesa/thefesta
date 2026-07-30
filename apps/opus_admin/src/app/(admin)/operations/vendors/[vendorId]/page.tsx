@@ -3,6 +3,8 @@ import { createSupabaseAdminClient } from '@/lib/supabase'
 import VendorReviewClient, {
   type VendorReviewProps,
 } from './VendorReviewClient'
+import { isVendorVertical } from '../_lib/types'
+import { loadVendorCategoryOptions } from '../actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +15,7 @@ type VendorRow = {
   business_name: string
   logo: string | null
   category: string
+  vertical: string | null
   bio: string | null
   description: string | null
   location: {
@@ -160,7 +163,7 @@ export default async function VendorReviewPage({
     admin
       .from('vendors')
       .select(
-        `id, vendor_code, slug, business_name, logo, category, bio, description,
+        `id, vendor_code, slug, business_name, logo, category, vertical, bio, description,
          location, contact_info, social_links, services_offered,
          years_in_business, onboarding_status, onboarding_started_at,
          onboarding_completed_at, suspended_at, suspension_reason,
@@ -453,14 +456,20 @@ export default async function VendorReviewPage({
     categoryRequest = catReq ?? null
   }
 
+  // Options for the category picker. Read here rather than in the client so the
+  // list is server-rendered with the rest of the page.
+  const categoryOptions = await loadVendorCategoryOptions()
+
   const props: VendorReviewProps = {
     categoryRequest,
+    categoryOptions,
     vendor: {
       id: v.id,
       vendorCode: v.vendor_code,
       slug: v.slug,
       businessName: v.business_name,
       category: v.category,
+      vertical: isVendorVertical(v.vertical) ? v.vertical : 'service',
       bio: v.bio,
       description: v.description,
       yearsInBusiness: v.years_in_business,
