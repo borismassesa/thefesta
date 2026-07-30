@@ -16,6 +16,14 @@ const isProtectedRoute = createRouteMatcher([
   '/digital-cards/checkout(.*)',
 ])
 
+// The staff-cookie bypass below is sound only where something downstream
+// re-verifies. /my is that place: its layout calls requireDashboardUser(), so an
+// unverifiable cookie still ends at /sign-in. The shopping funnel has no such
+// guard — checkout resolves its events to [] for an unknown user rather than
+// redirecting — so the bypass must not reach it, or setting the cookie to any
+// value at all would open a route that is supposed to require a sign-in.
+const isCoupleDashboard = createRouteMatcher(['/my(.*)'])
+
 export default clerkMiddleware(async (auth, req) => {
   // An OpusFesta admin acting for a couple (see lib/dashboard/staff-session.ts)
   // holds no Clerk session on this instance, so auth.protect() would bounce them
@@ -26,7 +34,7 @@ export default clerkMiddleware(async (auth, req) => {
   // edge-runtime copy of the signing code for no security gain.
   const staffSession = Boolean(req.cookies.get(STAFF_SESSION_COOKIE)?.value)
 
-  if (isProtectedRoute(req) && !staffSession) {
+  if (isProtectedRoute(req) && !(staffSession && isCoupleDashboard(req))) {
     await auth.protect({
       unauthenticatedUrl: new URL('/sign-in', req.url).toString(),
     })
