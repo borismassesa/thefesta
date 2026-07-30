@@ -1,16 +1,20 @@
 import type { Metadata } from 'next'
-import ComingSoonPage from '@/components/coming-soon/ComingSoonPage'
+import Navbar from '@/components/navbar'
+import Footer from '@/components/footer'
+import PlanningToolsHero from '@/components/planning-tools/PlanningToolsHero'
 
 export const metadata: Metadata = {
-  title: 'Planning Tools — Coming Soon | OpusFesta',
-  description: 'This section is not available yet.',
+  title: 'Planning Tools | OpusFesta',
+  description:
+    'Checklists, budgets, guest lists and seating charts. Every moving piece of your wedding in one place.',
 }
 
-export default function PlanningToolsComingSoonPage() {
+export default function PlanningToolsPage() {
   return (
-    <ComingSoonPage
-      words={['NOT', 'BUILT', 'YET.', 'COME BACK WHEN', 'THE TOOLS ARE READY']}
-      ariaLabel="Not built yet. Come back when the tools are ready."
-    />
+    <>
+      <Navbar />
+      <PlanningToolsHero />
+      <Footer />
+    </>
   )
 }
