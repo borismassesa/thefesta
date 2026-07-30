@@ -72,6 +72,7 @@ jspm_packages/
 # (it emits broken `[key:…]` CSS → dev-server 500). See globals.css parse error.
 .next-preview
 .next-prodtest
+.next-buildcheck
 
 # TypeScript incremental build cache (per-app, regenerates on every type-check)
 *.tsbuildinfo

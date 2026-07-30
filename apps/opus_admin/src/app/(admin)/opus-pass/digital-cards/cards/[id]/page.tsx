@@ -1,7 +1,9 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import {
   emptyDigitalCardProduct,
+  normalizeDigitalCardProduct,
   type DigitalCardProductRecord,
 } from '@/lib/cms/opus-pass-digital-cards-products'
 import ProductEditor from './ProductEditor'
@@ -13,6 +15,8 @@ export default async function DigitalCardProductDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  if (!(await hasPermission('cms.read'))) redirect('/')
+
   const { id } = await params
 
   if (id === 'new') {
@@ -29,5 +33,5 @@ export default async function DigitalCardProductDetailPage({
   if (error) throw error
   if (!data) notFound()
 
-  return <ProductEditor initial={data} isNew={false} />
+  return <ProductEditor initial={normalizeDigitalCardProduct(data)} isNew={false} />
 }

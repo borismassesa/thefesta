@@ -4,14 +4,78 @@ import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createDashboardClient } from './supabase'
+import { getStaffSession } from './staff-session'
 
 export interface DashboardUser {
   /** public.users.id used to scope every dashboard query */
   id: string
-  /** Clerk identity id (auth.userId) */
+  /** Clerk identity id (auth.userId). Empty for a staff session, which has no
+   *  Clerk identity of its own on this instance. */
   clerkId: string
   email: string
   name: string | null
+  /** Set when an OpusFesta admin is acting as this couple. Read by the layout
+   *  to render the staff banner. */
+  staffAdminEmail?: string
+}
+
+/**
+ * Resolve the couple an OpusFesta admin is acting for, when a valid staff
+ * session cookie is present (see ./staff-session.ts). This is the ONE place
+ * impersonation enters the dashboard: everything downstream scopes off
+ * `DashboardUser.id`, so nothing else needs to know.
+ *
+ * Returns null when there is no staff session, when the token no longer
+ * verifies, or when the account it names has since been deleted — every case
+ * falls through to the normal Clerk path below.
+ */
+async function loadStaffUser(): Promise<DashboardUser | null> {
+  const session = await getStaffSession()
+  if (!session) return null
+
+  const supabase = createDashboardClient()
+  const [{ data }, { data: workspace }, { data: storefronts }] = await Promise.all([
+    supabase
+      .from('users')
+      .select('id, clerk_id, email, name, role')
+      .eq('id', session.userId)
+      .maybeSingle<{
+        id: string
+        clerk_id: string | null
+        email: string | null
+        name: string | null
+        role: string | null
+      }>(),
+    supabase
+      .from('couple_accounts')
+      .select('user_id')
+      .eq('user_id', session.userId)
+      .is('archived_at', null)
+      .maybeSingle<{ user_id: string }>(),
+    supabase.from('vendors').select('id').eq('user_id', session.userId).returns<{ id: string }[]>(),
+  ])
+  if (!data) return null
+
+  // Couple side only: a live couple workspace, or a signup that has not become
+  // anything yet (staff set those up over the phone, which is what this session
+  // is for). A token naming a vendor or a platform admin is treated as unusable
+  // rather than opening someone else's data.
+  //
+  // This used to test `users.role === 'user'`, which is not a fact: no vendor
+  // signup path ever wrote 'vendor', so it admitted vendor logins and rejected
+  // couples that had been mislabelled (migration 20260730030000).
+  const isCoupleSide = workspace
+    ? true
+    : (storefronts ?? []).length === 0 && data.role !== 'admin'
+  if (!isCoupleSide) return null
+
+  return {
+    id: data.id,
+    clerkId: data.clerk_id ?? '',
+    email: data.email ?? '',
+    name: data.name,
+    staffAdminEmail: session.adminEmail,
+  }
 }
 
 /**
@@ -28,6 +92,12 @@ export interface DashboardUser {
  * reference it (vendors, couple_profiles, …) stay intact.
  */
 async function loadDashboardUser(): Promise<DashboardUser | null> {
+  // Checked before Clerk: an admin acting for a couple has no Clerk session on
+  // this instance at all (admin signs in against a different one), so the
+  // Clerk path would bounce them to /sign-in.
+  const staff = await loadStaffUser()
+  if (staff) return staff
+
   const { userId } = await auth()
   if (!userId) return null
 
@@ -71,7 +141,11 @@ async function loadDashboardUser(): Promise<DashboardUser | null> {
         email,
         name,
         avatar: clerk?.imageUrl ?? null,
-        role: 'user',
+        // `role` is deliberately NOT written. Loading this dashboard says
+        // nothing about whether someone is a couple — a vendor signing in to
+        // look around would have been stamped role='user' here and then shown
+        // up in admin's Couple Accounts list. Couple-ness is a couple_accounts
+        // row, created by real engagement (migration 20260730030000).
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'clerk_id', ignoreDuplicates: true },

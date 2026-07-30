@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { sendDesignBrief } from '@/lib/design-brief-email'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { getCallerEmail, requirePermission } from '@/lib/admin-auth'
 import { insertEntitlementAdjustment } from '@/lib/entitlements'
@@ -195,6 +196,12 @@ export async function approveDigitalCardPayment(formData: FormData): Promise<voi
     await Promise.all([
       emailCustomer({ payment, kind: 'approved', note }).catch((error) => {
         console.error('[digital-card-payments] approval email failed', error)
+      }),
+      // Approval is when the couple's 48h design promise starts, so the design
+      // team is told now rather than discovering the job in the queue. Failing
+      // to send must never undo a confirmed payment.
+      sendDesignBrief(payment.id, now).catch((error) => {
+        console.error('[digital-card-payments] design brief email failed', error)
       }),
       createCustomerNotification({
         userId: payment.user_id,

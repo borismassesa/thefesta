@@ -1,5 +1,6 @@
 'use client'
 
+import type { StoredOrderAddOn } from '@/lib/cart-storage'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Treatment } from '@/components/guests/InvitationVisual'
 
@@ -25,6 +26,8 @@ export type CartItem = {
   /** Non-guest-scaling extras already included in `total` (paper prints, door-scan). */
   extrasTotal?: number
   addOns?: string[]
+  /** Structured add-ons (code/qty), so fulfilment never parses the labels. */
+  addOnItems?: StoredOrderAddOn[]
   /** Line total in TZS. */
   total: number
 }

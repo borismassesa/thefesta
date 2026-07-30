@@ -1,6 +1,7 @@
 import 'server-only'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { getEventCreditUsage, type EventCreditUsage } from '../../../finance/payments/queries'
+import { isCoupleSideLogin } from '../queries'
 import { GUEST_PAGE_SIZE } from './constants'
 
 // Per-couple console reads. Everything is scoped to one userId and goes
@@ -11,6 +12,10 @@ import { GUEST_PAGE_SIZE } from './constants'
 export interface CoupleAccountDetail {
   userId: string
   coupleName: string
+  /** The two names on their own, so the edit form can round-trip them rather
+   *  than trying to split `coupleName` back apart. */
+  partner1Name: string | null
+  partner2Name: string | null
   accountName: string | null
   email: string | null
   phone: string | null
@@ -109,7 +114,12 @@ type ProfileRow = {
 export async function getCoupleAccount(userId: string): Promise<CoupleAccountDetail | null> {
   const supabase = createSupabaseAdminClient()
 
-  const [{ data: user, error: userErr }, { data: profile, error: profileErr }, { data: firstEvent }] = await Promise.all([
+  const [
+    { data: user, error: userErr },
+    { data: profile, error: profileErr },
+    { data: firstEvent },
+    coupleSide,
+  ] = await Promise.all([
     supabase
       .from('users')
       .select('id, name, email, phone, avatar, clerk_id, created_at')
@@ -129,10 +139,15 @@ export async function getCoupleAccount(userId: string): Promise<CoupleAccountDet
       .order('sort_order', { ascending: true })
       .limit(1)
       .maybeSingle<{ name: string | null }>(),
+    isCoupleSideLogin(userId),
   ])
   if (userErr) throw new Error(userErr.message)
   if (profileErr) throw new Error(profileErr.message)
   if (!user) return null
+  // A vendor login has no couple console, even if someone hand-types its id
+  // into the URL. Same couple-side rule the list uses (migration
+  // 20260730030000); the caller turns this into a 404.
+  if (!coupleSide) return null
 
   // Same fallback chain as the list page's resolveCoupleName.
   const coupleName =
@@ -145,6 +160,8 @@ export async function getCoupleAccount(userId: string): Promise<CoupleAccountDet
   return {
     userId: user.id,
     coupleName,
+    partner1Name: profile?.partner1_name ?? null,
+    partner2Name: profile?.partner2_name ?? null,
     accountName: user.name,
     email: user.email,
     phone: user.phone,

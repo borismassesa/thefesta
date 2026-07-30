@@ -280,6 +280,9 @@ const ALL_PERMISSION_KEYS: readonly PermissionKey[] = [
   // Couple Accounts: the cross-couple directory + per-couple event console.
   'opuspass.couples.read',
   'opuspass.couples.write',
+  // Separate from .write because it is irreversible: deleting an account
+  // cascades their events, guests, RSVPs, pledges and registry away.
+  'opuspass.couples.delete',
   // MD Daily Tracker: each engine's MD can only write their own engine's rows.
   'md_tracker.opusfesta.write',
   'md_tracker.opusstudio.write',
@@ -355,6 +358,7 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
         'opuspass.pledges.write',
         'opuspass.couples.read',
         'opuspass.couples.write',
+        'opuspass.couples.delete',
         'md_tracker.opusfesta.write',
         'md_tracker.opusstudio.write',
         'md_tracker.opuspass.write',

@@ -29,6 +29,7 @@ import {
   Lightbulb,
   ListTodo,
   LogOut,
+  Mail,
   Newspaper,
   Package,
   PanelLeftClose,
@@ -144,7 +145,7 @@ const sections: NavSection[] = [
     requiredPermission: "cms.read",
     items: [
       { icon: Home, label: "Homepage", href: "/cms/opus-pass/homepage", requiredPermission: "cms.read" },
-      { icon: FileText, label: "Digital Cards", href: "/cms/opus-pass/digital-cards", requiredPermission: "cms.read" },
+      { icon: FileText, label: "Digital Cards Pages", href: "/cms/opus-pass/digital-cards", requiredPermission: "cms.read" },
       { icon: UserCheck, label: "Guests & RSVPs", href: "/cms/opus-pass/guests-rsvps", requiredPermission: "cms.read" },
       { icon: Globe2, label: "Wedding Website", href: "/cms/opus-pass/wedding-website", requiredPermission: "cms.read" },
       { icon: LayoutDashboard, label: "OpusPass Dashboard", href: "/cms/opus-pass/dashboard", requiredPermission: "cms.read" },
@@ -156,6 +157,7 @@ const sections: NavSection[] = [
     label: "OpusPass",
     icon: CreditCard,
     items: [
+      { icon: Mail, label: "Digital Cards", href: "/opus-pass/digital-cards", requiredPermission: "cms.read" },
       { icon: Users, label: "Couple Accounts", href: "/opus-pass/couples", requiredPermission: "opuspass.couples.read" },
       { icon: QrCode, label: "Event Check-in", href: "/operations/checkin", requiredPermission: "opuspass.checkin" },
       { icon: CreditCard, label: "Payments", href: "/finance/payments", requiredPermission: "finance.read" },

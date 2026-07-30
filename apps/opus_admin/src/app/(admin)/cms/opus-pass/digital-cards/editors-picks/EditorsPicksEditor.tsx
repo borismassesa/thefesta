@@ -4,6 +4,8 @@ import { useEffect, useState, useTransition } from 'react'
 import { ChevronsDownUp, ChevronsUpDown, Image as ImageIcon, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
+  EDITORS_PICKS_CATEGORY_LABELS,
+  EDITORS_PICKS_CATEGORY_SLUGS,
   EDITORS_PICKS_TREATMENTS,
   type OpusPassEditorsPicksMediaType,
   type OpusPassEditorsPicksOverlay,
@@ -259,7 +261,7 @@ export default function EditorsPicksEditor({ initial, hasDraft: initialHasDraft 
                 `${resolveLocalized(row.title_line_1, 'en')} ${resolveLocalized(row.title_line_2, 'en')}`.trim() ||
                 'New row'
               }
-              subtitle={`${row.align} · ${row.picks.length} picks`}
+              subtitle={`${row.align} · ${row.category_slug ?? 'any category'} · ${row.picks.length} picks`}
               collapsed={!expandedRows.has(rIdx)}
               onToggle={() => toggleRow(rIdx)}
               onMoveUp={() => moveRow(rIdx, -1)}
@@ -290,6 +292,28 @@ export default function EditorsPicksEditor({ initial, hasDraft: initialHasDraft 
                   <option value="right">Right (picks on the left, title on the right)</option>
                 </select>
               </Field>
+              <Field label="Card category shown in this row">
+                <select
+                  value={row.category_slug ?? ''}
+                  onChange={(e) =>
+                    setRow(rIdx, { category_slug: e.target.value || undefined })
+                  }
+                  className={inputCls}
+                >
+                  <option value="">Any (next unused cards in catalog order)</option>
+                  {EDITORS_PICKS_CATEGORY_SLUGS.map((slug) => (
+                    <option key={slug} value={slug}>
+                      {EDITORS_PICKS_CATEGORY_LABELS[slug]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                The live row shows real published cards from this category, and its
+                &ldquo;{resolveLocalized(draft.exploreLabel, 'en')}&rdquo; button links to that
+                category page. A row whose category has no published cards is hidden on the live
+                page until one is published.
+              </p>
 
               <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">

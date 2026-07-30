@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Download, Search, Users } from 'lucide-react'
+import { Download, Search, Store, Users } from 'lucide-react'
 import type { CoupleAccountRow } from './queries'
+import { toDateInputValue, type CoupleEditable } from './editable'
+import { CoupleRowActions, DeleteDormantButton, NewCoupleButton } from './CoupleAccountControls'
 
 const FILTERS = ['All', 'Active', 'Dormant', 'Onboarded', 'Has events', 'Paying', 'No sign-in'] as const
 type Filter = (typeof FILTERS)[number]
@@ -80,6 +82,7 @@ const CSV_COLUMNS: { header: string; get: (c: CoupleAccountRow) => string | numb
   { header: 'Lifetime spend TZS', get: (c) => c.lifetimeSpendTzs },
   { header: 'Pledges', get: (c) => c.pledgeCount },
   { header: 'Last activity', get: (c) => c.lastActivityAt },
+  { header: 'Also a vendor', get: (c) => c.vendorStorefronts.map((v) => v.businessName).join('; ') },
 ]
 
 /** Built from rows already in the browser, so there is no export endpoint to
@@ -98,7 +101,38 @@ function downloadCsv(rows: CoupleAccountRow[]): void {
   URL.revokeObjectURL(url)
 }
 
-export default function CouplesListClient({ couples }: { couples: CoupleAccountRow[] }) {
+/** The list row already carries every field the edit form needs, so opening it
+ *  costs no extra round-trip. `profileWeddingDate` deliberately, not
+ *  `weddingDate`: the latter falls back to an event's start date for display,
+ *  and prefilling that would silently copy it onto the profile on save. */
+function toEditable(couple: CoupleAccountRow): CoupleEditable {
+  return {
+    userId: couple.userId,
+    coupleName: couple.coupleName,
+    partner1Name: couple.partner1Name ?? '',
+    partner2Name: couple.partner2Name ?? '',
+    email: couple.email ?? '',
+    phone: couple.phone ?? '',
+    whatsappPhone: couple.whatsappPhone ?? '',
+    city: couple.city ?? '',
+    region: couple.region ?? '',
+    weddingDate: toDateInputValue(couple.profileWeddingDate),
+    dateUndecided: couple.dateUndecided,
+    budgetRange: couple.budgetRange ?? '',
+    guestCount: couple.expectedGuestCount === null ? '' : String(couple.expectedGuestCount),
+    canSignIn: couple.clerkLinked,
+  }
+}
+
+export default function CouplesListClient({
+  couples,
+  canWrite,
+  canDelete,
+}: {
+  couples: CoupleAccountRow[]
+  canWrite: boolean
+  canDelete: boolean
+}) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('All')
   const [sort, setSort] = useState<SortKey>('activity')
@@ -172,6 +206,19 @@ export default function CouplesListClient({ couples }: { couples: CoupleAccountR
           <Download className="h-4 w-4" />
           Export CSV
         </button>
+        {canWrite ? <NewCoupleButton /> : null}
+        {/* Only on the Dormant filter, where every visible row is a signup that
+            never did anything. Acts on exactly what is on screen, search
+            included, so the count in the label is the count that goes. */}
+        {canDelete && filter === 'Dormant' ? (
+          <DeleteDormantButton
+            couples={visible.map((c) => ({
+              userId: c.userId,
+              coupleName: c.coupleName,
+              email: c.email ?? '',
+            }))}
+          />
+        ) : null}
       </div>
 
       {visible.length === 0 ? (
@@ -193,6 +240,9 @@ export default function CouplesListClient({ couples }: { couples: CoupleAccountR
                 <th className="px-3 py-3 text-right">Spend</th>
                 <th className="whitespace-nowrap px-3 py-3">Wedding</th>
                 <th className="whitespace-nowrap px-4 py-3">Last active</th>
+                <th className="w-10 px-2 py-3">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -213,6 +263,23 @@ export default function CouplesListClient({ couples }: { couples: CoupleAccountR
                         {couple.clerkLinked ? '' : ' · no sign-in'}
                       </span>
                     </Link>
+                    {/* Same login, two workspaces. Shown rather than hidden so
+                        staff know before they act on the account: deleting the
+                        login would take the storefront with it. */}
+                    {couple.vendorStorefronts.length > 0 ? (
+                      <Link
+                        href="/operations/vendors"
+                        className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-[#9FE870] px-2 py-0.5 text-[11px] font-semibold text-[#14532D] transition hover:bg-[#8FD95F]"
+                        title={`Also a vendor: ${couple.vendorStorefronts.map((v) => v.businessName).join(', ')}`}
+                      >
+                        <Store className="h-3 w-3 shrink-0" />
+                        <span className="truncate">
+                          {couple.vendorStorefronts.length === 1
+                            ? couple.vendorStorefronts[0].businessName
+                            : `${couple.vendorStorefronts.length} storefronts`}
+                        </span>
+                      </Link>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3">
                     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_CLASS[couple.status]}`}>
@@ -230,6 +297,9 @@ export default function CouplesListClient({ couples }: { couples: CoupleAccountR
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 text-gray-600">{formatDate(couple.weddingDate)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-gray-600">{formatDate(couple.lastActivityAt)}</td>
+                  <td className="px-2 py-3">
+                    <CoupleRowActions couple={toEditable(couple)} canWrite={canWrite} canDelete={canDelete} />
+                  </td>
                 </tr>
               ))}
             </tbody>

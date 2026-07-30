@@ -268,12 +268,26 @@ export default function ProductDetailClient({ product, allProducts, packages, ad
       const amount = a.pricingMode === 'flat' ? a.flatFee : a.unitPrice * sel.qty
       return {
         id: a.id,
+        // Flat add-ons are one-per-event; per-unit carry the chosen count.
+        qty: a.pricingMode === 'per_unit' ? sel.qty : 1,
+        title: a.title,
         summaryLabel: a.pricingMode === 'per_unit' ? `${a.title} (${sel.qty})` : a.title,
         cartLabel: a.pricingMode === 'per_unit' ? `${sel.qty.toLocaleString('en-US')} ${a.title.toLowerCase()}` : a.title,
         amount,
       }
     })
-    .filter((l): l is { id: string; summaryLabel: string; cartLabel: string; amount: number } => l !== null)
+    .filter(
+      (
+        l,
+      ): l is {
+        id: string
+        qty: number
+        title: string
+        summaryLabel: string
+        cartLabel: string
+        amount: number
+      } => l !== null,
+    )
 
   const addOnsSubtotal = addOnLines.reduce((sum, l) => sum + l.amount, 0)
   const total = digitalSubtotal + addOnsSubtotal
@@ -302,6 +316,14 @@ export default function ProductDetailClient({ product, allProducts, packages, ad
     pricePerGuest,
     extrasTotal: total - digitalSubtotal,
     addOns: cartAddOns,
+    // Structured mirror of cartAddOns. Fulfilment reads this; the strings above
+    // stay only for display.
+    addOnItems: addOnLines.map((l) => ({
+      code: l.id,
+      label: l.title,
+      qty: l.qty,
+      amount: l.amount,
+    })),
     total,
   })
 

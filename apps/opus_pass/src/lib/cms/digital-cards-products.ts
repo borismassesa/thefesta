@@ -41,19 +41,21 @@ type ProductRow = {
 // legacy values pass through untranslated.
 const CATEGORY_SW: Record<string, string> = {
   // Admin picklist values (PRODUCT_CATEGORIES in opus_admin).
-  'Wedding': 'Harusi',
+  'Wedding Invitations': 'Mialiko ya Harusi',
   'Sendoff': 'Send-off',
   'Kitchen Party': 'Kitchen Party',
-  'Save the Date': 'Kutunza Tarehe',
+  'Save the Dates': 'Kadi za Kutunza Tarehe',
   'Kadi za Michango': 'Kadi za Michango',
   'Anniversary': 'Kumbukumbu ya Ndoa',
   'Communio': 'Komunio',
   'Birthday': 'Siku ya Kuzaliwa',
   'Gala Dinner': 'Chakula cha Gala',
   'Muslim Wedding': 'Harusi ya Kiislamu',
-  // Legacy/plural values seen on live rows and the editors'-picks CMS fallback.
-  'Wedding Invitations': 'Mialiko ya Harusi',
-  'Save the Dates': 'Kadi za Kutunza Tarehe',
+  // Singular/legacy spellings: never stored by the current picklist, but kept
+  // so any older row or CMS fallback still translates instead of falling
+  // through to raw English.
+  'Wedding': 'Harusi',
+  'Save the Date': 'Kutunza Tarehe',
   'Reception Cards': 'Kadi za Karamu',
   'Day-of Paper Set': 'Seti ya Karatasi za Siku ya Tukio',
   'Menu Cards': 'Kadi za Menyu',

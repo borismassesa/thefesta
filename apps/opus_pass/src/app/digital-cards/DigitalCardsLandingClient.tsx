@@ -288,6 +288,11 @@ function EditorsPicks({
                 }
                 align={row.align}
                 exploreLabel={exploreLabel}
+                exploreHref={
+                  row.category_slug
+                    ? `/digital-cards/${row.category_slug}`
+                    : '/digital-cards/catalog'
+                }
               />
             </div>
             {row.picks.map((p, i) => {
@@ -323,10 +328,13 @@ function EditorialTitleCell({
   title,
   align,
   exploreLabel,
+  exploreHref,
 }: {
   title: React.ReactNode
   align: 'left' | 'right'
   exploreLabel: string
+  /** Category page for rows pinned to a category, else the full catalog. */
+  exploreHref: string
 }) {
   return (
     <div
@@ -341,7 +349,7 @@ function EditorialTitleCell({
         {title}
       </h3>
       <Link
-        href="/digital-cards/catalog"
+        href={exploreHref}
         className="inline-flex w-fit shrink-0 items-center rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] px-4 py-2 sm:px-5 sm:py-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.1em] sm:tracking-[0.12em] md:mt-5"
       >
         {exploreLabel}

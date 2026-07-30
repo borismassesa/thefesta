@@ -42,7 +42,12 @@ export default async function CoupleAccountsPage() {
   if (!isAdminDashboardRole(role)) redirect('/contribute')
   if (!(await hasPermission('opuspass.couples.read'))) redirect('/')
 
-  const [couples, unlinkedOrders] = await Promise.all([getCoupleAccounts(), getUnlinkedOrders()])
+  const [couples, unlinkedOrders, canWrite, canDelete] = await Promise.all([
+    getCoupleAccounts(),
+    getUnlinkedOrders(),
+    hasPermission('opuspass.couples.write'),
+    hasPermission('opuspass.couples.delete'),
+  ])
 
   // These four are scale-of-the-platform numbers. The per-segment counts
   // (accounts, active, dormant, onboarded, has events, paying, no sign-in)
@@ -92,7 +97,7 @@ export default async function CoupleAccountsPage() {
 
       {unlinkedOrders.length > 0 ? <UnattributedBanner orders={unlinkedOrders} /> : null}
 
-      <CouplesListClient couples={couples} />
+      <CouplesListClient couples={couples} canWrite={canWrite} canDelete={canDelete} />
     </div>
   )
 }

@@ -10,7 +10,6 @@ import {
   Users,
   CalendarHeart,
   Send,
-  ClipboardCheck,
   Globe,
   Armchair,
   Receipt,
@@ -62,7 +61,6 @@ const NAV: NavItem[] = [
   { href: '/my/dashboard/guests', labelKey: 'nav_guests', icon: Users },
   { href: '/my/dashboard/invitations', labelKey: 'nav_invitations', icon: Send },
   { href: '/my/dashboard/orders', labelKey: 'nav_orders', icon: Receipt },
-  { href: '/my/dashboard/rsvps', labelKey: 'nav_rsvps', icon: ClipboardCheck },
   { href: '/my/dashboard/website', labelKey: 'nav_website', icon: Globe },
   { href: '/my/dashboard/guestbook', labelKey: 'nav_guestbook', icon: BookHeart },
   { href: '/my/dashboard/gift-registry', label: 'Gift registry', icon: Gift },
@@ -130,12 +128,17 @@ export default function DashboardShell({
   userEmail,
   userInitial,
   defaultCollapsed = false,
+  staffSession = false,
   children,
 }: {
   coupleName: string
   userEmail: string
   userInitial: string
   defaultCollapsed?: boolean
+  /** True when an OpusFesta admin is acting for this couple. Swaps Clerk sign-out
+   *  for leaving the staff session — the admin has no Clerk session here, so
+   *  signing out would strand them inside the couple's dashboard. */
+  staffSession?: boolean
   children: React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
@@ -200,7 +203,7 @@ export default function DashboardShell({
           <NavLinks collapsed={collapsed} />
         </div>
         <div className="space-y-2 border-t border-black/6 pt-4">
-          <AccountFooter email={userEmail} initial={userInitial} collapsed={collapsed} />
+          <AccountFooter email={userEmail} initial={userInitial} collapsed={collapsed} staffSession={staffSession} />
         </div>
       </aside>
 
@@ -217,7 +220,7 @@ export default function DashboardShell({
         <Logo className="text-xl" />
         <div className="flex items-center gap-0.5">
           {!isDesktop && <DashboardTopIcons />}
-          <AccountFooter email={userEmail} initial={userInitial} layout="header" />
+          <AccountFooter email={userEmail} initial={userInitial} layout="header" staffSession={staffSession} />
         </div>
       </header>
 
@@ -251,6 +254,7 @@ export default function DashboardShell({
                 email={userEmail}
                 initial={userInitial}
                 onNavigate={() => setOpen(false)}
+                staffSession={staffSession}
               />
             </div>
           </div>
@@ -270,7 +274,7 @@ export default function DashboardShell({
           <div className="absolute right-3 top-4 z-20 hidden items-center gap-1 sm:right-4 lg:right-6 lg:flex">
             {isDesktop && <DashboardTopIcons />}
             <div className="mx-1.5 h-6 w-px bg-black/10" />
-            <AccountFooter email={userEmail} initial={userInitial} layout="header" />
+            <AccountFooter email={userEmail} initial={userInitial} layout="header" staffSession={staffSession} />
           </div>
           {children}
         </div>
@@ -285,6 +289,7 @@ function AccountFooter({
   onNavigate,
   collapsed,
   layout = 'sidebar',
+  staffSession = false,
 }: {
   email: string
   initial: string
@@ -293,6 +298,7 @@ function AccountFooter({
   // 'sidebar' — full-width trigger, dropdown opens upward (sidebar footer).
   // 'header' — avatar-only trigger, dropdown opens downward, right-aligned.
   layout?: 'sidebar' | 'header'
+  staffSession?: boolean
 }) {
   const pathname = usePathname()
   const { signOut } = useClerk()
@@ -358,21 +364,37 @@ function AccountFooter({
             <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#1A1A1A]/30" />
           </a>
           <div className="my-1 border-t border-black/6" />
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              close()
-              // basePath ('/opuspass') is NOT prepended by Clerk's signOut, so
-              // use the full path — matches AlreadySignedIn and keeps the user
-              // in the OpusPass zone instead of the marketplace apex.
-              void signOut({ redirectUrl: '/sign-in' })
-            }}
-            className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-[#1A1A1A] hover:bg-black/4"
-          >
-            <LogOut className="h-4 w-4 shrink-0 text-[#1A1A1A]/45" />
-            {t('account_sign_out')}
-          </button>
+          {staffSession ? (
+            // A staff session has no Clerk session to sign out of, so Clerk's
+            // signOut would leave the admin sitting in the couple's dashboard.
+            // Dropping the staff cookie is the only exit that works.
+            <form action="/api/staff-access/exit" method="post">
+              <button
+                type="submit"
+                role="menuitem"
+                className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-amber-800 hover:bg-black/4"
+              >
+                <LogOut className="h-4 w-4 shrink-0 text-amber-700/70" />
+                Leave this account
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                close()
+                // basePath ('/opuspass') is NOT prepended by Clerk's signOut, so
+                // use the full path — matches AlreadySignedIn and keeps the user
+                // in the OpusPass zone instead of the marketplace apex.
+                void signOut({ redirectUrl: '/sign-in' })
+              }}
+              className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-[#1A1A1A] hover:bg-black/4"
+            >
+              <LogOut className="h-4 w-4 shrink-0 text-[#1A1A1A]/45" />
+              {t('account_sign_out')}
+            </button>
+          )}
         </div>
       ) : null}
 

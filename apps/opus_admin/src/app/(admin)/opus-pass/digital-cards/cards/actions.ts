@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { revalidateOpusPass } from '@/lib/revalidate'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { requireAdminRole, type AdminAccessRole } from '@/lib/admin-auth'
-import type { DigitalCardProductRecord } from '@/lib/cms/opus-pass-digital-cards-products'
+import {
+  READ_ONLY_PRODUCT_COLUMNS,
+  type DigitalCardProductRecord,
+} from '@/lib/cms/opus-pass-digital-cards-products'
 
 // Same role allowlist as /lib/cms/upload-media.ts — keep them in sync.
 const PRODUCT_EDIT_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
@@ -32,8 +35,8 @@ function friendlyDbError(error: DbError, fallback = 'Something went wrong. Pleas
 }
 
 async function revalidateProductPaths(id?: string): Promise<void> {
-  revalidatePath('/cms/opus-pass/digital-cards/products')
-  if (id) revalidatePath(`/cms/opus-pass/digital-cards/products/${id}`)
+  revalidatePath('/opus-pass/digital-cards/cards')
+  if (id) revalidatePath(`/opus-pass/digital-cards/cards/${id}`)
   const passPaths = ['/digital-cards', '/digital-cards/catalog']
   if (id) passPaths.push(`/digital-cards/p/${id}`)
   await revalidateOpusPass(...passPaths)
@@ -44,9 +47,17 @@ export async function upsertDigitalCardProduct(
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   await requireAdminRole(PRODUCT_EDIT_ROLES)
   const supabase = createSupabaseAdminClient()
-  // DB manages timestamps.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { created_at, updated_at, ...body } = product
+
+  // The editor loads rows with select('*'), so the record carries columns the
+  // admin must not write back: DB-managed timestamps, the nightly job's
+  // badge_auto, and badge_effective — which is GENERATED, so Postgres rejects
+  // any write to it outright. Strip them by name rather than destructuring, so
+  // adding a column to READ_ONLY_PRODUCT_COLUMNS is the only change needed.
+  const body = Object.fromEntries(
+    Object.entries(product).filter(
+      ([key]) => !(READ_ONLY_PRODUCT_COLUMNS as readonly string[]).includes(key),
+    ),
+  )
 
   const { data, error } = await supabase
     .from('website_invitations_products')

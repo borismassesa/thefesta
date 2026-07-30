@@ -297,6 +297,7 @@ export default function CheckoutClient({ events }: { events: CheckoutEvent[] }) 
       pricePerGuest: i.pricePerGuest,
       extrasTotal: i.extrasTotal,
       addOns: i.addOns,
+      addOnItems: i.addOnItems,
       total: i.total,
     }))
 
@@ -326,6 +327,7 @@ export default function CheckoutClient({ events }: { events: CheckoutEvent[] }) 
       tierId: i.tierId,
       guests: i.guests,
       addOns: i.addOns,
+      addOnItems: i.addOnItems,
     })),
     subtotal,
     discount,

@@ -1,4 +1,5 @@
 import { buildContributorInviteEmail } from '@/lib/contributor-invite-email'
+import { buildDesignBriefEmail } from '@/lib/design-brief-email'
 import { buildEditorialNotificationEmail } from '@/lib/editorial-notification-email'
 import {
   buildChangesRequestedEmail,
@@ -31,6 +32,26 @@ export type TemplatePreview = {
 }
 
 export const TEMPLATE_PREVIEWS: TemplatePreview[] = [
+  {
+    slug: 'design-brief',
+    title: 'New card to design',
+    description:
+      'Tells the design team a paid card has landed and the 48-hour design window has started.',
+    recipient: 'Design team (DESIGN_NOTIFY_EMAIL, else staff with cms.write)',
+    trigger: 'Finance approves a digital card payment',
+    build: () =>
+      buildDesignBriefEmail({
+        ref: 'OF-2026-E746BC',
+        contactName: 'Tausi Swedi',
+        eventDate: '2026-08-08',
+        // Fixed so the preview renders the same deadline every time.
+        approvedAt: '2026-07-29T09:00:00.000Z',
+        cardNames: ['Opus Royal Ivory', 'Amani Champagne Royale'],
+        digitalCards: 200,
+        printedCards: 25,
+        adminBaseUrl: 'https://admin.opusfesta.com',
+      }),
+  },
   {
     slug: 'contributor-invite',
     title: 'Contributor invitation',

@@ -57,11 +57,50 @@ export type OpusPassEditorsPicksPick = {
   badge?: string
 }
 
+/**
+ * Storefront category slugs a row can be pinned to. These are the slugs in
+ * opus_pass/src/data/digital-cards-categories.ts — stored verbatim, so they are
+ * data, not labels.
+ */
+export const EDITORS_PICKS_CATEGORY_SLUGS = [
+  'kadi-za-michango',
+  'save-the-date',
+  'wedding',
+  'send-off',
+  'kitchen-party',
+  'anniversary',
+  'communion',
+  'birthday',
+  'gala-dinner',
+  'muslim-wedding',
+] as const
+
+export type OpusPassEditorsPicksCategorySlug = (typeof EDITORS_PICKS_CATEGORY_SLUGS)[number]
+
+export const EDITORS_PICKS_CATEGORY_LABELS: Record<OpusPassEditorsPicksCategorySlug, string> = {
+  'kadi-za-michango': 'Pledges (kadi za michango)',
+  'save-the-date': 'Save the dates',
+  wedding: 'Wedding',
+  'send-off': 'Send-off',
+  'kitchen-party': 'Kitchen party',
+  anniversary: 'Anniversary',
+  communion: 'Communion',
+  birthday: 'Birthday',
+  'gala-dinner': 'Gala dinner',
+  'muslim-wedding': 'Muslim wedding',
+}
+
 export type OpusPassEditorsPicksRow = {
   id: string
   title_line_1: MaybeLocalized
   title_line_2: MaybeLocalized
   align: OpusPassEditorsPicksRowAlign
+  /**
+   * When set, the live row shows cards from this storefront category only and
+   * its "Explore designs" button links to that category page. Leave blank to
+   * fall back to the next unused cards in catalog order.
+   */
+  category_slug?: string
   picks: OpusPassEditorsPicksPick[]
 }
 
@@ -85,47 +124,51 @@ export const OPUS_PASS_DIGITAL_CARDS_EDITORS_PICKS_FALLBACK: OpusPassDigitalCard
     exploreLabel: 'Explore designs',
     rows: [
       {
-        id: 'row-1',
+        id: 'row-save-the-dates',
         title_line_1: 'Save the dates',
-        title_line_2: 'worth saving',
+        title_line_2: 'your guests will remember',
         align: 'left',
+        category_slug: 'save-the-date',
         picks: [
-          { id: 'e1', category: 'Save the Dates', name: 'Two of Us Photo Save the Date Cards', price_was: 195000, price_now: 117000, swatches: ['#1A1A1A', '#F5EFE3', '#7A1F2B', '#A6B89A'], treatment: 'photo-overlay', overlay: 'play' },
-          { id: 'e2', category: 'Save the Dates', name: 'Authentic Portrait Video Save the Date', price_was: 215000, price_now: 129000, swatches: ['#1A1A1A', '#7A1F2B', '#F5EFE3', '#C8A35C'], media_url: '/assets/images/authentic_couple.jpg', media_type: 'image', overlay: 'play' },
-          { id: 'e3', category: 'Save the Dates', name: 'Modern Suite Save the Date Set', price_now: 145000, swatches: ['#F5EFE3', '#1A1A1A', '#A6B89A', '#7A1F2B'], treatment: 'flat-lay-stationery', overlay: 'none', background: '#A6A8A2' },
+          { id: 'e4', category: 'Save the Dates', name: 'Two of Us Photo Save the Date Cards', price_was: 195000, price_now: 117000, swatches: ['#1A1A1A', '#F5EFE3', '#7A1F2B', '#A6B89A'], treatment: 'photo-overlay', overlay: 'play' },
+          { id: 'e5', category: 'Save the Dates', name: 'Authentic Portrait Video Save the Date', price_was: 215000, price_now: 129000, swatches: ['#1A1A1A', '#7A1F2B', '#F5EFE3', '#C8A35C'], media_url: '/assets/images/authentic_couple.jpg', media_type: 'image', overlay: 'play' },
+          { id: 'e6', category: 'Save the Dates', name: 'Modern Suite Save the Date Set', price_now: 145000, swatches: ['#F5EFE3', '#1A1A1A', '#A6B89A', '#7A1F2B'], treatment: 'flat-lay-stationery', overlay: 'none', background: '#A6A8A2' },
         ],
       },
       {
-        id: 'row-2',
-        title_line_1: 'Invite & RSVPs',
-        title_line_2: 'for every wedding style',
+        id: 'row-wedding',
+        title_line_1: 'Wedding invites',
+        title_line_2: 'for the main event',
         align: 'right',
+        category_slug: 'wedding',
         picks: [
-          { id: 'e4', category: 'Wedding Invitations', name: 'Botanical Frame Invitation Suite', price_was: 198000, price_now: 119000, swatches: ['#A6B89A', '#F5DCE2', '#FBF7F2', '#1A1A1A', '#7A1F2B'], treatment: 'floral-border', overlay: 'heart' },
-          { id: 'e5', category: 'Wedding Invitations', name: 'Navy & Gold Editorial Invitations', price_was: 225000, price_now: 135000, swatches: ['#1E2D54', '#E8D9A7', '#F5EFE3', '#C8A35C'], treatment: 'navy-gold', overlay: 'play' },
-          { id: 'e6', category: 'Wedding Invitations', name: 'Arch Script Bagamoyo Invitations', price_now: 132000, swatches: ['#7A1F2B', '#F5EFE3', '#A6B89A'], treatment: 'arch-script', centered: true, overlay: 'none', background: '#CFE6F1' },
+          { id: 'e7', category: 'Wedding Invitations', name: 'Botanical Frame Invitation Suite', price_was: 198000, price_now: 119000, swatches: ['#A6B89A', '#F5DCE2', '#FBF7F2', '#1A1A1A', '#7A1F2B'], treatment: 'floral-border', overlay: 'heart' },
+          { id: 'e8', category: 'Wedding Invitations', name: 'Navy & Gold Editorial Invitations', price_was: 225000, price_now: 135000, swatches: ['#1E2D54', '#E8D9A7', '#F5EFE3', '#C8A35C'], treatment: 'navy-gold', overlay: 'play' },
+          { id: 'e9', category: 'Wedding Invitations', name: 'Arch Script Bagamoyo Invitations', price_now: 132000, swatches: ['#7A1F2B', '#F5EFE3', '#A6B89A'], treatment: 'arch-script', centered: true, overlay: 'none', background: '#CFE6F1' },
         ],
       },
       {
-        id: 'row-3',
-        title_line_1: 'Matching suites',
-        title_line_2: 'and day-of paper',
+        id: 'row-sendoff',
+        title_line_1: 'Send-off cards',
+        title_line_2: 'that honour the tradition',
         align: 'left',
+        category_slug: 'send-off',
         picks: [
-          { id: 'e7', category: 'Reception Cards', name: 'Sage Panel Reception Suite', price_was: 168000, price_now: 101000, swatches: ['#A6B89A', '#FBF7F2', '#5C6B4D'], treatment: 'sage-panel', overlay: 'heart' },
-          { id: 'e8', category: 'Day-of Paper Set', name: 'Botanical Day-of Paper Bundle', price_now: 155000, swatches: ['#A6B89A', '#F5DCE2', '#FBF7F2', '#7A1F2B'], media_url: '/assets/images/flowers_pinky.jpg', media_type: 'image', overlay: 'none' },
-          { id: 'e9', category: 'Menu Cards', name: 'Karibu Reception Menu Cards', price_was: 89000, price_now: 53000, swatches: ['#7A1F2B', '#F5EFE3', '#A6B89A', '#C8A35C'], treatment: 'menu-card', overlay: 'play', background: '#F5EFE3' },
+          { id: 'e10', category: 'Sendoff', name: 'Heritage Crown Kuaga Cards', price_was: 245000, price_now: 147000, swatches: ['#7A1F2B', '#C8A35C', '#F5EFE3', '#1A1A1A'], treatment: 'cultural-red', overlay: 'heart' },
+          { id: 'e11', category: 'Sendoff', name: 'Botanical Send-off Cards', price_was: 185000, price_now: 111000, swatches: ['#A6B89A', '#F5DCE2', '#FBF7F2', '#7A1F2B'], media_url: '/assets/images/flowers_pinky.jpg', media_type: 'image', overlay: 'play' },
+          { id: 'e12', category: 'Sendoff', name: 'Modern Block Send-off Cards', price_now: 198000, swatches: ['#1A1A1A', '#FBF7F2', '#E8D9A7', '#C8A35C'], treatment: 'modern-block', centered: true, overlay: 'none', background: '#FBF7F2' },
         ],
       },
       {
-        id: 'row-4',
-        title_line_1: 'Premium quality,',
-        title_line_2: 'perfectly priced',
+        id: 'row-kitchen-party',
+        title_line_1: 'Kitchen party cards',
+        title_line_2: 'that set the tone',
         align: 'right',
+        category_slug: 'kitchen-party',
         picks: [
-          { id: 'e10', category: 'Wedding Invitations', name: 'Heritage Crown Karibu Invitations', price_was: 245000, price_now: 147000, swatches: ['#7A1F2B', '#C8A35C', '#F5EFE3', '#1A1A1A'], treatment: 'cultural-red', overlay: 'heart' },
-          { id: 'e11', category: 'Save the Dates', name: 'Ring Detail Foil Save the Date', price_was: 185000, price_now: 111000, swatches: ['#C8A35C', '#F5EFE3', '#1A1A1A'], media_url: '/assets/images/hand_rings.jpg', media_type: 'image', overlay: 'play' },
-          { id: 'e12', category: 'Foil & Letterpress', name: 'Modern Block Foil Invitations', price_now: 198000, swatches: ['#1A1A1A', '#FBF7F2', '#E8D9A7', '#C8A35C'], treatment: 'modern-block', centered: true, overlay: 'none', background: '#FBF7F2', badge: 'Foil & Letterpress' },
+          { id: 'e13', category: 'Kitchen Party', name: 'Blush Frame Kitchen Party Cards', price_was: 145000, price_now: 87000, swatches: ['#F5DCE2', '#A84F66', '#7A1F2B', '#FBF7F2'], treatment: 'blush-frame', overlay: 'heart' },
+          { id: 'e14', category: 'Kitchen Party', name: 'Botanical Kitchen Party Cards', price_now: 92000, swatches: ['#A6B89A', '#F5DCE2', '#FBF7F2', '#7A1F2B'], media_url: '/assets/images/flowers_pinky.jpg', media_type: 'image', overlay: 'none' },
+          { id: 'e15', category: 'Kitchen Party', name: 'Arch Script Kitchen Party Cards', price_was: 118000, price_now: 71000, swatches: ['#7A1F2B', '#F5EFE3', '#A6B89A'], treatment: 'arch-script', centered: true, overlay: 'none', background: '#F5EFE3' },
         ],
       },
     ],

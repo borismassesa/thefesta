@@ -52,7 +52,7 @@ export default async function DigitalCardsLandingPage() {
   const styleStrip = styleStripFromCategories(categories)
   // Editors' Picks renders live products from the DB (same source as the
   // catalog); the CMS section only supplies the editorial row headings.
-  const editorsPicks = editorsPicksRowsFromProducts(products, editorsPicksTemplate)
+  const editorsPicks = editorsPicksRowsFromProducts(products, editorsPicksTemplate, categories)
   const fromGuestPrice = packageFromPrice(packages)
   const faqSchema = faqs.items.length
     ? {
