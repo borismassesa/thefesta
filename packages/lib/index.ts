@@ -4,3 +4,4 @@ export * from './vendor-contracts';
 export * from './product-contracts';
 export * from './logger';
 export * from './markets';
+export * from './commission-contracts';
