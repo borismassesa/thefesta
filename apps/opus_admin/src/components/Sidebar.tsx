@@ -38,6 +38,7 @@ import {
   Plane,
   QrCode,
   Receipt,
+  ReceiptText,
   RefreshCw,
   Search,
   Settings,
@@ -161,6 +162,9 @@ const sections: NavSection[] = [
       { icon: Users, label: "Couple Accounts", href: "/opus-pass/couples", requiredPermission: "opuspass.couples.read" },
       { icon: QrCode, label: "Event Check-in", href: "/operations/checkin", requiredPermission: "opuspass.checkin" },
       { icon: CreditCard, label: "Payments", href: "/finance/payments", requiredPermission: "finance.read" },
+      // Separate from Payments above: commissions are a two-instalment ledger
+      // with its own review queue, not single-payment card orders.
+      { icon: ReceiptText, label: "Commission Payments", href: "/finance/commissions", requiredPermission: "finance.read" },
       { icon: Package, label: "Order Fulfilment", href: "/finance/orders", requiredPermission: "finance.read" },
       { icon: Wallet, label: "Vendor Payouts", href: "/finance/payouts", requiredPermission: "finance.read" },
       { icon: HandHeart, label: "Pledge Concierge", href: "/opus-pass/pledges", requiredPermission: "opuspass.pledges.read" },
