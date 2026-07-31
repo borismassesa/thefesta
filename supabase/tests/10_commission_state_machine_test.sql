@@ -746,4 +746,175 @@ RAISE NOTICE '--- Phase 3: sweeper work lists ---';
   PERFORM ok(n = 1, '§7.11.7: an order awaiting the customer for 90 days is swept as dormant');
 END $$;
 
+
+-- ═══════════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE o UUID; req UUID; v_code TEXT; applied INT; l order_ledger; q RECORD; n INT; left_over INT;
+BEGIN
+RAISE NOTICE '--- Refunds and remedies (PRD §7.11) ---';
+
+  -- Cancel right after the deposit, brief incomplete => 100% tier.
+  o := new_order('OP-CC-2026-T090');
+  PERFORM pay(o, 'deposit', 125000);
+  PERFORM transition_order(o, 'deposit_paid', 'deposit.verified', 'system');
+
+  SELECT * INTO q FROM refund_quote(o);
+  PERFORM ok(q.entitled_pct = 100,  'the quote shows the same tier the decision will use');
+  PERFORM ok(q.entitled_tzs = 125000, 'entitlement applies to the DEPOSIT ACTUALLY PAID');
+  PERFORM ok(q.credit_note_tzs = 137500,
+    '§7.11.3: the credit note is quoted at 110%, and is worth more than the cash');
+
+  req := request_refund(o, 'customer_cancelled', 'app', 'changed our minds');
+  PERFORM ok((SELECT entitled_pct FROM refund_requests WHERE id = req) = 100,
+    'the entitlement is FROZEN on the request');
+  PERFORM ok((SELECT status_at_request FROM refund_requests WHERE id = req) = 'deposit_paid',
+    'the status at request time is snapshotted');
+
+  -- THE key property: our own processing delay must not devalue the claim.
+  UPDATE card_orders SET assigned_at = now(), accepted_at = now() WHERE id = o;
+  PERFORM ok(refund_entitlement(o) = 60, 'the live tier has now dropped as work was consumed');
+  PERFORM ok((SELECT entitled_tzs FROM refund_requests WHERE id = req) = 125000,
+    '§7.11.1: a request is NOT devalued by our own processing delay');
+
+  PERFORM must_fail(format('SELECT request_refund(%L, ''customer_cancelled'')', o),
+    'a second open refund request is refused — two could pay twice');
+
+  -- Approval ceilings are enforced in the database, not just the UI.
+  PERFORM must_fail(format(
+    'SELECT decide_refund(%L, ''approve'', %L, ''x'', TRUE)', req,
+    '33333333-3333-3333-3333-333333333333'),
+    'a decision note is mandatory');
+
+  -- TSh 125,000 is BELOW the TSh 200,000 ceiling, so Finance may approve it
+  -- without escalation. That is the common case and must not be blocked.
+  PERFORM decide_refund(req, 'approve', '33333333-3333-3333-3333-333333333333',
+                        'matched to M-Pesa statement line 12', FALSE);
+  PERFORM ok((SELECT state FROM refund_requests WHERE id = req) = 'approved',
+    'Finance can approve a refund below the ceiling without escalating');
+
+  -- Approval is not disbursement: no money has moved yet.
+  SELECT * INTO l FROM order_ledger WHERE order_id = o;
+  PERFORM ok(l.paid_tzs = 125000, '§7.11.5: approving does NOT write the ledger row');
+
+  PERFORM disburse_refund(req, '+255712345678', '33333333-3333-3333-3333-333333333333');
+  SELECT * INTO l FROM order_ledger WHERE order_id = o;
+  PERFORM ok(l.paid_tzs = 0, 'disbursement writes the negative ledger row');
+  PERFORM ok((SELECT count(*) FROM order_payments WHERE order_id = o AND purpose = 'deposit') = 1,
+    'the original payment survives — a refund is never a deletion');
+  PERFORM must_fail(format('SELECT disburse_refund(%L, ''+255712345678'', %L)', req,
+    '33333333-3333-3333-3333-333333333333'),
+    'a refund cannot be disbursed twice');
+
+  -- A refund ABOVE the ceiling. The deposit is overpaid deliberately so the
+  -- entitled amount clears TSh 200,000 and the ceiling is genuinely in play.
+  o := new_order('OP-CC-2026-T090B');
+  PERFORM pay(o, 'deposit', 250000);
+  PERFORM transition_order(o, 'deposit_paid', 'deposit.verified', 'system');
+  req := request_refund(o, 'customer_cancelled', 'app', 'changed our minds');
+  PERFORM ok((SELECT entitled_tzs FROM refund_requests WHERE id = req) = 250000,
+    'the overpaid deposit is refundable in full at the 100% tier');
+  PERFORM must_fail(format(
+    'SELECT decide_refund(%L, ''approve'', %L, ''matched to statement line 12'', FALSE)', req,
+    '33333333-3333-3333-3333-333333333333'),
+    'L11: Finance CANNOT approve above the ceiling without CSFO authority');
+  PERFORM decide_refund(req, 'approve', '33333333-3333-3333-3333-333333333333',
+                        'escalated and approved by CSFO', TRUE);
+  PERFORM ok((SELECT state FROM refund_requests WHERE id = req) = 'approved',
+    'CSFO can approve above the ceiling');
+
+  -- A policy exception grants something the tier table does not allow, and is
+  -- never available to Finance alone.
+  o := new_order('OP-CC-2026-T090C');
+  PERFORM pay(o, 'deposit', 125000);
+  PERFORM transition_order(o, 'deposit_paid', 'deposit.verified', 'system');
+  req := request_refund(o, 'customer_cancelled', 'phone', 'goodwill case');
+  PERFORM must_fail(format(
+    'SELECT decide_refund(%L, ''approve'', %L, ''goodwill'', FALSE, TRUE)', req,
+    '33333333-3333-3333-3333-333333333333'),
+    'L11: a policy exception requires CSFO or CEO authority');
+  PERFORM decide_refund(req, 'approve', '33333333-3333-3333-3333-333333333333',
+                        'CEO approved as a goodwill exception', TRUE, TRUE);
+  PERFORM ok((SELECT policy_exception FROM refund_requests WHERE id = req),
+    'the exception is recorded as such, not as a normal approval');
+  PERFORM ok(
+    (SELECT visible_to FROM order_events
+      WHERE order_id = o AND event_type = 'policy.exception' LIMIT 1) = ARRAY['admin'],
+    'a policy exception is an internal record, not customer-facing');
+
+RAISE NOTICE '--- Fault-based refunds bypass the tier (§7.11.2) ---';
+
+  o := new_order('OP-CC-2026-T091');
+  PERFORM pay(o, 'deposit', 125000);
+  PERFORM transition_order(o, 'deposit_paid',   'deposit.verified', 'system');
+  PERFORM transition_order(o, 'intake_pending', 'brief.issued',     'system');
+  PERFORM complete_brief(o);
+  PERFORM transition_order(o, 'queued', 'brief.completed', 'customer');
+  PERFORM assign_card_order(o, '33333333-3333-3333-3333-333333333333', 'system');
+  PERFORM transition_order(o, 'in_design', 'task.accepted', 'designer');
+  INSERT INTO design_versions (order_id, version_no, designer_id, svg_path, preview_path)
+    VALUES (o, 1, '33333333-3333-3333-3333-333333333333', 's', 'p');
+
+  PERFORM ok(refund_entitlement(o) = 30, 'a draft has been shared, so the tier is 30%');
+  req := request_refund(o, 'sla_breach', 'phone', 'we missed the promised date');
+  PERFORM ok((SELECT entitled_pct FROM refund_requests WHERE id = req) = 100,
+    '§7.11.2: where the failure is OURS the tier table does not apply');
+  PERFORM ok((SELECT entitled_tzs FROM refund_requests WHERE id = req) = 125000,
+    'a fault-based refund returns everything paid, not just the tiered share');
+
+RAISE NOTICE '--- Credit notes ---';
+
+  o := new_order('OP-CC-2026-T092');
+  PERFORM pay(o, 'deposit', 125000);
+  v_code := issue_credit_note(o, 125000, '+255712345678',
+                            '33333333-3333-3333-3333-333333333333', 24);
+  PERFORM ok((SELECT value_tzs FROM credit_notes WHERE code = v_code) = 137500,
+    'a credit note carries the 110% uplift');
+  PERFORM ok((SELECT expires_at FROM credit_notes WHERE code = v_code) > now() + interval '23 months',
+    '§7.11.4: the called-off-event note is valid for 24 months');
+  PERFORM ok((SELECT transferable FROM credit_notes WHERE code = v_code),
+    'credit notes are transferable');
+
+  -- Redeem against a different order, partially.
+  o := new_order('OP-CC-2026-T093');
+  applied := redeem_credit_note(v_code, o, 100000);
+  PERFORM ok(applied = 100000, 'a credit note can be partially redeemed');
+  PERFORM ok((SELECT balance_tzs FROM credit_notes WHERE code = v_code) = 37500,
+    'the remaining balance stays on the note');
+  SELECT * INTO l FROM order_ledger WHERE order_id = o;
+  PERFORM ok(l.effective_total_tzs = 150000,
+    'redemption reduces the effective total through the same ledger as everything else');
+  PERFORM ok(l.paid_tzs = 0, 'a redemption is NOT counted as money received');
+
+  -- Never applies more than is owed.
+  applied := redeem_credit_note(v_code, o, 37500);
+  PERFORM ok(applied = 37500, 'the remainder can be applied to the same order');
+  PERFORM must_fail(format('SELECT redeem_credit_note(%L, %L, 1000)', v_code, o),
+    'an exhausted credit note cannot be redeemed again');
+
+RAISE NOTICE '--- Postponement (§7.11.3) ---';
+
+  o := new_order('OP-CC-2026-T094');
+  left_over := postpone_order(o, CURRENT_DATE + 200, 'admin-1');
+  PERFORM ok(left_over = 1, 'the first postponement is free');
+  left_over := postpone_order(o, CURRENT_DATE + 400, 'admin-1');
+  PERFORM ok(left_over = 0, 'the second postponement is free');
+  PERFORM must_fail(format('SELECT postpone_order(%L, CURRENT_DATE + 500)', o),
+    'a third postponement is refused — treat it as a new order');
+  PERFORM ok((SELECT provisional_event_date FROM card_orders WHERE id = o) = CURRENT_DATE + 400,
+    'the event date is actually moved');
+
+  -- Beyond 24 months, styles and prices have moved on.
+  o := new_order('OP-CC-2026-T095');
+  UPDATE card_orders SET created_at = now() - interval '30 months' WHERE id = o;
+  PERFORM must_fail(format('SELECT postpone_order(%L, CURRENT_DATE + 100)', o),
+    'an order older than 24 months cannot be postponed');
+
+RAISE NOTICE '--- Anti-abuse (§7.11.9) ---';
+
+  SELECT count(*) INTO n FROM commission_refund_watchlist
+   WHERE buyer_phone = '+255712345678';
+  PERFORM ok(n = 1,
+    '§7.11.9: three refund requests from one phone in 12 months are flagged for review');
+END $$;
+
 SELECT 'ALL TESTS PASSED' AS result;

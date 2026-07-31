@@ -48,6 +48,7 @@ import {
   Star,
   Store,
   TrendingUp,
+  Undo2,
   UserCheck,
   UserCog,
   UserPlus,
@@ -167,7 +168,8 @@ const sections: NavSection[] = [
       { icon: CreditCard, label: "Payments", href: "/finance/payments", requiredPermission: "finance.read" },
       // Separate from Payments above: commissions are a two-instalment ledger
       // with its own review queue, not single-payment card orders.
-      { icon: ReceiptText, label: "Commission Payments", href: "/finance/commissions", requiredPermission: "finance.read" },
+      { icon: ReceiptText, label: "Commission Payments", href: "/finance/commissions", exact: true, requiredPermission: "finance.read" },
+      { icon: Undo2, label: "Commission Refunds", href: "/finance/commissions/refunds", requiredPermission: "finance.read" },
       { icon: Package, label: "Order Fulfilment", href: "/finance/orders", requiredPermission: "finance.read" },
       { icon: Wallet, label: "Vendor Payouts", href: "/finance/payouts", requiredPermission: "finance.read" },
       { icon: HandHeart, label: "Pledge Concierge", href: "/opus-pass/pledges", requiredPermission: "opuspass.pledges.read" },
