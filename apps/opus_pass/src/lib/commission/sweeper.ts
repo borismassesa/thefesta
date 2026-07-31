@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase'
 import { mapSelcomStatus, queryOrderStatus } from '@/lib/payments/selcom'
 import { transitionOrder, TransitionError, verifyPaymentAndAdvance } from './orders'
 import { publishSettledOrder } from './publish'
+import { dispatchOutbox } from './dispatcher'
 
 /**
  * The commission sweeper.
@@ -467,6 +468,30 @@ export async function sweepDormancy(): Promise<SweepResult> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Drain the notification outbox.
+ *
+ * Runs LAST in the sweep, deliberately: the passes above enqueue rows in the
+ * same transaction as the state changes they make, so draining afterwards
+ * means a reminder raised this run also goes out this run rather than waiting
+ * for the next tick. On a daily cadence that is the difference between a
+ * same-day and a next-day balance reminder.
+ */
+export async function sweepOutbox(): Promise<SweepResult> {
+  const dispatched = await dispatchOutbox()
+  return {
+    pass: 'outbox',
+    examined: dispatched.examined,
+    acted: dispatched.sent,
+    errors: [
+      ...dispatched.errors,
+      ...(dispatched.dead > 0
+        ? [`${dispatched.dead} notification(s) gave up after retries — a customer was not reached`]
+        : []),
+    ],
+  }
+}
+
 /** Run every pass. One failing pass never stops the others. */
 export async function runAllSweeps(): Promise<SweepResult[]> {
   const passes = [
@@ -478,6 +503,7 @@ export async function runAllSweeps(): Promise<SweepResult[]> {
     sweepForfeiture,
     sweepDelivery,
     sweepDormancy,
+    sweepOutbox,
   ]
 
   const results: SweepResult[] = []
