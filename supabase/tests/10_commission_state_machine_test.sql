@@ -423,4 +423,123 @@ RAISE NOTICE '--- Structural invariants ---';
              'L12: order numbers come from a sequence, so two concurrent checkouts cannot collide');
 END $$;
 
+
+-- ═══════════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE o UUID; d UUID; chosen UUID; cap RECORD; c UUID; due1 TIMESTAMPTZ; due2 TIMESTAMPTZ;
+BEGIN
+RAISE NOTICE '--- Phase 2: assignment, capacity and SLA pause ---';
+
+  -- A second designer, deliberately WITHOUT the wedding category, to prove
+  -- capability filtering is real rather than cosmetic.
+  INSERT INTO workforce_employees (id, clerk_user_id, full_name, dashboard_access)
+    VALUES ('44444444-4444-4444-4444-444444444444', 'user_designer2', 'Juma Designer', TRUE);
+  INSERT INTO designer_profiles (employee_id, display_name, studio_grade, categories, capacity)
+    VALUES ('44444444-4444-4444-4444-444444444444', 'Juma', 'assistant', ARRAY['corporate'], 5);
+
+  o := new_order('OP-CC-2026-T050');
+  PERFORM pay(o, 'deposit', 125000);
+  PERFORM transition_order(o, 'deposit_paid',   'deposit.verified', 'system');
+  PERFORM transition_order(o, 'intake_pending', 'brief.issued',     'system');
+  PERFORM complete_brief(o);
+  PERFORM transition_order(o, 'queued', 'brief.completed', 'customer');
+
+  PERFORM ok((SELECT count(*) FROM rank_designers_for_order(o)) = 1,
+    'ranking excludes a designer who does not cover the order category');
+
+  chosen := assign_card_order(o, NULL, 'system');
+  PERFORM ok(chosen = '33333333-3333-3333-3333-333333333333',
+    'auto-assign picks the only eligible designer');
+  PERFORM ok((SELECT status FROM card_orders WHERE id = o) = 'assigned',
+    'assign_card_order moves the order through transition_order()');
+  PERFORM ok((SELECT last_assigned_at FROM designer_profiles
+               WHERE employee_id = chosen) IS NOT NULL,
+    'assignment stamps last_assigned_at so the next pick rotates');
+
+  -- Signature work must not land on an assistant.
+  PERFORM ok(NOT grade_meets_package('assistant', 'signature'),
+    'an assistant cannot take Signature work');
+  PERFORM ok(grade_meets_package('associate', 'signature'),
+    'an associate can take Signature work');
+  PERFORM ok(grade_meets_package('assistant', 'classic'),
+    'grade gating applies only where the package demands it');
+
+  -- Capacity is a hard ceiling: there is no freelance pool to spill into.
+  SELECT * INTO cap FROM commission_capacity;
+  PERFORM ok(cap.total_capacity = 10, 'capacity view sums active designers only');
+  PERFORM ok(cap.open_tasks >= 1,     'capacity view counts live tasks');
+
+  UPDATE designer_profiles SET active = FALSE
+    WHERE employee_id = '33333333-3333-3333-3333-333333333333';
+  o := new_order('OP-CC-2026-T051');
+  PERFORM pay(o, 'deposit', 125000);
+  PERFORM transition_order(o, 'deposit_paid',   'deposit.verified', 'system');
+  PERFORM transition_order(o, 'intake_pending', 'brief.issued',     'system');
+  PERFORM complete_brief(o);
+  PERFORM transition_order(o, 'queued', 'brief.completed', 'customer');
+  PERFORM ok(assign_card_order(o, NULL, 'system') IS NULL,
+    'with no eligible designer, assignment returns NULL and the order stays queued');
+  PERFORM ok((SELECT status FROM card_orders WHERE id = o) = 'queued',
+    'an order the studio cannot staff is never force-assigned');
+  UPDATE designer_profiles SET active = TRUE
+    WHERE employee_id = '33333333-3333-3333-3333-333333333333';
+
+  -- A manual override always wins, and is attributable.
+  chosen := assign_card_order(o, '33333333-3333-3333-3333-333333333333', 'admin', 'admin-1');
+  PERFORM ok(chosen = '33333333-3333-3333-3333-333333333333', 'manual override assigns');
+  PERFORM ok((SELECT (payload ->> 'manual_override')::boolean FROM order_events
+              WHERE order_id = o AND event_type = 'task.assigned'
+              ORDER BY created_at DESC LIMIT 1),
+    'a manual override is recorded as such on the timeline');
+
+  -- Clarifications pause the SLA clock. Time the customer controls must never
+  -- count against a designer.
+  PERFORM transition_order(o, 'in_design', 'task.accepted', 'designer');
+  SELECT sla_due_at INTO due1 FROM card_orders WHERE id = o;
+  INSERT INTO brief_clarifications (order_id, asked_by, question)
+    VALUES (o, '33333333-3333-3333-3333-333333333333', 'Which spelling of the surname?')
+    RETURNING id INTO c;
+  PERFORM ok((SELECT sla_paused_at FROM card_orders WHERE id = o) IS NOT NULL,
+    'an open clarification pauses the SLA clock');
+
+  -- Simulate an hour of waiting, then answer it.
+  UPDATE card_orders SET sla_paused_at = now() - interval '1 hour' WHERE id = o;
+  UPDATE brief_clarifications SET answer = 'Massesa', answered_at = now() WHERE id = c;
+  SELECT sla_due_at INTO due2 FROM card_orders WHERE id = o;
+  PERFORM ok((SELECT sla_paused_at FROM card_orders WHERE id = o) IS NULL,
+    'answering the last clarification resumes the clock');
+  PERFORM ok(due2 > due1,
+    'the deadline is pushed out by exactly the time spent waiting on the customer');
+  PERFORM ok((SELECT sla_paused_ms FROM card_orders WHERE id = o) > 0,
+    'paused time is banked for SLA attainment reporting');
+
+  -- Version numbering is race-safe.
+  PERFORM ok(next_design_version_no(o) = 1, 'first version is v1');
+  INSERT INTO design_versions (order_id, version_no, designer_id, svg_path, preview_path)
+    VALUES (o, next_design_version_no(o), '33333333-3333-3333-3333-333333333333', 's', 'p');
+  PERFORM ok(next_design_version_no(o) = 2, 'the next version number follows the last stored one');
+END $$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE n INT;
+BEGIN
+RAISE NOTICE '--- Phase 2: private storage ---';
+
+  SELECT count(*) INTO n FROM storage.buckets
+   WHERE id IN ('commission-briefs','commission-versions','commission-previews');
+  PERFORM ok(n = 3, 'all three commission buckets exist');
+
+  SELECT count(*) INTO n FROM storage.buckets
+   WHERE id LIKE 'commission-%' AND public = TRUE;
+  PERFORM ok(n = 0,
+    'L14: every commission bucket is PRIVATE — a public preview would make Gate 2 decorative');
+
+  SELECT count(*) INTO n FROM storage.buckets
+   WHERE id = 'commission-briefs'
+     AND 'application/pdf' = ANY(allowed_mime_types)
+     AND file_size_limit = 15728640;
+  PERFORM ok(n = 1, 'brief uploads are capped at 15 MB and restricted to images and PDF');
+END $$;
+
 SELECT 'ALL TESTS PASSED' AS result;

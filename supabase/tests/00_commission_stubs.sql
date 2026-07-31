@@ -31,6 +31,32 @@ CREATE TABLE public.workforce_employees (
 
 -- The session-identity helpers. In production these read the Clerk JWT; here
 -- they read a GUC so tests can impersonate.
+-- Supabase's storage and auth schemas. Only the shape the commission
+-- migrations touch: the bucket registry, and the JWT accessor the designer
+-- row-scoping policies read.
+CREATE SCHEMA IF NOT EXISTS storage;
+CREATE SCHEMA IF NOT EXISTS auth;
+
+CREATE TABLE IF NOT EXISTS storage.buckets (
+  id                 TEXT PRIMARY KEY,
+  name               TEXT NOT NULL,
+  public             BOOLEAN NOT NULL DEFAULT FALSE,
+  file_size_limit    BIGINT,
+  allowed_mime_types TEXT[]
+);
+
+CREATE TABLE IF NOT EXISTS storage.objects (
+  id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bucket_id TEXT REFERENCES storage.buckets(id),
+  name   TEXT
+);
+
+-- Impersonation hook: tests set test.clerk_sub to act as a given designer.
+CREATE OR REPLACE FUNCTION auth.jwt() RETURNS JSONB
+LANGUAGE sql STABLE AS $$
+  SELECT jsonb_build_object('sub', NULLIF(current_setting('test.clerk_sub', true), ''));
+$$;
+
 CREATE OR REPLACE FUNCTION public.requesting_user_id() RETURNS UUID
 LANGUAGE sql STABLE AS $$
   SELECT NULLIF(current_setting('test.user_id', true), '')::uuid;
