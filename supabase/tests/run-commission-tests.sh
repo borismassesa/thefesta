@@ -56,7 +56,8 @@ for f in "$REPO/supabase/tests/00_commission_stubs.sql" \
          "$REPO/supabase/migrations/20260730100001_card_commission_production.sql" \
          "$REPO/supabase/migrations/20260730100002_card_commission_state_machine.sql" \
          "$REPO/supabase/migrations/20260730100003_card_commission_brief_seed.sql" \
-         "$REPO/supabase/migrations/20260730100004_card_commission_production_pipeline.sql"; do
+         "$REPO/supabase/migrations/20260730100004_card_commission_production_pipeline.sql" \
+         "$REPO/supabase/migrations/20260730100005_card_commission_review_and_balance.sql"; do
   [[ -f "$f" ]] || continue
   printf -- '── %s\n' "$(basename "$f")"
   psql -h "$SOCK" -p "$PORT" -U postgres -d ccs -v ON_ERROR_STOP=1 -q -f "$f" 2>&1 \

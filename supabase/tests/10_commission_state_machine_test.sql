@@ -542,4 +542,208 @@ RAISE NOTICE '--- Phase 2: private storage ---';
   PERFORM ok(n = 1, 'brief uploads are capped at 15 MB and restricted to images and PDF');
 END $$;
 
+
+-- ═══════════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE o UUID; d UUID; r UUID; charge INT; l order_ledger; n INT; ver design_versions;
+BEGIN
+RAISE NOTICE '--- Phase 3: review, revisions and top-up (PRD §7.6) ---';
+
+  -- Drive an order to client_review on the classic package (2 revisions).
+  o := new_order('OP-CC-2026-T060');
+  PERFORM pay(o, 'deposit', 125000);
+  PERFORM transition_order(o, 'deposit_paid',   'deposit.verified', 'system');
+  PERFORM transition_order(o, 'intake_pending', 'brief.issued',     'system');
+  PERFORM complete_brief(o);
+  PERFORM transition_order(o, 'queued', 'brief.completed', 'customer');
+  PERFORM assign_card_order(o, '33333333-3333-3333-3333-333333333333', 'system');
+  PERFORM transition_order(o, 'in_design', 'task.accepted', 'designer');
+  INSERT INTO design_versions (order_id, version_no, designer_id, svg_path, preview_path, qa_passed_at)
+    VALUES (o, 1, '33333333-3333-3333-3333-333333333333', 's1', 'p1', now());
+  PERFORM transition_order(o, 'internal_qa',   'version.submitted', 'designer');
+  PERFORM transition_order(o, 'client_review', 'version.ready',     'admin');
+
+  PERFORM ok((SELECT client_review_started_at FROM card_orders WHERE id = o) IS NOT NULL,
+    'L15: entering client review starts the auto-approve clock');
+  PERFORM ok((SELECT count(*) FROM commission_auto_approve_due WHERE order_id = o) = 0,
+    'a fresh review is not yet due for auto-approval');
+
+  -- A CORRECTION is free and unlimited.
+  r := open_revision_round(o, '[{"element":"name","comment":"we misspelled it"}]'::jsonb, TRUE);
+  PERFORM ok((SELECT revisions_remaining FROM card_orders WHERE id = o) = 2,
+    '§7.11.6: a correction does NOT consume the revision allowance');
+  PERFORM ok((SELECT status FROM card_orders WHERE id = o) = 'in_design',
+    'a correction routes straight back to design');
+  PERFORM ok((SELECT is_correction FROM revision_rounds WHERE id = r),
+    'the round is recorded as a correction, not a revision');
+
+  -- Back to review, then a REAL revision, which does consume allowance.
+  PERFORM transition_order(o, 'internal_qa',   'version.submitted', 'designer');
+  PERFORM transition_order(o, 'client_review', 'version.ready',     'admin');
+  r := open_revision_round(o, '[{"element":"palette","comment":"warmer gold"}]'::jsonb, FALSE);
+  PERFORM ok((SELECT revisions_remaining FROM card_orders WHERE id = o) = 1,
+    'a real revision decrements the allowance');
+  PERFORM ok((SELECT revisions_used FROM card_orders WHERE id = o) = 1,
+    'revisions_used counts up for reporting');
+
+  PERFORM transition_order(o, 'internal_qa',   'version.submitted', 'designer');
+  PERFORM transition_order(o, 'client_review', 'version.ready',     'admin');
+  r := open_revision_round(o, '[{"element":"date","comment":"move it right"}]'::jsonb, FALSE);
+  PERFORM ok((SELECT revisions_remaining FROM card_orders WHERE id = o) = 0,
+    'the second included revision exhausts the allowance');
+
+  -- Allowance spent: a further revision is refused until a top-up is accepted.
+  PERFORM transition_order(o, 'internal_qa',   'version.submitted', 'designer');
+  PERFORM transition_order(o, 'client_review', 'version.ready',     'admin');
+  PERFORM must_fail(
+    format('SELECT open_revision_round(%L, ''[{"element":"x","comment":"y"}]''::jsonb, FALSE)', o),
+    'L6: a revision beyond the allowance is refused by the database');
+
+  -- A correction is STILL free, even with the allowance at zero. This is the
+  -- distinction that stops "errors are not revisions" being a slogan.
+  r := open_revision_round(o, '[{"element":"name","comment":"still wrong"}]'::jsonb, TRUE);
+  PERFORM ok((SELECT revisions_remaining FROM card_orders WHERE id = o) = 0,
+    '§7.11.6: a correction is free even when the allowance is exhausted');
+  PERFORM transition_order(o, 'internal_qa',   'version.submitted', 'designer');
+  PERFORM transition_order(o, 'client_review', 'version.ready',     'admin');
+
+  -- Accept a top-up: raises the total, grants exactly one round, collected
+  -- with the balance rather than as a separate transaction.
+  SELECT * INTO l FROM order_ledger WHERE order_id = o;
+  charge := accept_revision_topup(o);
+  PERFORM ok(charge > 0, 'the top-up charge comes from the package, not the client');
+  PERFORM ok((SELECT total_tzs FROM card_orders WHERE id = o) = l.total_tzs + charge,
+    '§7.6: a top-up raises total_tzs');
+  PERFORM ok((SELECT revisions_remaining FROM card_orders WHERE id = o) = 1,
+    'a top-up buys exactly one round, not an open allowance');
+  PERFORM ok((SELECT count(*) FROM order_payments
+              WHERE order_id = o AND purpose = 'topup' AND state = 'initiated') = 1,
+    'the top-up is an unverified ledger row — collected with the balance');
+  SELECT * INTO l FROM order_ledger WHERE order_id = o;
+  PERFORM ok(l.paid_tzs = 125000,
+    'an unverified top-up does not count as money received');
+
+  r := open_revision_round(o, '[{"element":"x","comment":"one more"}]'::jsonb, FALSE);
+  PERFORM ok((SELECT status FROM card_orders WHERE id = o) = 'in_design',
+    'design reopens on ACCEPTANCE of the charge, not on payment of it');
+END $$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE o UUID; l order_ledger; ver design_versions; n INT;
+BEGIN
+RAISE NOTICE '--- Phase 3: the balance gate and forfeiture (PRD §7.2.2, §7.2.3) ---';
+
+  o := new_order('OP-CC-2026-T070');
+  PERFORM pay(o, 'deposit', 125000);
+  PERFORM transition_order(o, 'deposit_paid',   'deposit.verified', 'system');
+  PERFORM transition_order(o, 'intake_pending', 'brief.issued',     'system');
+  PERFORM complete_brief(o);
+  PERFORM transition_order(o, 'queued', 'brief.completed', 'customer');
+  PERFORM assign_card_order(o, '33333333-3333-3333-3333-333333333333', 'system');
+  PERFORM transition_order(o, 'in_design', 'task.accepted', 'designer');
+  INSERT INTO design_versions (order_id, version_no, designer_id, svg_path, preview_path, qa_passed_at)
+    VALUES (o, 1, '33333333-3333-3333-3333-333333333333', 's1', 'p1', now());
+  PERFORM transition_order(o, 'internal_qa',   'version.submitted', 'designer');
+  PERFORM transition_order(o, 'client_review', 'version.ready',     'admin');
+  PERFORM transition_order(o, 'approved', 'order.approved', 'customer');
+
+  PERFORM ok((SELECT status FROM card_orders WHERE id = o) = 'awaiting_balance',
+    'approval cascades to the balance gate automatically');
+
+  -- No clean master exists yet — that is the whole enforcement mechanism.
+  SELECT * INTO ver FROM approved_version(o);
+  PERFORM ok(ver.master_png_path IS NULL,
+    'L14: no clean master exists in storage at approval');
+  PERFORM must_fail(
+    format('SELECT record_master_asset(%L, %L, ''master.png'')', o, ver.id),
+    'L14: a master asset cannot be recorded for an unsettled order');
+
+  -- The chase cadence sees it.
+  SELECT count(*) INTO n FROM commission_balance_chase WHERE order_id = o;
+  PERFORM ok(n = 1, 'the order appears in the balance chase list');
+  PERFORM ok((SELECT outstanding_tzs FROM commission_balance_chase WHERE order_id = o) = 125000,
+    'the chase list carries the real outstanding figure');
+
+  -- Reminders are claimed once, so a sweeper re-run does not re-send.
+  PERFORM ok(claim_commission_reminder(o, 'balance_24h'), 'a reminder can be claimed once');
+  PERFORM ok(NOT claim_commission_reminder(o, 'balance_24h'),
+    'the same reminder cannot be claimed twice — sweeper re-runs do not re-send');
+
+  -- Overdue, then forfeited.
+  PERFORM transition_order(o, 'balance_overdue', 'balance.overdue', 'system');
+  UPDATE card_orders SET balance_invoiced_at = now() - interval '22 days' WHERE id = o;
+  SELECT count(*) INTO n FROM commission_forfeiture_due WHERE order_id = o;
+  PERFORM ok(n = 1, 'an order past the 21-day window appears in the forfeiture list');
+  PERFORM transition_order(o, 'forfeited', 'order.forfeited', 'system');
+  PERFORM ok((SELECT status FROM card_orders WHERE id = o) = 'forfeited', 'the order forfeits');
+
+  SELECT * INTO l FROM order_ledger WHERE order_id = o;
+  PERFORM ok(l.deposit_paid_tzs = 125000,
+    'forfeiture RETAINS the deposit — it is not refunded');
+  PERFORM ok((SELECT count(*) FROM design_versions WHERE order_id = o) = 1,
+    'forfeiture destroys nothing — the designer''s work survives');
+
+  -- Recovery: paying later releases the asset normally.
+  PERFORM pay(o, 'balance', 125000);
+  PERFORM ok(fully_settled(o), 'a late payment settles the order');
+  PERFORM transition_order(o, 'settled', 'balance.settled', 'finance');
+  PERFORM ok((SELECT status FROM card_orders WHERE id = o) = 'settled',
+    '§7.2.3: forfeiture is recoverable — paying later releases the asset');
+
+  -- NOW the master may be recorded.
+  SELECT * INTO ver FROM approved_version(o);
+  PERFORM record_master_asset(o, ver.id, 'masters/v1.png');
+  PERFORM ok((SELECT master_png_path FROM design_versions WHERE id = ver.id) = 'masters/v1.png',
+    'the clean master is recorded only once the order is fully settled');
+END $$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE o UUID; n INT;
+BEGIN
+RAISE NOTICE '--- Phase 3: sweeper work lists ---';
+
+  -- Auto-approve fires only after the package window.
+  o := new_order('OP-CC-2026-T080');
+  PERFORM pay(o, 'deposit', 125000);
+  PERFORM transition_order(o, 'deposit_paid',   'deposit.verified', 'system');
+  PERFORM transition_order(o, 'intake_pending', 'brief.issued',     'system');
+  PERFORM complete_brief(o);
+  PERFORM transition_order(o, 'queued', 'brief.completed', 'customer');
+  PERFORM assign_card_order(o, '33333333-3333-3333-3333-333333333333', 'system');
+  PERFORM transition_order(o, 'in_design', 'task.accepted', 'designer');
+  INSERT INTO design_versions (order_id, version_no, designer_id, svg_path, preview_path, qa_passed_at)
+    VALUES (o, 1, '33333333-3333-3333-3333-333333333333', 's', 'p', now());
+  PERFORM transition_order(o, 'internal_qa',   'version.submitted', 'designer');
+  PERFORM transition_order(o, 'client_review', 'version.ready',     'admin');
+
+  UPDATE card_orders SET client_review_started_at = now() - interval '6 days' WHERE id = o;
+  SELECT count(*) INTO n FROM commission_auto_approve_due WHERE order_id = o;
+  PERFORM ok(n = 1, 'L7/L15: a review left open past the package window is due for auto-approval');
+  PERFORM transition_order(o, 'approved', 'order.approved', 'system');
+  PERFORM ok((SELECT status FROM card_orders WHERE id = o) = 'awaiting_balance',
+    'auto-approve releases the INVOICE, never the asset');
+
+  -- Accept-SLA breach list.
+  o := new_order('OP-CC-2026-T081');
+  PERFORM pay(o, 'deposit', 125000);
+  PERFORM transition_order(o, 'deposit_paid',   'deposit.verified', 'system');
+  PERFORM transition_order(o, 'intake_pending', 'brief.issued',     'system');
+  PERFORM complete_brief(o);
+  PERFORM transition_order(o, 'queued', 'brief.completed', 'customer');
+  PERFORM assign_card_order(o, '33333333-3333-3333-3333-333333333333', 'system');
+  UPDATE card_orders SET assigned_at = now() - interval '3 hours' WHERE id = o;
+  SELECT count(*) INTO n FROM commission_accept_overdue WHERE order_id = o;
+  PERFORM ok(n = 1, 'L8: an assignment unaccepted after 2 hours is swept back to the queue');
+
+  -- Dormancy: 90 days awaiting the customer, archived but restorable.
+  o := new_order('OP-CC-2026-T082');
+  UPDATE card_orders SET created_at = now() - interval '100 days',
+                         last_customer_response_at = now() - interval '95 days'
+   WHERE id = o;
+  SELECT count(*) INTO n FROM commission_dormant WHERE order_id = o;
+  PERFORM ok(n = 1, '§7.11.7: an order awaiting the customer for 90 days is swept as dormant');
+END $$;
+
 SELECT 'ALL TESTS PASSED' AS result;

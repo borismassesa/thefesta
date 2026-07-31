@@ -451,6 +451,29 @@ export async function verifyPaymentAndAdvance(input: {
     },
   })
 
+  // Settlement releases the asset. Attempted inline so paying and receiving
+  // feel like ONE action — any perceptible gap between the two is where
+  // support tickets come from (TDD §5.3).
+  //
+  // Deliberately best-effort: a verified payment is durable and must NEVER be
+  // rolled back because a downstream publish failed (TDD §10). If this throws,
+  // the order stays `settled` and the sweeper's delivery pass retries until it
+  // succeeds. Dynamic import keeps orders.ts and publish.ts from forming a
+  // cycle at module load.
+  if (updated.status === 'settled' && updated.event_id) {
+    try {
+      const { publishSettledOrder } = await import('./publish')
+      const published = await publishSettledOrder(updated.id)
+      if (published.ok) {
+        const fresh = await getOrderById(updated.id)
+        return { order: fresh ?? updated, moved: true, shortfall }
+      }
+      console.error('[commission] publish deferred to sweeper:', published.message)
+    } catch (error) {
+      console.error('[commission] publish threw; sweeper will retry', error)
+    }
+  }
+
   return { order: updated, moved: target !== order.status, shortfall }
 }
 

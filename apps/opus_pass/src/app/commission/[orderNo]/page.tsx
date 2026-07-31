@@ -8,9 +8,12 @@ import {
   stepForStatus,
   type CommissionStep,
 } from '@opusfesta/lib'
+import { createSupabaseServerClient } from '@/lib/supabase'
 import { authorizeOrderAccess } from '@/lib/commission/access'
 import { getLedger, listPayments } from '@/lib/commission/orders'
+import { getReviewableVersion } from '@/lib/commission/review'
 import LipaNambaForm from './LipaNambaForm'
+import ReviewPanel from './ReviewPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,7 +59,23 @@ export default async function CommissionOrderPage({ params, searchParams }: Page
   }
 
   const order = access.order
-  const [ledger, payments] = await Promise.all([getLedger(order.id), listPayments(order.id)])
+  const [ledger, payments, reviewVersion] = await Promise.all([
+    getLedger(order.id),
+    listPayments(order.id),
+    // Only fetched when there is something to review — signing a URL has a
+    // cost and there is no reason to mint one nobody will look at.
+    ['client_review', 'settled', 'delivered', 'closed'].includes(order.status)
+      ? getReviewableVersion(order)
+      : Promise.resolve(null),
+  ])
+
+  // The top-up price is read from the package so the offer quotes the real
+  // figure rather than a hard-coded one.
+  const { data: pkg } = await createSupabaseServerClient()
+    .from('card_packages')
+    .select('topup_price_tzs')
+    .eq('id', order.package_id)
+    .maybeSingle<{ topup_price_tzs: number }>()
 
   const isSw = order.locale === 'sw'
   const currentStep = stepForStatus(order.status)
@@ -137,6 +156,41 @@ export default async function CommissionOrderPage({ params, searchParams }: Page
           </p>
         )}
       </section>
+
+      {/* ── Review, when the design is in front of the customer ───────────── */}
+      {order.status === 'client_review' && (
+        <div className="mb-8">
+          <ReviewPanel
+            orderKey={order.order_no}
+            token={token ?? null}
+            locale={isSw ? 'sw' : 'en'}
+            version={reviewVersion}
+            revisionsRemaining={order.revisions_remaining}
+            topupPriceTzs={pkg?.topup_price_tzs ?? null}
+          />
+        </div>
+      )}
+
+      {/* ── The finished card, once the balance is settled ────────────────── */}
+      {['settled', 'delivered', 'closed'].includes(order.status) && reviewVersion?.url && (
+        <section className="mb-8 rounded-2xl border border-[#E8DCC8] bg-white p-5">
+          <h2 className="font-serif text-lg text-[#4A2D5C]">
+            {isSw ? 'Kadi yako iko tayari' : 'Your card is ready'}
+          </h2>
+          <img
+            src={reviewVersion.url}
+            alt={isSw ? 'Kadi yako' : 'Your card'}
+            className="mt-4 w-full rounded-xl border border-[#E8DCC8]"
+          />
+          <a
+            href={reviewVersion.url}
+            download
+            className="mt-4 inline-block rounded-full bg-[#4A2D5C] px-5 py-2.5 text-sm font-semibold text-white"
+          >
+            {isSw ? 'Pakua faili' : 'Download your file'}
+          </a>
+        </section>
+      )}
 
       {/* ── The action, when there is one for the customer ─────────────────── */}
       {needsPayment(order.status) && (
