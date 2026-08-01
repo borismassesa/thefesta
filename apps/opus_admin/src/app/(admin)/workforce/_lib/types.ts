@@ -57,6 +57,54 @@ export type Employee = {
   clerkUserId: string | null
 }
 
+// A deliberately NARROW projection of Employee for pages that hand employee
+// data to a client component.
+//
+// Anything a server component passes as a prop is serialised into the RSC
+// payload and is readable in the browser's devtools. Passing the full
+// `Employee` therefore ships salary_tzs, phone, notes and clerk_user_id to
+// every viewer of that page, regardless of whether they hold
+// workforce.payroll. The Roles page did exactly that.
+//
+// Keep this to fields that are genuinely rendered. If a screen needs more,
+// add the field here consciously rather than widening back to `Employee`.
+export type EmployeeDirectoryView = Pick<
+  Employee,
+  | 'id'
+  | 'employeeCode'
+  | 'name'
+  | 'email'
+  | 'jobTitle'
+  | 'department'
+  | 'status'
+  | 'avatarColor'
+  | 'avatarUrl'
+  | 'dashboardAccess'
+  | 'dashboardRoleId'
+  | 'lastDashboardLogin'
+>
+
+/**
+ * Project a full Employee down to the client-safe view. Call this in the
+ * server component, never in the client.
+ */
+export function toEmployeeDirectoryView(e: Employee): EmployeeDirectoryView {
+  return {
+    id: e.id,
+    employeeCode: e.employeeCode,
+    name: e.name,
+    email: e.email,
+    jobTitle: e.jobTitle,
+    department: e.department,
+    status: e.status,
+    avatarColor: e.avatarColor,
+    avatarUrl: e.avatarUrl,
+    dashboardAccess: e.dashboardAccess,
+    dashboardRoleId: e.dashboardRoleId,
+    lastDashboardLogin: e.lastDashboardLogin,
+  }
+}
+
 export type ShiftType = 'Full day' | 'Half day' | 'On-call' | 'Remote' | 'Off'
 
 export type WorkforceShift = {

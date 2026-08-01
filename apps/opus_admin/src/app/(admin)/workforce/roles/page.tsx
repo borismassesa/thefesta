@@ -12,7 +12,7 @@ import {
   getRoles,
   getWorkforceInvitations,
 } from '../_lib/queries'
-import { PERMISSIONS } from '../_lib/types'
+import { PERMISSIONS, toEmployeeDirectoryView } from '../_lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,7 +60,12 @@ export default async function RolesPage() {
       <RolesClient
         roles={roles}
         permissions={PERMISSIONS}
-        employees={employees}
+        // Projected, NOT the raw Employee[]. Props on a client component are
+        // serialised into the RSC payload and readable in devtools, so passing
+        // the full row would ship salary_tzs, phone, notes and clerk_user_id to
+        // anyone who can open this page — which now includes roles.read
+        // holders such as `viewer`, who hold no workforce.payroll.
+        employees={employees.map(toEmployeeDirectoryView)}
         memberIdsByRole={memberIdsByRole}
         invitations={invitations}
         callerEmail={callerEmail}

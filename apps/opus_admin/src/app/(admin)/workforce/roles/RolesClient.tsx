@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils'
 import Avatar from '../_components/Avatar'
 import StatusPill from '../_components/StatusPill'
 import Kpi, { KpiRow } from '../_components/Kpi'
-import type { Employee, Permission, PermissionGroup, WorkforceRole } from '../_lib/data'
+import type { EmployeeDirectoryView, Permission, PermissionGroup, WorkforceRole } from '../_lib/data'
 import type { WorkforceInvitationListRow } from '../_lib/queries'
 import AdminTeamSection from './AdminTeamSection'
 import PendingInvitationsSection from './PendingInvitationsSection'
@@ -87,7 +87,7 @@ export default function RolesClient({
 }: {
   roles: WorkforceRole[]
   permissions: Permission[]
-  employees: Employee[]
+  employees: EmployeeDirectoryView[]
   memberIdsByRole: Record<string, string[]>
   invitations: WorkforceInvitationListRow[]
   callerEmail: string | null
@@ -136,9 +136,9 @@ export default function RolesClient({
   }, [roles, employees, memberIdsByRole])
 
   const membersByRoleId = useMemo(() => {
-    const map = new Map<string, Employee[]>()
+    const map = new Map<string, EmployeeDirectoryView[]>()
     for (const [roleId, ids] of memberCounts) {
-      const list: Employee[] = []
+      const list: EmployeeDirectoryView[] = []
       for (const id of ids) {
         const e = employeesById.get(id)
         if (e) list.push(e)
@@ -319,7 +319,7 @@ function MembersCard({
   onAssign,
 }: {
   role: WorkforceRole
-  members: Employee[]
+  members: EmployeeDirectoryView[]
   onAssign?: () => void
 }) {
   // Up to 6 chip-style avatars in a wrapping row, then "+N more" if the
@@ -1275,7 +1275,7 @@ function AssignMembersDialog({
   onClose,
 }: {
   role: WorkforceRole
-  employees: Employee[]
+  employees: EmployeeDirectoryView[]
   currentMemberIds: string[]
   onClose: () => void
 }) {
