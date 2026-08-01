@@ -105,7 +105,9 @@ export function AttachmentControl({
     if (!attachment) return
     setError(null)
     try {
-      const result = await getRecordAttachmentUrl(attachment.storagePath)
+      // Pass the record identity, not the storage path — the action
+      // re-reads the row and derives the key server-side.
+      const result = await getRecordAttachmentUrl(employeeId, recordKind, recordId)
       if (!result.ok) {
         setError(result.error)
         return
