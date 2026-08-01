@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert'
+import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 import {
   canAssignRole,
@@ -183,7 +184,25 @@ describe('canAssignRole', () => {
   it('caller cannot include themselves in the member set', () => {
     const decision = canAssignRole(assigner, role(), ['emp-other', 'emp-self'])
     assert.equal(decision.allowed, false)
-    assert.match(decision.allowed === false ? decision.reason : '', /your own/i)
+    assert.match(decision.allowed === false ? decision.reason : '', /yourself/i)
+  })
+  // Regression: an earlier guard read `caller.employeeId && targetIds.includes(...)`,
+  // so an unresolved employee id silently SKIPPED the self-elevation check
+  // instead of blocking. A non-owner whose id we cannot resolve must be denied,
+  // not waved through.
+  it('fails CLOSED when the caller employee id cannot be resolved', () => {
+    const unresolved: AuthzCaller = { ...assigner, employeeId: null }
+    const decision = canAssignRole(unresolved, role(), ['emp-other'])
+    assert.equal(decision.allowed, false)
+  })
+  it('an owner is still allowed when their employee id is unresolved', () => {
+    const owner: AuthzCaller = { isOwner: true, permissions: new Set(), employeeId: null }
+    assert.equal(canAssignRole(owner, role(), ['emp-other']).allowed, true)
+  })
+  // Self-REMOVAL is de-escalation and stays permitted. Pinned so the asymmetry
+  // with self-addition above is deliberate rather than accidental.
+  it('caller may remove themselves by omitting their own id', () => {
+    assert.equal(canAssignRole(assigner, role(), ['emp-other']).allowed, true)
   })
   it('roles.write alone cannot assign members', () => {
     const writer: AuthzCaller = {
@@ -231,6 +250,35 @@ describe('expandRolePermissions', () => {
   it('does not invent roles.read for callers without workforce.read', () => {
     const out = expandRolePermissions(new Set(['cms.read']))
     assert.equal(out.has('workforce.roles.read'), false)
+  })
+})
+
+// fallbackRolePermissions is not exported, and admin-auth.ts pulls in
+// `server-only` transitively, so it cannot be imported here. This asserts the
+// invariant against the SOURCE instead. Crude, but the alternative is no guard
+// at all on a branch that already shipped this exact bug once: the fallback is
+// reached on an RPC error, and the role it switches on comes from
+// legacyRoleBucket, which promotes finance / people-ops / content-editor /
+// vendor-success to 'admin'. Granting mutating roles.* keys there hands those
+// four full RBAC control during any transient DB failure.
+describe('fallbackRolePermissions must not fail open on roles.*', () => {
+  const source = readFileSync(
+    new URL('./admin-auth.ts', import.meta.url),
+    'utf8',
+  )
+  const fallbackBody = source.slice(
+    source.indexOf('function fallbackRolePermissions'),
+  )
+  const adminArm = fallbackBody.slice(0, fallbackBody.indexOf("case 'editor':"))
+
+  it('grants roles.read in the owner/admin fallback arm', () => {
+    assert.match(adminArm, /'workforce\.roles\.read'/)
+  })
+  it('does NOT grant roles.write in the fallback arm', () => {
+    assert.doesNotMatch(adminArm, /'workforce\.roles\.write'/)
+  })
+  it('does NOT grant roles.assign in the fallback arm', () => {
+    assert.doesNotMatch(adminArm, /'workforce\.roles\.assign'/)
   })
 })
 

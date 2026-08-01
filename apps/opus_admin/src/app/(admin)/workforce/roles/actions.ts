@@ -4,9 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import {
-  escapeLike,
   getAdminAccessRole,
-  getCallerEmail,
+  getCallerEmployeeId,
   getCallerPermissions,
   requirePermission,
 } from '@/lib/admin-auth'
@@ -40,21 +39,18 @@ const PERMISSION_KEYS = new Set(PERMISSIONS.map((p) => p.key))
 // workforce.read redirect never protected them.
 
 async function resolveCaller(): Promise<AuthzCaller> {
-  const [role, permissions, email] = await Promise.all([
+  // employeeId comes from getCallerEmployeeId, which resolves by
+  // clerk_user_id. An earlier revision re-queried workforce_employees by email
+  // here, which was wrong twice over: email is mutable and nothing syncs
+  // Clerk's address back into the row, and the column is only
+  // case-sensitively UNIQUE, so two case-variant rows both match an ILIKE and
+  // make maybeSingle error. Either way the id came back null and the
+  // self-assignment guard in canAssignRole silently stopped applying.
+  const [role, permissions, employeeId] = await Promise.all([
     getAdminAccessRole(),
     getCallerPermissions(),
-    getCallerEmail(),
+    getCallerEmployeeId(),
   ])
-  let employeeId: string | null = null
-  if (email) {
-    const supabase = createSupabaseAdminClient()
-    const { data } = await supabase
-      .from('workforce_employees')
-      .select('id')
-      .ilike('email', escapeLike(email))
-      .maybeSingle<{ id: string }>()
-    employeeId = data?.id ?? null
-  }
   return { isOwner: role === 'owner', permissions, employeeId }
 }
 

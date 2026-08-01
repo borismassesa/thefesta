@@ -162,12 +162,25 @@ export function canAssignRole(
       'This role grants platform-level permissions and can only be assigned by an owner.',
     )
   }
-  // Self-elevation: you may not put yourself into a role. Removing yourself is
-  // equally blocked, because "assign" is a set-membership operation and we
-  // cannot tell the two apart from the desired-set alone without trusting the
-  // client's view of current membership.
-  if (caller.employeeId && targetEmployeeIds.includes(caller.employeeId)) {
-    return deny('You cannot change your own role assignments.')
+  // Self-elevation. FAIL CLOSED when we could not resolve the caller's own
+  // employee row: a null id must never silently disable this check, which is
+  // what an earlier `caller.employeeId && ...` guard did. Owners already
+  // returned above, and any non-owner holding roles.assign necessarily has an
+  // employee row (that is where their role comes from), so denying here costs
+  // a legitimate caller nothing.
+  if (!caller.employeeId) {
+    return deny(
+      'We could not verify which employee record belongs to you, so this change was not applied. Ask People Ops to check your employee profile is linked to your login.',
+    )
+  }
+  // Note this blocks self-ADDITION only: it fires when the caller appears in
+  // the desired member set. Self-REMOVAL (submitting a set that omits
+  // yourself) is permitted, because that is de-escalation and blocking it
+  // would strand someone in a role they no longer want. A pure function
+  // cannot distinguish the two anyway without being handed current
+  // membership, which would mean trusting the client's view of it.
+  if (targetEmployeeIds.includes(caller.employeeId)) {
+    return deny('You cannot add yourself to a role.')
   }
   return allow()
 }

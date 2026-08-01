@@ -172,6 +172,31 @@ export const getCallerEmail = cache(async (): Promise<string | null> => {
   return isAdminAuthDisabled() ? 'dev@opusfesta.com' : null
 })
 
+/**
+ * The caller's canonical `workforce_employees.id`, resolved by `clerk_user_id`.
+ *
+ * Use this for any identity-sensitive check — "is this row mine", "am I
+ * assigning to myself" — rather than re-querying by email. `clerk_user_id` is
+ * a stable UNIQUE column (20260514213347_workforce_dashboard_access.sql:33);
+ * email is mutable, is only case-sensitively unique so two case-variant rows
+ * can both match an ILIKE, and nothing syncs Clerk's address back into
+ * workforce_employees.
+ *
+ * Returns null when the caller has no linked employee row, which is legitimate
+ * for an owner or administrator who was never added to the directory. Callers
+ * performing a security check on the result must fail CLOSED on null rather
+ * than skipping the check.
+ *
+ * Shares the same per-request cache as getAdminAccessRole, so this adds no
+ * round trip.
+ */
+export const getCallerEmployeeId = cache(async (): Promise<string | null> => {
+  const { userId } = await auth()
+  if (!userId) return null
+  const lookup = await getCallerEmployee(userId)
+  return lookup.kind === 'found' ? lookup.id : null
+})
+
 export async function requireAdminRole(
   roles: readonly AdminAccessRole[]
 ): Promise<AdminAccessRole> {
@@ -330,7 +355,23 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
         'bookings.read', 'bookings.write',
         'finance.read', 'finance.write',
         'workforce.read', 'workforce.write', 'workforce.payroll',
-        'workforce.roles.read', 'workforce.roles.write', 'workforce.roles.assign',
+        // roles.read ONLY. Deliberately NOT roles.write / roles.assign.
+        //
+        // This branch is reached when workforce_permissions_for_employee
+        // errors, and the `role` it switches on comes from legacyRoleBucket(),
+        // which promotes finance + people-ops (workforce.payroll),
+        // content-editor (cms.write/cms.publish) and vendor-success
+        // (vendor.moderate) all to 'admin'. Granting the mutating roles.* keys
+        // here would hand exactly those four roles full RBAC control during
+        // any transient RPC failure — including the schema-cache lag right
+        // after this feature's own migration deploys — which is the very
+        // escalation this module exists to close, reached through the error
+        // path instead of the happy path.
+        //
+        // A DB hiccup should degrade an admin to READ-ONLY on roles, never
+        // fail open to write. The safe failure mode for an RBAC-mutating
+        // permission is denial.
+        'workforce.roles.read',
         'insights.read',
         'opuspass.checkin',
         'opuspass.tickets',
