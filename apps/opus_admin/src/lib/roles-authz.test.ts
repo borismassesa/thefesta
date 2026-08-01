@@ -90,6 +90,56 @@ describe('legacy bucket is no longer sufficient authorisation', () => {
   }
 })
 
+// canDeleteRole gates on caller.isOwner, which derives from
+// getAdminAccessRole() -> legacyRoleBucket(). That looks circular given this
+// PR exists to stop trusting the bucket, so the ceiling is pinned explicitly:
+// if ANY permission key could promote a non-owner slug to 'owner', the
+// owner-only delete gate would be reachable by permission alone and escalation
+// would reopen through a third door.
+describe('bucket promotion ceiling: no permission key yields owner', () => {
+  const EVERY_PRIVILEGED_KEY = [
+    'platform.admin',
+    'workforce.payroll',
+    'workforce.roles.write',
+    'workforce.roles.assign',
+    'finance.write',
+    'cms.publish',
+    'cms.write',
+    'vendor.moderate',
+    'opuspass.couples.delete',
+  ]
+
+  it('a custom slug holding EVERY privileged key buckets to admin, never owner', () => {
+    assert.equal(legacyRoleBucket('some-custom-role', EVERY_PRIVILEGED_KEY), 'admin')
+  })
+
+  it('no single privileged key promotes a custom slug to owner', () => {
+    for (const key of EVERY_PRIVILEGED_KEY) {
+      assert.notEqual(
+        legacyRoleBucket('custom', [key]),
+        'owner',
+        `${key} promoted a custom slug to owner`,
+      )
+    }
+  })
+
+  it('only the literal owner slug produces owner, with no alias or case folding', () => {
+    assert.equal(legacyRoleBucket('owner', []), 'owner')
+    assert.equal(legacyRoleBucket('Owner', EVERY_PRIVILEGED_KEY), 'admin')
+    assert.equal(legacyRoleBucket('owner-ish', []), 'viewer')
+    assert.equal(legacyRoleBucket('co-owner', []), 'viewer')
+  })
+
+  it('an over-promoted admin cannot delete a role', () => {
+    const overPromoted: AuthzCaller = {
+      isOwner: false,
+      permissions: new Set(EVERY_PRIVILEGED_KEY),
+      employeeId: 'emp-x',
+    }
+    assert.equal(canDeleteRole(overPromoted, role()).allowed, false)
+  })
+})
+
 describe('canReadRoles', () => {
   it('owner may read', () => {
     assert.equal(canReadRoles(caller('owner')).allowed, true)
