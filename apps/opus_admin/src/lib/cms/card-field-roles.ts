@@ -14,6 +14,8 @@
 //
 // See card-svg-fields.ts for reading the layers out of the artwork.
 
+import { categorySchema } from '@opusfesta/lib'
+
 /**
  * How often a field's value changes — this drives how many renders an order
  * produces, so it is not cosmetic.
@@ -42,7 +44,76 @@ export type CardFieldRole = {
   hint?: string
   /** A real example, shown as the input's placeholder. */
   example?: string
+
+  // ── How this role is recognised in a piece of artwork ──
+  //
+  // Kept ON the role rather than in a separate matcher, so the definition, the
+  // example a designer is shown, the alternative names we accept and the way we
+  // recognise it from content are one thing that cannot drift apart.
+
+  /**
+   * Other layer names that mean this role, normalised the same way as the key.
+   *
+   * Auto-applied, because a designer naming a layer 'Names' has stated the
+   * role as plainly as naming it 'couple_name_1'.
+   */
+  aliases?: string[]
+  /**
+   * Recognises the role from the layer's TEXT rather than its name.
+   *
+   * This is the half that matters at volume: designers name layers after the
+   * sample content ('Bi._Fabiola_Thomas', 'KKKT_Sala_sala_JUU'), so the name
+   * carries no role information but the content does.
+   *
+   * Only ever produces a SUGGESTION. A wedding card cannot be recalled, so a
+   * pattern match never writes a mapping on its own.
+   */
+  match?: {
+    /** Tested against the layer text with whitespace collapsed. */
+    pattern: RegExp
+    /** Shown to the admin so they can judge the suggestion. */
+    reason: string
+    /**
+     * Position among sibling roles that share this pattern, 1-based.
+     *
+     * Two phone numbers are contact_1 and contact_2, two Swahili times are
+     * venue_1_time and venue_2_time. Which is which is decided by document
+     * order, because that is reading order on the card.
+     */
+    ordinal?: number
+  }
 }
+
+
+// ── Content signatures ──
+//
+// Tested against the layer's text with whitespace collapsed, because a kerned
+// layer arrives split per tspan: the month reads "A G O STI", not "AGOSTI".
+
+/** Tanzanian mobile, however the designer spaced it. */
+const PHONE = /(?:\+?255|0)\s*7\d{2}\s*\d{3}\s*\d{3}/
+/** Swahili clock: "Saa 09:00 Alasiri". The period word is the giveaway. */
+const SWAHILI_TIME = /\bSaa\s*\d{1,2}[:.]\d{2}\s*(Asubuhi|Mchana|Alasiri|Jioni|Usiku)\b/i
+/** Month in either language, whole word so "Machi" cannot match inside a name. */
+const MONTH =
+  /^(Januari|Februari|Machi|Aprili|Mei|Juni|Julai|Agosti|Septemba|Oktoba|Novemba|Desemba|January|February|March|April|May|June|July|August|September|October|November|December)$/i
+const YEAR = /^(19|20)\d{2}$/
+const DAY = /^\d{1,2}$/
+/** "Bw & Bi ...", "Mr & Mrs ..." — a couple hosting, not one guest. */
+const HOSTS = /^(Bw|Bwana|Mr|Mzee)\s*(&|na|and)\s*(Bi|Bibi|Mrs|Mama)\b/i
+/** One honorific and one person, and explicitly NOT a pair. */
+const ONE_PERSON = /^(Bi|Bibi|Bw|Bwana|Mr|Mrs|Ms|Dr|Prof)\.?\s+\S+/i
+/** Churches and halls that name a ceremony venue. */
+const VENUE_WORDS = /\b(KKKT|KKT|Kanisa|Church|Cathedral|Parish|Msikiti|Mosque)\b/i
+// Standard Swahili card copy. These phrases are conventional on Tanzanian
+// wedding stationery rather than particular to one design, so recognising them
+// generalises across the catalogue instead of overfitting to one card.
+const HOSTS_INTRO_COPY = /^(Familia ya|Family of|Wazazi)\b/i
+const EVENT_INTRO_1_COPY = /^(Kwenye sherehe ya|Katika sherehe|At the celebration)\b/i
+const EVENT_INTRO_2_COPY = /^(Harusi ya|Ndoa ya|Sendoff ya|Wedding of)\b/i
+const CEREMONY_TITLE_COPY = /^(Ibada|Misa|Nikah|Ceremony|Church service)\b/i
+/** A parenthetical after the venue is the "how to find it" landmark. */
+const LANDMARK = /^\(.+\)$/
 
 /**
  * The reference schema, taken from the Opus Royal Ivory breakdown.
@@ -51,34 +122,34 @@ export type CardFieldRole = {
  * top-to-bottom the way the finished invitation does.
  */
 export const CARD_FIELD_ROLES: CardFieldRole[] = [
-  { key: 'hosts_intro', label: 'Hosts intro', scope: 'template', group: 'Hosts', hint: 'Fixed opening line above the hosts\' names. Part of the design, not asked of the couple.', example: 'Familia ya' },
-  { key: 'hosts_names', label: 'Hosts names', scope: 'order', group: 'Hosts', hint: 'The parents or family hosting the wedding, as they should appear on the card.', example: 'Bw & Bi Ambukege Seeta' },
-  { key: 'invite_line', label: 'Invitation line', scope: 'template', group: 'Hosts', hint: 'The "we are pleased to invite you" line. Fixed design copy.', example: 'Wanayo furaha kukualika/kuwaalika' },
+  { key: 'hosts_intro', label: 'Hosts intro', scope: 'template', group: 'Hosts', aliases: ['family_of', 'familia_ya'], match: { pattern: HOSTS_INTRO_COPY, reason: 'the standard "Familia ya" opening line' }, hint: 'Fixed opening line above the hosts\' names. Part of the design, not asked of the couple.', example: 'Familia ya' },
+  { key: 'hosts_names', label: 'Hosts names', scope: 'order', group: 'Hosts', aliases: ['hosts', 'parents', 'family_names'], match: { pattern: HOSTS, reason: 'reads as a couple hosting, "Bw & Bi …"' }, hint: 'The parents or family hosting the wedding, as they should appear on the card.', example: 'Bw & Bi Ambukege Seeta' },
+  { key: 'invite_line', label: 'Invitation line', scope: 'template', group: 'Hosts', aliases: ['invitation_line', 'invite'], hint: 'The "we are pleased to invite you" line. Fixed design copy.', example: 'Wanayo furaha kukualika/kuwaalika' },
 
   // The only per-guest field on the card. Everything else is per-order.
-  { key: 'guest_name', label: 'Guest name', scope: 'guest', group: 'Hosts', hint: 'Different on every printed card. Taken from the couple\'s guest list at send time, never typed here.', example: 'Bi. Fabiola Thomas' },
+  { key: 'guest_name', label: 'Guest name', scope: 'guest', group: 'Hosts', aliases: ['guest', 'invitee', 'jina_la_mgeni'], match: { pattern: ONE_PERSON, reason: 'one person with an honorific, so it reads as the guest' }, hint: 'Different on every printed card. Taken from the couple\'s guest list at send time, never typed here.', example: 'Bi. Fabiola Thomas' },
 
-  { key: 'event_intro_1', label: 'Event intro (line 1)', scope: 'template', group: 'Couple', hint: 'Fixed line introducing the occasion.', example: 'Kwenye sherehe ya' },
-  { key: 'event_intro_2', label: 'Event intro (line 2)', scope: 'template', group: 'Couple', hint: 'Second fixed line describing the occasion.', example: 'Harusi ya watoto wao wapendwa' },
-  { key: 'couple_name_1', label: 'Couple name 1', scope: 'order', group: 'Couple', hint: 'First partner\'s name in the large script, exactly as they want it spelled.', example: 'Moses Seeta' },
-  { key: 'ampersand', label: 'Ampersand', scope: 'template', group: 'Couple', hint: 'The decorative symbol between the two names. Part of the design.', example: '&' },
-  { key: 'couple_name_2', label: 'Couple name 2', scope: 'order', group: 'Couple', hint: 'Second partner\'s name in the large script, exactly as they want it spelled.', example: 'Dayness Mwandri' },
+  { key: 'event_intro_1', label: 'Event intro (line 1)', scope: 'template', group: 'Couple', aliases: ['event_intro', 'kwenye_sherehe_ya'], match: { pattern: EVENT_INTRO_1_COPY, reason: 'the standard "Kwenye sherehe ya" line' }, hint: 'Fixed line introducing the occasion.', example: 'Kwenye sherehe ya' },
+  { key: 'event_intro_2', label: 'Event intro (line 2)', scope: 'template', group: 'Couple', aliases: ['harusi_ya'], match: { pattern: EVENT_INTRO_2_COPY, reason: 'names the occasion, "Harusi ya …"' }, hint: 'Second fixed line describing the occasion.', example: 'Harusi ya watoto wao wapendwa' },
+  { key: 'couple_name_1', label: 'Couple name 1', scope: 'order', group: 'Couple', aliases: ['names', 'bride', 'groom', 'partner_1', 'name_1'], hint: 'First partner\'s name in the large script, exactly as they want it spelled.', example: 'Moses Seeta' },
+  { key: 'ampersand', label: 'Ampersand', scope: 'template', group: 'Couple', aliases: ['and', 'amp'], match: { pattern: /^(&|&amp;|and|na)$/i, reason: 'the layer is just the joining symbol' }, hint: 'The decorative symbol between the two names. Part of the design.', example: '&' },
+  { key: 'couple_name_2', label: 'Couple name 2', scope: 'order', group: 'Couple', aliases: ['partner_2', 'name_2'], hint: 'Second partner\'s name in the large script, exactly as they want it spelled.', example: 'Dayness Mwandri' },
 
-  { key: 'date_intro', label: 'Date intro', scope: 'template', group: 'Date', hint: 'Fixed lead-in before the date.', example: 'Itakayofanyika Jumamosi tarehe' },
-  { key: 'date_day', label: 'Day', scope: 'order', group: 'Date', kind: 'date', hint: 'Day of the month only, as digits.', example: '08' },
-  { key: 'date_month', label: 'Month', scope: 'order', group: 'Date', kind: 'date', hint: 'Month in words, matching the card\'s language.', example: 'AGOSTI' },
-  { key: 'date_year', label: 'Year', scope: 'order', group: 'Date', kind: 'date', hint: 'Four-digit year.', example: '2026' },
+  { key: 'date_intro', label: 'Date intro', scope: 'template', group: 'Date', aliases: ['itakayofanyika', 'date_line'], hint: 'Fixed lead-in before the date.', example: 'Itakayofanyika Jumamosi tarehe' },
+  { key: 'date_day', label: 'Day', scope: 'order', group: 'Date', kind: 'date', aliases: ['day', 'tarehe'], match: { pattern: DAY, reason: 'one or two digits on their own' }, hint: 'Day of the month only, as digits.', example: '08' },
+  { key: 'date_month', label: 'Month', scope: 'order', group: 'Date', kind: 'date', aliases: ['month', 'mwezi'], match: { pattern: MONTH, reason: 'the text is a month name' }, hint: 'Month in words, matching the card\'s language.', example: 'AGOSTI' },
+  { key: 'date_year', label: 'Year', scope: 'order', group: 'Date', kind: 'date', aliases: ['year', 'mwaka'], match: { pattern: YEAR, reason: 'a four-digit year' }, hint: 'Four-digit year.', example: '2026' },
 
-  { key: 'venue_1_title', label: 'Ceremony title', scope: 'order', group: 'Venue', hint: 'What happens at the first venue, the ceremony.', example: 'Ibada ya Ndoa' },
-  { key: 'venue_1_place', label: 'Ceremony venue', scope: 'order', group: 'Venue', hint: 'Name of the church or ceremony venue. Keep it short enough to fit one line.', example: 'KKKT Sala sala JUU' },
-  { key: 'venue_1_time', label: 'Ceremony time', scope: 'order', group: 'Venue', kind: 'time', hint: 'Start time in the card\'s language, Swahili clock where used locally.', example: 'Saa 09:00 Alasiri' },
-  { key: 'venue_2_title', label: 'Reception title', scope: 'order', group: 'Venue', hint: 'What happens at the second venue, usually the reception.', example: 'Sala sala M/Lami' },
-  { key: 'venue_2_place', label: 'Reception venue', scope: 'order', group: 'Venue', hint: 'Reception venue, or a landmark that helps guests find it.', example: '(Kwa Mama Seeta)' },
-  { key: 'venue_2_time', label: 'Reception time', scope: 'order', group: 'Venue', kind: 'time', hint: 'Reception start time.', example: 'Saa 12:00 Jioni' },
+  { key: 'venue_1_title', label: 'Ceremony title', scope: 'order', group: 'Venue', aliases: ['ceremony_title', 'ibada'], match: { pattern: CEREMONY_TITLE_COPY, reason: 'names the ceremony, "Ibada ya Ndoa"' }, hint: 'What happens at the first venue, the ceremony.', example: 'Ibada ya Ndoa' },
+  { key: 'venue_1_place', label: 'Ceremony venue', scope: 'order', group: 'Venue', aliases: ['ceremony_venue', 'church'], match: { pattern: VENUE_WORDS, reason: 'names a church or place of worship' }, hint: 'Name of the church or ceremony venue. Keep it short enough to fit one line.', example: 'KKKT Sala sala JUU' },
+  { key: 'venue_1_time', label: 'Ceremony time', scope: 'order', group: 'Venue', kind: 'time', aliases: ['ceremony_time'], match: { pattern: SWAHILI_TIME, reason: 'a Swahili clock time', ordinal: 1 }, hint: 'Start time in the card\'s language, Swahili clock where used locally.', example: 'Saa 09:00 Alasiri' },
+  { key: 'venue_2_title', label: 'Reception title', scope: 'order', group: 'Venue', aliases: ['reception_title', 'ukumbi'], hint: 'What happens at the second venue, usually the reception.', example: 'Sala sala M/Lami' },
+  { key: 'venue_2_place', label: 'Reception venue', scope: 'order', group: 'Venue', aliases: ['reception_venue', 'hall'], match: { pattern: LANDMARK, reason: 'a parenthetical landmark, which is how the reception is located' }, hint: 'Reception venue, or a landmark that helps guests find it.', example: '(Kwa Mama Seeta)' },
+  { key: 'venue_2_time', label: 'Reception time', scope: 'order', group: 'Venue', kind: 'time', aliases: ['reception_time'], match: { pattern: SWAHILI_TIME, reason: 'a Swahili clock time', ordinal: 2 }, hint: 'Reception start time.', example: 'Saa 12:00 Jioni' },
 
-  { key: 'contact_heading', label: 'Contacts heading', scope: 'template', group: 'Contacts', hint: 'Fixed heading above the phone numbers.', example: 'MAWASILIANO' },
-  { key: 'contact_1', label: 'Contact 1', scope: 'order', group: 'Contacts', hint: 'Name and phone number of the first person guests should call.', example: 'Bi. Suzan Seeta +255 755 000 850' },
-  { key: 'contact_2', label: 'Contact 2', scope: 'order', group: 'Contacts', hint: 'Second contact person. Leave blank if the couple only wants one.', example: 'Anita Isaac +255 756 089 282' },
+  { key: 'contact_heading', label: 'Contacts heading', scope: 'template', group: 'Contacts', aliases: ['mawasiliano', 'contacts'], match: { pattern: /^(MAWASILIANO|CONTACTS?|WASILIANA)$/i, reason: 'the Swahili heading for contacts' }, hint: 'Fixed heading above the phone numbers.', example: 'MAWASILIANO' },
+  { key: 'contact_1', label: 'Contact 1', scope: 'order', group: 'Contacts', aliases: ['contact'], match: { pattern: PHONE, reason: 'contains a phone number', ordinal: 1 }, hint: 'Name and phone number of the first person guests should call.', example: 'Bi. Suzan Seeta +255 755 000 850' },
+  { key: 'contact_2', label: 'Contact 2', scope: 'order', group: 'Contacts', match: { pattern: PHONE, reason: 'contains a phone number', ordinal: 2 }, hint: 'Second contact person. Leave blank if the couple only wants one.', example: 'Anita Isaac +255 756 089 282' },
 
   // The five RANGI chips. A swatch is a filled shape, which makes it the one
   // thing on this card that needs no font work to become dynamic — just a
@@ -89,13 +160,52 @@ export const CARD_FIELD_ROLES: CardFieldRole[] = [
   { key: 'palette_4', label: 'Colour 4', scope: 'order', group: 'Design', kind: 'colour', hint: 'Fourth colour of the palette.', example: '#F5DCE2' },
   { key: 'palette_5', label: 'Colour 5', scope: 'order', group: 'Design', kind: 'colour', hint: 'Fifth colour of the palette.', example: '#F5EFE3' },
 
-  { key: 'palette_heading', label: 'Palette heading', scope: 'template', group: 'Design', hint: 'Fixed heading above the colour swatches.', example: 'RANGI' },
+  { key: 'palette_heading', label: 'Palette heading', scope: 'template', group: 'Design', aliases: ['rangi', 'colours', 'colors'], match: { pattern: /^(RANGI|COLOU?RS?)$/i, reason: 'the Swahili heading for colours' }, hint: 'Fixed heading above the colour swatches.', example: 'RANGI' },
 ]
 
 export const CARD_FIELD_ROLE_KEYS: readonly string[] = CARD_FIELD_ROLES.map((r) => r.key)
 
 export function cardFieldRole(key: string): CardFieldRole | undefined {
   return CARD_FIELD_ROLES.find((r) => r.key === key)
+}
+
+/**
+ * Layer names the artwork uses that don't spell their role key.
+ *
+ * The palette chips are the only entry so far, and they are here because the
+ * name predates the role keys: every card in the library calls them
+ * 'palette_swatch_N' while the role is 'palette_N'. Renaming a thousand cards'
+ * layers to close a four-character gap is not a trade worth making, so the
+ * alias lives in the naming contract instead.
+ */
+const LAYER_NAME_ALIASES: [RegExp, string][] = [[/^palette_swatch_(\d+)$/, 'palette_$1']]
+
+/**
+ * The role a designer's layer name refers to, or undefined for decoration.
+ *
+ * Two Illustrator suffixes have to be tolerated before the comparison, because
+ * neither is anything the designer typed:
+ *
+ *   '_Image' — appended to a layer it flattened to a bitmap on export.
+ *   '-2'     — appended to the second and later uses of an id, so a shape
+ *              inside a group of the same name exports as 'palette_swatch_1-2'.
+ *
+ * Deliberately exact after that normalising: a wrong guess on a wedding
+ * invitation is worse than no guess, so content-named layers like
+ * 'Bi._Fabiola_Thomas' return undefined and wait for a human.
+ */
+export function roleForLayerName(layerId: string): CardFieldRole | undefined {
+  let normalised = layerId
+    .replace(/_Image$/i, '')
+    .replace(/-\d+$/, '')
+    .toLowerCase()
+  for (const [pattern, replacement] of LAYER_NAME_ALIASES) {
+    if (pattern.test(normalised)) {
+      normalised = normalised.replace(pattern, replacement)
+      break
+    }
+  }
+  return CARD_FIELD_ROLES.find((r) => r.key === normalised)
 }
 
 /** Roles the couple is asked for, in form order. Excludes fixed template copy. */
@@ -194,10 +304,15 @@ export type RequestableField = {
  * dropped, so the designer can see that the card is asking for something it
  * cannot yet display.
  */
-export function requestableFields(bindings: CardFieldBinding[]): RequestableField[] {
+export function requestableFields(
+  bindings: CardFieldBinding[],
+  /** Narrows to the roles this kind of card actually has. */
+  category?: string | null,
+): RequestableField[] {
   const byRole = new Map(bindings.map((b) => [b.role, b]))
+  const inCategory = new Set(categorySchema(category).roles)
 
-  return CARD_FIELD_ROLES.filter((role) => role.scope === 'order')
+  return CARD_FIELD_ROLES.filter((role) => role.scope === 'order' && inCategory.has(role.key))
     .map((role) => {
       const binding = byRole.get(role.key)
       if (!binding || binding.layerIds.length === 0) {
@@ -217,34 +332,55 @@ export type BindingReadiness = {
   ready: string[]
   /** Roles bound only to bitmaps — need the artwork re-exported. */
   blocked: string[]
-  /** Roles with no layer at all in this artwork. */
+  /** Roles this category expects that have no layer in this artwork. */
   unbound: string[]
-  /** False when any role the CUSTOMER supplies is blocked or unbound. */
+  /** Of those, the ones that actually stop the card taking an order. */
+  missingRequired: string[]
+  /** False when a REQUIRED role for this category is blocked or unbound. */
   canFulfilOrders: boolean
 }
 
 /**
  * Whether a card can actually take an order.
  *
- * Template-scope copy being stuck is survivable — it never changes anyway. A
- * blocked 'order' or 'guest' field is not: the couple would be asked for a
+ * Judged against the CATEGORY's schema, not the whole vocabulary. Measuring a
+ * Save the Date against a wedding invitation's 28 roles marked it permanently
+ * unready for fields it does not have and never will — 89 of 133 cards were
+ * misjudged that way.
+ *
+ * Template-scope copy being stuck is survivable, since it never changes. A
+ * blocked or unmapped REQUIRED field is not: the couple would be asked for a
  * value the designer then cannot place.
  */
-export function assessBindings(bindings: CardFieldBinding[]): BindingReadiness {
+export function assessBindings(
+  bindings: CardFieldBinding[],
+  category?: string | null,
+): BindingReadiness {
   const byRole = new Map(bindings.map((b) => [b.role, b]))
+  const schema = categorySchema(category)
+  const inCategory = new Set(schema.roles)
+  const requiredKeys = new Set(schema.required)
+
   const ready: string[] = []
   const blocked: string[] = []
   const unbound: string[] = []
 
   for (const role of CARD_FIELD_ROLES) {
+    // A role this category does not have is not missing; it is irrelevant.
+    if (!inCategory.has(role.key)) continue
     const binding = byRole.get(role.key)
     if (!binding || binding.layerIds.length === 0) unbound.push(role.key)
     else if (binding.rasterised) blocked.push(role.key)
     else ready.push(role.key)
   }
 
-  const customerKeys = new Set(customerSuppliedRoles().map((r) => r.key))
-  const canFulfilOrders = ![...blocked, ...unbound].some((key) => customerKeys.has(key))
+  const missingRequired = [...blocked, ...unbound].filter((key) => requiredKeys.has(key))
 
-  return { ready, blocked, unbound, canFulfilOrders }
+  return {
+    ready,
+    blocked,
+    unbound,
+    missingRequired,
+    canFulfilOrders: missingRequired.length === 0,
+  }
 }

@@ -12,6 +12,7 @@ import {
 const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
 
 type SaveResult = { ok: true; mapped: number } | { ok: false; error: string }
+type ArtworkUrlResult = { ok: true } | { ok: false; error: string }
 
 /**
  * Replace a card's layer→role mapping.
@@ -76,5 +77,34 @@ export async function saveCardFieldBindings(
 
   revalidatePath('/opus-pass/digital-cards/templates')
   revalidatePath(`/opus-pass/digital-cards/templates/${productId}`)
+  revalidatePath('/opus-pass/digital-cards/cards')
+  revalidatePath(`/opus-pass/digital-cards/cards/${productId}/artwork`)
   return { ok: true, mapped: clean.length }
+}
+
+export async function setCardArtworkSvgUrl(
+  productId: string,
+  artworkSvgUrl: string,
+): Promise<ArtworkUrlResult> {
+  await requireAdminRole(DESIGNER_ROLES)
+
+  const id = productId.trim()
+  const url = artworkSvgUrl.trim()
+  if (!id) return { ok: false, error: 'Missing card id.' }
+  if (url && !/\.svg(\?|#|$)/i.test(url)) {
+    return { ok: false, error: 'Editable artwork must be an SVG file.' }
+  }
+
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase
+    .from('website_invitations_products')
+    .update({ artwork_svg_url: url })
+    .eq('id', id)
+
+  if (error) return { ok: false, error: error.message || 'Could not save the artwork SVG.' }
+
+  revalidatePath('/opus-pass/digital-cards/cards')
+  revalidatePath(`/opus-pass/digital-cards/cards/${id}`)
+  revalidatePath(`/opus-pass/digital-cards/cards/${id}/artwork`)
+  return { ok: true }
 }

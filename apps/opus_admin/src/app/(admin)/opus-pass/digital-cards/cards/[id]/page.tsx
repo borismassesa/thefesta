@@ -6,6 +6,7 @@ import {
   normalizeDigitalCardProduct,
   type DigitalCardProductRecord,
 } from '@/lib/cms/opus-pass-digital-cards-products'
+import CardSectionTabs from './CardSectionTabs'
 import ProductEditor from './ProductEditor'
 
 export const dynamic = 'force-dynamic'
@@ -33,5 +34,10 @@ export default async function DigitalCardProductDetailPage({
   if (error) throw error
   if (!data) notFound()
 
-  return <ProductEditor initial={normalizeDigitalCardProduct(data)} isNew={false} />
+  return (
+    <>
+      <CardSectionTabs productId={id} />
+      <ProductEditor initial={normalizeDigitalCardProduct(data)} isNew={false} />
+    </>
+  )
 }

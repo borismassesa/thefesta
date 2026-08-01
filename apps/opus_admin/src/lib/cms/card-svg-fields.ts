@@ -23,8 +23,7 @@
 // and Figma emit. It does not handle CDATA or tags inside attribute values;
 // neither appears in exported card artwork.
 
-/** Shapes that can carry a colour. Mirrors FILLABLE_SHAPES in card-render.ts. */
-const FILLABLE_SHAPES = new Set(['rect', 'circle', 'ellipse', 'path', 'polygon'])
+import { FILLABLE_SHAPES, readClassFills, resolveShapeFill, shapeLayerIds } from '@opusfesta/lib'
 
 export type CardTextLayer = {
   /** The SVG group id — the designer's layer name. Stable key for the schema. */
@@ -141,11 +140,33 @@ export function extractCardTextLayers(svg: string): CardTextLayer[] {
  * A layer reported in `rasterLayers` and not in `textLayers` holds no editable
  * text at all. A layer in both has text alongside imagery.
  */
+/**
+ * Separates a layer id from the index of one <text> node inside it.
+ *
+ * A designer who leaves two text objects loose in a group gives us one layer
+ * holding two fields. The reference card does exactly this: the month and the
+ * year both sit unnamed inside 'Artboard_1_copy_2', so the layer as a whole
+ * reads 'A G O STI 2 0 26' and can be mapped to neither. Addressing the nodes
+ * as 'Artboard_1_copy_2#1' and '#2' makes each one a field without sending the
+ * artwork back to be re-exported.
+ *
+ * Index is document order, 1-based, and stable for a given export. A re-export
+ * that reorders them invalidates the binding, which the mapper already detects
+ * and reports as a stale layer.
+ */
+export const TEXT_NODE_SUFFIX = '#'
+
 export function inspectCardArtwork(svg: string): CardArtworkInspection {
   // id → accumulated state, keyed so a layer split across the file merges.
   const layers = new Map<string, { chunks: string[]; textNodes: number }>()
+  // Per-<text> content, keyed 'layerId#n', for layers holding more than one.
+  const textNodes = new Map<string, { layerId: string; chunks: string[] }>()
+  const textCounts = new Map<string, number>()
+  let currentTextKey: string | null = null
   const rasters = new Map<string, CardRasterLayer>()
   const shapes = new Map<string, { count: number; fill: string | null }>()
+  // Read once: an Internal CSS export declares every colour up in <defs>.
+  const classFills = readClassFills(svg)
   // Open elements, innermost last. `id` is null for unnamed groups.
   const stack: { tag: string; id: string | null }[] = []
 
@@ -169,9 +190,10 @@ export function inspectCardArtwork(svg: string): CardArtworkInspection {
     // them when they sit inside a <text> belonging to a named layer.
     if (match.index > cursor && insideText()) {
       const id = currentLayerId()
-      if (id) {
-        const text = svg.slice(cursor, match.index)
-        if (text.trim()) layers.get(id)?.chunks.push(text)
+      const text = svg.slice(cursor, match.index)
+      if (id && text.trim()) {
+        layers.get(id)?.chunks.push(text)
+        if (currentTextKey) textNodes.get(currentTextKey)?.chunks.push(text)
       }
     }
     cursor = match.index + whole.length
@@ -179,6 +201,7 @@ export function inspectCardArtwork(svg: string): CardArtworkInspection {
     const tag = rawTag.toLowerCase()
 
     if (closing) {
+      if (tag === 'text') currentTextKey = null
       // Unwind to the matching open tag. Tolerates stray closers rather than
       // corrupting the stack for the rest of the file.
       for (let i = stack.length - 1; i >= 0; i--) {
@@ -209,13 +232,14 @@ export function inspectCardArtwork(svg: string): CardArtworkInspection {
     }
 
     if (FILLABLE_SHAPES.has(tag)) {
-      const owner = currentLayerId() ?? id
-      if (owner) {
+      // A shape is filed under its group AND, when it names something else, its
+      // own id. Both are offered so a designer who named the object rather than
+      // the group still gets a mappable layer.
+      const fill = resolveShapeFill(attrs, classFills).value
+      for (const owner of shapeLayerIds(id, currentLayerId())) {
         const entry = shapes.get(owner) ?? { count: 0, fill: null }
         entry.count += 1
-        if (entry.fill === null) {
-          entry.fill = /\bfill\s*=\s*"([^"]*)"/.exec(attrs)?.[1] ?? null
-        }
+        if (entry.fill === null) entry.fill = fill
         shapes.set(owner, entry)
       }
     }
@@ -232,23 +256,60 @@ export function inspectCardArtwork(svg: string): CardArtworkInspection {
         const entry = layers.get(layerId) ?? { chunks: [], textNodes: 0 }
         entry.textNodes += 1
         layers.set(layerId, entry)
+
+        const n = (textCounts.get(layerId) ?? 0) + 1
+        textCounts.set(layerId, n)
+        currentTextKey = `${layerId}${TEXT_NODE_SUFFIX}${n}`
+        textNodes.set(currentTextKey, { layerId, chunks: [] })
       }
     }
   }
 
+  const clean = (chunks: string[]) =>
+    decodeEntities(chunks.join(' ')).replace(/\s+/g, ' ').trim()
+
   const textLayers = [...layers.entries()]
-    .map(([id, { chunks, textNodes }]) => ({
+    .map(([id, { chunks, textNodes: count }]) => ({
       id,
       label: humaniseLayerName(id),
-      sampleText: decodeEntities(chunks.join(' ')).replace(/\s+/g, ' ').trim(),
-      textNodeCount: textNodes,
+      sampleText: clean(chunks),
+      textNodeCount: count,
     }))
     // A named group can wrap only shapes (a border, a background). Those are
     // not fields.
     .filter((layer) => layer.textNodeCount > 0)
 
+  // Offer the individual <text> nodes of any layer holding more than one, so a
+  // group with a month and a year in it yields two mappable fields instead of
+  // one unmappable blob. Layers with a single node are already addressable by
+  // their own id, so adding a '#1' twin would only be noise.
+  const splittable = new Set(
+    textLayers.filter((layer) => layer.textNodeCount > 1).map((layer) => layer.id),
+  )
+  const nodesByLayer = new Map<string, CardTextLayer[]>()
+  for (const [key, node] of textNodes) {
+    if (!splittable.has(node.layerId)) continue
+    const sampleText = clean(node.chunks)
+    if (!sampleText) continue
+    const list = nodesByLayer.get(node.layerId) ?? []
+    list.push({
+      id: key,
+      label: `${humaniseLayerName(node.layerId)} · text ${key.slice(key.lastIndexOf(TEXT_NODE_SUFFIX) + 1)}`,
+      sampleText,
+      textNodeCount: 1,
+    })
+    nodesByLayer.set(node.layerId, list)
+  }
+
+  // Each layer's individual nodes sit directly under it, so the list still
+  // reads top to bottom the way the finished card does.
+  const allTextLayers = textLayers.flatMap((layer) => [
+    layer,
+    ...(nodesByLayer.get(layer.id) ?? []),
+  ])
+
   const rasterLayers = [...rasters.values()]
-  const textIds = new Set(textLayers.map((l) => l.id))
+  const textIds = new Set(allTextLayers.map((l) => l.id))
   const rasterIds = new Set(rasterLayers.map((l) => l.id))
 
   // A layer holding text or a bitmap is already reported as such; only
@@ -262,5 +323,5 @@ export function inspectCardArtwork(svg: string): CardArtworkInspection {
       currentFill: fill,
     }))
 
-  return { textLayers, rasterLayers, shapeLayers }
+  return { textLayers: allTextLayers, rasterLayers, shapeLayers }
 }

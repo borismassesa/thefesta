@@ -5,5 +5,11 @@
   "installCommand": "cd ../.. && npm install",
   "git": {
     "deploymentEnabled": false
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/commission/cron/sweep",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

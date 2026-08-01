@@ -2,18 +2,24 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Layers, Mail, PenTool, type LucideIcon } from 'lucide-react'
+import { Mail, PenTool, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// The Digital Cards product surface: the card catalogue plus the design system
-// that turns a designer's SVG into a card a couple can personalise. Tabs
-// without an href render disabled until that surface ships.
+// The Digital Cards product surface, split by what you are actually doing:
+//
+//   Cards         the catalogue. One card, one page, with its artwork, its
+//                 layer mapping and its typefaces all on it.
+//   Card Designer the per-order work of personalising a card someone bought.
+//
+// There was a third tab, "Templates", which listed the same cards again and
+// held the layer mapping. Two tabs over one table meant setting a card up was a
+// round trip, so it now lives under the card. Tabs without an href render
+// disabled until that surface ships.
 type Tab = { label: string; icon: LucideIcon; href?: string }
 
 const TABS: Tab[] = [
   { label: 'Cards', icon: Mail, href: '/opus-pass/digital-cards/cards' },
   { label: 'Card Designer', icon: PenTool, href: '/opus-pass/digital-cards/designer' },
-  { label: 'Templates', icon: Layers, href: '/opus-pass/digital-cards/templates' },
 ]
 
 export default function DigitalCardsNavTabs() {

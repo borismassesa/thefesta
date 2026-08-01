@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, HelpCircle, LogOut, MessagesSquare, Search, Settings, X } from "lucide-react";
+import { ChevronLeft, LogOut, MessagesSquare, Search, Settings, X } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
 import SupportBell from "./SupportBell";
+import NotificationBell from "./NotificationBell";
+import { transitionApprovalRequest } from "@/app/(admin)/approvals/actions";
 import { usePageHeading } from "./PageHeading";
 import { usePageSearch } from "./PageSearch";
 import type { CallerProfile } from "@/lib/admin-auth";
@@ -107,10 +109,6 @@ export function Header({ profile }: { profile: CallerProfile }) {
           </div>
         )}
 
-        <button className="text-gray-400 hover:text-gray-600 transition-colors">
-          <HelpCircle className="w-5 h-5" />
-        </button>
-
         <Link
           href="/inbox"
           aria-label="Messages"
@@ -120,9 +118,21 @@ export function Header({ profile }: { profile: CallerProfile }) {
           <span className="absolute -top-0.5 right-0 w-2 h-2 bg-red-500 border-2 border-gray-50 rounded-full"></span>
         </Link>
 
-        {/* Notifications: live dropdown of Opus support conversations awaiting a
+        {/* Support: live dropdown of Opus support conversations awaiting a
             human, with an unread count. Polls client-side. */}
         <SupportBell />
+
+        {/* Workflow notifications: approvals and anything else that publishes
+            to workflow_events. Inline approve is handed in here so the bell
+            itself stays free of any Approvals-module dependency. */}
+        <NotificationBell
+          onApprove={async (requestId) => {
+            const res = await transitionApprovalRequest(requestId, "Approved", {
+              kind: "approve",
+            });
+            if (!res.ok) throw new Error(res.error);
+          }}
+        />
 
         <div className="w-px h-6 bg-gray-200" aria-hidden />
 

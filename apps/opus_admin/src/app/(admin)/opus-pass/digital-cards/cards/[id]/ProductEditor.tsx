@@ -204,29 +204,30 @@ export default function ProductEditor({
             </Field>
           </Card>
 
-          {/* Hero card — the catalog & landing cover (portrait) */}
-          <Card title="Hero card">
+          {/* Public hero image — a flattened portrait preview, not the editable SVG artwork. */}
+          <Card title="Public hero image">
             <p className="text-[11px] text-gray-500 -mt-2">
-              The portrait cover shown on the catalog grid and landing page. Upload it at a{' '}
-              <strong>3:4 portrait ratio</strong> (taller than wide) — this is separate from the
-              detail-page carousel below, which is landscape.
+              The portrait card cover visitors see in the catalog, landing surfaces, and first slide of the
+              public detail page. Upload a flattened <strong>PNG or WebP</strong> at a{' '}
+              <strong>3:4 portrait ratio</strong>. Keep editable SVG artwork in the Artwork &amp; fields tab.
             </p>
             <ImageUploadField
-              label="Hero image"
+              label="Hero preview image"
               value={product.image_url}
               onChange={(v) => set('image_url', v)}
               pathPrefix={IMAGE_PREFIX}
               previewAspect="aspect-[3/4]"
               previewWidth="max-w-[160px]"
-              accept="image"
+              accept="raster"
             />
           </Card>
 
-          {/* Card designs — the detail-page carousel (landscape 800×600) */}
-          <Card title="Card designs">
+          {/* Public detail mockups — flattened carousel images for shoppers. */}
+          <Card title="Public detail mockups">
             <p className="text-[11px] text-gray-500 -mt-2">
-              Up to {MAX_DESIGNS} images for the carousel on the card <em>details</em> page. Design these at{' '}
-              <strong>800 × 600 (4:3 landscape)</strong> so they fill the carousel frame cleanly.
+              Up to {MAX_DESIGNS} flattened PNG, WebP, or JPG mockups for the public card detail carousel.
+              Use <strong>800 x 600 (4:3 landscape)</strong> for clean detail views, device previews, and
+              presentation mockups.
             </p>
             <p className="rounded-lg border border-[#F0DFF6] bg-[#FCF7FF] px-3 py-2 text-[11px] text-[#6B4E8C]">
               The three OpusPass ticket mockups (Light, Classic, Signature) are appended to every card&apos;s
@@ -319,13 +320,13 @@ function DesignsEditor({ value, onChange }: { value: string[]; onChange: (v: str
         <div key={i} className="flex items-start gap-2 rounded-lg border border-gray-100 p-2">
           <div className="flex-1">
             <ImageUploadField
-              label={`Design ${i + 1}`}
+              label={`Mockup ${i + 1}`}
               value={url}
               onChange={(v) => update(i, v)}
               pathPrefix={IMAGE_PREFIX}
               previewAspect="aspect-[4/3]"
               previewWidth="max-w-[200px]"
-              accept="image"
+              accept="raster"
             />
           </div>
           <button

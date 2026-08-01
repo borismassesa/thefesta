@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowUpDown, Search } from 'lucide-react'
 import {
   DEFAULT_PRODUCT_SORT,
@@ -51,20 +51,40 @@ export default function ProductsToolbar({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [q, setQ] = useState(initialQ)
+  const previousInitialQ = useRef(initialQ)
 
-  const setParam = (key: string, value: string) => {
+  const setParam = useCallback((key: string, value: string, mode: 'push' | 'replace' = 'push') => {
     const params = new URLSearchParams(searchParams.toString())
     if (value) params.set(key, value)
     else params.delete(key)
     // Any filter or sort change invalidates the current page number.
     params.delete('page')
-    router.push(`${BASE}${params.toString() ? `?${params}` : ''}`)
-  }
+    const href = `${BASE}${params.toString() ? `?${params}` : ''}`
+    if (mode === 'replace') router.replace(href)
+    else router.push(href)
+  }, [router, searchParams])
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    setParam('q', q)
+    setParam('q', q.trim(), 'replace')
   }
+
+  useEffect(() => {
+    if (previousInitialQ.current === initialQ) return
+    if (q.trim() === previousInitialQ.current) setQ(initialQ)
+    previousInitialQ.current = initialQ
+  }, [initialQ, q])
+
+  useEffect(() => {
+    const nextQ = q.trim()
+    if (nextQ === initialQ) return
+
+    const timeout = window.setTimeout(() => {
+      setParam('q', nextQ, 'replace')
+    }, 250)
+
+    return () => window.clearTimeout(timeout)
+  }, [initialQ, q, setParam])
 
   const hasFilters = Boolean(
     initialQ || initialCategory || initialBadge || initialSort !== DEFAULT_PRODUCT_SORT,

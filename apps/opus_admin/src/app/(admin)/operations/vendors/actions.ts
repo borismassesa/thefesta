@@ -27,6 +27,27 @@ export type SignedUrlResult =
 
 const SIGNED_URL_TTL_SECONDS = 60 * 10 // 10 minutes — long enough to read a PDF, short enough that links expire
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_RE.test(value)
+}
+
+/**
+ * What the caller wants to look at, as a row reference rather than a storage
+ * key.
+ *
+ * `agreement-signature` is the odd one out: signature images aren't recorded
+ * in a column, they follow the path convention
+ * `{vendor_id}/signature/{agreement_version}.png` (see the upload in
+ * vendors_portal). We still confirm a matching vendor_agreements row exists
+ * before rebuilding that path.
+ */
+export type VendorFileRef =
+  | { kind: 'verification-document'; documentId: string }
+  | { kind: 'document-request'; requestId: string }
+  | { kind: 'agreement-signature'; agreementVersion: string }
+
 /**
  * Generate a short-lived signed URL for an admin to preview a verification
  * document or signature image stored in the `vendor_verification` bucket.
@@ -37,28 +58,77 @@ const SIGNED_URL_TTL_SECONDS = 60 * 10 // 10 minutes — long enough to read a P
  * embeds. URLs expire in 10 minutes, after which the admin can click "view"
  * again to refresh.
  *
- * Trust boundary: any signed-in admin can mint URLs for any vendor's docs.
- * Admin role-gating happens at the route layer (Clerk middleware + a future
- * `is_platform_admin()` check). The action itself trusts its caller.
+ * The caller passes a row reference, not a storage path: we re-read the row
+ * scoped to `vendorId` and derive the key from it. Signing a caller-supplied
+ * path would mean any vendor.read holder could pull an arbitrary object out
+ * of the bucket, and would silently become a real IDOR the moment the bucket
+ * holds anything narrower than "every doc a vendor reviewer may see".
  */
-export async function generateSignedUrl(
-  storagePath: string
+export async function generateVendorFileUrl(
+  vendorId: string,
+  ref: VendorFileRef
 ): Promise<SignedUrlResult> {
   const { userId } = await auth()
   if (!userId) return { ok: false, error: 'Sign in as an admin first.' }
-  try { await requirePermission('vendor.read') } catch { return { ok: false, error: "You don't have permission for that." } }
-  if (!storagePath) return { ok: false, error: 'Missing storage path.' }
+  try {
+    await requirePermission('vendor.read')
+  } catch {
+    return { ok: false, error: "You don't have permission for that." }
+  }
+  if (!isUuid(vendorId)) return { ok: false, error: 'File not found.' }
 
   const admin = createSupabaseAdminClient()
+  let storagePath: string | null = null
+
+  if (ref.kind === 'verification-document' || ref.kind === 'document-request') {
+    const table =
+      ref.kind === 'verification-document'
+        ? 'vendor_verification_documents'
+        : 'vendor_document_requests'
+    const rowId =
+      ref.kind === 'verification-document' ? ref.documentId : ref.requestId
+    if (!isUuid(rowId)) return { ok: false, error: 'File not found.' }
+
+    const { data } = await admin
+      .from(table)
+      .select('storage_path')
+      .eq('id', rowId)
+      .eq('vendor_id', vendorId)
+      .maybeSingle<{ storage_path: string | null }>()
+    storagePath = data?.storage_path ?? null
+  } else {
+    const { data } = await admin
+      .from('vendor_agreements')
+      .select('id')
+      .eq('vendor_id', vendorId)
+      .eq('agreement_version', ref.agreementVersion)
+      .limit(1)
+      .maybeSingle<{ id: string }>()
+    // Version strings are ours, not the vendor's, but they land in a storage
+    // key — keep anything path-ish out of it.
+    if (data && /^[A-Za-z0-9._-]+$/.test(ref.agreementVersion)) {
+      storagePath = `${vendorId}/signature/${ref.agreementVersion}.png`
+    }
+  }
+
+  // One answer for "no such row", "belongs to another vendor" and "row has no
+  // file", so the response can't be used to probe which ids exist.
+  if (!storagePath) return { ok: false, error: 'File not found.' }
+
   const { data, error } = await admin.storage
     .from('vendor_verification')
     .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS)
 
   if (error || !data) {
-    return {
-      ok: false,
-      error: `[admin] signed URL failed for ${storagePath}: ${error?.message ?? 'unknown'}`,
-    }
+    // The previous message interpolated the storage path into a string handed
+    // straight to the browser, which leaked the very thing this function now
+    // refuses to accept as input. Logged server-side, generic to the caller.
+    console.error('[admin] vendor signed URL failed', {
+      vendorId,
+      kind: ref.kind,
+      reason: error?.message ?? 'unknown',
+    })
+    return { ok: false, error: 'Could not open that file.' }
   }
   return { ok: true, url: data.signedUrl }
 }
@@ -101,11 +171,14 @@ export async function approveDocument(
   documentId: string
 ): Promise<ActionResult> {
   const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
 
   const admin = createSupabaseAdminClient()
-  const reviewerId = await resolveAdminUserId(admin, userId)
+  const reviewerId = userId ? await resolveAdminUserId(admin, userId) : null
 
   const { error } = await admin
     .from('vendor_verification_documents')
@@ -141,8 +214,11 @@ export async function rejectDocument(
   reason: string
 ): Promise<ActionResult> {
   const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
   if (!reason.trim()) {
     return {
       ok: false,
@@ -152,7 +228,7 @@ export async function rejectDocument(
   }
 
   const admin = createSupabaseAdminClient()
-  const reviewerId = await resolveAdminUserId(admin, userId)
+  const reviewerId = userId ? await resolveAdminUserId(admin, userId) : null
 
   const { error } = await admin
     .from('vendor_verification_documents')
@@ -313,9 +389,11 @@ async function resolveAdminBccRecipients(
  * confident the docs are fine and want to skip the per-doc clicks.
  */
 export async function approveVendor(vendorId: string): Promise<ActionResult> {
-  const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
 
   const admin = createSupabaseAdminClient()
   const { error } = await admin
@@ -357,9 +435,11 @@ export async function requestCorrections(
   vendorId: string,
   note?: string
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
 
   const admin = createSupabaseAdminClient()
   const { error } = await admin
@@ -400,9 +480,11 @@ export async function suspendVendor(
   vendorId: string,
   reason?: string
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
 
   const admin = createSupabaseAdminClient()
   const { error } = await admin
@@ -473,8 +555,11 @@ export async function saveVendorPayoutMethod(
   fields: VendorPayoutPatch
 ): Promise<ActionResult> {
   const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
 
   if (!VALID_PAYOUT_METHODS.includes(fields.methodType)) {
     return { ok: false, reason: 'invalid', error: 'Unknown payout method.' }
@@ -495,7 +580,7 @@ export async function saveVendorPayoutMethod(
 
   const admin = createSupabaseAdminClient()
   const reviewerId =
-    fields.status === 'verified'
+    fields.status === 'verified' && userId
       ? await resolveAdminUserId(admin, userId)
       : null
   const now = new Date().toISOString()
@@ -585,9 +670,11 @@ export async function setPrimaryPayoutMethod(
   vendorId: string,
   payoutId: string
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
   if (!payoutId) {
     return { ok: false, reason: 'invalid', error: 'Missing payout method.' }
   }
@@ -627,9 +714,11 @@ export async function deleteVendorPayoutMethod(
   vendorId: string,
   payoutId: string
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
   if (!payoutId) {
     return { ok: false, reason: 'invalid', error: 'Missing payout method.' }
   }
@@ -2392,8 +2481,11 @@ export async function requestVendorDocument(
   details?: string
 ): Promise<ActionResult> {
   const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
 
   const cleanTitle = title.trim()
   if (!cleanTitle) {
@@ -2405,7 +2497,7 @@ export async function requestVendorDocument(
   const cleanDetails = details?.trim() || null
 
   const admin = createSupabaseAdminClient()
-  const requestedBy = await resolveAdminUserId(admin, userId)
+  const requestedBy = userId ? await resolveAdminUserId(admin, userId) : null
   const token = randomBytes(24).toString('base64url')
   const expiresAt = new Date(Date.now() + DOC_REQUEST_TTL_DAYS * 24 * 60 * 60 * 1000)
 
@@ -2492,9 +2584,11 @@ export async function requestVendorDocument(
 export async function cancelVendorDocumentRequest(
   requestId: string
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
 
   const admin = createSupabaseAdminClient()
   const { data, error } = await admin
@@ -2519,9 +2613,11 @@ export async function cancelVendorDocumentRequest(
 export async function completeVendorDocumentRequest(
   requestId: string
 ): Promise<ActionResult> {
-  const { userId } = await auth()
-  if (!userId) return { ok: false, reason: 'unauth', error: 'Sign in first.' }
-  try { await requirePermission('vendor.moderate') } catch { return { ok: false, reason: 'unauth', error: "You don't have permission for that." } }
+  try {
+    await requirePermission('vendor.moderate')
+  } catch {
+    return { ok: false, reason: 'unauth', error: "You don't have permission for that." }
+  }
 
   const admin = createSupabaseAdminClient()
   const { data, error } = await admin

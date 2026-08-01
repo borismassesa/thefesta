@@ -4,15 +4,34 @@ import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } fro
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, Check, Copy, Loader2, MessageCircle, Pipette, Mail, Phone, Printer, Receipt, Save, Send, X } from 'lucide-react'
+import { AlertTriangle, Calendar, Check, Copy, Loader2, MessageCircle, Pipette, Mail, Phone, Printer, Receipt, Save, Send, X } from 'lucide-react'
 
 import { useSetPageHeading } from '@/components/PageHeading'
+import { injectFontCss } from '@opusfesta/lib'
 import { renderCardSvg } from '@/lib/cms/card-render'
 import type { CardFieldBinding } from '@/lib/cms/card-field-roles'
-import { requestDesignInfo, saveDesignFieldValues, setDesignStatus } from '../actions'
-import { DESIGN_STATUSES, DESIGN_STATUS_LABELS } from '../types'
+import {
+  approveAndRelease,
+  markDelivered,
+  requestChanges,
+  requestDesignInfo,
+  saveDesignFieldValues,
+  submitForReview,
+} from '../actions'
+import { DESIGN_STATUS_LABELS } from '../types'
 
 const LIST = '/opus-pass/digital-cards/designer'
+
+/** One entry in a job's history, newest first. */
+export type DesignEvent = {
+  id: string
+  kind: 'system' | 'note'
+  author: string
+  body: string
+  from_status: string | null
+  to_status: string | null
+  created_at: string
+}
 
 export type EditorField = {
   key: string
@@ -29,6 +48,7 @@ export type EditorField = {
 
 export default function DesignJobEditor({
   designId,
+  productId,
   productName,
   cardImage,
   orderRef,
@@ -49,8 +69,17 @@ export default function DesignJobEditor({
   bindings,
   cardIsMapped,
   canWrite,
+  canPublish,
+  reviewNote,
+  reviewedBy,
+  submittedBy,
+  submittedForReviewAt,
+  releasedAt,
+  isAssignee,
+  events,
 }: {
   designId: string
+  productId: string
   productName: string
   cardImage: string | null
   orderRef: string
@@ -71,6 +100,16 @@ export default function DesignJobEditor({
   bindings: CardFieldBinding[]
   cardIsMapped: boolean
   canWrite: boolean
+  /** May release a card to the couple. See the review gate in ../actions.ts. */
+  canPublish: boolean
+  reviewNote: string
+  reviewedBy: string
+  submittedBy: string
+  submittedForReviewAt: string | null
+  releasedAt: string | null
+  /** The caller is assigned to this job, so they may not approve their own work. */
+  isAssignee: boolean
+  events: DesignEvent[]
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -83,6 +122,14 @@ export default function DesignJobEditor({
   // keystroke re-renders locally instead of round-tripping to the server.
   const [artwork, setArtwork] = useState<string | null>(null)
   const [artworkError, setArtworkError] = useState<string | null>(null)
+  /**
+   * The card's typefaces as an @font-face block.
+   *
+   * Fetched separately from the artwork and kept out of renderCardSvg's input:
+   * the preview re-renders on every keystroke, and the font payload never
+   * changes, so it is concatenated once at the point the Blob is built.
+   */
+  const [fontCss, setFontCss] = useState('')
 
   // Debounced copy of the draft — rendering a 2 MB string on every character
   // would be wasteful, and a quarter second reads as instant.
@@ -114,6 +161,22 @@ export default function DesignJobEditor({
   }, [designId, cardIsMapped])
 
   useEffect(() => {
+    if (!cardIsMapped) return
+    let cancelled = false
+    fetch(`${LIST}/${designId}/artwork/fonts`)
+      .then((response) => (response.ok ? response.text() : ''))
+      .then((css) => {
+        if (!cancelled) setFontCss(css)
+      })
+      // A card that renders in a fallback face is worse than one that does not,
+      // but it is still better than no preview, so this failure is not fatal.
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [designId, cardIsMapped])
+
+  useEffect(() => {
     const timer = setTimeout(() => setDebouncedDraft(draft), 250)
     return () => clearTimeout(timer)
   }, [draft])
@@ -126,11 +189,13 @@ export default function DesignJobEditor({
 
   // Blob URL rather than a data URI: a 2 MB base64 string in the DOM is far
   // heavier, and the previous URL is revoked so nothing accumulates.
-  const previewUrl = useMemo(
-    () =>
-      preview ? URL.createObjectURL(new Blob([preview.svg], { type: 'image/svg+xml' })) : null,
-    [preview],
-  )
+  const previewUrl = useMemo(() => {
+    if (!preview) return null
+    // The <img> below renders the SVG as an isolated document, so the fonts
+    // have to travel inside the file itself. Page CSS does not reach it.
+    const withFonts = injectFontCss(preview.svg, fontCss)
+    return URL.createObjectURL(new Blob([withFonts], { type: 'image/svg+xml' }))
+  }, [preview, fontCss])
   // Derived above rather than set in an effect; the effect exists only to hand
   // the old URL back when it's replaced, so nothing accumulates.
   useEffect(() => {
@@ -150,7 +215,24 @@ export default function DesignJobEditor({
   }, [fields])
 
   const answered = fields.filter((f) => (draft[f.key] ?? '').trim()).length
-  const blocked = fields.filter((f) => f.blockedReason === 'rasterised')
+  const complete = fields.length > 0 && answered === fields.length
+
+  /**
+   * Roles whose saved binding names a layer this artwork doesn't have.
+   *
+   * The stored `rasterised` flag is a claim about the export the card was
+   * mapped against, not about the file we just loaded. When artwork is
+   * re-exported and not re-mapped, that stale flag makes the editor tell a
+   * designer their layers are still bitmaps and to go re-export — work they
+   * have already done. Trust the render over the flag.
+   */
+  const staleRoles = useMemo(
+    () => new Set((preview?.skipped ?? []).filter((s) => s.reason === 'layer_missing').map((s) => s.role)),
+    [preview],
+  )
+  const stale = fields.filter((f) => staleRoles.has(f.key))
+  // Only fields the CURRENT artwork really bakes in are blocked.
+  const blocked = fields.filter((f) => f.blockedReason === 'rasterised' && !staleRoles.has(f.key))
 
   function run(fn: () => Promise<{ ok: true } | { ok: false; error: string }>, ok: string) {
     setError(null)
@@ -169,22 +251,110 @@ export default function DesignJobEditor({
     })
   }
 
-  const statusControl = canWrite ? (
-    <select
-      aria-label="Design status"
-      value={status}
-      disabled={pending}
-      onChange={(e) => run(() => setDesignStatus(designId, e.target.value), 'Status updated.')}
-      className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#C9A0DC] disabled:opacity-50"
-    >
-      {DESIGN_STATUSES.filter((s) => s !== 'not_started').map((s) => (
-        <option key={s} value={s}>
-          {DESIGN_STATUS_LABELS[s]}
-        </option>
-      ))}
-    </select>
-  ) : (
-    <p className="text-xs capitalize text-gray-500">{status.replace(/_/g, ' ')}</p>
+  /**
+   * The stage, and the one or two moves available from it.
+   *
+   * This used to be a dropdown of every status, which is why the review step
+   * meant nothing: a designer could pick "Ready" for their own work. Now the
+   * screen offers only the transition the caller is actually entitled to make,
+   * and the server refuses anything else regardless of what the UI shows.
+   */
+  const canApproveThis = canPublish && !isAssignee
+  const statusLabel =
+    DESIGN_STATUS_LABELS[status as keyof typeof DESIGN_STATUS_LABELS] ?? status.replace(/_/g, ' ')
+
+  const statusControl = (
+    <div className="space-y-1.5">
+      <p
+        className={`text-sm font-bold ${
+          status === 'ready' || status === 'delivered'
+            ? 'text-emerald-700'
+            : status === 'in_review'
+              ? 'text-[#7E5896]'
+              : 'text-gray-900'
+        }`}
+      >
+        {statusLabel}
+      </p>
+
+      {status === 'in_design' && canWrite && (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            run(() => submitForReview(designId), 'Sent for review. A reviewer has been emailed.')
+          }
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#6b4a80] disabled:opacity-50"
+        >
+          <Send className="h-3.5 w-3.5" />
+          Submit for review
+        </button>
+      )}
+
+      {status === 'in_review' && (
+        <>
+          {canApproveThis ? (
+            <>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  run(
+                    () => approveAndRelease(designId),
+                    'Approved. The card is now on the couple’s dashboard.',
+                  )
+                }
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Approve &amp; release
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  const note = window.prompt('What needs changing?')
+                  if (note?.trim()) run(() => requestChanges(designId, note), 'Sent back to design.')
+                }}
+                className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+              >
+                Send back
+              </button>
+            </>
+          ) : (
+            <p className="text-[11px] leading-relaxed text-gray-500">
+              {isAssignee
+                ? 'You designed this card, so someone else has to approve it.'
+                : 'Waiting on someone who can release cards.'}
+            </p>
+          )}
+        </>
+      )}
+
+      {status === 'ready' && canWrite && (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => run(() => markDelivered(designId), 'Marked delivered.')}
+          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+        >
+          Mark delivered
+        </button>
+      )}
+
+      {releasedAt && (
+        <p className="text-[11px] text-gray-400">
+          Released {new Date(releasedAt).toLocaleDateString()}
+          {reviewedBy ? ` by ${reviewedBy}` : ''}
+        </p>
+      )}
+      {status === 'in_review' && submittedForReviewAt && (
+        <p className="text-[11px] text-gray-400">
+          Submitted {new Date(submittedForReviewAt).toLocaleDateString()}
+          {submittedBy ? ` by ${submittedBy}` : ''}
+        </p>
+      )}
+    </div>
   )
 
   if (!cardIsMapped) {
@@ -224,65 +394,152 @@ export default function DesignJobEditor({
   return (
     <div className="px-8 py-6">
       <div className="min-w-0 space-y-5">
-        {/* Who and what this job is for. */}
-        <div className="flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-          <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-200">
-            {cardImage && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={cardImage} alt="" className="h-full w-full object-cover" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-gray-900">{coupleName ?? 'Unnamed couple'}</p>
-            <div className="mt-1 space-y-0.5 text-xs text-gray-500">
-              <p className="flex items-center gap-1.5">
-                <Receipt className="h-3 w-3 shrink-0 text-gray-400" />
-                <span className="font-mono">{orderRef}</span>
-                {eventDate && <span className="text-gray-400">· {eventDate}</span>}
-              </p>
-              {coupleEmail && (
-                <p className="flex items-center gap-1.5">
-                  <Mail className="h-3 w-3 shrink-0 text-gray-400" />
-                  <a href={`mailto:${coupleEmail}`} className="hover:text-[#7E5896] hover:underline">
-                    {coupleEmail}
-                  </a>
+        {/*
+          The job header, in three zones that each earn their width.
+
+          It used to be identity on the left and a few lines of small grey text
+          on the right, with a wide dead band between them. The number that
+          actually drives the work, how much the couple has told us, was the
+          smallest thing on the row. Now it is a labelled bar in the middle,
+          and the zones are sized so nothing has to stretch to fill a gap.
+        */}
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+          <div className="flex flex-col gap-5 p-5 lg:flex-row lg:items-stretch">
+            {/* Who, and what they bought. */}
+            <div className="flex min-w-0 flex-1 items-start gap-4">
+              <div className="h-24 w-[68px] shrink-0 overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-200">
+                {cardImage && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={cardImage} alt="" className="h-full w-full object-cover" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-base font-bold text-gray-900">
+                  {coupleName ?? 'Unnamed couple'}
                 </p>
-              )}
-              {couplePhone && (
-                <p className="flex items-center gap-1.5">
-                  <Phone className="h-3 w-3 shrink-0 text-gray-400" />
-                  <a href={`tel:${couplePhone}`} className="hover:text-[#7E5896] hover:underline">
-                    {couplePhone}
-                  </a>
-                </p>
-              )}
+                {/* The card name was only ever in the page heading, so the
+                    thumbnail sat there unexplained. */}
+                <p className="mt-0.5 truncate text-sm text-gray-500">{productName}</p>
+
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <Pill icon={<Mail className="h-3 w-3" />}>
+                    {digitalQty.toLocaleString('en-US')} digital
+                  </Pill>
+                  {printQty > 0 && (
+                    <Pill icon={<Printer className="h-3 w-3" />}>
+                      {printQty.toLocaleString('en-US')} printed
+                    </Pill>
+                  )}
+                </div>
+
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                  <span className="flex items-center gap-1.5">
+                    <Receipt className="h-3 w-3 shrink-0 text-gray-400" />
+                    <span className="font-mono">{orderRef}</span>
+                  </span>
+                  {eventDate && (
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3 shrink-0 text-gray-400" />
+                      {eventDate}
+                    </span>
+                  )}
+                  {coupleEmail && (
+                    <a
+                      href={`mailto:${coupleEmail}`}
+                      className="flex items-center gap-1.5 hover:text-[#7E5896] hover:underline"
+                    >
+                      <Mail className="h-3 w-3 shrink-0 text-gray-400" />
+                      {coupleEmail}
+                    </a>
+                  )}
+                  {couplePhone && (
+                    <a
+                      href={`tel:${couplePhone}`}
+                      className="flex items-center gap-1.5 hover:text-[#7E5896] hover:underline"
+                    >
+                      <Phone className="h-3 w-3 shrink-0 text-gray-400" />
+                      {couplePhone}
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <Pill icon={<Mail className="h-3 w-3" />}>
-                {digitalQty.toLocaleString('en-US')} digital
-              </Pill>
-              {printQty > 0 && (
-                <Pill icon={<Printer className="h-3 w-3" />}>
-                  {printQty.toLocaleString('en-US')} printed
-                </Pill>
-              )}
-            </div>
-          </div>
-          <div className="shrink-0 text-right text-xs text-gray-500">
-            <p className="font-semibold text-gray-900">
-              {answered}/{fields.length} fields filled
-            </p>
-            {infoRequestedAt && !infoReceivedAt && (
-              <p className="mt-1 text-amber-700">Asked {new Date(infoRequestedAt).toLocaleDateString()}</p>
-            )}
-            {infoReceivedAt && (
-              <p className="mt-1 text-emerald-700">
-                Answered {new Date(infoReceivedAt).toLocaleDateString()}
+
+            {/* What the couple has told us. The reason this screen is open. */}
+            <div className="shrink-0 border-gray-100 lg:w-56 lg:border-l lg:pl-5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Their details
               </p>
-            )}
-            <div className="mt-1.5 flex justify-end">{statusControl}</div>
+              <p className="mt-1 text-2xl font-bold leading-none text-gray-900">
+                {answered}
+                <span className="text-base font-semibold text-gray-400"> / {fields.length}</span>
+              </p>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    complete ? 'bg-[#9FE870]' : 'bg-amber-400'
+                  }`}
+                  style={{ width: `${fields.length ? (answered / fields.length) * 100 : 0}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs">
+                {complete ? (
+                  <span className="font-medium text-emerald-700">
+                    {infoReceivedAt
+                      ? `Answered ${new Date(infoReceivedAt).toLocaleDateString()}`
+                      : 'Everything filled in'}
+                  </span>
+                ) : infoRequestedAt && !infoReceivedAt ? (
+                  <span className="font-medium text-amber-700">
+                    Asked {new Date(infoRequestedAt).toLocaleDateString()}, still waiting
+                  </span>
+                ) : (
+                  <span className="text-gray-500">
+                    {fields.length - answered} still to collect
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Where the job is up to. */}
+            <div className="shrink-0 border-gray-100 lg:w-44 lg:border-l lg:pl-5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Stage</p>
+              <div className="mt-1.5">{statusControl}</div>
+            </div>
           </div>
         </div>
+
+        {/* The trail that answers "who approved this, and when". Statuses alone
+            cannot: a job sent back twice then approved looks identical to one
+            approved first time. */}
+        {events.length > 0 && (
+          <details className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+            <summary className="cursor-pointer list-none px-5 py-3 text-sm font-bold text-gray-900">
+              History
+              <span className="ml-1.5 font-normal text-gray-400">({events.length})</span>
+            </summary>
+            <ul className="divide-y divide-gray-50 border-t border-gray-100">
+              {events.map((event) => (
+                <li key={event.id} className="flex items-start gap-3 px-5 py-2.5 text-xs">
+                  <span className="w-28 shrink-0 text-gray-400">
+                    {new Date(event.created_at).toLocaleDateString()}
+                  </span>
+                  <span className="min-w-0 flex-1 text-gray-700">
+                    {event.body}
+                    {event.from_status && event.to_status && (
+                      <span className="text-gray-400">
+                        {' '}
+                        ({event.from_status.replace(/_/g, ' ')} &rarr;{' '}
+                        {event.to_status.replace(/_/g, ' ')})
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-gray-400">{event.author}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
 
         {shareToken && requested.length > 0 && (
           <SharePanel
@@ -299,6 +556,39 @@ export default function DesignJobEditor({
             watching the card change as you type. */}
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
           <div className="min-w-0 space-y-5">
+        {/* Why the card came back. On the row as well as in the history,
+            because a designer reopening the job must not have to go looking. */}
+        {status === 'in_design' && reviewNote && (
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-amber-900">
+                Sent back{reviewedBy ? ` by ${reviewedBy}` : ''}
+              </p>
+              <p className="mt-0.5 whitespace-pre-line text-sm text-amber-800">{reviewNote}</p>
+            </div>
+          </div>
+        )}
+
+        {stale.length > 0 && (
+          <div className="flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+            <p className="text-sm text-blue-800">
+              This card&apos;s layer mapping is out of date. The artwork has been re-exported since
+              it was mapped, so {stale.length} field{stale.length === 1 ? '' : 's'} (
+              {stale.map((f) => f.label).join(', ')}) point at layers the file no longer has and
+              will not appear on the card. Nothing needs re-exporting.{' '}
+              <Link
+                href={`/opus-pass/digital-cards/cards/${productId}/artwork`}
+                className="font-semibold underline underline-offset-2"
+              >
+                Open this card’s artwork setup
+              </Link>
+              , click Match by name, then Save mapping.
+            </p>
+          </div>
+        )}
+
         {blocked.length > 0 && (
           <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
@@ -323,7 +613,8 @@ export default function DesignJobEditor({
             <div className="divide-y divide-gray-50">
               {groupFields.map((field) => {
                 const outstanding = requested.includes(field.key) && !(draft[field.key] ?? '').trim()
-                const blockedField = field.blockedReason === 'rasterised'
+                const staleField = staleRoles.has(field.key)
+                const blockedField = field.blockedReason === 'rasterised' && !staleField
                 return (
                   <div
                     key={field.key}
@@ -353,6 +644,12 @@ export default function DesignJobEditor({
                         </p>
                       )}
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {staleField && (
+                          <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-800">
+                            <AlertTriangle className="h-3 w-3" />
+                            Needs re-mapping
+                          </span>
+                        )}
                         {blockedField && (
                           <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
                             <AlertTriangle className="h-3 w-3" />

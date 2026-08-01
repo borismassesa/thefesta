@@ -8,7 +8,7 @@ import type { TicketLanguage } from './types'
 import { toTzs } from './currency'
 import { resolveEventCover, type PledgePageConfig, type PledgePaymentMethod } from './pledge-page'
 import { THANK_YOU_FREE_TIER_IDS, resolveThankYouCover, type ThankYouCardConfig } from './thank-you'
-import { parseTemplateCardItemId, type TemplateCardType } from './pledge-card-templates'
+import { parseTemplateCardItemId, resolveEventPackageTierId, type TemplateCardType } from './pledge-card-templates'
 import { getOrdersForUser, orderRowToStoredOrder } from '@/lib/payments/orders'
 import type { StoredOrder } from '@/lib/cart-storage'
 import type { SiteDoc } from '@/lib/builder/types'
@@ -1781,15 +1781,14 @@ export async function getPublicGiftRegistryPage(slug: string): Promise<PublicGif
 }
 
 /**
- * WhatsApp send entitlement = how many invitation "credits" the couple paid for
- * vs how many they've used, SCOPED TO ONE EVENT. Credits are the sum of
- * `guests` across paid invitation_orders assigned to this event; usage is the
- * number of DISTINCT guests already sent a WhatsApp invite FOR THIS EVENT
- * (re-sends don't consume a credit; an invite to a different event is not a
- * re-send). Orders link by user_id or by matching the couple's email/phone
- * (guest checkout allows a null user_id).
+ * WhatsApp send entitlement = how many released invitation "credits" the couple
+ * can use vs how many they've used, SCOPED TO ONE EVENT. Credits are the sum of
+ * `guests` across paid invitation_orders assigned to this event ONLY AFTER
+ * design approval/release (`fulfillment_status` ready/delivered). Payment alone
+ * is not enough: the new commission lifecycle's equivalent unlock point is
+ * APPROVED, not AWAITING_DEPOSIT/DEPOSIT_PAID.
  *
- * A couple can have paid orders not yet linked to any event (bought before
+ * A couple can have released paid orders not yet linked to any event (bought before
  * event-scoping shipped, or a 2+-event couple who hasn't assigned them yet —
  * see `unassignedOrders`). Those never silently count toward any event's
  * quota; the couple must explicitly assign them.
@@ -1839,6 +1838,9 @@ export interface WhatsAppEntitlement {
   /** Paid orders not yet assigned to any event — the couple needs to pick
    *  which event each one is for before it counts toward that event's quota. */
   unassignedOrders: PaidOrderSummary[]
+  /** Paid order for this event whose design is not released yet. Visible as
+   *  production status only; it must not unlock sending. */
+  productionOrder: PaidOrderSummary | null
 }
 
 interface PaidOrderItem {
@@ -1855,11 +1857,23 @@ interface PaidOrderItem {
   addOns?: string[]
 }
 
+export type InvitationOrderFulfillmentStatus = 'not_started' | 'in_progress' | 'ready' | 'delivered'
+
 interface PaidOrderRow {
   id: string
   items: PaidOrderItem[] | null
   paid_at: string
   event_id: string | null
+  fulfillment_status: InvitationOrderFulfillmentStatus
+}
+
+const INVITE_RELEASED_FULFILLMENT_STATUSES = new Set<InvitationOrderFulfillmentStatus>([
+  'ready',
+  'delivered',
+])
+
+export function isOrderReleasedForInvites(order: Pick<PaidOrderRow, 'fulfillment_status'>): boolean {
+  return INVITE_RELEASED_FULFILLMENT_STATUSES.has(order.fulfillment_status)
 }
 
 /**
@@ -1883,7 +1897,7 @@ export async function fetchPaidOrdersForCouple(
 
   const { data } = await supabase
     .from('invitation_orders')
-    .select('id, items, paid_at, event_id')
+    .select('id, items, paid_at, event_id, fulfillment_status')
     .eq('status', 'paid')
     .or(ors.join(','))
     .order('paid_at', { ascending: false })
@@ -1940,16 +1954,29 @@ export async function getOrdersForDashboard(): Promise<StoredOrder[]> {
 export interface PaidOrderSummary {
   id: string
   cardName: string | null
+  cardTier: string | null
   cardImageUrl: string | null
   /** Visual treatment — fallback thumbnail when the card has no hero image. */
   cardTreatment: Treatment | null
   purchasedGuests: number
+  addOns: string[]
+  fulfillmentStatus: InvitationOrderFulfillmentStatus
+  /** When the order was paid — day zero for the production countdown. */
+  placedAt: string | null
 }
 
 function orderSummaryFrom(o: PaidOrderRow): PaidOrderSummary {
   const items = o.items ?? []
   const withImage = items.find((it) => it.image)
   const withTreatment = items.find((it) => it.treatment)
+  const withTier = items.find((it) => it.tier)
+  const addOnSet = new Set<string>()
+  for (const item of items) {
+    for (const a of item.addOns ?? []) {
+      const label = a.trim()
+      if (label) addOnSet.add(label)
+    }
+  }
   const purchasedGuests = items.reduce(
     (sum, it) => sum + (typeof it.guests === 'number' && it.guests > 0 ? Math.floor(it.guests) : 0),
     0,
@@ -1957,9 +1984,13 @@ function orderSummaryFrom(o: PaidOrderRow): PaidOrderSummary {
   return {
     id: o.id,
     cardName: withImage?.name ?? items[0]?.name ?? null,
+    cardTier: withTier?.tier ?? null,
     cardImageUrl: withImage?.image ?? null,
     cardTreatment: withTreatment?.treatment ?? null,
     purchasedGuests,
+    addOns: [...addOnSet],
+    fulfillmentStatus: o.fulfillment_status,
+    placedAt: o.paid_at ?? null,
   }
 }
 
@@ -1997,10 +2028,10 @@ export async function getEventOrderLinks(): Promise<EventOrderLinks> {
   return { byEvent, unassigned: unassignedOrdersFrom(orders) }
 }
 
-/** The package tier (lite/classic/elegant/signature) behind an event's most
- *  recent paid order, if any — used to gate free vs. paid pledge-card
- *  templates. UI-only signal; the server action re-derives this itself
- *  before actually granting the free template. */
+/** The package tier (lite/classic/elegant/signature) behind an event's paid
+ *  orders, if any — used to gate free vs. paid pledge-card templates. UI-only
+ *  signal; the server action re-derives this itself before actually granting
+ *  the free template. */
 export async function getEventPackageTierId(eventId: string): Promise<string | null> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
@@ -2010,10 +2041,7 @@ export async function getEventPackageTierId(eventId: string): Promise<string | n
     .eq('user_id', user.id)
     .maybeSingle<{ whatsapp_phone: string | null }>()
   const orders = await fetchPaidOrdersForCouple(supabase, user.id, user.email, profile?.whatsapp_phone ?? null)
-  const order = orders.find((o) => o.event_id === eventId)
-  const items = order?.items ?? []
-  const withImage = items.find((it) => it.image)
-  return withImage?.tierId ?? items[0]?.tierId ?? null
+  return resolveEventPackageTierId(orders, eventId)
 }
 
 export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppEntitlement> {
@@ -2064,8 +2092,12 @@ export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppE
     : coupleName
 
   const allPaidOrders = await fetchPaidOrdersForCouple(supabase, user.id, user.email, profile?.whatsapp_phone ?? null)
+  const releasedOrders = allPaidOrders.filter(isOrderReleasedForInvites)
+  const productionOrder = allPaidOrders
+    .filter((o) => o.event_id === eventId && !isOrderReleasedForInvites(o))
+    .map(orderSummaryFrom)[0] ?? null
 
-  const orders = allPaidOrders.filter((o) => o.event_id === eventId) as {
+  const orders = releasedOrders.filter((o) => o.event_id === eventId) as {
     items: PaidOrderItem[] | null
   }[]
 
@@ -2093,7 +2125,7 @@ export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppE
 
   // Paid orders that exist but aren't attached to ANY event yet — surfaced so
   // the couple can assign them instead of them silently counting for nothing.
-  const unassignedOrders = unassignedOrdersFrom(allPaidOrders)
+  const unassignedOrders = unassignedOrdersFrom(releasedOrders)
 
   // Used = distinct guests already credited a WhatsApp send FOR THIS EVENT,
   // read from the credit_consumptions ledger — the atomic source of truth
@@ -2155,6 +2187,7 @@ export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppE
     sendSettingsConfirmed: Boolean(hostOverride && categoryOverride),
     alreadySentIds,
     unassignedOrders,
+    productionOrder,
   }
 }
 
@@ -2296,6 +2329,8 @@ export interface SendInvitesData {
     /** Distinct add-ons purchased across paid orders (prints, swag, etc.). */
     addOns: string[]
     hasPaidOrder: boolean
+    /** A paid card linked to this event but still in production/review. */
+    productionOrder: PaidOrderSummary | null
   }
   /** Every one of the couple's events, for the event switcher. Only worth
    *  rendering a switcher when this has 2+ entries — a single-event couple
@@ -2377,6 +2412,7 @@ export async function getSendInvitesData(
       user.email,
       profile?.whatsapp_phone ?? null,
     )
+    const releasedOrders = paidOrders.filter(isOrderReleasedForInvites)
     return {
       event: {
         coupleName: profile ? coupleDisplayName(profile) : 'The Couple',
@@ -2399,10 +2435,11 @@ export async function getSendInvitesData(
         saveDateTemplateImageUrl: null,
         addOns: [],
         hasPaidOrder: false,
+        productionOrder: null,
       },
       events: [],
       selectedEventId: null,
-      unassignedOrders: unassignedOrdersFrom(paidOrders),
+      unassignedOrders: unassignedOrdersFrom(releasedOrders),
       funnel: { invited: 0, delivered: 0, viewed: 0, rsvpd: 0 },
       quota: { used: 0, purchased: 0, remaining: 0, hasPaidOrder: false },
       entranceQuota: { used: 0, purchased: 0, remaining: 0 },
@@ -2569,6 +2606,7 @@ export async function getSendInvitesData(
       saveDateTemplateImageUrl: saveDateTemplate?.imageUrl ?? null,
       addOns: entitlement.addOns,
       hasPaidOrder: entitlement.hasPaidOrder,
+      productionOrder: entitlement.hasPaidOrder ? null : entitlement.productionOrder,
     },
     events: events.map((e) => ({ id: e.id, name: e.name, eventTypeLabel: eventTypeLabel(e.event_type) })),
     selectedEventId,

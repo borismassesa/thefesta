@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { loadCardArtwork } from '../../../templates/artwork'
+import { loadCardArtwork } from '@/lib/cms/card-artwork'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,11 +32,11 @@ export async function GET(
 
   const { data: product } = await supabase
     .from('website_invitations_products')
-    .select('image_url')
+    .select('artwork_svg_url')
     .eq('id', design.product_id)
-    .maybeSingle<{ image_url: string | null }>()
+    .maybeSingle<{ artwork_svg_url: string | null }>()
 
-  const artwork = await loadCardArtwork(product?.image_url ?? '')
+  const artwork = await loadCardArtwork(product?.artwork_svg_url ?? '')
   if (!artwork.ok) return new NextResponse(artwork.reason, { status: 422 })
 
   return new NextResponse(artwork.svg, {

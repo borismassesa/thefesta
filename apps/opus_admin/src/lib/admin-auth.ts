@@ -296,6 +296,14 @@ const ALL_PERMISSION_KEYS: readonly PermissionKey[] = [
   // Opus customer-support console: view conversations / reply as an agent.
   'support.read',
   'support.write',
+  // Custom card commissions. Split three ways because the studio ladder and the
+  // Ops desk are different jobs: a designer must reach their own task board
+  // without being able to reassign work or pass their own QA.
+  'commissions.read',
+  // Ops: assign, reassign, hold, and pass/fail internal QA.
+  'commissions.manage',
+  // Designer: accept an assignment and upload versions for their OWN tasks.
+  'commissions.design',
 ] as const
 
 // Wrapped in React.cache so that the layout's permission lookup and
@@ -367,13 +375,15 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
         'growth.admin',
         'support.read',
         'support.write',
+        'commissions.read',
+        'commissions.manage',
       ])
     case 'editor':
       return new Set(['cms.read', 'cms.write', 'cms.publish', 'vendor.read'])
     case 'viewer':
       return new Set([
         'cms.read', 'vendor.read', 'bookings.read', 'finance.read',
-        'workforce.read', 'insights.read',
+        'workforce.read', 'insights.read', 'commissions.read',
       ])
     case 'author':
       // Authors don't access the dashboard — they live under /contribute.

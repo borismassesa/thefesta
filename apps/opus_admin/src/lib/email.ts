@@ -4,6 +4,7 @@
 // the contributor-invite UI can fall back to a mailto: link.
 
 import { Resend } from 'resend'
+import { errorKind, logProviderError } from '@/lib/log-safe'
 
 export class ResendConfigError extends Error {
   constructor() {
@@ -69,7 +70,7 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
       ...(payload.attachments?.length ? { attachments: payload.attachments } : {}),
     })
     if (result.error) {
-      console.error('[email] resend error:', result.error)
+      logProviderError('email.send', errorKind(result.error))
       return {
         sent: false,
         reason: 'send_failed',
@@ -79,7 +80,7 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
     return { sent: true, id: result.data?.id ?? null }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown email error'
-    console.error('[email] exception:', message)
+    logProviderError('email.send', errorKind(err))
     return { sent: false, reason: 'send_failed', error: message }
   }
 }

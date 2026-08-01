@@ -683,7 +683,15 @@ export async function getRecordAttachmentUrl(
     .from(BUCKET)
     .createSignedUrl(record.storage_path, SIGNED_URL_TTL_SECONDS)
   if (error || !data) {
-    return { ok: false, error: error?.message ?? 'Could not generate signed URL.' }
+    // The provider message can carry the storage key, which is the one thing
+    // this function now refuses to accept as input. Log it, return a generic
+    // string to the browser.
+    console.error('[workforce] attachment signed URL failed', {
+      employeeId,
+      recordKind,
+      reason: error?.message ?? 'unknown',
+    })
+    return { ok: false, error: 'Could not open that attachment.' }
   }
   return { ok: true, url: data.signedUrl }
 }

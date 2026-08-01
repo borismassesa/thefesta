@@ -10,7 +10,7 @@ export type UploadedMedia = { url: string; type: 'image' | 'video' }
 export async function uploadCmsMedia(
   file: File,
   pathPrefix: string,
-  kind: 'image' | 'svg' | 'video' | 'media',
+  kind: 'image' | 'svg' | 'raster' | 'video' | 'media',
 ): Promise<UploadedMedia> {
   const minted = await createCmsMediaUploadUrl({
     pathPrefix,
