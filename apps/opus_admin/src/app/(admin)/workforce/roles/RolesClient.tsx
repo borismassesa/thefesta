@@ -82,6 +82,8 @@ export default function RolesClient({
   invitations,
   callerEmail,
   canManageAccess,
+  canWriteRoles,
+  canAssignRoles,
 }: {
   roles: WorkforceRole[]
   permissions: Permission[]
@@ -90,6 +92,11 @@ export default function RolesClient({
   invitations: WorkforceInvitationListRow[]
   callerEmail: string | null
   canManageAccess: boolean
+  // Operation-level capabilities. Purely presentational: hiding a control does
+  // not authorise anything, and the matching server action re-checks the same
+  // policy in lib/roles-authz.ts.
+  canWriteRoles: boolean
+  canAssignRoles: boolean
 }) {
   const [tab, setTab] = useState<Tab>('people')
   const [selectedId, setSelectedId] = useState<string>(roles[0]?.id ?? '')
@@ -247,7 +254,7 @@ export default function RolesClient({
           memberCounts={memberCounts}
           groups={groups}
           onSelect={setSelectedId}
-          onNewRole={() => setShowCreate(true)}
+          onNewRole={canWriteRoles ? () => setShowCreate(true) : undefined}
         />
 
         {selected && (
@@ -257,16 +264,16 @@ export default function RolesClient({
               groups={groups}
               memberCount={membersByRoleId.get(selected.id)?.length ?? 0}
               duplicating={duplicatingId === selected.id}
-              onDelete={() => setDeleting(selected)}
-              onDuplicate={() => duplicate(selected)}
-              onAssign={() => setAssigning(selected)}
-              onEdit={() => setEditing(selected)}
+              onDelete={canWriteRoles ? () => setDeleting(selected) : undefined}
+              onDuplicate={canWriteRoles ? () => duplicate(selected) : undefined}
+              onAssign={canAssignRoles ? () => setAssigning(selected) : undefined}
+              onEdit={canWriteRoles ? () => setEditing(selected) : undefined}
             />
 
             <MembersCard
               role={selected}
               members={membersByRoleId.get(selected.id) ?? []}
-              onAssign={() => setAssigning(selected)}
+              onAssign={canAssignRoles ? () => setAssigning(selected) : undefined}
             />
 
             <PermissionMatrix groups={groups} role={selected} />
@@ -313,7 +320,7 @@ function MembersCard({
 }: {
   role: WorkforceRole
   members: Employee[]
-  onAssign: () => void
+  onAssign?: () => void
 }) {
   // Up to 6 chip-style avatars in a wrapping row, then "+N more" if the
   // role is larger. Clicking "Manage" opens the assign dialog. Compact —
@@ -339,21 +346,24 @@ function MembersCard({
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onAssign}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          {members.length === 0 ? 'Assign members' : 'Manage'}
-        </button>
+        {onAssign && (
+          <button
+            type="button"
+            onClick={onAssign}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            {members.length === 0 ? 'Assign members' : 'Manage'}
+          </button>
+        )}
       </div>
 
       {members.length === 0 ? (
         <button
           type="button"
           onClick={onAssign}
-          className="mt-4 flex w-full items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/40 px-4 py-5 text-left transition-colors hover:border-[#C9A0DC] hover:bg-[#F7EAFB]/40"
+          disabled={!onAssign}
+          className="mt-4 flex w-full items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/40 px-4 py-5 text-left transition-colors hover:border-[#C9A0DC] hover:bg-[#F7EAFB]/40 disabled:cursor-default disabled:hover:border-gray-200 disabled:hover:bg-gray-50/40"
         >
           <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-gray-400">
             <UserPlus className="h-5 w-5" />
@@ -588,7 +598,7 @@ function RoleRail({
   memberCounts: Map<string, Set<string>>
   groups: [PermissionGroup, Permission[]][]
   onSelect: (id: string) => void
-  onNewRole: () => void
+  onNewRole?: () => void
 }) {
   const [filter, setFilter] = useState<'all' | 'system' | 'custom'>('all')
   const filtered = useMemo(() => {
@@ -605,14 +615,16 @@ function RoleRail({
           <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
             All roles
           </h3>
-          <button
-            type="button"
-            onClick={onNewRole}
-            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
-          >
-            <Plus className="h-3 w-3" />
-            New role
-          </button>
+          {onNewRole && (
+            <button
+              type="button"
+              onClick={onNewRole}
+              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+            >
+              <Plus className="h-3 w-3" />
+              New role
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-1 rounded-lg bg-gray-50 p-0.5 text-[11px] font-semibold">
           <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
@@ -817,10 +829,10 @@ function RoleHeroCard({
   groups: [PermissionGroup, Permission[]][]
   memberCount: number
   duplicating: boolean
-  onDelete: () => void
-  onDuplicate: () => void
-  onAssign: () => void
-  onEdit: () => void
+  onDelete?: () => void
+  onDuplicate?: () => void
+  onAssign?: () => void
+  onEdit?: () => void
 }) {
   const Icon = getRoleIcon(role)
   const totalPerms = groups.reduce((s, [, items]) => s + items.length, 0)
@@ -863,7 +875,7 @@ function RoleHeroCard({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {!role.isSystem && (
+            {!role.isSystem && onDelete && (
               <button
                 type="button"
                 onClick={onDelete}
@@ -873,6 +885,7 @@ function RoleHeroCard({
                 Delete
               </button>
             )}
+            {onDuplicate && (
             <button
               type="button"
               onClick={onDuplicate}
@@ -883,29 +896,34 @@ function RoleHeroCard({
               <Copy className="h-4 w-4" />
               {duplicating ? 'Duplicating…' : 'Duplicate'}
             </button>
-            <button
-              type="button"
-              onClick={onAssign}
-              title="Add or remove extra members on top of their primary role"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <Users className="h-4 w-4" />
-              Assign members
-            </button>
-            <button
-              type="button"
-              onClick={onEdit}
-              disabled={role.isSystem}
-              title={
-                role.isSystem
-                  ? 'System roles are locked. Use "Duplicate" to make a custom version.'
-                  : 'Edit which permissions this role grants'
-              }
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Pencil className="h-4 w-4" />
-              Edit permissions
-            </button>
+            )}
+            {onAssign && (
+              <button
+                type="button"
+                onClick={onAssign}
+                title="Add or remove extra members on top of their primary role"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Users className="h-4 w-4" />
+                Assign members
+              </button>
+            )}
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                disabled={role.isSystem}
+                title={
+                  role.isSystem
+                    ? 'System roles are locked. Use "Duplicate" to make a custom version.'
+                    : 'Edit which permissions this role grants'
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit permissions
+              </button>
+            )}
           </div>
         </div>
       </div>

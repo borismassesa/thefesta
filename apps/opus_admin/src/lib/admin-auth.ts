@@ -2,16 +2,23 @@ import { cache } from 'react'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
 import { auditPermissionDenied, recordAuditEvent } from '@/lib/audit-log'
+import { expandRolePermissions } from '@/lib/roles-authz'
 
-export type AdminAccessRole = 'owner' | 'admin' | 'editor' | 'author' | 'viewer'
+// Legacy bucket helpers live in role-bucket.ts (pure, no server-only import)
+// and are re-exported here so existing call sites keep working unchanged.
+import {
+  type AdminAccessRole,
+  ADMIN_ACCESS_ROLES,
+  legacyRoleBucket,
+} from '@/lib/role-bucket'
 
-const ADMIN_ACCESS_ROLES: AdminAccessRole[] = [
-  'owner',
-  'admin',
-  'editor',
-  'author',
-  'viewer',
-]
+export {
+  type AdminAccessRole,
+  ADMIN_ACCESS_ROLES,
+  ADMIN_DASHBOARD_ROLES,
+  isAdminDashboardRole,
+  legacyRoleBucket,
+} from '@/lib/role-bucket'
 
 // TEMPORARY: when DISABLE_ADMIN_AUTH=true every caller is treated as an
 // `owner` so the dashboard is reachable without signing in. This is a
@@ -27,20 +34,6 @@ function isAdminAuthDisabled(): boolean {
   )
 }
 
-// Roles that are allowed to load the admin dashboard (everything under
-// `(admin)/`). Authors write articles via /contribute and shouldn't see the
-// admin shell — see comment in operations/articles/actions.ts.
-const ADMIN_DASHBOARD_ROLES: readonly AdminAccessRole[] = [
-  'owner',
-  'admin',
-  'editor',
-  'viewer',
-]
-
-export function isAdminDashboardRole(role: AdminAccessRole | null): boolean {
-  return role !== null && ADMIN_DASHBOARD_ROLES.includes(role)
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -51,30 +44,6 @@ function normalizeRole(value: unknown): AdminAccessRole | null {
   return ADMIN_ACCESS_ROLES.includes(role as AdminAccessRole)
     ? (role as AdminAccessRole)
     : null
-}
-
-// Maps a workforce_roles row (slug + permission_keys) to a legacy role bucket,
-// mirroring the SQL function workforce_role_legacy_bucket(). Legacy slugs map
-// 1:1; custom roles are bucketed by their permission_keys.
-export function legacyRoleBucket(
-  slug: string,
-  permissionKeys: string[],
-): AdminAccessRole {
-  switch (slug) {
-    case 'owner': return 'owner'
-    case 'admin': return 'admin'
-    case 'editor': return 'editor'
-    case 'author': return 'author'
-    case 'viewer': return 'viewer'
-  }
-  const WRITE_KEYS = new Set([
-    'cms.write', 'cms.publish', 'cms.moderate',
-    'vendor.moderate',
-    'workforce.payroll',
-    'platform.admin',
-  ])
-  const hasWrite = permissionKeys.some((k) => WRITE_KEYS.has(k))
-  return hasWrite ? 'admin' : 'viewer'
 }
 
 function readMetadataRole(value: unknown): AdminAccessRole | null {
@@ -268,6 +237,13 @@ const ALL_PERMISSION_KEYS: readonly PermissionKey[] = [
   'workforce.read',
   'workforce.write',
   'workforce.payroll',
+  // RBAC administration, split three ways so that assigning an approved role
+  // and redefining what a role grants are separate authorities. Previously the
+  // Roles actions authorised off the legacy role bucket, which every seeded
+  // role reaches — see lib/roles-authz.ts for the full history.
+  'workforce.roles.read',
+  'workforce.roles.write',
+  'workforce.roles.assign',
   'insights.read',
   'platform.admin',
   // OpusPass door-staff check-in: assigning attendants + viewing live scans.
@@ -331,7 +307,10 @@ export const getCallerPermissions = cache(
       console.error('[admin-auth] workforce_permissions_for_employee error', error)
       return fallbackRolePermissions(role)
     }
-    return new Set(Array.isArray(data) ? data : [])
+    // Narrow legacy expansion: workforce.read implies workforce.roles.read so
+    // existing holders keep today's visibility. workforce.write deliberately
+    // does NOT imply roles.write or roles.assign — see lib/roles-authz.ts.
+    return expandRolePermissions(new Set(Array.isArray(data) ? data : []))
   },
 )
 
@@ -351,6 +330,7 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
         'bookings.read', 'bookings.write',
         'finance.read', 'finance.write',
         'workforce.read', 'workforce.write', 'workforce.payroll',
+        'workforce.roles.read', 'workforce.roles.write', 'workforce.roles.assign',
         'insights.read',
         'opuspass.checkin',
         'opuspass.tickets',
@@ -373,7 +353,7 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
     case 'viewer':
       return new Set([
         'cms.read', 'vendor.read', 'bookings.read', 'finance.read',
-        'workforce.read', 'insights.read',
+        'workforce.read', 'workforce.roles.read', 'insights.read',
       ])
     case 'author':
       // Authors don't access the dashboard — they live under /contribute.
