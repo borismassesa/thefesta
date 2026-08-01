@@ -56,6 +56,7 @@ import {
   Wallet,
   Wrench,
   X,
+  MailWarning,
   type LucideIcon,
 } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
@@ -98,6 +99,11 @@ type NavSection = {
   // Permission required at section level — collapses the section header
   // entirely. Use when the whole module is gated (e.g. Insights).
   requiredPermission?: string;
+  // Render as a single top-level link instead of a collapsible group.
+  // For modules that are one destination, where an accordion would just
+  // repeat the section label as its only child (Approvals > Approvals).
+  // The section's first visible item supplies the href.
+  flat?: boolean;
 };
 
 const topItems: NavItem[] = [
@@ -216,6 +222,9 @@ const sections: NavSection[] = [
     id: "approvals",
     label: "Approvals",
     icon: ClipboardList,
+    // One destination — the Create / My Requests / Pending / Analytics
+    // split lives in the page's own tab bar, not in the rail.
+    flat: true,
     items: [
       {
         icon: FileCheck2,
@@ -281,9 +290,10 @@ const sections: NavSection[] = [
     icon: ShieldCheck,
     requiredPermission: "insights.read",
     items: [
-      // Only the Audit Log page is live today; Analytics/Activity routes don't
-      // exist yet, so they're intentionally omitted rather than left as dead links.
+      // Analytics/Activity routes don't exist yet, so they're intentionally
+      // omitted rather than left as dead links.
       { icon: ShieldCheck, label: "Audit Log", href: "/insights/audit", requiredPermission: "insights.read" },
+      { icon: MailWarning, label: "Notification Delivery", href: "/insights/notifications", requiredPermission: "insights.read" },
     ],
   },
 ];
@@ -449,6 +459,24 @@ export function Sidebar({
   const renderSectionCollapsed = (section: NavSection) => {
     const SectionIcon = section.icon
     const isActive = isSectionActive(pathname, section)
+    if (section.flat && section.items[0]) {
+      return (
+        <Link
+          key={section.id}
+          href={section.items[0].href}
+          aria-label={section.label}
+          title={section.label}
+          className={cn(
+            'flex items-center justify-center w-12 h-12 mx-auto rounded-xl transition-colors',
+            isActive
+              ? 'text-[#7E5896] bg-[#F0DFF6]'
+              : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+          )}
+        >
+          <SectionIcon className="w-5 h-5 stroke-[1.5]" />
+        </Link>
+      )
+    }
     return (
       <button
         key={section.id}
@@ -477,6 +505,25 @@ export function Sidebar({
     const SectionIcon = section.icon
     // A search query force-opens every matching section so results are visible.
     const isOpen = query !== '' || openSection === section.id
+    if (section.flat && section.items[0]) {
+      const item = section.items[0]
+      const active = isItemActive(pathname, item)
+      return (
+        <Link
+          key={section.id}
+          href={item.href}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#7E5896] focus-visible:ring-offset-1',
+            active
+              ? 'bg-[#F0DFF6] text-[#7E5896]'
+              : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+          )}
+        >
+          <SectionIcon className={cn('stroke-[1.5]', nested ? 'w-4 h-4' : 'w-5 h-5')} />
+          {section.label}
+        </Link>
+      )
+    }
     return (
       <div key={section.id}>
         <button
@@ -569,6 +616,10 @@ export function Sidebar({
             <Search className="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" />
             <input
               type="text"
+              // A placeholder is not a label: it is unreliable for screen
+              // readers and disappears the moment anything is typed. This is
+              // the only control naming the search box, so it carries the name.
+              aria-label="Search menu"
               placeholder="Search menu…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}

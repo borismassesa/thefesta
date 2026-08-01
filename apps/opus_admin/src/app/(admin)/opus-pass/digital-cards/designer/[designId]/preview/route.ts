@@ -3,7 +3,7 @@ import { hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { renderCardSvg } from '@/lib/cms/card-render'
 import type { CardFieldBinding } from '@/lib/cms/card-field-roles'
-import { loadCardArtwork } from '../../../templates/artwork'
+import { loadCardArtwork } from '@/lib/cms/card-artwork'
 import { resolveOpusPassAssetUrl } from '@/lib/cms/opus-pass-asset-url'
 
 export const dynamic = 'force-dynamic'
@@ -35,15 +35,15 @@ export async function GET(
 
   const { data: product } = await supabase
     .from('website_invitations_products')
-    .select('image_url, field_bindings')
+    .select('artwork_svg_url, field_bindings')
     .eq('id', design.product_id)
-    .maybeSingle<{ image_url: string | null; field_bindings: CardFieldBinding[] | null }>()
+    .maybeSingle<{ artwork_svg_url: string | null; field_bindings: CardFieldBinding[] | null }>()
 
-  const artwork = await loadCardArtwork(product?.image_url ?? '')
+  const artwork = await loadCardArtwork(product?.artwork_svg_url ?? '')
   if (!artwork.ok) {
     // Fall back to the untouched artwork so the designer still sees the card
     // rather than a broken image; the editor already explains why it's stuck.
-    const url = product?.image_url
+    const url = product?.artwork_svg_url
     if (url) return NextResponse.redirect(resolveOpusPassAssetUrl(url))
     return new NextResponse('No artwork', { status: 404 })
   }

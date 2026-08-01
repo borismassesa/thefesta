@@ -4,7 +4,14 @@ import { randomBytes } from 'node:crypto'
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { requireAdminRole, type AdminAccessRole } from '@/lib/admin-auth'
+import {
+  getCallerEmail,
+  requireAdminRole,
+  requirePermission,
+  type AdminAccessRole,
+} from '@/lib/admin-auth'
+import { releaseApprovedDesign } from '@/lib/cms/release-card'
+import { sendCardReviewRequest } from '@/lib/card-review-email'
 import { readOrderLine, type OrderLineItem } from '@/lib/cms/order-add-ons'
 import {
   CARD_FIELD_ROLE_KEYS,
@@ -14,7 +21,36 @@ import {
 
 const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
 
-type Result = { ok: true } | { ok: false; error: string }
+/**
+ * `warning` is for a transition that SUCCEEDED but whose side effect did not:
+ * the job moved, yet nobody could be emailed. Reporting that as an error would
+ * be a lie, and swallowing it would leave a card sitting in review that no one
+ * knows about.
+ */
+type Result = { ok: true; warning?: string } | { ok: false; error: string }
+
+/**
+ * Whether the caller is the person assigned to this job.
+ *
+ * `assigned_to` is a workforce_employees id while the caller is identified by
+ * email, so the two have to be reconciled rather than compared. An unresolvable
+ * assignee returns false: blocking a review because a staff row was deleted
+ * would strand the card.
+ */
+async function isSelfReview(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  assignedTo: string | null,
+  callerEmail: string,
+): Promise<boolean> {
+  if (!assignedTo || !callerEmail) return false
+  const { data } = await supabase
+    .from('workforce_employees')
+    .select('email')
+    .eq('id', assignedTo)
+    .maybeSingle<{ email: string | null }>()
+  const assigneeEmail = (data?.email ?? '').trim().toLowerCase()
+  return Boolean(assigneeEmail) && assigneeEmail === callerEmail.trim().toLowerCase()
+}
 
 /**
  * Start a design job for one card line.
@@ -83,49 +119,36 @@ export async function startDesignJob(orderId: string, lineIndex: number): Promis
   return { ok: true }
 }
 
-const ALLOWED_STATUSES = ['awaiting_info', 'in_design', 'in_review', 'ready', 'delivered'] as const
-type DesignStatus = (typeof ALLOWED_STATUSES)[number]
-
-/** Order-level fulfilment stage each design status implies. */
-const ORDER_STAGE: Record<DesignStatus, string> = {
+/**
+ * Order-level fulfilment stage each design status implies, and the source of
+ * the status type. One map rather than a parallel list, so a new status cannot
+ * be added without deciding what it means for the order the couple is watching.
+ */
+const ORDER_STAGE = {
   awaiting_info: 'in_progress',
   in_design: 'in_progress',
   in_review: 'in_progress',
   ready: 'ready',
   delivered: 'delivered',
-}
+} as const
 
-export async function setDesignStatus(designId: string, status: string): Promise<Result> {
-  await requireAdminRole(DESIGNER_ROLES)
-  if (!(ALLOWED_STATUSES as readonly string[]).includes(status)) {
-    return { ok: false, error: `"${status}" is not a valid design status.` }
-  }
-  const next = status as DesignStatus
+type DesignStatus = keyof typeof ORDER_STAGE
 
-  const supabase = createSupabaseAdminClient()
-  const now = new Date().toISOString()
-
-  const { data: design, error } = await supabase
-    .from('invitation_card_designs')
-    .update({
-      status: next,
-      ...(next === 'ready' ? { ready_at: now } : {}),
-      ...(next === 'delivered' ? { delivered_at: now } : {}),
-    })
-    .eq('id', designId)
-    .select('order_id')
-    .maybeSingle<{ order_id: string }>()
-  if (error) return { ok: false, error: error.message }
-  if (!design) return { ok: false, error: 'Design job not found.' }
-
-  // The order shows the couple one progress bar, but an order can hold several
-  // cards. It may only advance to a stage every one of its cards has reached —
-  // otherwise a couple sees "Design ready" while three of their six cards are
-  // still being drawn.
+/**
+ * Roll the ORDER forward to the stage every one of its cards has reached.
+ *
+ * An order can hold six cards. Advancing it the moment one is ready would show
+ * the couple "Design ready" while three of theirs are still being drawn.
+ */
+async function syncOrderStage(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  orderId: string,
+  now: string,
+): Promise<void> {
   const { data: siblings } = await supabase
     .from('invitation_card_designs')
     .select('status')
-    .eq('order_id', design.order_id)
+    .eq('order_id', orderId)
 
   const stages = (siblings ?? []).map((s) => ORDER_STAGE[s.status as DesignStatus] ?? 'in_progress')
   const orderStage = stages.includes('in_progress')
@@ -137,9 +160,256 @@ export async function setDesignStatus(designId: string, status: string): Promise
   await supabase
     .from('invitation_orders')
     .update({ fulfillment_status: orderStage, fulfillment_updated_at: now })
-    .eq('id', design.order_id)
+    .eq('id', orderId)
+}
+
+/** Append to the job's history. Never throws: a lost log entry must not fail a transition. */
+async function recordDesignEvent(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  event: {
+    designId: string
+    author: string
+    body: string
+    fromStatus?: string | null
+    toStatus?: string | null
+    kind?: 'system' | 'note'
+  },
+): Promise<void> {
+  await supabase
+    .from('invitation_card_design_events')
+    .insert({
+      design_id: event.designId,
+      kind: event.kind ?? 'system',
+      author: event.author,
+      body: event.body,
+      from_status: event.fromStatus ?? null,
+      to_status: event.toStatus ?? null,
+    })
+    .then(
+      () => undefined,
+      () => undefined,
+    )
+}
+
+type DesignRow = {
+  id: string
+  order_id: string
+  status: DesignStatus
+  assigned_to: string | null
+  product_name: string
+}
+
+const DESIGN_SELECT = 'id, order_id, status, assigned_to, product_name'
+
+/**
+ * Hand a finished card to a reviewer.
+ *
+ * Deliberately NOT a generic status setter. The old `setDesignStatus` accepted
+ * any status from any status, which made the review stage advisory: a designer
+ * could mark their own work ready and nothing recorded who decided what. A
+ * wedding card cannot be recalled, so the second pair of eyes is the point.
+ */
+export async function submitForReview(designId: string): Promise<Result> {
+  await requirePermission('cms.write')
+  const supabase = createSupabaseAdminClient()
+  const author = (await getCallerEmail()) ?? 'unknown'
+  const now = new Date().toISOString()
+
+  const { data: design } = await supabase
+    .from('invitation_card_designs')
+    .select(DESIGN_SELECT)
+    .eq('id', designId)
+    .maybeSingle<DesignRow>()
+  if (!design) return { ok: false, error: 'Design job not found.' }
+  if (design.status === 'in_review') return { ok: true }
+  if (design.status !== 'in_design' && design.status !== 'awaiting_info') {
+    return { ok: false, error: `A job that is "${design.status}" cannot be submitted for review.` }
+  }
+
+  const { error } = await supabase
+    .from('invitation_card_designs')
+    .update({
+      status: 'in_review',
+      submitted_for_review_at: now,
+      submitted_by: author,
+      // Clear the previous decision so a resubmitted job does not still show
+      // the note that sent it back.
+      review_note: '',
+      reviewed_by: '',
+      reviewed_at: null,
+    })
+    .eq('id', designId)
+  if (error) return { ok: false, error: error.message }
+
+  await recordDesignEvent(supabase, {
+    designId,
+    author,
+    body: 'Submitted for review',
+    fromStatus: design.status,
+    toStatus: 'in_review',
+  })
+  await syncOrderStage(supabase, design.order_id, now)
+
+  // Email is best-effort: a mail outage must not leave the job in limbo.
+  const notified = await sendCardReviewRequest(designId).catch(() => ({
+    sent: false,
+    recipients: [] as string[],
+    reason: 'send_failed',
+  }))
 
   revalidatePath('/opus-pass/digital-cards/designer')
+  revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
+  return notified.sent || notified.recipients.length > 0
+    ? { ok: true }
+    : { ok: true, warning: 'Submitted, but no reviewer could be emailed. Tell someone directly.' }
+}
+
+/**
+ * Approve a card and publish it to the couple.
+ *
+ * Two gates, both deliberate:
+ *
+ *   cms.publish  — the key that already means "can release" elsewhere.
+ *   not yours    — a reviewer may not approve a job they were assigned. Every
+ *                  card gets a second pair of eyes, which is the whole reason
+ *                  this stage exists.
+ */
+export async function approveAndRelease(designId: string): Promise<Result> {
+  await requirePermission('cms.publish')
+  const supabase = createSupabaseAdminClient()
+  const author = (await getCallerEmail()) ?? 'unknown'
+  const now = new Date().toISOString()
+
+  const { data: design } = await supabase
+    .from('invitation_card_designs')
+    .select(DESIGN_SELECT)
+    .eq('id', designId)
+    .maybeSingle<DesignRow>()
+  if (!design) return { ok: false, error: 'Design job not found.' }
+  if (design.status === 'ready' || design.status === 'delivered') return { ok: true }
+  if (design.status !== 'in_review') {
+    return { ok: false, error: 'Only a job that is in review can be approved.' }
+  }
+
+  if (await isSelfReview(supabase, design.assigned_to, author)) {
+    return {
+      ok: false,
+      error:
+        'You are assigned to this card, so someone else has to approve it. That second pair of eyes is the point of the review step.',
+    }
+  }
+
+  // Writes the frozen card first, then flips the status. A job marked ready
+  // with no artefact would promise the couple a card that does not exist.
+  const released = await releaseApprovedDesign(supabase, design, author, now)
+  if (!released.ok) return released
+
+  await recordDesignEvent(supabase, {
+    designId,
+    author,
+    body: 'Approved and released',
+    fromStatus: 'in_review',
+    toStatus: 'ready',
+  })
+  await syncOrderStage(supabase, design.order_id, now)
+
+  revalidatePath('/opus-pass/digital-cards/designer')
+  revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
+  return released
+}
+
+/**
+ * Send a card back to the designer with a reason.
+ *
+ * The note lives on the row as well as in the event log, because the designer
+ * needs to see it at the top of the job they are reopening rather than having
+ * to read a history.
+ */
+export async function requestChanges(designId: string, note: string): Promise<Result> {
+  await requirePermission('cms.publish')
+  const trimmed = note.trim()
+  if (!trimmed) return { ok: false, error: 'Say what needs changing.' }
+
+  const supabase = createSupabaseAdminClient()
+  const author = (await getCallerEmail()) ?? 'unknown'
+  const now = new Date().toISOString()
+
+  const { data: design } = await supabase
+    .from('invitation_card_designs')
+    .select(DESIGN_SELECT)
+    .eq('id', designId)
+    .maybeSingle<DesignRow>()
+  if (!design) return { ok: false, error: 'Design job not found.' }
+  if (design.status !== 'in_review') {
+    return { ok: false, error: 'Only a job that is in review can be sent back.' }
+  }
+
+  const { error } = await supabase
+    .from('invitation_card_designs')
+    .update({
+      status: 'in_design',
+      review_note: trimmed.slice(0, 2000),
+      reviewed_by: author,
+      reviewed_at: now,
+    })
+    .eq('id', designId)
+  if (error) return { ok: false, error: error.message }
+
+  await recordDesignEvent(supabase, {
+    designId,
+    author,
+    body: trimmed.slice(0, 2000),
+    fromStatus: 'in_review',
+    toStatus: 'in_design',
+    kind: 'note',
+  })
+  await syncOrderStage(supabase, design.order_id, now)
+
+  revalidatePath('/opus-pass/digital-cards/designer')
+  revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
+  return { ok: true }
+}
+
+/**
+ * Mark a released card as handed over.
+ *
+ * Separate from release because delivery is an operational fact, not a quality
+ * decision, so it does not need a reviewer.
+ */
+export async function markDelivered(designId: string): Promise<Result> {
+  await requirePermission('cms.write')
+  const supabase = createSupabaseAdminClient()
+  const author = (await getCallerEmail()) ?? 'unknown'
+  const now = new Date().toISOString()
+
+  const { data: design } = await supabase
+    .from('invitation_card_designs')
+    .select(DESIGN_SELECT)
+    .eq('id', designId)
+    .maybeSingle<DesignRow>()
+  if (!design) return { ok: false, error: 'Design job not found.' }
+  if (design.status === 'delivered') return { ok: true }
+  if (design.status !== 'ready') {
+    return { ok: false, error: 'Only a released card can be marked delivered.' }
+  }
+
+  const { error } = await supabase
+    .from('invitation_card_designs')
+    .update({ status: 'delivered', delivered_at: now })
+    .eq('id', designId)
+  if (error) return { ok: false, error: error.message }
+
+  await recordDesignEvent(supabase, {
+    designId,
+    author,
+    body: 'Marked delivered',
+    fromStatus: 'ready',
+    toStatus: 'delivered',
+  })
+  await syncOrderStage(supabase, design.order_id, now)
+
+  revalidatePath('/opus-pass/digital-cards/designer')
+  revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
   return { ok: true }
 }
 

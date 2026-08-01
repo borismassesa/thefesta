@@ -55,7 +55,7 @@ export async function createCmsMediaUploadUrl(input: {
   filename: string
   mimeType: string
   sizeBytes: number
-  kind: 'image' | 'svg' | 'video' | 'media'
+  kind: 'image' | 'svg' | 'raster' | 'video' | 'media'
 }): Promise<CmsMediaUploadUrlResult> {
   const isSvg = input.mimeType === SVG_MIME
   // Gate on actual mime, not declared `kind`, so an editor can't smuggle an
@@ -65,6 +65,9 @@ export async function createCmsMediaUploadUrl(input: {
   const isVideo = VIDEO_MIME.has(input.mimeType)
   if (input.kind === 'image' && !isImage) {
     return { ok: false, error: 'Only JPEG, PNG, WebP, GIF, AVIF, or SVG images are allowed.' }
+  }
+  if (input.kind === 'raster' && (!isImage || isSvg)) {
+    return { ok: false, error: 'Only JPEG, PNG, WebP, GIF, or AVIF images are allowed.' }
   }
   if (input.kind === 'svg' && !isSvg) {
     return { ok: false, error: 'Only SVG files are allowed for this field.' }

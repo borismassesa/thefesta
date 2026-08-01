@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { after } from 'next/server'
 import { Sidebar } from '@/components/Sidebar'
 import { Header } from '@/components/Header'
+import { DesktopOnlyNotice } from '@/components/DesktopOnlyNotice'
 import { PageHeadingProvider } from '@/components/PageHeading'
 import { PageSearchProvider } from '@/components/PageSearch'
 import {
@@ -39,6 +40,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   return (
     <PageHeadingProvider>
       <PageSearchProvider>
+        {/* The shell has no responsive layout; this states that plainly
+            below the lg breakpoint rather than serving a broken one. */}
+        <DesktopOnlyNotice />
         <div className="flex h-screen bg-[#FDFDFD] font-sans antialiased text-gray-900">
           <Sidebar permissions={permissions} profile={profile} />
           {/* Full-height secondary-sidebar column. Empty (0-width) on pages

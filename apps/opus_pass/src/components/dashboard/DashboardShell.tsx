@@ -23,6 +23,8 @@ import {
   ChevronUp,
   BookHeart,
   Gift,
+  Sparkles,
+  PenLine,
   type LucideIcon,
 } from 'lucide-react'
 import Logo from '@/components/ui/Logo'
@@ -60,6 +62,9 @@ const NAV: NavItem[] = [
   { href: '/my/dashboard/pledges', labelKey: 'nav_pledges', icon: HandCoins },
   { href: '/my/dashboard/guests', labelKey: 'nav_guests', icon: Users },
   { href: '/my/dashboard/invitations', labelKey: 'nav_invitations', icon: Send },
+  { href: '/my/dashboard/cards', labelKey: 'nav_cards', icon: Sparkles },
+  // Reachable at last: this existed only behind a WhatsApp token link.
+  { href: '/my/dashboard/card-details', labelKey: 'nav_card_details', icon: PenLine },
   { href: '/my/dashboard/orders', labelKey: 'nav_orders', icon: Receipt },
   { href: '/my/dashboard/website', labelKey: 'nav_website', icon: Globe },
   { href: '/my/dashboard/guestbook', labelKey: 'nav_guestbook', icon: BookHeart },

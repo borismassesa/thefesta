@@ -152,7 +152,7 @@ export interface EntrancePassSend {
 }
 
 /** Which link-request template to send. */
-export type LinkRequestKind = 'collector' | 'pledge'
+export type LinkRequestKind = 'collector' | 'pledge' | 'card_details'
 
 /** A business-initiated "here's a link, please fill it in" send. */
 export interface LinkSend {
@@ -164,7 +164,7 @@ export interface LinkSend {
   coupleName: string
   /** Absolute URL of a generic OpusPass banner image (template image header). */
   headerImageUrl: string
-  /** The collector/pledge token — supplied as the dynamic URL button suffix. */
+  /** The collector/pledge/card-details token — the dynamic URL button suffix. */
   token: string
   /** Optional event scope for collector/pledge pages. When present, the
    *  dynamic URL suffix becomes `<token>?event=<eventId>` so guests land on

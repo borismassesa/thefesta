@@ -310,22 +310,17 @@ export async function askCommissionClarification(formData: FormData): Promise<Ac
   }
 }
 
-/**
- * A short-lived signed URL for a stored object.
- *
- * Five minutes (TDD §7.4). Callers must have already checked authorisation —
- * this only mints the URL.
- */
-export async function signCommissionAsset(
-  bucket: 'commission-versions' | 'commission-previews' | 'commission-briefs',
-  path: string,
-): Promise<string | null> {
-  await requirePermission('commissions.read')
-  const supabase = createSupabaseAdminClient()
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 300)
-  if (error) {
-    console.error('[commission] signing failed', error)
-    return null
-  }
-  return data?.signedUrl ?? null
-}
+// REMOVED: signCommissionAsset(bucket, path).
+//
+// It was an exported action in a 'use server' module, so it was callable from
+// any browser holding a session, and it signed whatever path it was given
+// after checking only `commissions.read`. Its own docstring said "callers must
+// have already checked authorisation" — but the caller here is the network,
+// and it had no call sites at all, so it was attack surface serving nothing.
+// Three buckets of commission briefs, customer artwork and unreleased previews
+// were reachable by anyone who could guess a key.
+//
+// Deleted rather than patched, because there was nothing to preserve. If asset
+// signing is needed again, resolve the object from a row scoped to the
+// commission the caller is entitled to, the way getApprovalAttachmentUrl does
+// in approvals/attachment-actions.ts, and never accept a path as an argument.

@@ -10,6 +10,20 @@ import type { ReactNode } from 'react'
 
 export type LegalSection = { id: string; title: string; body: ReactNode }
 
+// Typography for section bodies. Kept as one string so the longer policies
+// (which use ordered lists and comparison tables, not just paragraphs) render
+// consistently with the prose-only pages.
+const prose = [
+  '[&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5',
+  '[&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-5',
+  '[&_strong]:font-semibold [&_strong]:text-[#403d39]',
+  '[&_a]:font-medium [&_a]:text-[#8350E8] [&_a:hover]:underline',
+  '[&_table]:w-full [&_table]:border-collapse [&_table]:text-[14px]',
+  '[&_th]:border-b [&_th]:border-gray-300 [&_th]:py-2.5 [&_th]:pr-4 [&_th]:text-left [&_th]:align-top [&_th]:font-semibold [&_th]:text-[#403d39]',
+  '[&_td]:border-b [&_td]:border-gray-100 [&_td]:py-2.5 [&_td]:pr-4 [&_td]:align-top',
+  '[&_tbody_th]:font-medium [&_tbody_th]:border-gray-100',
+].join(' ')
+
 export default function LegalDoc({
   eyebrow,
   title,
@@ -81,7 +95,7 @@ export default function LegalDoc({
                   <h2 className="font-serif text-2xl sm:text-3xl text-[#403d39] tracking-tight">
                     {s.title}
                   </h2>
-                  <div className="mt-4 text-[15px] text-gray-700 leading-relaxed space-y-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 [&_strong]:font-semibold [&_strong]:text-[#403d39] [&_a]:font-medium [&_a]:text-[#8350E8] [&_a:hover]:underline">
+                  <div className={`mt-4 text-[15px] text-gray-700 leading-relaxed space-y-4 ${prose}`}>
                     {s.body}
                   </div>
                 </section>

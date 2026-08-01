@@ -85,7 +85,8 @@ export default function SupportBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label={count > 0 ? `Notifications, ${count} awaiting` : 'Notifications'}
+        title="Customer messages"
+        aria-label={count > 0 ? `Customer messages, ${count} awaiting` : 'Customer messages'}
         aria-expanded={open}
         className="relative text-gray-400 transition-colors hover:text-gray-600"
       >

@@ -7,6 +7,8 @@ import {
   cardFieldRole,
   customerSuppliedRoles,
   requestableFields,
+  roleForLayerName,
+  type CardFieldBinding,
 } from './card-field-roles'
 
 test('the reference schema is the 23 text roles plus 5 palette colours', () => {
@@ -90,7 +92,10 @@ test('no surviving text layer is misfiled as rasterised', () => {
 })
 
 test('the reference card cannot fulfil orders until re-exported', () => {
-  const { blocked, unbound, canFulfilOrders } = assessBindings(OPUS_ROYAL_IVORY_BINDINGS)
+  const { blocked, unbound, canFulfilOrders } = assessBindings(
+    OPUS_ROYAL_IVORY_BINDINGS,
+    'Wedding Invitations',
+  )
   assert.equal(unbound.length, 0, 'all 28 roles are bound')
   // Six gold text layers plus the five swatch bitmaps.
   assert.equal(blocked.length, 11)
@@ -127,7 +132,7 @@ test('a stuck template-copy field alone does not block fulfilment', () => {
 
 test('a missing binding blocks fulfilment when the couple supplies that field', () => {
   const withoutCoupleName = OPUS_ROYAL_IVORY_BINDINGS.filter((b) => b.role !== 'couple_name_1')
-  const { unbound, canFulfilOrders } = assessBindings(withoutCoupleName)
+  const { unbound, canFulfilOrders } = assessBindings(withoutCoupleName, 'Wedding Invitations')
   assert.ok(unbound.includes('couple_name_1'))
   assert.equal(canFulfilOrders, false)
 })
@@ -164,4 +169,73 @@ test('roles the artwork has no layer for are not on the card', () => {
 
 test('an unmapped card asks for nothing', () => {
   assert.deepEqual(requestableFields([]), [])
+})
+
+// ── roleForLayerName ──
+// Illustrator's suffixes and the artwork's house name for the swatches all have
+// to resolve, or "Match by name" leaves the admin hand-mapping every card.
+
+test('a layer named exactly as the role matches', () => {
+  assert.equal(roleForLayerName('couple_name_1')?.key, 'couple_name_1')
+})
+
+test("Illustrator's flatten and duplicate suffixes are ignored", () => {
+  assert.equal(roleForLayerName('couple_name_1_Image')?.key, 'couple_name_1')
+  assert.equal(roleForLayerName('invite_line-2')?.key, 'invite_line')
+})
+
+test('the artwork calls the swatches palette_swatch_N and the role is palette_N', () => {
+  for (const n of [1, 2, 3, 4, 5]) {
+    assert.equal(roleForLayerName(`palette_swatch_${n}`)?.key, `palette_${n}`)
+  }
+  // The shape inside <g id="palette_swatch_1"> exports with the dedupe suffix.
+  assert.equal(roleForLayerName('palette_swatch_1-2')?.key, 'palette_1')
+})
+
+test('a content-named layer is left for a human rather than guessed', () => {
+  assert.equal(roleForLayerName('Bi._Fabiola_Thomas'), undefined)
+  assert.equal(roleForLayerName('Rectangle_2'), undefined)
+})
+
+// ── Per-category readiness ──
+// The catalogue holds four kinds of card. Judging all of them against a
+// wedding invitation's 28 roles marked 89 of 133 permanently unready.
+
+test('a Save the Date is ready without the fields it does not have', () => {
+  const bindings: CardFieldBinding[] = [
+    { role: 'couple_name_1', layerIds: ['couple_name_1'] },
+    { role: 'couple_name_2', layerIds: ['couple_name_2'] },
+    { role: 'date_day', layerIds: ['date_day'] },
+    { role: 'date_month', layerIds: ['date_month'] },
+    { role: 'date_year', layerIds: ['date_year'] },
+  ]
+  assert.equal(assessBindings(bindings, 'Save the Dates').canFulfilOrders, true)
+  // The very same card judged as a wedding invitation is not ready: it has no
+  // ceremony venue, which a wedding invitation must have.
+  const asWedding = assessBindings(bindings, 'Wedding Invitations')
+  assert.equal(asWedding.canFulfilOrders, false)
+  assert.ok(asWedding.missingRequired.includes('venue_1_place'))
+})
+
+test('roles outside a category are not counted as missing', () => {
+  const readiness = assessBindings([], 'Save the Dates')
+  assert.ok(!readiness.unbound.includes('venue_2_time'), 'a Save the Date has no reception time')
+  assert.ok(!readiness.unbound.includes('palette_1'), 'nor a colour palette')
+})
+
+test('an unknown category never blocks a card', () => {
+  // A card type we have not modelled must not be stuck. Requiring nothing is
+  // the safe direction; guessing a schema for an unseen card is not.
+  assert.equal(assessBindings([], 'Gala Dinner').canFulfilOrders, true)
+  assert.equal(assessBindings([], null).canFulfilOrders, true)
+})
+
+test('requestableFields only asks for fields this category has', () => {
+  const bindings: CardFieldBinding[] = [
+    { role: 'venue_2_time', layerIds: ['some_layer'] },
+    { role: 'couple_name_1', layerIds: ['couple_name_1'] },
+  ]
+  const keys = requestableFields(bindings, 'Save the Dates').map((f) => f.role.key)
+  assert.ok(keys.includes('couple_name_1'))
+  assert.ok(!keys.includes('venue_2_time'), 'a Save the Date must not ask for a reception time')
 })

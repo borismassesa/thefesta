@@ -39,6 +39,7 @@
     "@tiptap/react": "^3.22.5",
     "@tiptap/starter-kit": "^3.22.5",
     "clsx": "^2.1.1",
+    "fontkit": "^2.0.4",
     "lodash.throttle": "^4.1.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
