@@ -2,7 +2,10 @@ import { cache } from 'react'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
 import { auditPermissionDenied, recordAuditEvent } from '@/lib/audit-log'
-import { expandRolePermissions } from '@/lib/roles-authz'
+import {
+  ALL_PERMISSION_KEYS,
+  expandLegacyPermissions,
+} from '@/lib/workforce/permissions'
 
 // Legacy bucket helpers live in role-bucket.ts (pure, no server-only import)
 // and are re-exported here so existing call sites keep working unchanged.
@@ -245,59 +248,12 @@ export async function requireAdminRole(
 
 export type PermissionKey = string
 
-// Keep this list in sync with apps/opus_admin/src/app/(admin)/workforce/_lib/types.ts
-// — duplicated here so this file stays free of the workforce module
-// import (which would create a cycle when workforce actions import from
-// admin-auth).
-const ALL_PERMISSION_KEYS: readonly PermissionKey[] = [
-  'cms.read',
-  'cms.write',
-  'cms.publish',
-  'vendor.read',
-  'vendor.moderate',
-  'bookings.read',
-  'bookings.write',
-  'finance.read',
-  'finance.write',
-  'workforce.read',
-  'workforce.write',
-  'workforce.payroll',
-  // RBAC administration, split three ways so that assigning an approved role
-  // and redefining what a role grants are separate authorities. Previously the
-  // Roles actions authorised off the legacy role bucket, which every seeded
-  // role reaches — see lib/roles-authz.ts for the full history.
-  'workforce.roles.read',
-  'workforce.roles.write',
-  'workforce.roles.assign',
-  'insights.read',
-  'platform.admin',
-  // OpusPass door-staff check-in: assigning attendants + viewing live scans.
-  'opuspass.checkin',
-  // OpusPass ticket generation: importing guest lists + printable entry-pass tickets.
-  'opuspass.tickets',
-  // Pledge Concierge: staff-run pledge campaigns for Elegant/Signature couples.
-  'opuspass.pledges.read',
-  'opuspass.pledges.write',
-  // Couple Accounts: the cross-couple directory + per-couple event console.
-  'opuspass.couples.read',
-  'opuspass.couples.write',
-  // Separate from .write because it is irreversible: deleting an account
-  // cascades their events, guests, RSVPs, pledges and registry away.
-  'opuspass.couples.delete',
-  // MD Daily Tracker: each engine's MD can only write their own engine's rows.
-  'md_tracker.opusfesta.write',
-  'md_tracker.opusstudio.write',
-  'md_tracker.opuspass.write',
-  // MD Daily Tracker: CEO/owner review — edit ceo_comment + reviewed_by across all engines.
-  'md_tracker.review',
-  // Growth Tracker: log outreach contacts / campaigns / content posts / studio bookings.
-  'growth.write',
-  // Growth Tracker: edit KPI targets, the vendor-outreach roster, challenge definitions, content-ideas bank.
-  'growth.admin',
-  // Opus customer-support console: view conversations / reply as an agent.
-  'support.read',
-  'support.write',
-] as const
+// The canonical key catalogue lives in lib/workforce/permissions.ts — a pure
+// module with no imports, so it can be unit-tested and shared with client
+// code. It was previously duplicated here AND in workforce/_lib/types.ts, and
+// the two had already drifted (support.read / support.write existed here but
+// not there, so Support access could not be granted through the Roles UI at
+// all). permissions.sync.test.ts now fails if they diverge again.
 
 // Wrapped in React.cache so that the layout's permission lookup and
 // page.tsx's permission lookup on the same request resolve via one
@@ -332,10 +288,10 @@ export const getCallerPermissions = cache(
       console.error('[admin-auth] workforce_permissions_for_employee error', error)
       return fallbackRolePermissions(role)
     }
-    // Narrow legacy expansion: workforce.read implies workforce.roles.read so
-    // existing holders keep today's visibility. workforce.write deliberately
-    // does NOT imply roles.write or roles.assign — see lib/roles-authz.ts.
-    return expandRolePermissions(new Set(Array.isArray(data) ? data : []))
+    // Full reviewed legacy expansion (spec 3.5). Supersedes PR 0's narrower
+    // expandRolePermissions, which only handled roles.read; that function is a
+    // strict subset of this table and stays exported until #253 merges.
+    return expandLegacyPermissions(new Set(Array.isArray(data) ? data : []))
   },
 )
 

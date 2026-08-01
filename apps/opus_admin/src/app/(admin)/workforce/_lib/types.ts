@@ -219,6 +219,7 @@ export type PermissionGroup =
   | 'OpusPass'
   | 'MD Tracker'
   | 'Growth Tracker'
+  | 'Support'
 
 export type Permission = {
   key: string
@@ -436,8 +437,38 @@ export const PERMISSIONS: Permission[] = [
   { key: 'workforce.roles.read', group: 'Workforce', label: 'View roles', description: 'Inspect roles, their members and the permission matrix. Read only.' },
   { key: 'workforce.roles.write', group: 'Workforce', label: 'Edit role definitions', description: 'Create, duplicate and edit roles, and change what permissions a role grants. Does not allow assigning members.' },
   { key: 'workforce.roles.assign', group: 'Workforce', label: 'Assign roles', description: 'Put people into approved roles and revoke them. Does not allow changing what a role grants, and cannot assign Owner or Admin.' },
+  // Granular workforce keys (spec 3.2). The legacy workforce.read /
+  // workforce.write pair above is retained and expands into these at runtime
+  // via lib/workforce/permissions.ts, so no existing role breaks.
+  { key: 'workforce.employees.read', group: 'Workforce', label: 'View employees', description: 'Browse the directory and employee profile basics.' },
+  { key: 'workforce.employees.write', group: 'Workforce', label: 'Edit employees', description: 'Create and edit employee profiles.' },
+  { key: 'workforce.employee_records.read', group: 'Workforce', label: 'View employee records', description: 'Resume, skills, certifications and badges.' },
+  { key: 'workforce.employee_records.write', group: 'Workforce', label: 'Edit employee records', description: 'Maintain resume, skills, certifications and badges.' },
+  { key: 'workforce.employee_documents.read', group: 'Workforce', label: 'View employee documents', description: 'Read employee documents, subject to each document\u2019s sensitivity class.' },
+  { key: 'workforce.employee_documents.write', group: 'Workforce', label: 'Manage employee documents', description: 'Upload, review and approve employee documents.' },
+  { key: 'workforce.employee_documents.legal', group: 'Workforce', label: 'View legal documents', description: 'Additionally unlocks legally confidential documents. Never granted by legacy expansion.' },
+  { key: 'workforce.leave.read', group: 'Workforce', label: 'View leave', description: 'Organisation-wide leave register and calendar.' },
+  { key: 'workforce.leave.approve', group: 'Workforce', label: 'Approve leave', description: 'Approve or reject any leave request. Never permits approving your own.' },
+  { key: 'workforce.leave.admin', group: 'Workforce', label: 'Administer leave', description: 'Leave policies, balances and manual adjustments.' },
+  { key: 'workforce.attendance.read', group: 'Workforce', label: 'View attendance', description: 'Organisation-wide attendance and exceptions.' },
+  { key: 'workforce.attendance.approve', group: 'Workforce', label: 'Approve attendance', description: 'Approve corrections and missing punches.' },
+  { key: 'workforce.attendance.admin', group: 'Workforce', label: 'Administer attendance', description: 'Attendance policy configuration.' },
+  { key: 'workforce.scheduling.read', group: 'Workforce', label: 'View schedules', description: 'Rosters, shift plans and holiday calendars.' },
+  { key: 'workforce.scheduling.write', group: 'Workforce', label: 'Edit schedules', description: 'Publish rosters, edit shifts and availability.' },
+  { key: 'workforce.timesheets.read', group: 'Workforce', label: 'View timesheets', description: 'Organisation-wide timesheets.' },
+  { key: 'workforce.timesheets.approve', group: 'Workforce', label: 'Approve timesheets', description: 'Sign off submitted timesheets.' },
+  { key: 'workforce.tasks.read', group: 'Workforce', label: 'View tasks', description: 'Organisation-wide task assignments.' },
+  { key: 'workforce.tasks.assign', group: 'Workforce', label: 'Assign tasks', description: 'Create, edit, reassign, cancel and reopen organisation-scoped assignments. Managers cover their own direct reports without this key.' },
+  { key: 'workforce.report_templates.write', group: 'Workforce', label: 'Edit report templates', description: 'Maintain the report form templates staff submit against.' },
+  { key: 'workforce.reports.read', group: 'Workforce', label: 'Workforce analytics', description: 'Turnover, headcount and attendance reporting.' },
+  { key: 'workforce.performance.read', group: 'Workforce', label: 'View performance', description: 'Reviews, objectives and KPIs.' },
+  { key: 'workforce.performance.write', group: 'Workforce', label: 'Manage performance', description: 'Create review cycles and edit objectives.' },
+  { key: 'workforce.recruitment.read', group: 'Workforce', label: 'View recruitment', description: 'Jobs and candidate pipelines.' },
+  { key: 'workforce.recruitment.write', group: 'Workforce', label: 'Manage recruitment', description: 'Post jobs, move candidates and make offers.' },
   { key: 'insights.read', group: 'Insights', label: 'View analytics', description: 'Access dashboards, exports and audit logs.' },
   { key: 'platform.admin', group: 'Platform', label: 'Manage platform', description: 'Domain settings, secrets, feature flags.' },
+  { key: 'support.read', group: 'Support', label: 'View support conversations', description: 'Read the Opus customer-support console and its conversations.' },
+  { key: 'support.write', group: 'Support', label: 'Reply in support', description: 'Reply to customers as an agent and manage conversation state.' },
   { key: 'opuspass.checkin', group: 'OpusPass', label: 'Event check-in', description: 'Assign scanning attendants and watch live door arrivals.' },
   { key: 'opuspass.tickets', group: 'OpusPass', label: 'Ticket generation', description: 'Import guest lists and generate printable entry-pass tickets.' },
   { key: 'opuspass.pledges.read', group: 'OpusPass', label: 'View pledge campaigns', description: 'Read pledge concierge campaigns for Elegant and Signature couples.' },
