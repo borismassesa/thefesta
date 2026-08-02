@@ -19,11 +19,14 @@ import type { WorkspaceNavItem } from '@/lib/workforce/scope'
 
 export const WORKSPACE_ROUTES: Record<WorkspaceNavItem, string> = {
   home: '/workspace',
-  'time-clock': '/workspace/time-clock',
+  'time-clock': '/workspace/timeclock',
+  work: '/workspace/work',
   leave: '/workspace/leave',
   tasks: '/workspace/tasks',
   reports: '/workspace/reports',
+  referrals: '/workspace/referrals',
   tracker: '/workspace/tracker',
+  performance: '/workspace/performance',
   calendar: '/workspace/calendar',
   documents: '/workspace/documents',
 }
@@ -31,10 +34,13 @@ export const WORKSPACE_ROUTES: Record<WorkspaceNavItem, string> = {
 export const WORKSPACE_LABELS: Record<WorkspaceNavItem, string> = {
   home: 'Home',
   'time-clock': 'Time Clock',
+  work: 'My Work',
   leave: 'My Leave',
   tasks: 'My Tasks',
   reports: 'My Reports',
+  referrals: 'Referrals',
   tracker: 'My Tracker',
+  performance: 'Goals & Performance',
   calendar: 'Calendar',
   documents: 'Documents',
 }
@@ -44,7 +50,6 @@ export const WORKSPACE_LABELS: Record<WorkspaceNavItem, string> = {
 // "coming soon" rather than as links that 404.
 export const WORKSPACE_NOT_BUILT: readonly WorkspaceNavItem[] = [
   'calendar',
-  'documents',
 ]
 
 export function isWorkspaceRouteLive(item: WorkspaceNavItem): boolean {

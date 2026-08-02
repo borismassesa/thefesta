@@ -264,8 +264,10 @@ const sections: NavSection[] = [
       { icon: FileText, label: "Report Templates", href: "/workforce/report-templates", requiredPermission: "workforce.write" },
       { icon: Plane, label: "Leave & Attendance", href: "/workforce/leave", requiredPermission: "workforce.read" },
       { icon: Clock, label: "Attendance", href: "/workforce/timesheets", requiredPermission: "workforce.read" },
+      { icon: ClipboardCheck, label: "MD Tracker", href: "/workforce/daily-tracker", requiredPermission: "workforce.read" },
       { icon: Shield, label: "Roles", href: "/workforce/roles", requiredPermission: "workforce.write" },
-      { icon: UserPlus, label: "Recruitment", href: "/workforce/recruitment", requiredPermission: "workforce.write" },
+      { icon: UserPlus, label: "Recruitment", href: "/workforce/recruitment", requiredPermission: "workforce.recruitment.read" },
+      { icon: ClipboardList, label: "My requisitions", href: "/workforce/recruitment/my-requisitions", requiredPermission: "workforce.requisitions.read" },
     ],
   },
   {
@@ -274,11 +276,14 @@ const sections: NavSection[] = [
     icon: BarChart3,
     items: [
       { icon: LayoutDashboard, label: "Dashboard", href: "/growth", exact: true, requiredAnyPermission: ["growth.write", "growth.admin"] },
+      { icon: BarChart3, label: "Goals & KPIs", href: "/growth/kpis", requiredAnyPermission: ["growth.kpi.read", "growth.read", "growth.write", "growth.admin"] },
       { icon: Building2, label: "Vendor Outreach", href: "/growth/vendor-outreach", requiredAnyPermission: ["growth.write", "growth.admin"] },
       { icon: TrendingUp, label: "Sales & Marketing", href: "/growth/marketing", requiredAnyPermission: ["growth.write", "growth.admin"] },
       { icon: Star, label: "Social Media", href: "/growth/social", requiredAnyPermission: ["growth.write", "growth.admin"] },
       { icon: CalendarCheck, label: "Studio Performance", href: "/growth/studio", requiredAnyPermission: ["growth.write", "growth.admin"] },
       { icon: Lightbulb, label: "Content Ideas", href: "/growth/content-ideas", requiredAnyPermission: ["growth.write", "growth.admin"] },
+      { icon: Building2, label: "Business Units", href: "/growth/settings/business-units", requiredAnyPermission: ["growth.settings.manage", "growth.admin"] },
+      { icon: Clock, label: "Periods", href: "/growth/settings/periods", requiredAnyPermission: ["growth.period.manage", "growth.admin"] },
     ],
   },
   {

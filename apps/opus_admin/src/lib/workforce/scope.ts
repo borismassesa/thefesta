@@ -83,15 +83,19 @@ export function resolveWorkspaceAccess(status: string): WorkspaceAccess {
 export type WorkspaceNavItem =
   | 'home'
   | 'time-clock'
+  | 'work'
   | 'leave'
   | 'tasks'
   | 'reports'
+  | 'referrals'
   | 'tracker'
+  | 'performance'
   | 'calendar'
   | 'documents'
 
 const FULL_NAV: readonly WorkspaceNavItem[] = [
-  'home', 'time-clock', 'leave', 'tasks', 'reports', 'tracker', 'calendar', 'documents',
+  'home', 'time-clock', 'work', 'leave', 'tasks', 'reports', 'referrals',
+  'tracker', 'performance', 'calendar', 'documents',
 ]
 
 export function workspaceNavFor(

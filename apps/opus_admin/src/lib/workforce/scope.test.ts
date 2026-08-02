@@ -45,7 +45,19 @@ describe('resolveWorkspaceAccess', () => {
 
 describe('workspaceNavFor', () => {
   it('full access sees every item', () => {
-    assert.equal(workspaceNavFor('full').length, 8)
+    assert.deepEqual(workspaceNavFor('full'), [
+      'home',
+      'time-clock',
+      'work',
+      'leave',
+      'tasks',
+      'reports',
+      'referrals',
+      'tracker',
+      'performance',
+      'calendar',
+      'documents',
+    ])
   })
   it('documents_only sees Home and Documents only', () => {
     assert.deepEqual(workspaceNavFor('documents_only'), ['home', 'documents'])

@@ -17,7 +17,31 @@ export type Department =
   | 'HR'
 
 export type EmploymentType = 'Permanent' | 'Contract' | 'Probation' | 'Intern'
-export type EmployeeStatus = 'Active' | 'On Leave' | 'Onboarding' | 'Resigned'
+export type EmployeeStatus =
+  | 'Active'
+  | 'On Leave'
+  | 'Onboarding'
+  | 'Resigned'
+  | 'Suspended'
+  | 'Terminated'
+
+export const EMPLOYEE_STATUSES: EmployeeStatus[] = [
+  'Active',
+  'On Leave',
+  'Onboarding',
+  'Resigned',
+  'Suspended',
+  'Terminated',
+]
+
+export const ENDED_EMPLOYEE_STATUSES: EmployeeStatus[] = ['Resigned', 'Terminated']
+
+export const ENDED_EMPLOYEE_STATUSES_SQL =
+  `(${ENDED_EMPLOYEE_STATUSES.map((status) => `"${status}"`).join(',')})`
+
+export function isCurrentEmployee(status: string): boolean {
+  return !(ENDED_EMPLOYEE_STATUSES as string[]).includes(status)
+}
 export type Location = 'Dar es Salaam' | 'Arusha' | 'Zanzibar' | 'Remote'
 
 export type DashboardAccessState = 'none' | 'invited' | 'active' | 'revoked'
@@ -157,6 +181,15 @@ export type LeaveType =
   | 'Unpaid'
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled'
 
+export type LeavePolicy = {
+  type: string
+  label: string
+  countsAgainstAnnualBalance: boolean
+  annualEntitlementDays: number | null
+  active: boolean
+  displayOrder: number
+}
+
 export type LeaveRequest = {
   id: string
   employeeId: string
@@ -231,6 +264,7 @@ export type PermissionGroup =
   | 'Bookings'
   | 'Finance'
   | 'Workforce'
+  | 'Recruitment'
   | 'Insights'
   | 'Platform'
   | 'OpusPass'
@@ -482,6 +516,65 @@ export const PERMISSIONS: Permission[] = [
   { key: 'workforce.performance.write', group: 'Workforce', label: 'Manage performance', description: 'Create review cycles and edit objectives.' },
   { key: 'workforce.recruitment.read', group: 'Workforce', label: 'View recruitment', description: 'Jobs and candidate pipelines.' },
   { key: 'workforce.recruitment.write', group: 'Workforce', label: 'Manage recruitment', description: 'Post jobs, move candidates and make offers.' },
+  { key: 'recruitment.read', group: 'Recruitment', label: 'View recruitment', description: 'View jobs, requisitions, applications, candidates, interviews and offers within assigned scope.' },
+  { key: 'recruitment.plan.manage', group: 'Recruitment', label: 'Manage workforce plans', description: 'Create and update hiring plans, approved positions and headcount budgets.' },
+  { key: 'recruitment.requisition.create', group: 'Recruitment', label: 'Create requisitions', description: 'Draft and submit job requisitions for approval.' },
+  { key: 'recruitment.requisition.approve', group: 'Recruitment', label: 'Approve requisitions', description: 'Approve, reject or request changes to requisitions.' },
+  { key: 'recruitment.job.manage', group: 'Recruitment', label: 'Manage job postings', description: 'Edit job content, forms, channels, locations and interview plans.' },
+  { key: 'recruitment.job.publish', group: 'Recruitment', label: 'Publish jobs', description: 'Publish, pause, close and archive public job postings.' },
+  { key: 'recruitment.application.manage', group: 'Recruitment', label: 'Manage applications', description: 'Move applications, assign owners and record dispositions.' },
+  { key: 'recruitment.candidate.manage', group: 'Recruitment', label: 'Manage candidates', description: 'Edit candidate profiles, notes, tags and talent pools.' },
+  { key: 'recruitment.candidate.sensitive', group: 'Recruitment', label: 'View sensitive candidate data', description: 'Access private documents, compensation expectations and protected candidate details.' },
+  { key: 'recruitment.interview.manage', group: 'Recruitment', label: 'Manage interviews', description: 'Schedule interviews, participants, rooms and candidate availability.' },
+  { key: 'recruitment.interview.feedback', group: 'Recruitment', label: 'Submit interview feedback', description: 'Complete assigned structured scorecards and hiring recommendations.' },
+  { key: 'recruitment.assessment.manage', group: 'Recruitment', label: 'Manage assessments', description: 'Send, review and score candidate assessments.' },
+  { key: 'recruitment.communication.manage', group: 'Recruitment', label: 'Manage communications', description: 'Create templates and send or schedule candidate communications.' },
+  { key: 'recruitment.offer.manage', group: 'Recruitment', label: 'Manage offers', description: 'Draft, version, send and withdraw employment offers.' },
+  { key: 'recruitment.offer.approve', group: 'Recruitment', label: 'Approve offers', description: 'Approve or return compensation and offer terms.' },
+  { key: 'recruitment.referral.manage', group: 'Recruitment', label: 'Manage referrals', description: 'Run referral programs, submissions, eligibility and rewards.' },
+  { key: 'recruitment.cms.manage', group: 'Recruitment', label: 'Manage careers CMS', description: 'Edit and publish careers pages, stories, benefits, FAQs and locations.' },
+  { key: 'recruitment.analytics.read', group: 'Recruitment', label: 'View recruitment analytics', description: 'View funnel, source, time-to-hire, diversity and recruiter dashboards.' },
+  { key: 'recruitment.settings.manage', group: 'Recruitment', label: 'Manage recruitment settings', description: 'Configure pipelines, scorecards, automation, agencies and retention.' },
+  { key: 'recruitment.privacy.manage', group: 'Recruitment', label: 'Manage candidate privacy', description: 'Process access, export, consent withdrawal and deletion requests.' },
+  { key: 'recruitment.audit.read', group: 'Recruitment', label: 'View recruitment audit', description: 'Review append-only recruitment and document-access history.' },
+  { key: 'workforce.requisitions.read', group: 'Recruitment', label: 'View requisitions', description: 'Read assigned requisitions, approvals, comments and versions.' },
+  { key: 'workforce.requisitions.create', group: 'Recruitment', label: 'Create requisitions', description: 'Draft and submit hiring requisitions.' },
+  { key: 'workforce.requisitions.approve', group: 'Recruitment', label: 'Approve requisitions', description: 'Act on department or People Ops requisition approval steps.' },
+  { key: 'workforce.requisitions.finance_approve', group: 'Recruitment', label: 'Approve requisition budgets', description: 'Approve requisition budget and cost-centre steps as Finance.' },
+  { key: 'workforce.requisitions.executive_approve', group: 'Recruitment', label: 'Executive requisition approval', description: 'Approve requisitions requiring executive authority.' },
+  { key: 'workforce.jobs.read', group: 'Recruitment', label: 'View jobs', description: 'Read internal and public job posting records.' },
+  { key: 'workforce.jobs.write', group: 'Recruitment', label: 'Edit jobs', description: 'Create and edit posting content, questions, languages and channels.' },
+  { key: 'workforce.jobs.publish', group: 'Recruitment', label: 'Publish jobs', description: 'Publish, pause, close and reopen approved postings.' },
+  { key: 'workforce.jobs.archive', group: 'Recruitment', label: 'Archive jobs', description: 'Archive closed job postings and their public routes.' },
+  { key: 'workforce.candidates.read', group: 'Recruitment', label: 'View candidates', description: 'Read candidate profiles allowed by team scope.' },
+  { key: 'workforce.candidates.write', group: 'Recruitment', label: 'Edit candidates', description: 'Update candidate profiles, tags, notes and preferences.' },
+  { key: 'workforce.candidates.export', group: 'Recruitment', label: 'Export candidate data', description: 'Create audited exports of candidate information.' },
+  { key: 'workforce.candidates.merge', group: 'Recruitment', label: 'Merge candidates', description: 'Resolve reviewed duplicate candidate profiles.' },
+  { key: 'workforce.candidates.delete', group: 'Recruitment', label: 'Delete or anonymize candidates', description: 'Complete approved privacy deletion or anonymization operations.' },
+  { key: 'workforce.applications.read', group: 'Recruitment', label: 'View applications', description: 'Read applications for assigned jobs and requisitions.' },
+  { key: 'workforce.applications.review', group: 'Recruitment', label: 'Review applications', description: 'Submit eligibility, recruiter and hiring-manager reviews.' },
+  { key: 'workforce.applications.advance', group: 'Recruitment', label: 'Advance applications', description: 'Move applications through validated non-terminal stages.' },
+  { key: 'workforce.applications.reject', group: 'Recruitment', label: 'Reject applications', description: 'Record approved structured dispositions and candidate communications.' },
+  { key: 'workforce.interviews.read', group: 'Recruitment', label: 'View interviews', description: 'Read interviews and kits assigned to the caller.' },
+  { key: 'workforce.interviews.schedule', group: 'Recruitment', label: 'Schedule interviews', description: 'Coordinate availability, rooms, participants and calendar events.' },
+  { key: 'workforce.interviews.score', group: 'Recruitment', label: 'Score interviews', description: 'Submit and lock assigned interview feedback and scorecards.' },
+  { key: 'workforce.assessments.read', group: 'Recruitment', label: 'View assessments', description: 'Read assigned assessment records and submissions.' },
+  { key: 'workforce.assessments.write', group: 'Recruitment', label: 'Manage assessments', description: 'Create templates, assignments and candidate assessment tasks.' },
+  { key: 'workforce.assessments.score', group: 'Recruitment', label: 'Score assessments', description: 'Submit rubric-based assessment reviews.' },
+  { key: 'workforce.offers.read', group: 'Recruitment', label: 'View offers', description: 'Read non-compensation offer details in assigned scope.' },
+  { key: 'workforce.offers.create', group: 'Recruitment', label: 'Create offers', description: 'Draft and version offer terms.' },
+  { key: 'workforce.offers.approve', group: 'Recruitment', label: 'Approve offers', description: 'Approve compensation and contractual offer steps.' },
+  { key: 'workforce.offers.send', group: 'Recruitment', label: 'Send offers', description: 'Send approved offers and withdraw or supersede them.' },
+  { key: 'workforce.offers.compensation_read', group: 'Recruitment', label: 'View offer compensation', description: 'Read salary, allowance and benefit values on offers.' },
+  { key: 'workforce.talent_pool.read', group: 'Recruitment', label: 'View talent pools', description: 'Read consented prospects and talent-pool membership.' },
+  { key: 'workforce.talent_pool.write', group: 'Recruitment', label: 'Manage talent pools', description: 'Create pools, update membership and run nurture campaigns.' },
+  { key: 'workforce.referrals.read', group: 'Recruitment', label: 'View referrals', description: 'Read privacy-safe referral status and policy information.' },
+  { key: 'workforce.referrals.admin', group: 'Recruitment', label: 'Administer referrals', description: 'Manage referral programs, eligibility and rewards.' },
+  { key: 'workforce.careers_content.read', group: 'Recruitment', label: 'View careers content', description: 'Preview careers content and version history.' },
+  { key: 'workforce.careers_content.write', group: 'Recruitment', label: 'Edit careers content', description: 'Create and review localized careers content.' },
+  { key: 'workforce.careers_content.publish', group: 'Recruitment', label: 'Publish careers content', description: 'Schedule, publish and archive careers content.' },
+  { key: 'workforce.recruitment_reports.read', group: 'Recruitment', label: 'View recruitment reports', description: 'Access hiring funnels, service levels and workforce-plan analytics.' },
+  { key: 'workforce.recruitment_settings.write', group: 'Recruitment', label: 'Manage recruitment settings', description: 'Configure pipelines, scorecards, retention, automation and agencies.' },
   { key: 'insights.read', group: 'Insights', label: 'View analytics', description: 'Access dashboards, exports and audit logs.' },
   { key: 'platform.admin', group: 'Platform', label: 'Manage platform', description: 'Domain settings, secrets, feature flags.' },
   { key: 'support.read', group: 'Support', label: 'View support conversations', description: 'Read the Opus customer-support console and its conversations.' },
@@ -502,6 +595,14 @@ export const PERMISSIONS: Permission[] = [
   { key: 'md_tracker.review', group: 'MD Tracker', label: 'CEO review', description: 'Comment on and mark reviewed any engine’s weekly tracker.' },
   { key: 'growth.write', group: 'Growth Tracker', label: 'Log entries', description: 'Log vendor outreach, campaigns, social posts and studio bookings.' },
   { key: 'growth.admin', group: 'Growth Tracker', label: 'Edit targets', description: 'Edit KPI targets, the vendor-outreach roster, challenge schedule and content-ideas bank.' },
+  { key: 'growth.read', group: 'Growth Tracker', label: 'View Growth foundations', description: 'Read Growth business units, periods and foundation data.' },
+  { key: 'growth.kpi.read', group: 'Growth Tracker', label: 'View Growth KPIs', description: 'Read canonical KPI definitions, targets and actuals.' },
+  { key: 'growth.kpi.manage', group: 'Growth Tracker', label: 'Manage Growth KPIs', description: 'Create metric definitions, draft targets and target revisions.' },
+  { key: 'growth.kpi.approve', group: 'Growth Tracker', label: 'Approve Growth targets', description: 'Approve or reject submitted Growth target versions.' },
+  { key: 'growth.actual.enter', group: 'Growth Tracker', label: 'Enter Growth actuals', description: 'Enter manual actuals for manual or hybrid Growth metrics.' },
+  { key: 'growth.actual.override', group: 'Growth Tracker', label: 'Override Growth actuals', description: 'Override current actual values with a required reason.' },
+  { key: 'growth.period.manage', group: 'Growth Tracker', label: 'Manage Growth periods', description: 'Create, lock and close Growth reporting periods.' },
+  { key: 'growth.settings.manage', group: 'Growth Tracker', label: 'Manage Growth settings', description: 'Create, update and archive Growth business units.' },
 ]
 
 export const JOB_STAGES: JobStage[] = [

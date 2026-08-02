@@ -60,6 +60,9 @@ export function legacyRoleBucket(
     case 'author': return 'author'
     case 'viewer': return 'viewer'
   }
-  const hasWrite = permissionKeys.some((k) => WRITE_KEYS.has(k))
+  const hasWrite = permissionKeys.some((k) =>
+    WRITE_KEYS.has(k) ||
+    /^recruitment\.(?:.*\.)?(?:manage|create|approve|publish)$/.test(k),
+  )
   return hasWrite ? 'admin' : 'viewer'
 }
