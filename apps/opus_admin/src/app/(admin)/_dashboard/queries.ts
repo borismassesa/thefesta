@@ -11,7 +11,7 @@
 import 'server-only'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { getCallerEmail } from '@/lib/admin-auth'
-import type { Department } from '../workforce/_lib/types'
+import { ENDED_EMPLOYEE_STATUSES_SQL, type Department } from '../workforce/_lib/types'
 
 export type ActionQueueCounts = {
   vendorsPendingReview: number       // vendor.moderate
@@ -285,7 +285,7 @@ async function getDashboardCharts(): Promise<DashboardCharts> {
     supabase
       .from('workforce_employees')
       .select('department')
-      .neq('status', 'Resigned'),
+      .not('status', 'in', ENDED_EMPLOYEE_STATUSES_SQL),
   ])
 
   // Inquiries trend (last 8 weeks)
@@ -818,7 +818,7 @@ async function buildFinanceLane(supabase: ReturnType<typeof createSupabaseAdminC
       supabase
         .from('workforce_employees')
         .select('id', { count: 'exact', head: true })
-        .neq('status', 'Resigned'),
+        .not('status', 'in', ENDED_EMPLOYEE_STATUSES_SQL),
     ),
   ])
 
@@ -1048,7 +1048,7 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
       supabase
         .from('workforce_employees')
         .select('id', { count: 'exact', head: true })
-        .neq('status', 'Resigned'),
+        .not('status', 'in', ENDED_EMPLOYEE_STATUSES_SQL),
       tracker,
     ),
     safeCount(

@@ -19,6 +19,7 @@ import {
   revokeDashboardAccess,
   setDashboardRole,
 } from '../employees/actions'
+import { isCurrentEmployee } from '../_lib/types'
 
 // One row in the People table — an employee who currently has dashboard
 // access OR a candidate the admin wants to grant access to via the dialog.
@@ -541,7 +542,7 @@ function GrantAccessDialog({
   // certainly a mistake.
   const candidates = useMemo(() => {
     const list = employees.filter(
-      (e) => !e.dashboardAccess && e.status !== 'Resigned',
+      (e) => !e.dashboardAccess && isCurrentEmployee(e.status),
     )
     const q = search.trim().toLowerCase()
     if (!q) return list

@@ -38,6 +38,7 @@ import {
   setRoleMembers,
   updateRolePermissions,
 } from './actions'
+import { isCurrentEmployee } from '../_lib/types'
 
 type Tab = 'people' | 'roles'
 
@@ -1294,7 +1295,7 @@ function AssignMembersDialog({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const active = employees.filter((e) => e.status !== 'Resigned')
+    const active = employees.filter((e) => isCurrentEmployee(e.status))
     if (!q) return active
     return active.filter(
       (e) =>

@@ -20,6 +20,7 @@ import Kpi, { KpiRow } from '../../workforce/_components/Kpi'
 import { formatTzs, formatTzsCompact } from '../../workforce/_lib/format'
 import type { Employee, PayrollRun, PayrollStatus } from '../../workforce/_lib/data'
 import { recomputePayrollRun, setPayrollStatus, startPayrollRun } from './actions'
+import { isCurrentEmployee } from '../../workforce/_lib/types'
 
 const STATUS_TONE: Record<PayrollStatus, 'gray' | 'amber' | 'blue' | 'green'> = {
   Draft: 'gray',
@@ -41,7 +42,7 @@ function computeLines(employees: Employee[]): EmpLine[] {
   // model the employee half here). These are illustrative — the real engine
   // will live in `lib/payroll`.
   return employees
-    .filter((e) => e.status !== 'Resigned')
+    .filter((e) => isCurrentEmployee(e.status))
     .map((e) => {
       const gross = e.salaryTzs
       const paye = Math.round(gross * 0.185)
