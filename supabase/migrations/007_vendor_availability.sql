@@ -56,12 +56,22 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   SELECT
-    d.date,
+    d.generated_date::DATE AS date,
     COALESCE(va.is_available, true) as is_available,
     va.reason
-  FROM generate_series(start_date, end_date, '1 day'::interval)::DATE AS d(date)
-  LEFT JOIN vendor_availability va ON va.vendor_id = vendor_uuid AND va.date = d.date
-  ORDER BY d.date;
+  -- The original committed SRF cast was invalid PostgreSQL syntax. Production
+  -- retains that historical statement; this source-only correction lets empty
+  -- databases build cleanly, while deployed drift is handled by a forward
+  -- restore_vendor_availability migration.
+  FROM generate_series(
+    start_date::timestamp,
+    end_date::timestamp,
+    interval '1 day'
+  ) AS d(generated_date)
+  LEFT JOIN public.vendor_availability va
+    ON va.vendor_id = vendor_uuid
+   AND va.date = d.generated_date::DATE
+  ORDER BY d.generated_date;
 END;
 $$ LANGUAGE plpgsql STABLE;
 

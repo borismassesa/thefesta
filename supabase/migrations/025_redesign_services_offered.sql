@@ -1,59 +1,56 @@
--- Migration: Redesign services_offered to support title and description
--- Changes services_offered from TEXT[] to JSONB to store objects with title and description
+-- Historical clean-build correction for migration 025.
+--
+-- The original migration attempted to replace services_offered TEXT[] with a
+-- JSONB array of {title, description} objects. Its CHECK constraint contained
+-- a PostgreSQL-prohibited subquery, so it could not apply on a clean database.
+-- Production and all active application clients use nullable TEXT[] service-
+-- title lists, which remain the canonical model.
+--
+-- Production migration history intentionally retains the original statements.
+-- This source-only correction makes clean-from-zero builds reproducible. A
+-- future richer service model requires a separate explicit product migration.
 
--- Step 1: Add a temporary column for the new structure
-ALTER TABLE vendors 
-ADD COLUMN services_offered_new JSONB DEFAULT '[]'::jsonb;
+DO $$
+DECLARE
+  services_type TEXT;
+BEGIN
+  IF to_regclass('public.vendors') IS NULL THEN
+    RAISE EXCEPTION 'migration 025 requires public.vendors';
+  END IF;
 
--- Step 2: Migrate existing data from TEXT[] to JSONB format
--- Convert each string in the array to an object with title (the string) and empty description
-UPDATE vendors
-SET services_offered_new = (
-  SELECT COALESCE(
-    jsonb_agg(
-      jsonb_build_object(
-        'title', service,
-        'description', ''
-      )
-    ),
-    '[]'::jsonb
-  )
-  FROM unnest(COALESCE(services_offered, ARRAY[]::text[])) AS service
-)
-WHERE services_offered IS NOT NULL;
+  IF EXISTS (
+    SELECT 1
+    FROM pg_attribute
+    WHERE attrelid = 'public.vendors'::regclass
+      AND attname = 'services_offered_new'
+      AND attnum > 0
+      AND NOT attisdropped
+  ) THEN
+    RAISE EXCEPTION 'migration 025 found unexpected public.vendors.services_offered_new';
+  END IF;
 
--- Handle NULL or empty arrays - set to empty JSONB array
-UPDATE vendors
-SET services_offered_new = '[]'::jsonb
-WHERE services_offered IS NULL OR array_length(services_offered, 1) IS NULL;
+  SELECT format_type(atttypid, atttypmod)
+  INTO services_type
+  FROM pg_attribute
+  WHERE attrelid = 'public.vendors'::regclass
+    AND attname = 'services_offered'
+    AND attnum > 0
+    AND NOT attisdropped;
 
--- Step 3: Drop the old column
-ALTER TABLE vendors DROP COLUMN services_offered;
+  IF services_type IS NULL THEN
+    RAISE EXCEPTION 'migration 025 requires public.vendors.services_offered';
+  END IF;
 
--- Step 4: Rename the new column to the original name
-ALTER TABLE vendors RENAME COLUMN services_offered_new TO services_offered;
+  IF services_type <> 'text[]' THEN
+    RAISE EXCEPTION
+      'migration 025 expected public.vendors.services_offered text[], found %',
+      services_type;
+  END IF;
+END;
+$$;
 
--- Step 5: Add a check constraint to ensure the JSONB structure is correct
-ALTER TABLE vendors 
-ADD CONSTRAINT services_offered_structure_check 
-CHECK (
-  services_offered IS NULL OR
-  (
-    jsonb_typeof(services_offered) = 'array' AND
-    (
-      jsonb_array_length(services_offered) = 0 OR
-      (
-        SELECT bool_and(
-          jsonb_typeof(elem) = 'object' AND
-          elem ? 'title' AND
-          jsonb_typeof(elem->'title') = 'string' AND
-          (NOT (elem ? 'description') OR jsonb_typeof(elem->'description') = 'string')
-        )
-        FROM jsonb_array_elements(services_offered) AS elem
-      )
-    )
-  )
-);
+ALTER TABLE public.vendors
+  ALTER COLUMN services_offered SET DEFAULT '{}'::text[];
 
--- Add comment to document the structure
-COMMENT ON COLUMN vendors.services_offered IS 'Array of service objects, each with "title" (string) and "description" (string) fields';
+COMMENT ON COLUMN public.vendors.services_offered IS
+  'Nullable list of service-title strings. Rich service objects require a separate product migration.';
