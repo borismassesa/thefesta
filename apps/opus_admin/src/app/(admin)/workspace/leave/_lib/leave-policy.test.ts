@@ -26,6 +26,7 @@ function req(over: Partial<StoredRequest> = {}): StoredRequest {
     status: 'Pending',
     startDate: '2026-08-10',
     endDate: '2026-08-12',
+    days: 3,
     ...over,
   }
 }
@@ -110,7 +111,6 @@ describe('creation eligibility', () => {
     startDate: '2026-09-01',
     endDate: '2026-09-03',
     days: 3,
-    currentBalance: 18,
     existing: [] as StoredRequest[],
   }
 
@@ -146,14 +146,24 @@ describe('creation eligibility', () => {
       true,
     )
   })
-  it('rejects Annual leave beyond the balance', () => {
-    assert.equal(canCreateRequest({ ...base, days: 30, currentBalance: 18 }).allowed, false)
+  it('rejects a request beyond the 28-day year allowance', () => {
+    assert.equal(canCreateRequest({ ...base, days: 30 }).allowed, false)
   })
-  it('rejects Sick leave beyond the balance too, since it is one pool', () => {
-    assert.equal(
-      canCreateRequest({ ...base, type: 'Sick', days: 30, currentBalance: 2 }).allowed,
-      false,
-    )
+  it('rejects Sick leave beyond it too, since it is one pool', () => {
+    assert.equal(canCreateRequest({ ...base, type: 'Sick', days: 30 }).allowed, false)
+  })
+  // The allowance is PER YEAR, so last year's leave does not block this year.
+  it('last year’s approved leave does not consume this year’s allowance', () => {
+    const lastYear = [
+      req({ id: 'r-old', status: 'Approved', startDate: '2025-03-01', endDate: '2025-03-28', days: 28 }),
+    ]
+    assert.equal(canCreateRequest({ ...base, days: 20, existing: lastYear }).allowed, true)
+  })
+  it('this year’s approved leave does consume it', () => {
+    const thisYear = [
+      req({ id: 'r-now', status: 'Approved', startDate: '2026-03-01', endDate: '2026-03-28', days: 25 }),
+    ]
+    assert.equal(canCreateRequest({ ...base, days: 20, existing: thisYear }).allowed, false)
   })
 })
 

@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase'
 import { requireSelfEmployee } from '@/lib/workforce/identity'
 import type { LeaveType } from './leave-calculation'
 import type { LeaveStatus, StoredRequest } from './leave-policy'
+import { daysRemainingInYear, leaveYearFor } from './leave-year'
 
 // Server-only reads for the personal leave surface.
 //
@@ -69,20 +70,20 @@ export async function getMyLeaveRequests(): Promise<MyLeaveRequest[]> {
   return (data ?? []).map(toRequest)
 }
 
-/** The caller's current annual-leave balance in days. */
-export async function getMyLeaveBalance(): Promise<number> {
-  const employee = await requireSelfEmployee()
-  const supabase = createSupabaseAdminClient()
-  const { data, error } = await supabase
-    .from('workforce_employees')
-    .select('leave_balance_days')
-    .eq('id', employee.id)
-    .maybeSingle<{ leave_balance_days: number }>()
-  if (error) {
-    console.error('[workspace-leave] getMyLeaveBalance failed', error)
-    throw new Error('We could not load your leave balance.')
-  }
-  return data?.leave_balance_days ?? 0
+/**
+ * Days remaining in the caller's current leave year.
+ *
+ * DERIVED, not read from workforce_employees.leave_balance_days. That column
+ * was a running counter that never reset annually and drifted whenever the
+ * deduction rule changed; it is no longer authoritative. Computing from
+ * approved requests makes drift impossible and the annual reset automatic.
+ */
+export async function getMyLeaveBalance(
+  todayIso: string,
+  requests?: MyLeaveRequest[],
+): Promise<number> {
+  const all = requests ?? (await getMyLeaveRequests())
+  return daysRemainingInYear(all, leaveYearFor(todayIso))
 }
 
 /**

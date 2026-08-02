@@ -43,6 +43,7 @@ export default async function LeavePage() {
         attendance={scoped.isOrgScope ? attendance : []}
         isOrgScope={scoped.isOrgScope}
         isEmptyTeam={scoped.isEmptyTeam}
+        today={today}
       />
     </>
   )

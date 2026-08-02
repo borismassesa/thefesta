@@ -41,17 +41,18 @@ export default async function MyLeavePage() {
   // actions re-check independently.
   const canRequest = access === 'full'
 
-  const [balance, requests] = await Promise.all([
-    getMyLeaveBalance(),
-    getMyLeaveRequests(),
-  ])
+  const today = todayInTz()
+  const requests = await getMyLeaveRequests()
+  // Derived from the same list, so the figure on screen and the figure the
+  // action checks against can never disagree.
+  const balance = await getMyLeaveBalance(today, requests)
 
   return (
     <LeaveClient
       balance={balance}
       requests={requests}
       leaveTypes={[...LEAVE_TYPES]}
-      today={todayInTz()}
+      today={today}
       canRequest={canRequest}
       readOnlyNote={
         canRequest

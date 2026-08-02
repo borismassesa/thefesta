@@ -28,6 +28,7 @@ import type {
   LeaveType,
 } from '../_lib/data'
 import { ANNUAL_ENTITLEMENT_DAYS } from '../../workspace/leave/_lib/leave-calculation'
+import { isInLeaveYear, leaveYearFor } from '../../workspace/leave/_lib/leave-year'
 import { cancelLeaveRequest, decideLeaveRequest, submitLeaveRequest, upsertAttendance } from './actions'
 
 const LEAVE_TYPES: LeaveType[] = ['Annual', 'Sick', 'Maternity', 'Paternity', 'Compassionate', 'Unpaid']
@@ -64,10 +65,12 @@ export default function LeaveClient({
   employees,
   requests,
   attendance,
+  today,
 }: {
   employees: EmployeeLeaveView[]
   requests: LeaveRequest[]
   attendance: AttendancePoint[]
+  today: string
   isOrgScope?: boolean
   isEmptyTeam?: boolean
 }) {
@@ -113,6 +116,7 @@ export default function LeaveClient({
         <BalancesTable
           employees={employees.filter((e) => e.status !== 'Resigned')}
           requests={requests}
+          today={today}
         />
       )}
     </div>
@@ -897,9 +901,11 @@ function DecisionActions({
 function BalancesTable({
   employees,
   requests,
+  today,
 }: {
   employees: EmployeeLeaveView[]
   requests: LeaveRequest[]
+  today: string
 }) {
   // Days actually taken, MEASURED from approved requests rather than inferred.
   //
@@ -914,19 +920,23 @@ function BalancesTable({
   // the balance (a fact), and days approved (measurable). Annual entitlement
   // is derived as balance + annual days already deducted, which follows from
   // the deduction rule rather than from a guessed constant.
+  const year = useMemo(() => leaveYearFor(today), [today])
   const taken = useMemo(() => {
     const map = new Map<string, { annual: number; other: number }>()
     for (const r of requests) {
       if (r.status !== 'Approved') continue
-      // EVERY type counts against the same 28-day pool, so the split is by
-      // type for information only — all of it is deducted.
+      // Only THIS leave year. The 28 days renew annually, so last year's
+      // leave must not show against this year's allowance.
+      if (!isInLeaveYear(r.startDate, year)) continue
+      // EVERY type counts against the same pool, so the split is by type for
+      // information only — all of it is deducted.
       const entry = map.get(r.employeeId) ?? { annual: 0, other: 0 }
       if (r.type === 'Annual') entry.annual += r.days
       else entry.other += r.days
       map.set(r.employeeId, entry)
     }
     return map
-  }, [requests])
+  }, [requests, year])
 
   return (
     <div className="overflow-x-auto no-scrollbar rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
@@ -936,21 +946,18 @@ function BalancesTable({
       >
         <span>Employee</span>
         <span>Department</span>
-        <span>Annual left</span>
-        <span>Approved leave taken</span>
+        <span>Left in {year.label}</span>
+        <span>Taken in {year.label}</span>
       </div>
       {employees.map((e) => {
         const t = taken.get(e.id) ?? { annual: 0, other: 0 }
         const totalTaken = t.annual + t.other
-        // One company-wide pool. Every leave type draws from it.
+        // One company-wide pool, per leave year. leave_balance_days is no
+        // longer read: it was a running counter that never reset annually and
+        // drifted whenever the deduction rule changed.
         const entitlement = ANNUAL_ENTITLEMENT_DAYS
         const pct = Math.min(100, Math.round((totalTaken / entitlement) * 100))
-        // The stored balance was only ever decremented for Annual, so for
-        // anyone with non-Annual approved leave it overstates what is left.
-        // Show the stored figure AND what the rule implies, rather than
-        // silently presenting either as the truth.
-        const implied = Math.max(0, entitlement - totalTaken)
-        const stale = implied !== e.leaveBalanceDays
+        const remaining = Math.max(0, entitlement - totalTaken)
         return (
           <div
             key={e.id}
@@ -966,16 +973,8 @@ function BalancesTable({
             </div>
             <div className="text-sm text-gray-600">{e.department}</div>
             <div className="text-sm tabular-nums text-gray-900">
-              <span className="font-semibold">{implied}</span>
+              <span className="font-semibold">{remaining}</span>
               <span className="text-gray-400"> / {entitlement} days</span>
-              {stale && (
-                <p
-                  className="mt-0.5 text-[11px] font-medium text-amber-600"
-                  title={`Stored balance reads ${e.leaveBalanceDays}. Non-annual leave was never deducted under the old rule.`}
-                >
-                  stored: {e.leaveBalanceDays}
-                </p>
-              )}
             </div>
             <div>
               {totalTaken === 0 ? (

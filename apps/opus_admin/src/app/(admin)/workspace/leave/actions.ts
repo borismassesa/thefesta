@@ -63,17 +63,13 @@ export async function createMyLeaveRequest(raw: unknown): Promise<LeaveActionRes
   const input = parsed.value
 
   const days = daysBetween(input.startDate, input.endDate)
-  const [balance, existing] = await Promise.all([
-    getMyLeaveBalance(),
-    getMyLeaveRequests(),
-  ])
+  const existing = await getMyLeaveRequests()
 
   const decision = canCreateRequest({
     type: input.type,
     startDate: input.startDate,
     endDate: input.endDate,
     days,
-    currentBalance: balance,
     existing,
   })
   if (!decision.allowed) return { ok: false, error: decision.reason }
@@ -123,10 +119,7 @@ export async function updateMyLeaveRequest(
   if (!parsed.ok) return { ok: false, error: parsed.error }
   const input = parsed.value
 
-  const [balance, existing] = await Promise.all([
-    getMyLeaveBalance(),
-    getMyLeaveRequests(),
-  ])
+  const existing = await getMyLeaveRequests()
   // Re-read from the stored set rather than trusting anything sent with the
   // request. If the id is not in the caller's own requests, it is not theirs.
   const stored = existing.find((r) => r.id === idParsed.value)
@@ -141,7 +134,6 @@ export async function updateMyLeaveRequest(
     startDate: input.startDate,
     endDate: input.endDate,
     days,
-    currentBalance: balance,
     existing,
     ignoreRequestId: stored.id,
   })

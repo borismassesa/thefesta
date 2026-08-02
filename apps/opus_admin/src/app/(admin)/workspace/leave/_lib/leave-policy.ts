@@ -1,9 +1,5 @@
-import {
-  exceedsBalance,
-  rangesOverlap,
-  type DateRange,
-  type LeaveType,
-} from './leave-calculation'
+import { rangesOverlap, type DateRange, type LeaveType } from './leave-calculation'
+import { daysRemainingInYear, exceedsYearAllowance, leaveYearFor } from './leave-year'
 
 // Pure personal-leave policy. No imports beyond sibling pure modules, no I/O.
 //
@@ -22,6 +18,8 @@ export type StoredRequest = {
   status: LeaveStatus
   startDate: string
   endDate: string
+  /** Needed for leave-year arithmetic; already stored on every row. */
+  days: number
 }
 
 export type PolicyDecision =
@@ -119,7 +117,6 @@ export type CreateCheckInput = {
   startDate: string
   endDate: string
   days: number
-  currentBalance: number
   /** The employee's own existing requests. */
   existing: readonly StoredRequest[]
   /** Excluded from the overlap check when editing an existing request. */
@@ -147,10 +144,14 @@ export function canCreateRequest(input: CreateCheckInput): PolicyDecision {
     )
   }
 
-  // Only Annual draws down the balance; the rest are separately entitled.
-  if (exceedsBalance(input.currentBalance, input.type, input.days)) {
+  // Checked against the allowance for the leave year the request falls in,
+  // so booking into next January is measured against next year's 28 days
+  // rather than what is left of this year's.
+  if (exceedsYearAllowance(input.existing, input.startDate, input.days)) {
+    const year = leaveYearFor(input.startDate)
+    const left = daysRemainingInYear(input.existing, year)
     return deny(
-      `That is ${input.days} days but you have ${input.currentBalance} left. Reduce the dates or pick a different leave type.`,
+      `That is ${input.days} days but you have ${left} left for ${year.label}. Every leave type comes out of the same 28 days.`,
     )
   }
 
