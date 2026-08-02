@@ -95,6 +95,18 @@ const OUTPUT_WIDTH_PX = 1080
  */
 const CLAIM_LEASE_MS = 90_000
 
+/**
+ * Token derivation inputs.
+ *
+ * ROTATION IS A BREAKING CHANGE. Because the token is derived rather than
+ * stored, changing CARD_ASSET_TOKEN_SECRET invalidates every URL already sent to
+ * a guest. Supporting rotation would mean recording which secret version an
+ * asset was minted under and accepting both during a changeover; until that
+ * exists, treat the secret as permanent for the life of a send.
+ */
+const TOKEN_DOMAIN = 'opus-card-asset'
+const TOKEN_VERSION = 'v1'
+
 /** How long a loser waits for the winner before telling the caller to retry. */
 const WAIT_FOR_WINNER_MS = 3_000
 const WAIT_POLL_MS = 250
@@ -137,10 +149,16 @@ function logFailure(input: PrepareGuestCardAssetInput, code: PrepareFailureCode)
 function deriveToken(input: PrepareGuestCardAssetInput): string | null {
   const secret = process.env.CARD_ASSET_TOKEN_SECRET
   if (!secret) return null
-  return createHmac('sha256', secret)
-    .update(`${input.designReleaseId}:${input.guestId}:${input.renderVariant}`)
-    .digest('base64url')
+  // Domain-separated and versioned. Without the prefix the same secret could be
+  // reused for another token purpose and produce colliding values; without the
+  // version the format could never change without silently invalidating every
+  // URL already sent.
+  const payload = `${TOKEN_DOMAIN}:${TOKEN_VERSION}:${input.designReleaseId}:${input.guestId}:${input.renderVariant}`
+  return createHmac('sha256', secret).update(payload).digest('base64url')
 }
+
+/** Exposed so a test can pin the derivation format without re-implementing it. */
+export const deriveTokenForTest = deriveToken
 
 export function tokenHashFor(token: string): string {
   return createHash('sha256').update(token).digest('hex')
@@ -212,7 +230,8 @@ export async function prepareGuestCardAsset(
     }
     if (claim.row.status === 'failed') {
       // Report what was recorded, so a retry does not re-run a render that is
-      // going to fail the same way for the same reason.
+      // going to fail the same way for the same reason. Transient faults are the
+      // exception and were already retaken inside claimAsset.
       return fail(asFailureCode(claim.row.render_error_code))
     }
     return fail('PREPARATION_IN_PROGRESS')
@@ -351,15 +370,16 @@ async function claimAsset(
   // back. Reclaim it with a conditional update so only one of several retriers
   // can win, then render as if we had claimed it first.
   if (existing.status === 'pending' && isLeaseExpired(existing.claimed_at)) {
-    const { data: reclaimed } = await supabase
-      .from('invitation_card_delivery_assets')
-      .update({ claimed_at: new Date().toISOString(), render_error_code: null })
-      .eq('id', existing.id)
-      .eq('status', 'pending')
-      .lt('claimed_at', new Date(Date.now() - CLAIM_LEASE_MS).toISOString())
-      .select('id')
-      .maybeSingle<{ id: string }>()
+    const reclaimed = await takeOver(supabase, existing, 'pending')
     if (reclaimed) return { kind: 'claimed', row: reclaimed }
+  }
+
+  // A recorded fault that was about infrastructure rather than about this card
+  // must not be permanent. Leaving it would mean one storage blip strands a
+  // guest's invitation forever, since every later attempt just replays the code.
+  if (existing.status === 'failed' && RETRYABLE_FAILURES.has(existing.render_error_code ?? '')) {
+    const retaken = await takeOver(supabase, existing, 'failed')
+    if (retaken) return { kind: 'claimed', row: retaken }
   }
 
   // Still being rendered: give the winner a moment rather than immediately
@@ -370,6 +390,48 @@ async function claimAsset(
   }
 
   return { kind: 'existing', row: existing }
+}
+
+/**
+ * Faults worth trying again.
+ *
+ * Everything else is a fact about the card, not about the run: an unresolved
+ * font or an unmapped guest layer will fail identically forever, and retrying it
+ * on every send would burn a render per guest to reach the same answer.
+ */
+const RETRYABLE_FAILURES = new Set<string>([
+  'STORAGE_WRITE_FAILED',
+  'RASTER_FAILED',
+  'FONT_DOWNLOAD_FAILED',
+  'PREPARATION_IN_PROGRESS',
+])
+
+/**
+ * Take an asset over from whoever held it, atomically.
+ *
+ * Compare-and-swap on the lease value we actually observed, not merely on
+ * status. Two workers reading the same stale row would otherwise both satisfy a
+ * status-only predicate; matching claimed_at means the first writer moves the
+ * value and the second's condition no longer holds. That makes the single-winner
+ * property a property of the row rather than of the isolation level.
+ *
+ * Also clears any recorded error, so a retaken asset is not reported with the
+ * previous run's failure if this one dies before writing its own.
+ */
+async function takeOver(
+  supabase: PreparationClient,
+  observed: AssetRow,
+  expectedStatus: 'pending' | 'failed',
+): Promise<{ id: string } | null> {
+  const { data } = await supabase
+    .from('invitation_card_delivery_assets')
+    .update({ status: 'pending', claimed_at: new Date().toISOString(), render_error_code: null })
+    .eq('id', observed.id)
+    .eq('status', expectedStatus)
+    .eq('claimed_at', observed.claimed_at)
+    .select('id')
+    .maybeSingle<{ id: string }>()
+  return data ?? null
 }
 
 async function waitForWinner(

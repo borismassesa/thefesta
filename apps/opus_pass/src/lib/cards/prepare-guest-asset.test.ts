@@ -2,9 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { createHmac } from 'node:crypto'
 import { FakePreparationClient } from './fake-preparation-client'
 import {
   assetStoragePath,
+  deriveTokenForTest,
   prepareGuestCardAsset,
   type PreparationClient,
 } from './prepare-guest-asset'
@@ -434,4 +436,78 @@ test('persisted failure codes are stable identifiers, never provider text', asyn
   // Screams if somebody later stores a message: codes are SHOUT_CASE only.
   assert.match(stored, /^[A-Z_]+$/)
   assert.doesNotMatch(stored, /https?:|\/|\s/)
+})
+
+test('two simultaneous reclaimers of a stale lease produce one render', async () => {
+  // The case a status-only predicate would get wrong: both workers read the same
+  // stale row and both believe they may take it. Compare-and-swap on the observed
+  // claimed_at means only the first write succeeds.
+  const client = makeClient()
+  const stale = new Date(Date.now() - 10 * 60_000).toISOString()
+  client.tables['invitation_card_delivery_assets'] = [
+    {
+      id: 'stranded', design_release_id: RELEASE_ID, guest_id: GUEST_ID,
+      render_variant: VARIANT, token_hash: 'whatever', status: 'pending',
+      png_storage_path: null, render_error_code: null, claimed_at: stale,
+    },
+  ]
+
+  const [a, b] = await Promise.all([run(client), run(client)])
+
+  assert.equal(client.assets().length, 1)
+  assert.equal(client.uploadCount, 1, 'exactly one reclaimer may render')
+  const outcomes = [a, b].map((r) => (r.ok ? r.status : r.code))
+  assert.ok(outcomes.includes('created'), `expected one winner, got ${JSON.stringify(outcomes)}`)
+  assert.equal(client.asset()?.status, 'ready')
+})
+
+test('a transient failure is retried rather than remembered forever', async () => {
+  // A storage blip must not strand a guest's invitation. The first attempt fails
+  // on upload; the second retakes the asset and completes it.
+  const client = makeClient()
+  client.failUploadOnce = true
+
+  const first = await run(client)
+  assert.equal(first.ok, false)
+  if (!first.ok) assert.equal(first.code, 'STORAGE_WRITE_FAILED')
+  assert.equal(client.asset()?.status, 'failed')
+
+  const second = await run(client)
+
+  assert.equal(second.ok, true, second.ok ? '' : `still failing: ${second.code}`)
+  if (!second.ok) return
+  assert.equal(second.status, 'created')
+  assert.equal(client.asset()?.status, 'ready')
+  assert.equal(client.asset()?.render_error_code ?? null, null)
+  // Deterministic path means the retry overwrites any object the failed run left.
+  assert.equal(client.assets().length, 1)
+})
+
+test('a permanent failure is not retried', async () => {
+  // An unresolved font will fail identically forever. Retrying it on every send
+  // would burn a render per guest to reach the same answer.
+  const client = makeClient({
+    fontRow: { family_name: 'Other', postscript_name: 'Other-Regular', match_keys: ['otherregular'] },
+  })
+
+  await run(client)
+  const before = client.uploadCount
+  const second = await run(client)
+
+  assert.equal(second.ok, false)
+  if (!second.ok) assert.equal(second.code, 'FONT_UNRESOLVED')
+  assert.equal(client.uploadCount, before)
+})
+
+test('the token is domain-separated and versioned', () => {
+  // Guards against the same secret minting colliding values for another purpose,
+  // and leaves room to change the format without silently breaking sent URLs.
+  const token = deriveTokenForTest({
+    designReleaseId: RELEASE_ID, guestId: GUEST_ID, renderVariant: VARIANT,
+  })
+  const expected = createHmac('sha256', process.env.CARD_ASSET_TOKEN_SECRET as string)
+    .update(`opus-card-asset:v1:${RELEASE_ID}:${GUEST_ID}:${VARIANT}`)
+    .digest('base64url')
+
+  assert.equal(token, expected)
 })

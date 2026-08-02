@@ -3,7 +3,7 @@
 Vertical-slice plan for making the card a couple paid for the thing their guests
 actually receive, personalised per guest.
 
-Status: PR 1 landed (979302cc, shared renderer extraction). PR 2 in progress.
+Status: PR 1 landed (979302cc). PR 2 open as #260, validated against real Postgres.
 
 ## The gap today
 
@@ -434,3 +434,57 @@ One representative order:
 13. Editing couple data after release changes neither PNG.
 14. A new approved release creates a new asset identity, and previously sent
     URLs still resolve to what was sent.
+
+## Postgres validation, run 2026-08-02
+
+Run against a throwaway `postgres:16` with the referenced tables scaffolded from
+their real definitions. What it covers, and what it does not.
+
+**Migration.** Applies clean from an empty database and is safe to re-run: the
+second apply reports only "already exists" notices and leaves the release count
+unchanged. Backfill produced exactly one release per already-released design,
+linked `current_release_id` correctly, left the never-released design null, and
+carried `artwork_svg_url` through.
+
+**Access.** `anon` and `authenticated` are both denied on both tables
+("permission denied for table"). `service_role` reads normally. The
+`card-guest-assets` bucket is created private with its size limit.
+
+**Concurrency**, two simultaneous writers against one row:
+
+```
+predicate                                     winners
+status = 'pending'                            2   <- both would render
+status = 'pending' AND claimed_at < cutoff    1
+status = 'pending' AND claimed_at = observed  1   <- what the service does
+insert with the unique key                    1   (other gets 23505)
+```
+
+The status-only form is genuinely broken, which is why the lease predicate
+matters. The `<` form does hold, because READ COMMITTED re-evaluates a predicate
+after the row lock releases, but it depends on that subtlety and on both writers
+computing a compatible cutoff. The compare-and-swap on the observed value needs
+neither, so that is what the service uses.
+
+**Not covered by this pass.** PostgREST's own behaviour, storage bucket policies
+beyond the row, and the real object store. Those need a full local Supabase or
+staging, and are the remaining pre-merge item.
+
+### Partial failure: the rule chosen
+
+Upload precedes the status change, so a `ready` row always has an object behind
+it. The dangerous ordering is the other one, upload succeeds and the row update
+fails, which leaves an object with no `ready` row.
+
+The rule is retry-based reconciliation, which the deterministic storage path
+makes the simplest option: a failure whose recorded code is transient
+(`STORAGE_WRITE_FAILED`, `RASTER_FAILED`, `FONT_DOWNLOAD_FAILED`) is retaken by
+the next attempt, which overwrites the orphaned object at the same key and
+completes the row. Faults that are facts about the card, an unresolved font or an
+unmapped guest layer, are NOT retried: they would fail identically forever and
+retrying would spend a render per guest to learn nothing.
+
+The reverse case, a `ready` row whose object has gone missing, is deliberately
+left to PR 3. The public route has to handle a missing object anyway, and it is
+the only place that learns of it without adding a storage round trip to every
+reuse in a two hundred guest send.
