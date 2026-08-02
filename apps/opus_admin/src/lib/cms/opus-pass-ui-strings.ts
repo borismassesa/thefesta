@@ -27,7 +27,6 @@ export type UiArea =
   | 'footer'
   | 'help'
   | 'pricing'
-  | 'how-it-works'
   | 'cart'
   | 'address'
   | 'confirmation'
@@ -64,7 +63,6 @@ export const UI_STRINGS_PAGE_KEY: Record<UiArea, string> = {
   footer: 'opus-pass-ui-footer',
   help: 'opus-pass-ui-help',
   pricing: 'opus-pass-ui-pricing',
-  'how-it-works': 'opus-pass-ui-how-it-works',
   cart: 'opus-pass-ui-cart',
   address: 'opus-pass-ui-address',
   confirmation: 'opus-pass-ui-confirmation',
@@ -88,7 +86,6 @@ export const UI_STRINGS_LABEL: Record<UiArea, string> = {
   footer: 'Footer',
   help: 'Help page',
   pricing: 'Pricing page',
-  'how-it-works': 'How it works page',
   cart: 'Cart',
   address: 'Delivery address',
   confirmation: 'Order confirmation',
@@ -114,7 +111,6 @@ export const UI_STRINGS_PUBLIC_PATH: Record<UiArea, string> = {
   footer: '/',
   help: '/help',
   pricing: '/pricing',
-  'how-it-works': '/how-it-works',
   cart: '/digital-cards/cart',
   address: '/digital-cards/address',
   confirmation: '/digital-cards/confirmation',
@@ -140,7 +136,6 @@ export const UI_STRINGS_AREAS: readonly UiArea[] = [
   'footer',
   'help',
   'pricing',
-  'how-it-works',
   'cart',
   'address',
   'confirmation',
@@ -189,7 +184,6 @@ export const UI_STRINGS_FALLBACK: Record<UiArea, UiStringsContent> = {
     link_send_off: 'Send-Off & Kitchen Party',
     link_kadi_michango: 'Kadi za Michango',
     link_help_centre: 'Help Centre',
-    link_how_it_works: 'How it works',
     link_pricing: 'Pricing',
     link_contact: 'Contact',
     link_about: 'About OpusPass',
@@ -302,37 +296,6 @@ export const UI_STRINGS_FALLBACK: Record<UiArea, UiStringsContent> = {
     faq_paper_q: 'Is paper printing included?',
     faq_paper_a:
       'OpusPass is digital-first, so paper isn’t included by default. Paper card prints are an add-on on any package — we arrange printing and delivery within Tanzania on request.',
-  },
-  'how-it-works': {
-    eyebrow: 'How it works',
-    title: 'From first invite to final toast.',
-    intro:
-      'No more chasing replies in WhatsApp groups. Send once, track everywhere — and arrive on the day knowing exactly who’s coming.',
-    step_list_title: 'Build your list',
-    step_list_body:
-      'Create your event, then type names in or paste from a spreadsheet. Group by family, side or table.',
-    step_send_title: 'Send by WhatsApp or SMS',
-    step_send_body:
-      'One-tap send. Each guest gets a personal link, an animated digital card and their own ticket.',
-    step_replies_title: 'Watch replies live',
-    step_replies_body:
-      'Joyful yeses, regrets and meal picks land in your dashboard instantly — in English or Kiswahili.',
-    step_checkin_title: 'Plan & check in',
-    step_checkin_body:
-      'Arrange seating, send reminders, then scan tickets at the door to verify every guest on the day.',
-    guest_section_title: 'What every guest gets',
-    guest_section_intro: 'The experience is built for them too — not just for you.',
-    guest_card_title: 'A card and a ticket',
-    guest_card_body:
-      'Every guest receives a digital invitation with all your details plus a personal ticket with a unique barcode.',
-    guest_reminders_title: 'Gentle reminders',
-    guest_reminders_body:
-      'Automatic nudges before the day help guests confirm and cut down no-shows — no chasing in group chats.',
-    guest_entry_title: 'Fast entry',
-    guest_entry_body:
-      'At the gate their ticket is scanned to verify entry — stopping fake invitees and keeping the line moving.',
-    cta_primary: 'Start your guest list',
-    cta_secondary: 'See pricing',
   },
   cart: {
     back_to_designs: '← Back to designs',
@@ -1214,7 +1177,6 @@ export const UI_STRINGS_SCHEMA: Record<UiArea, CopyFieldGroup[]> = {
       legend: 'Help links',
       fields: [
         { key: 'link_help_centre', label: 'Help Centre', kind: 'text', max: 40 },
-        { key: 'link_how_it_works', label: 'How it works', kind: 'text', max: 40 },
         { key: 'link_pricing', label: 'Pricing', kind: 'text', max: 40 },
         { key: 'link_contact', label: 'Contact', kind: 'text', max: 40 },
       ],
@@ -1377,49 +1339,6 @@ export const UI_STRINGS_SCHEMA: Record<UiArea, CopyFieldGroup[]> = {
         { key: 'faq_payment_a', label: 'Payment methods — answer', kind: 'textarea', max: 600 },
         { key: 'faq_paper_q', label: 'Paper printing — question', kind: 'text', max: 160 },
         { key: 'faq_paper_a', label: 'Paper printing — answer', kind: 'textarea', max: 600 },
-      ],
-    },
-  ],
-  'how-it-works': [
-    {
-      legend: 'Header',
-      fields: [
-        { key: 'eyebrow', label: 'Eyebrow', kind: 'text', max: 40 },
-        { key: 'title', label: 'Heading', kind: 'text', max: 80 },
-        { key: 'intro', label: 'Intro paragraph', kind: 'textarea', max: 240 },
-      ],
-    },
-    {
-      legend: 'Process steps',
-      fields: [
-        { key: 'step_list_title', label: 'Step 1 — title', kind: 'text', max: 40 },
-        { key: 'step_list_body', label: 'Step 1 — body', kind: 'textarea', max: 200 },
-        { key: 'step_send_title', label: 'Step 2 — title', kind: 'text', max: 40 },
-        { key: 'step_send_body', label: 'Step 2 — body', kind: 'textarea', max: 200 },
-        { key: 'step_replies_title', label: 'Step 3 — title', kind: 'text', max: 40 },
-        { key: 'step_replies_body', label: 'Step 3 — body', kind: 'textarea', max: 200 },
-        { key: 'step_checkin_title', label: 'Step 4 — title', kind: 'text', max: 40 },
-        { key: 'step_checkin_body', label: 'Step 4 — body', kind: 'textarea', max: 200 },
-      ],
-    },
-    {
-      legend: 'Guest features',
-      fields: [
-        { key: 'guest_section_title', label: 'Section title', kind: 'text', max: 60 },
-        { key: 'guest_section_intro', label: 'Section intro', kind: 'textarea', max: 160 },
-        { key: 'guest_card_title', label: 'Card & ticket — title', kind: 'text', max: 40 },
-        { key: 'guest_card_body', label: 'Card & ticket — body', kind: 'textarea', max: 200 },
-        { key: 'guest_reminders_title', label: 'Reminders — title', kind: 'text', max: 40 },
-        { key: 'guest_reminders_body', label: 'Reminders — body', kind: 'textarea', max: 200 },
-        { key: 'guest_entry_title', label: 'Fast entry — title', kind: 'text', max: 40 },
-        { key: 'guest_entry_body', label: 'Fast entry — body', kind: 'textarea', max: 200 },
-      ],
-    },
-    {
-      legend: 'CTAs',
-      fields: [
-        { key: 'cta_primary', label: 'Primary button', kind: 'text', max: 40 },
-        { key: 'cta_secondary', label: 'Secondary button', kind: 'text', max: 40 },
       ],
     },
   ],
