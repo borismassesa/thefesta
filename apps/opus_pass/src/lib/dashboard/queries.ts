@@ -1804,6 +1804,10 @@ export interface WhatsAppEntitlement {
   hasPaidOrder: boolean
   /** The paid invitation card's hero image — used as the WhatsApp header. */
   cardImageUrl: string | null
+  /** Authenticated URL for the couple's frozen released card. Page-preview
+   *  only: real WhatsApp sends intentionally continue using `cardImageUrl`
+   *  until the per-guest delivery switch lands. */
+  releasedCardPreviewUrl: string | null
   /** Visual treatment — fallback thumbnail when the card has no hero image. */
   cardTreatment: Treatment | null
   /** The paid card's tier (e.g. "Signature"), for the "card purchased" badge. */
@@ -2044,7 +2048,10 @@ export async function getEventPackageTierId(eventId: string): Promise<string | n
   return resolveEventPackageTierId(orders, eventId)
 }
 
-export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppEntitlement> {
+export async function getWhatsAppEntitlement(
+  eventId: string,
+  options: { includeReleasedCardPreview?: boolean } = {},
+): Promise<WhatsAppEntitlement> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
 
@@ -2097,9 +2104,7 @@ export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppE
     .filter((o) => o.event_id === eventId && !isOrderReleasedForInvites(o))
     .map(orderSummaryFrom)[0] ?? null
 
-  const orders = releasedOrders.filter((o) => o.event_id === eventId) as {
-    items: PaidOrderItem[] | null
-  }[]
+  const orders = releasedOrders.filter((o) => o.event_id === eventId)
 
   let purchased = 0
   let cardImageUrl: string | null = null
@@ -2122,6 +2127,35 @@ export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppE
     }
   }
   const addOns = [...addOnSet]
+
+  // The Send Invites identity card should show what the couple actually
+  // approved, not the catalogue hero stored on the order line. Keep this URL
+  // separate from cardImageUrl: send/test-send actions call this entitlement
+  // too, and switching that field here would prematurely change real outgoing
+  // WhatsApp media before the per-guest delivery path is ready.
+  let releasedCardPreviewUrl: string | null = null
+  if (options.includeReleasedCardPreview && orders.length > 0) {
+    const { data: releasedDesigns } = await supabase
+      .from('invitation_card_designs')
+      .select('id, order_id, released_at')
+      .in('order_id', orders.map((order) => order.id))
+      .in('status', ['ready', 'delivered'])
+      .not('release_svg_path', 'is', null)
+      .order('released_at', { ascending: false })
+
+    // Orders are newest-first. Prefer the newest released design belonging to
+    // the same order that supplies the displayed package/name metadata.
+    const newestDesignByOrder = new Map<string, string>()
+    for (const design of (releasedDesigns ?? []) as { id: string; order_id: string }[]) {
+      if (!newestDesignByOrder.has(design.order_id)) {
+        newestDesignByOrder.set(design.order_id, design.id)
+      }
+    }
+    const designId = orders
+      .map((order) => newestDesignByOrder.get(order.id))
+      .find((id): id is string => Boolean(id))
+    if (designId) releasedCardPreviewUrl = `/api/my/card/${encodeURIComponent(designId)}`
+  }
 
   // Paid orders that exist but aren't attached to ANY event yet — surfaced so
   // the couple can assign them instead of them silently counting for nothing.
@@ -2177,6 +2211,7 @@ export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppE
     entrancePassSentIds,
     hasPaidOrder: orders.length > 0,
     cardImageUrl,
+    releasedCardPreviewUrl,
     cardTreatment,
     cardTier,
     cardName,
@@ -2319,6 +2354,9 @@ export interface SendInvitesData {
     cardName: string | null
     /** The paid card's hero artwork — rendered in the event-context preview. */
     cardImageUrl: string | null
+    /** The couple's frozen released artwork for the visible card in the Send
+     *  Invites header. Kept distinct from outgoing WhatsApp media. */
+    releasedCardPreviewUrl: string | null
     /** Visual treatment — fallback thumbnail when the card has no hero image. */
     cardTreatment: Treatment | null
     /** Save the Date template selected for this event. Separate from the
@@ -2429,6 +2467,7 @@ export async function getSendInvitesData(
         cardTier: null,
         cardName: null,
         cardImageUrl: null,
+        releasedCardPreviewUrl: null,
         cardTreatment: null,
         saveDateTemplateId: null,
         saveDateTemplateName: null,
@@ -2458,7 +2497,7 @@ export async function getSendInvitesData(
   }
 
   const [entitlement, publicInvite, responseLastSend, responseQuestions, responseSummaries, responseAnswerSummaries] = await Promise.all([
-    getWhatsAppEntitlement(selectedEventId),
+    getWhatsAppEntitlement(selectedEventId, { includeReleasedCardPreview: true }),
     getInviteShareInfo(selectedEventId),
     getLastSendByGuest(),
     getRsvpQuestions(),
@@ -2600,6 +2639,7 @@ export async function getSendInvitesData(
       cardTier: entitlement.cardTier,
       cardName: entitlement.cardName,
       cardImageUrl: entitlement.cardImageUrl,
+      releasedCardPreviewUrl: entitlement.releasedCardPreviewUrl,
       cardTreatment: entitlement.cardTreatment,
       saveDateTemplateId: saveDateTemplate?.id ?? null,
       saveDateTemplateName: saveDateTemplate?.name ?? null,

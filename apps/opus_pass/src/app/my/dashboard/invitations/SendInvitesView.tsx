@@ -567,7 +567,10 @@ export default function SendInvitesView({
   const productionStatusLabel = isDesigningNow
     ? strings.card_status_designing
     : strings.card_status_confirmed
-  const displayCardImageUrl = showCardProductionLock ? (productionOrder?.cardImageUrl ?? null) : event.cardImageUrl
+  const displayCardImageUrl = showCardProductionLock
+    ? (productionOrder?.cardImageUrl ?? null)
+    : (event.releasedCardPreviewUrl ?? event.cardImageUrl)
+  const displayCardIsReleased = !showCardProductionLock && Boolean(event.releasedCardPreviewUrl)
   const displayCardTreatment = showCardProductionLock ? (productionOrder?.cardTreatment ?? null) : event.cardTreatment
 
   const previewBody = INVITE_TEMPLATE.body
@@ -1491,6 +1494,7 @@ export default function SendInvitesView({
                     sizes="92px"
                     quality={90}
                     className="object-cover"
+                    unoptimized={displayCardIsReleased}
                   />
                   {/* Before release this is the CATALOGUE shot, carrying the
                       sample couple's names and date. Unlabelled it sits where

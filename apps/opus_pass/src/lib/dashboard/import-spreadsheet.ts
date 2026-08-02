@@ -53,14 +53,58 @@ export async function fileToImportLines(file: File): Promise<string> {
   return rowsToImportLines(parseCsv(text))
 }
 
-/** A row is a header if any cell mentions name/email/phone. */
+/** Column labels that identify a header row on their own. */
+const NAME_HEADERS = [/(^|\b)name\b/, /full ?name/, /(^|\b)jina\b/]
+const EMAIL_HEADERS = [/email/, /barua ?pepe/]
+const PHONE_HEADERS = [/phone|mobile|whatsapp/, /(^|\b)(simu|namba)\b/]
+/**
+ * Swahili column labels, matched whole rather than as substrings. Jina, namba
+ * and simu are everyday words that also turn up mid-sentence in note columns,
+ * so a loose match would read a review or summary tab's prose as a header.
+ */
+const LOCALIZED_HEADERS = new Set([
+  'jina',
+  'jina kamili',
+  'majina',
+  'namba',
+  'namba ya simu',
+  'simu',
+  'namba ya whatsapp',
+  'whatsapp',
+  'ana whatsapp',
+  'barua pepe',
+  'anwani ya barua pepe',
+])
+
+/** Footer labels that close a guest list rather than name a guest. */
+const TOTALS_LABEL = /^(jumla|total|totals|grand total|sum)\b/
+
+/** Lowercase a cell and drop the decoration real headers carry: `WhatsApp (+255)` → `whatsapp`. */
+function normalizeLabel(cell: string): string {
+  return cell
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[?:*.]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * A row is a header if any cell mentions name/email/phone in English, or if at
+ * least two cells are Swahili column labels (Jina, Namba ya Simu, WhatsApp…).
+ * Two are required because a single Swahili label is weak evidence: a review
+ * tab's "Jina / Kipengele" column would otherwise pass as a guest list.
+ */
 function isHeaderRow(cells: string[]): boolean {
   const lc = cells.map((c) => c.toLowerCase())
-  return (
+  if (
     lc.some((c) => /(^|\b)(name|full ?name)\b/.test(c)) ||
     lc.some((c) => c.includes('email')) ||
     lc.some((c) => c.includes('phone'))
-  )
+  ) {
+    return true
+  }
+  return cells.filter((c) => LOCALIZED_HEADERS.has(normalizeLabel(c))).length >= 2
 }
 
 /**
@@ -98,12 +142,12 @@ export function rowsToImportLines(rows: string[][], requireHeader = false): stri
     const header = rows[headerIdx].map((c) => c.toLowerCase())
     const colIndex = (matchers: RegExp[]) =>
       header.findIndex((c) => matchers.some((re) => re.test(c)))
-    const n = colIndex([/(^|\b)name\b/, /full ?name/])
+    const n = colIndex(NAME_HEADERS)
     // Only use columns we actually matched; -1 leaves the field blank rather
     // than grabbing an unrelated column (e.g. "Title" when there's no phone).
     nameIdx = n >= 0 ? n : 0
-    emailIdx = colIndex([/email/])
-    phoneIdx = colIndex([/phone|mobile|whatsapp/])
+    emailIdx = colIndex(EMAIL_HEADERS)
+    phoneIdx = colIndex(PHONE_HEADERS)
     dataRows = rows.slice(headerIdx + 1)
   }
 
@@ -113,6 +157,9 @@ export function rowsToImportLines(rows: string[][], requireHeader = false): stri
       const email = (cols[emailIdx] ?? '').trim()
       const phone = (cols[phoneIdx] ?? '').trim()
       if (!name) return null
+      // Guest lists usually close with a totals row ("JUMLA", "Total") whose
+      // only other cell is a count — it would import as a guest named JUMLA.
+      if (!email && !phone && TOTALS_LABEL.test(normalizeLabel(name))) return null
       // Keep positions intact — `bulkImportGuests` splits on comma into
       // [name, email, phone], so an empty email must stay an empty slot rather
       // than collapsing the phone into the email field. Only trailing empty
@@ -367,6 +414,7 @@ function findEocd(view: DataView, len: number): number {
 
 /** Inflate a raw DEFLATE byte stream using the browser's DecompressionStream. */
 async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {
-  const stream = new Response(bytes).body!.pipeThrough(new DecompressionStream('deflate-raw'))
+  const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+  const stream = new Response(body).body!.pipeThrough(new DecompressionStream('deflate-raw'))
   return new Uint8Array(await new Response(stream).arrayBuffer())
 }
