@@ -1,17 +1,15 @@
 import 'server-only'
 
 import {
-  buildFontFaceCss,
   injectFontCss,
-  matchCardFonts,
   renderCardSvg,
   type CardFieldBinding,
-  type CardFontFace,
   type RenderSkip,
 } from '@opusfesta/lib'
 import type { createSupabaseAdminClient } from '@/lib/supabase'
 import { loadCardArtwork } from '@/lib/cms/card-artwork'
-import { listCardFonts } from '@/lib/cms/card-font-actions'
+import { cardFontFaceCssFor } from '@/lib/cms/card-font-css'
+import { releaseCardFieldValues } from '@/lib/cms/release-card-values'
 
 // Freezing an approved card into a file.
 //
@@ -111,7 +109,11 @@ export async function freezeCardRelease(
     return { ok: false, error: 'This card has no layer mapping, so nothing can be written into it.' }
   }
 
-  const rendered = renderCardSvg(artwork.svg, bindings, row.field_values ?? {})
+  // The released artefact is the couple's master card, not a card for one
+  // particular guest. Never preserve the artwork's sample invitee (or a stale
+  // designer value) in the copy the couple sees. Per-guest rendering replaces
+  // this neutral Swahili placeholder later in the delivery pipeline.
+  const rendered = renderCardSvg(artwork.svg, bindings, releaseCardFieldValues(row.field_values))
   const fatal = rendered.skipped.filter(isFatalSkip)
   if (fatal.length > 0) {
     return {
@@ -125,38 +127,12 @@ export async function freezeCardRelease(
   // Blob-build time, so a frozen file without them renders in a generic serif
   // anywhere else, with no error raised. That is the exact failure this whole
   // pipeline has been chasing.
-  const library = await listCardFonts()
-  const faces: CardFontFace[] = library.fonts.map((font) => ({
-    id: font.id,
-    familyName: font.family_name,
-    subfamilyName: font.subfamily_name,
-    postscriptName: font.postscript_name,
-    weightClass: font.weight_class,
-    isItalic: font.is_italic,
-    matchKeys: font.match_keys,
-    embeddable: font.embeddable,
-    restricted: font.fs_type_no_embedding,
-  }))
-  const byId = new Map(library.fonts.map((font) => [font.id, font]))
-
-  const embeddable = []
-  for (const match of matchCardFonts(artwork.requiredFonts, faces)) {
-    // Only cleared fonts. The licence gate is a generated column, so an
-    // unattested font simply never reaches this list.
-    if (!match.face?.embeddable) continue
-    const font = byId.get(match.face.id)
-    if (!font) continue
-    const { data: blob } = await supabase.storage.from('card-fonts').download(font.storage_path)
-    if (!blob) continue
-    embeddable.push({
-      familyName: match.required.primary,
-      italic: match.required.italic,
-      format: font.format,
-      base64: Buffer.from(await blob.arrayBuffer()).toString('base64'),
-    })
-  }
-
-  const svg = injectFontCss(rendered.svg, buildFontFaceCss(embeddable))
+  //
+  // Same helper the two font routes serve, so a licence rule or a match fix
+  // cannot land in the preview a designer approves against and miss the file
+  // that is actually kept. The artwork is already in hand, so the fonts are
+  // resolved from what it asked for rather than by re-fetching it.
+  const svg = injectFontCss(rendered.svg, await cardFontFaceCssFor(artwork.requiredFonts))
   const bytes = Buffer.from(svg, 'utf8')
 
   // Timestamped rather than overwritten: a card released twice keeps both, so a

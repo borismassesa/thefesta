@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import {
+  RELEASE_GUEST_PLACEHOLDER,
+  releaseCardFieldValues,
+} from './release-card-values'
+
+test('release card values replace the artwork sample guest with the neutral placeholder', () => {
+  const designerValues = {
+    guest_name: 'Bi. Fabiola Thomas',
+    couple_name_1: 'Asha',
+  }
+
+  assert.deepEqual(releaseCardFieldValues(designerValues), {
+    guest_name: RELEASE_GUEST_PLACEHOLDER,
+    couple_name_1: 'Asha',
+  })
+  assert.equal(designerValues.guest_name, 'Bi. Fabiola Thomas')
+})
+
+test('release card values add the placeholder when no guest value was stored', () => {
+  assert.deepEqual(releaseCardFieldValues(null), {
+    guest_name: 'Jina la Mgeni',
+  })
+})

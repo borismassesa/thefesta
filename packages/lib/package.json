@@ -7,6 +7,7 @@
   "scripts": {
     "build": "../../node_modules/.bin/tsc",
     "dev": "../../node_modules/.bin/tsc --watch",
+    "test": "../../node_modules/.bin/tsx --test *.test.ts",
     "type-check": "../../node_modules/.bin/tsc --noEmit"
   },
   "dependencies": {
