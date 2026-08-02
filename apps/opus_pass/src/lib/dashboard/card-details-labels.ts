@@ -10,9 +10,14 @@
 // not exist: they don't hover, don't click, and on a phone there is no hover at
 // all. Density is not a concern on a short single-purpose page.
 //
-// Kept in step with CARD_FIELD_ROLES in
-// apps/opus_admin/src/lib/cms/card-field-roles.ts (no shared package between
-// the apps, so this is a deliberate copy in the couple's voice).
+// Kept in step with CARD_FIELD_ROLES, now in @opusfesta/lib.
+//
+// Still a separate table, and not because it cannot reach the shared one: the
+// hints there are written for a DESIGNER mapping artwork ("Fixed design copy",
+// "one line of the card"), and these are written for a couple who will never
+// see the artwork. Same roles, two audiences, so the wording diverges on
+// purpose. What must not diverge is the role KEYS, which is why this is keyed on
+// them rather than on labels.
 
 export type CardFieldCopy = {
   label: string

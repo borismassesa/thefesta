@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { escapeXmlText, renderCardSvg, renderCardsForGuests } from './card-render'
+import {
+  escapeXmlText,
+  renderCardForGuest,
+  renderCardSvg,
+  renderCardsForGuests,
+} from './card-render'
 import type { CardFieldBinding } from './card-field-roles'
 
 // Shape of the live Opus Royal Ivory export: named groups wrapping a single
@@ -146,6 +151,74 @@ test('one card per guest, differing only in the guest name', () => {
 
 test('no guests produces no cards rather than one blank card', () => {
   assert.deepEqual(renderCardsForGuests(CARD, BINDINGS, {}, []), [])
+})
+
+// ── Rendering one guest onto an already-released card ─────────────────────
+// The delivery path's input is the FROZEN release, so the only substitution
+// allowed is the guest-scoped role. These tests pin that boundary, because the
+// failure they guard against is silent: re-applying couple values would change
+// a card that has already gone out.
+
+test('substitutes the guest name into a released card', () => {
+  const released = renderCardSvg(CARD, BINDINGS, { venue_1_place: 'Mlimani City Hall' }).svg
+
+  const { svg, applied, skipped } = renderCardForGuest(released, BINDINGS, 'Bw. Juma Ally')
+
+  assert.deepEqual(applied, ['guest_name'])
+  // Only the guest binding was offered, so nothing else can even be reported.
+  assert.deepEqual(skipped, [])
+  assert.match(svg, /Bw\. Juma Ally/)
+  // The frozen couple-scope content survives untouched.
+  assert.match(svg, /Mlimani City Hall/)
+})
+
+test('leaves every non-guest field of a released card alone', () => {
+  const released = renderCardSvg(CARD, BINDINGS, { venue_1_place: 'Mlimani City Hall' }).svg
+
+  // A stale value for a couple-scope role must not be able to reach the card,
+  // even though the binding for it is right there in the list.
+  const { svg } = renderCardForGuest(released, BINDINGS, 'Bi. Neema Said')
+
+  assert.match(svg, /Mlimani City Hall/)
+  assert.doesNotMatch(svg, /KKKT Sala sala JUU/)
+})
+
+test('two guests get identical cards apart from their own name', () => {
+  const released = renderCardSvg(CARD, BINDINGS, { venue_1_place: 'Mlimani City Hall' }).svg
+  const first = renderCardForGuest(released, BINDINGS, 'Bw. Juma Ally').svg
+  const second = renderCardForGuest(released, BINDINGS, 'Bi. Neema Said').svg
+
+  assert.notEqual(first, second)
+  // Neutralising just the guest layer's text makes the two files identical,
+  // which is the real claim: nothing else moved.
+  const withoutGuest = (svg: string) => svg.replace(/(Bw\. Juma Ally|Bi\. Neema Said)/, 'GUEST')
+  assert.equal(withoutGuest(first), withoutGuest(second))
+
+  // Matched on the full name, not a fragment: the card's own date intro reads
+  // "Jumamosi", so a /Juma/ probe passes on a card that never held the guest.
+  const rendered = (svg: string) => (svg.match(/<tspan[^>]*>([^<]*)<\/tspan>/g) ?? []).join(' | ')
+  assert.doesNotMatch(rendered(first), /Bi\. Neema Said/)
+  assert.doesNotMatch(rendered(second), /Bw\. Juma Ally/)
+})
+
+test('reports an unmapped guest role rather than returning the card unchanged', () => {
+  const withoutGuest = BINDINGS.filter((b) => b.role !== 'guest_name')
+
+  const { applied, skipped } = renderCardForGuest(CARD, withoutGuest, 'Bw. Juma Ally')
+
+  // A card whose guest layer was never mapped cannot be personalised, and the
+  // delivery path has to be able to tell that from a successful render.
+  assert.deepEqual(applied, [])
+  assert.deepEqual(skipped, [])
+})
+
+test('refuses a rasterised guest layer instead of silently shipping the sample name', () => {
+  const rasterised = [{ role: 'guest_name', layerIds: ['couple_name_1_Image'], rasterised: true }]
+
+  const { applied, skipped } = renderCardForGuest(CARD, rasterised, 'Bw. Juma Ally')
+
+  assert.deepEqual(applied, [])
+  assert.equal(skipped[0].reason, 'rasterised')
 })
 
 // ── Colour fields ─────────────────────────────────────────────────────────

@@ -29,7 +29,7 @@ import {
   resolveShapeFill,
   shapeLayerIds,
   type FillTarget,
-} from '@opusfesta/lib'
+} from './card-svg-shapes'
 
 /** A colour must be a hex value; anything else could be arbitrary CSS. */
 const HEX_COLOUR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -340,19 +340,51 @@ export function renderCardSvg(
   return { svg: out, applied, skipped }
 }
 
+/** The one role that differs between two guests holding the same card. */
+export const GUEST_SCOPED_ROLE = 'guest_name'
+
+/**
+ * One guest's card, rendered from an already-released artefact.
+ *
+ * This is the delivery path's entry point, and it is deliberately NOT
+ * renderCardSvg with a guest name folded into `values`. The input here is the
+ * FROZEN release, which already has every couple-scope and order-scope value
+ * written into it, so the only permitted substitution is the guest-scoped role.
+ * Passing the couple's values again would re-read mutable form data and could
+ * change a card that has already gone to two hundred guests.
+ *
+ * `bindings` is still needed because the guest layer has to be located, and it
+ * must be the SAME bindings the release was frozen against.
+ */
+export function renderCardForGuest(
+  releasedSvg: string,
+  bindings: CardFieldBinding[],
+  guestName: string,
+  guestRole = GUEST_SCOPED_ROLE,
+): CardRenderResult {
+  // Only the guest binding is offered to the renderer. Anything else in the
+  // list would be re-applied on top of the frozen artefact.
+  const guestBinding = bindings.filter((binding) => binding.role === guestRole)
+  return renderCardSvg(releasedSvg, guestBinding, { [guestRole]: guestName })
+}
+
 /**
  * One rendered card per guest.
  *
  * Everything except the per-guest role is identical, so the shared fields are
  * written once and only the guest name differs — an order of 50 guests is 50
  * cards that vary in exactly one layer.
+ *
+ * Used for a print run, where the whole order is rendered in one pass from the
+ * couple's values. The digital delivery path uses renderCardForGuest instead,
+ * because there the shared fields are already frozen into the artefact.
  */
 export function renderCardsForGuests(
   svg: string,
   bindings: CardFieldBinding[],
   values: Record<string, string>,
   guestNames: string[],
-  guestRole = 'guest_name',
+  guestRole = GUEST_SCOPED_ROLE,
 ): { guestName: string; result: CardRenderResult }[] {
   return guestNames.map((guestName) => ({
     guestName,

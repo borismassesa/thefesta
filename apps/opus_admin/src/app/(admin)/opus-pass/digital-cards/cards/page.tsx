@@ -6,7 +6,7 @@ import { HeaderActionsSlot } from '@/components/HeaderPortals'
 import { hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { resolveOpusPassAssetUrl } from '@/lib/cms/opus-pass-asset-url'
-import { assessBindings, type CardFieldBinding } from '@/lib/cms/card-field-roles'
+import { assessBindings, type CardFieldBinding } from '@opusfesta/lib'
 import {
   DEFAULT_PRODUCT_SORT,
   NO_BADGE,

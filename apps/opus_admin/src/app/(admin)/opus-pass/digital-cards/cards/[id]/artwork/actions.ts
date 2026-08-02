@@ -6,7 +6,7 @@ import { requireAdminRole, type AdminAccessRole } from '@/lib/admin-auth'
 import {
   CARD_FIELD_ROLE_KEYS,
   type CardFieldBinding,
-} from '@/lib/cms/card-field-roles'
+} from '@opusfesta/lib'
 
 // Same allowlist as the card editor — mapping a card's fields is catalogue work.
 const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']

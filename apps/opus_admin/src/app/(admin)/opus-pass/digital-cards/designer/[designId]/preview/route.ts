@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { renderCardSvg } from '@/lib/cms/card-render'
-import type { CardFieldBinding } from '@/lib/cms/card-field-roles'
+import { renderCardSvg, type CardFieldBinding } from '@opusfesta/lib'
 import { loadCardArtwork } from '@/lib/cms/card-artwork'
 import { resolveOpusPassAssetUrl } from '@/lib/cms/opus-pass-asset-url'
 

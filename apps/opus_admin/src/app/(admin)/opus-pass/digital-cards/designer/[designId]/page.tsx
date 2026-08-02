@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { getCallerEmail, hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { requestableFields, type CardFieldBinding } from '@/lib/cms/card-field-roles'
+import { requestableFields, type CardFieldBinding } from '@opusfesta/lib'
 import { resolveOpusPassAssetUrl } from '@/lib/cms/opus-pass-asset-url'
 import DesignJobEditor, { type DesignEvent } from './DesignJobEditor'
 

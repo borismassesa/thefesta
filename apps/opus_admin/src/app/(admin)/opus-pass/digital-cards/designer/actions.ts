@@ -17,7 +17,7 @@ import {
   CARD_FIELD_ROLE_KEYS,
   requestableFields,
   type CardFieldBinding,
-} from '@/lib/cms/card-field-roles'
+} from '@opusfesta/lib'
 
 const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
 

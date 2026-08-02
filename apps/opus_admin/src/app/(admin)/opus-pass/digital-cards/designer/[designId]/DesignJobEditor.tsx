@@ -7,9 +7,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle, Calendar, Check, Copy, Loader2, MessageCircle, Pipette, Mail, Phone, Printer, Receipt, Save, Send, X } from 'lucide-react'
 
 import { useSetPageHeading } from '@/components/PageHeading'
-import { injectFontCss } from '@opusfesta/lib'
-import { renderCardSvg } from '@/lib/cms/card-render'
-import type { CardFieldBinding } from '@/lib/cms/card-field-roles'
+import { injectFontCss, renderCardSvg, type CardFieldBinding } from '@opusfesta/lib'
 import {
   approveAndRelease,
   markDelivered,

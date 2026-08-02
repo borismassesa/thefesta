@@ -14,10 +14,13 @@ import {
   X,
 } from 'lucide-react'
 import {
+  CARD_FIELD_ROLES,
+  assessBindings,
   autoApplicable,
   categorySchema,
   fontMatchStatus,
   suggestRoles,
+  type CardFieldBinding,
   type FontMatch,
   type LayerSuggestion,
   type RequiredFont,
@@ -26,11 +29,6 @@ import { useSetPageHeading } from '@/components/PageHeading'
 import { ImageUploadField } from '@/components/cms/ImageUploadField'
 import { setCardFontLicence, type LicenceStatus } from '@/lib/cms/card-font-actions'
 import { uploadCardFonts, type FontUploadOutcome } from '@/lib/cms/card-font-upload'
-import {
-  CARD_FIELD_ROLES,
-  assessBindings,
-  type CardFieldBinding,
-} from '@/lib/cms/card-field-roles'
 import type { CardArtworkInspection } from '@/lib/cms/card-svg-fields'
 import { saveCardFieldBindings, setCardArtworkSvgUrl } from './actions'
 

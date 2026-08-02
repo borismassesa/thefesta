@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { autoApplicable, categorySchema, suggestRoles } from '@opusfesta/lib'
-import { CARD_FIELD_ROLES } from './card-field-roles'
+import { CARD_FIELD_ROLES, autoApplicable, categorySchema, suggestRoles } from '@opusfesta/lib'
 
 const WEDDING = categorySchema('Wedding Invitations')
 

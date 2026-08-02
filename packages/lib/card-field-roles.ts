@@ -12,9 +12,12 @@
 // forcing a re-export: an admin maps 'Bi._Fabiola_Thomas' → 'guest_name' once
 // per card and every order after that speaks in roles.
 //
-// See card-svg-fields.ts for reading the layers out of the artwork.
+// Reading the layers out of a piece of artwork is the admin's job, since it
+// only happens while an admin is mapping a card: see card-svg-fields.ts in
+// opus_admin. This module is the vocabulary both sides speak, so it lives here
+// where opus_pass can reach it too.
 
-import { categorySchema } from '@opusfesta/lib'
+import { categorySchema } from './card-categories'
 
 /**
  * How often a field's value changes — this drives how many renders an order
