@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState, useTransition } from 'react'
 import {
   CalendarOff,
   CheckCircle2,
+  ChevronDown,
   Clock4,
+  ListFilter,
   LogIn,
   LogOut,
   Plane,
@@ -54,6 +56,8 @@ const ATTENDANCE_TONE: Record<AttendancePoint['status'], 'green' | 'amber' | 'ro
   Remote: 'blue',
   Leave: 'gray',
 }
+
+const STATUS_FILTERS = ['All', 'Pending', 'Approved', 'Rejected', 'Cancelled'] as const
 
 export default function LeaveClient({
   employees,
@@ -155,6 +159,21 @@ function RequestsTable({
   employees: EmployeeLeaveView[]
 }) {
   const [filter, setFilter] = useState<LeaveStatus | 'All'>('All')
+
+  // Counts shown in the dropdown labels. Derived from the SCOPED requests the
+  // server sent, so a manager sees counts for their own team rather than the
+  // whole company.
+  const statusCounts = useMemo(() => {
+    const counts: Record<LeaveStatus | 'All', number> = {
+      All: requests.length,
+      Pending: 0,
+      Approved: 0,
+      Rejected: 0,
+      Cancelled: 0,
+    }
+    for (const r of requests) counts[r.status] += 1
+    return counts
+  }, [requests])
   const [search, setSearch] = useState('')
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -213,20 +232,34 @@ function RequestsTable({
             className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]"
           />
         </div>
-        <div className="flex gap-1.5">
-          {(['All', 'Pending', 'Approved', 'Rejected', 'Cancelled'] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setFilter(s)}
-              className={cn(
-                'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-                filter === s ? 'bg-[#F0DFF6] text-[#5B2D8E]' : 'text-gray-500 hover:bg-gray-50',
-              )}
-            >
-              {s}
-            </button>
-          ))}
+        {/* Status filter. A native select rather than a custom menu so it
+            keeps keyboard and screen-reader behaviour for free and uses the
+            platform picker on mobile. Counts sit in the labels so you can see
+            there are pending requests without opening it. */}
+        <div className="relative">
+          <ListFilter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <select
+            aria-label="Filter by status"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as LeaveStatus | 'All')}
+            className={cn(
+              'appearance-none rounded-lg border py-2 pl-9 pr-9 text-sm font-medium outline-none transition-colors',
+              'focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]',
+              // Tinted while a filter is active, so it is obvious the list is
+              // not showing everything.
+              filter === 'All'
+                ? 'border-gray-200 bg-white text-gray-700'
+                : 'border-[#C9A0DC] bg-[#F0DFF6] text-[#5B2D8E]',
+            )}
+          >
+            {STATUS_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {s === 'All' ? 'All statuses' : s}
+                {statusCounts[s] > 0 ? ` (${statusCounts[s]})` : ''}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         </div>
 
         <button
