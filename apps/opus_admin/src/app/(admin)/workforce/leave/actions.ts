@@ -99,46 +99,34 @@ export async function decideLeaveRequest(
   )
   if (!allowed.allowed) return { ok: false, error: allowed.reason }
 
+  // ONE transaction. The conditional update alone made this single-winner but
+  // not atomic: the transition and the balance deduction were separate
+  // round-trips, so an approval could commit while the deduction failed,
+  // leaving an employee holding days they had already been granted with the
+  // request looking correctly approved. The RPC does both or neither.
   const supabase = createSupabaseAdminClient()
-  // The status predicate is what makes this safe against a stale page. If
-  // another approver decided between the read above and this write, zero rows
-  // match and we report the conflict instead of silently overwriting their
-  // decision. Without it, two approvers could approve and reject the same
-  // request, and the balance below could be deducted twice.
-  const { data: updated, error: updateError } = await supabase
-    .from('workforce_leave_requests')
-    .update({ status: decision, reviewed_at: new Date().toISOString() })
-    .eq('id', id)
-    .eq('status', 'Pending')
-    .select('id')
-    .returns<Array<{ id: string }>>()
-  if (updateError) {
-    console.error('[workforce-leave] decide failed', updateError)
+  const { data: outcome, error: rpcError } = await supabase
+    .rpc('workforce_decide_leave_request', {
+      p_request_id: id,
+      p_decision: decision,
+      p_reviewer_employee_id: scope.employee?.id ?? null,
+    })
+    .maybeSingle<{
+      decided: boolean
+      subject_employee_id: string | null
+      leave_type: string | null
+      days: number | null
+      balance_after: number | null
+    }>()
+  if (rpcError) {
+    console.error('[workforce-leave] decide rpc failed', rpcError)
     return { ok: false, error: 'We could not record that decision. Try again.' }
   }
-  if ((updated?.length ?? 0) !== 1) {
+  const result = outcome
+  if (!result?.decided) {
     return {
       ok: false,
       error: 'Someone else decided this request first. Refresh to see the current status.',
-    }
-  }
-
-  // Deduct only on approval, only for Annual, and only now that the
-  // conditional update has confirmed WE are the decider.
-  if (decision === 'Approved' && row.leave_type === 'Annual') {
-    const { data: emp, error: balanceError } = await supabase
-      .from('workforce_employees')
-      .select('leave_balance_days')
-      .eq('id', row.employee_id)
-      .single<{ leave_balance_days: number }>()
-    if (balanceError) {
-      console.error('[workforce-leave] balance read failed', balanceError)
-    } else {
-      const { error: deductError } = await supabase
-        .from('workforce_employees')
-        .update({ leave_balance_days: Math.max(0, emp.leave_balance_days - row.days) })
-        .eq('id', row.employee_id)
-      if (deductError) console.error('[workforce-leave] balance write failed', deductError)
     }
   }
 
