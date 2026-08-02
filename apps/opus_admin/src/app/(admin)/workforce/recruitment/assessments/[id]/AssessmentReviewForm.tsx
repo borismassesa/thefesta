@@ -1,0 +1,12 @@
+'use client'
+
+import { useActionState } from 'react'
+import { reviewAssessment, type AssessmentReviewState } from '../actions'
+
+const initial: AssessmentReviewState = { ok: false, message: null }
+export default function AssessmentReviewForm({ assessmentId, maxScore, review, locked }: { assessmentId: string; maxScore: number | null; review: { score: number | null; recommendation: string | null; comments: string | null } | null; locked: boolean }) {
+  const [state, action, pending] = useActionState(reviewAssessment.bind(null, assessmentId), initial)
+  if (locked) return <p className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">This review is submitted and locked.</p>
+  const input = 'mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm'
+  return <form action={action} className="mt-4 space-y-4"><div className="grid grid-cols-2 gap-3"><label className="text-xs font-semibold text-gray-600">Score<input className={input} name="score" type="number" min="0" max={maxScore ?? undefined} step="0.01" required defaultValue={review?.score ?? ''} /></label><label className="text-xs font-semibold text-gray-600">Recommendation<select className={input} name="recommendation" required defaultValue={review?.recommendation ?? ''}><option value="" disabled>Choose</option><option value="do_not_advance">Do not advance</option><option value="review">Needs discussion</option><option value="advance">Advance</option><option value="strong_advance">Strong advance</option></select></label></div><label className="block text-xs font-semibold text-gray-600">Rubric evidence and comments<textarea className={input} name="comments" rows={5} required defaultValue={review?.comments ?? ''} /></label><label className="block text-xs font-semibold text-gray-600">Integrity note <span className="font-normal text-gray-400">(reviewable, never an automatic rejection)</span><textarea className={input} name="integrity_note" rows={2} /></label><div className="flex gap-2"><button name="intent" value="draft" disabled={pending} className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-semibold">Save draft</button><button name="intent" value="submit" disabled={pending} className="rounded-lg bg-[#5B2D8E] px-4 py-2 text-xs font-semibold text-white">Submit and lock</button></div>{state.message && <p className={`text-xs font-medium ${state.ok ? 'text-emerald-700' : 'text-rose-700'}`}>{state.message}</p>}</form>
+}
