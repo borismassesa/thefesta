@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -62,8 +63,11 @@ export default function ScanScreen() {
 
   // Refs, not state: the camera callback fires many times a second and must
   // read the latest value without re-subscribing or re-rendering.
-  const lastScanRef = useRef<{ token: string; at: number } | null>(null);
+  const lastScanRef = useRef<{ token: string; at: number; requestId: string } | null>(null);
   const busyRef = useRef(false);
+  /** Outcome of the last attempt, so the camera callback can tell a retry of a
+   *  failed scan from a deliberate second admission. */
+  const lastResultRef = useRef<CheckinScanResult['status'] | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -92,7 +96,7 @@ export default function ScanScreen() {
   }, [permission, requestPermission]);
 
   const runScan = useCallback(
-    async (args: { qrToken: string; checkedInPartySize?: number }) => {
+    async (args: { qrToken: string; checkedInPartySize?: number; requestId: string }) => {
       if (!session) return;
       busyRef.current = true;
       setPending(true);
@@ -102,10 +106,12 @@ export default function ScanScreen() {
           accessToken: session.accessToken,
           qrToken: args.qrToken,
           checkedInPartySize: args.checkedInPartySize,
+          requestId: args.requestId,
           doorLabel: session.doorLabel,
           attendantName: session.attendantName ?? undefined,
         });
         setResult(scanResult);
+        lastResultRef.current = scanResult.status;
         if (scanResult.status === 'success') {
           // Keep the header count honest without blocking the next scan.
           void queryClient.invalidateQueries({ queryKey: ['scanner', 'roster', eventId] });
@@ -128,6 +134,10 @@ export default function ScanScreen() {
           status: 'error',
           message: getErrorMessage(err, 'Network error'),
         });
+        // The request may still have landed. Marking the attempt as failed is
+        // what lets the next scan of this pass reuse its id and be replayed
+        // rather than admitting the party twice.
+        lastResultRef.current = 'error';
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } finally {
         setPending(false);
@@ -140,9 +150,9 @@ export default function ScanScreen() {
   /**
    * Correct the headcount after the pass is already scanned in.
    *
-   * Uses the amend endpoint rather than re-scanning: check-in is
-   * first-scan-wins, so a second scan would just report a duplicate and leave
-   * the original full-party figure in place.
+   * Uses the amend endpoint rather than re-scanning: a re-scan admits MORE of
+   * the party (or reports the pass exhausted) and can never lower a headcount.
+   * Only the amend path is allowed to reduce it, and only with a reason.
    */
   const correctPartySize = useCallback(
     async (qrToken: string, arrived: number) => {
@@ -155,9 +165,12 @@ export default function ScanScreen() {
           accessToken: session.accessToken,
           qrToken,
           checkedInPartySize: arrived,
+          reason: 'Attendant confirmed how many of the party actually arrived',
+          requestId: Crypto.randomUUID(),
           doorLabel: session.doorLabel,
         });
         setResult(amended);
+        lastResultRef.current = amended.status;
       } catch (err) {
         setResult({
           status: 'error',
@@ -185,6 +198,10 @@ export default function ScanScreen() {
           accessToken: session.accessToken,
           invitationId: guest.invitationId,
           manualReason: 'QR could not be scanned',
+          // A fresh id per tap: a manual admission is always a deliberate
+          // action, so it should never be replayed. It still gives the
+          // admission its own row in the server-side audit trail.
+          requestId: Crypto.randomUUID(),
           doorLabel: session.doorLabel,
           attendantName: session.attendantName ?? undefined,
         });
@@ -213,6 +230,7 @@ export default function ScanScreen() {
           accessToken: session.accessToken,
           entryCode,
           manualReason: 'Checked in with ticket code',
+          requestId: Crypto.randomUUID(),
           doorLabel: session.doorLabel,
           attendantName: session.attendantName ?? undefined,
         });
@@ -235,6 +253,7 @@ export default function ScanScreen() {
     // Cleared so the party-size prompt doesn't fire off a stale QR token from
     // an earlier camera scan.
     lastScanRef.current = null;
+    lastResultRef.current = manualResult.status;
     setResult(manualResult);
     await Haptics.notificationAsync(
       manualResult.status === 'success'
@@ -252,11 +271,20 @@ export default function ScanScreen() {
       const now = Date.now();
       const last = lastScanRef.current;
       if (last && last.token === data && now - last.at < RESCAN_COOLDOWN_MS) return;
-      lastScanRef.current = { token: data, at: now };
+
+      // Reuse the previous attempt's id when re-scanning the same pass after
+      // an ERROR. That attempt may well have admitted the party before the
+      // response was lost, and admission is a counter now: a fresh id would
+      // let a family of four walk in twice on one pass. Any other re-scan is a
+      // deliberate new admission (the rest of the party arriving) and gets a
+      // new id.
+      const retrying = last?.token === data && lastResultRef.current === 'error';
+      const requestId = retrying && last ? last.requestId : Crypto.randomUUID();
+      lastScanRef.current = { token: data, at: now, requestId };
 
       // We can't know the party size until the server resolves the token, so
       // scan first and let the result drive whether we need to ask.
-      void runScan({ qrToken: data });
+      void runScan({ qrToken: data, requestId });
     },
     [runScan, partyPrompt, result]
   );

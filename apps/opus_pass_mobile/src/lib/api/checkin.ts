@@ -112,8 +112,19 @@ export interface SubmitScanInput {
   /** Manual override by the short code printed on the ticket. Needs manualReason. */
   entryCode?: string;
   manualReason?: string;
-  /** How many of the party actually arrived. Server defaults to the full party. */
+  /** How many of the party actually arrived. Server defaults to the whole
+   *  remaining allowance. */
   checkedInPartySize?: number;
+  /**
+   * Stable id for ONE admission attempt, reused when that attempt is retried.
+   *
+   * Check-in is a bounded counter server-side, so a retry after a lost
+   * response would otherwise admit the same people a second time. The server
+   * replays the original outcome for a request id it has already processed.
+   * A genuinely new admission (the rest of a party arriving later) must use a
+   * NEW id.
+   */
+  requestId?: string;
   doorLabel?: string;
   attendantName?: string;
 }
@@ -127,7 +138,13 @@ export interface AmendPartySizeInput {
   accessToken: string;
   qrToken?: string;
   invitationId?: string;
+  /** The corrected total who arrived. 0 fully reverses the check-in. */
   checkedInPartySize: number;
+  /** Why the headcount changed. The server records it in the audit ledger and
+   *  substitutes a generic reason when omitted. */
+  reason?: string;
+  /** Stable id for one correction, reused across its retries. */
+  requestId?: string;
   doorLabel?: string;
 }
 

@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Crypto from 'expo-crypto';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -136,6 +137,9 @@ export default function ScannerGuestsScreen() {
         // Required by the API — this is what marks the admission as
         // scan-less in the audit trail.
         manualReason: 'No scannable pass',
+        // Deliberate per-tap admission, so a new id every time. It gives this
+        // admission its own row in the server-side scan audit trail.
+        requestId: Crypto.randomUUID(),
         doorLabel: session.doorLabel,
         attendantName: session.attendantName ?? undefined,
       });

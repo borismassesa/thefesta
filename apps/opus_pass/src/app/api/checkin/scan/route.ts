@@ -16,11 +16,26 @@ interface ScanBody {
   /** Short code printed on the ticket, used when the QR won't scan. */
   entryCode?: string
   manualReason?: string
-  /** How many of the party actually walked in. Defaults to the full RSVP'd
-   *  party server-side when omitted. */
+  /** How many of the party actually walked in. Defaults to the whole
+   *  remaining allowance server-side when omitted. */
   checkedInPartySize?: number
+  /** Stable per-scan id, reused across retries of the SAME scan. Check-in is
+   *  a counter now, so without this a retry after a dropped venue connection
+   *  would admit the same people twice. */
+  requestId?: string
   doorLabel?: string
   attendantName?: string
+}
+
+/** One row of checkin_admit_guest()'s result table. */
+interface AdmitResult {
+  result: 'admitted' | 'exhausted' | 'not_attending' | 'wrong_event' | 'not_found' | 'in_progress'
+  is_replay: boolean
+  admitted_now: number
+  total_admitted: number
+  allowance: number
+  first_admitted_at: string | null
+  rsvp_party_size: number
 }
 
 /**
@@ -132,7 +147,9 @@ export async function POST(request: Request) {
   // still cryptographically valid — no separate revocation table needed.
   const { data: invitation } = await supabase
     .from('guest_invitations')
-    .select('id, event_id, guest_contact_id, party_size, checked_in_at, checked_in_party_size, rsvp_status')
+    .select(
+      'id, event_id, guest_contact_id, party_size, entry_allowance, checked_in_count, checked_in_at, checked_in_party_size, rsvp_status'
+    )
     .eq('id', targetInvitationId)
     .eq('event_id', eventId)
     .maybeSingle()
@@ -177,74 +194,90 @@ export async function POST(request: Request) {
     .filter(Boolean)
     .join(' ')
 
-  if (invitation.checked_in_at) {
-    await broadcastCheckin(eventId, {
-      status: 'duplicate',
-      guestName,
-      partySize: invitation.checked_in_party_size ?? rsvpdPartySize,
-      doorLabel: displayDoor,
-      at: invitation.checked_in_at,
-    })
-    return NextResponse.json({
-      status: 'duplicate',
-      guestName,
-      partySize: rsvpdPartySize,
-      checkedInPartySize: invitation.checked_in_party_size,
-      checkedInAt: invitation.checked_in_at,
-      isVip,
-      groupTag,
-      table: tableName,
-    })
-  }
-
-  const { data: updated, error } = await supabase.rpc('checkin_guest_invitation', {
+  // No pre-emptive duplicate check any more: a party of four that has had two
+  // members admitted is a legitimate scan, not a duplicate. Only the RPC can
+  // tell "some entries left" from "none left", and only it can do so without
+  // a race, so every outcome is decided there.
+  const { data: admitRows, error } = await supabase.rpc('checkin_admit_guest', {
     p_guest_invitation_id: targetInvitationId,
+    p_event_id: eventId,
+    // Null admits the whole remaining allowance, which is the common
+    // "everyone in this party walked in together" case. An explicit count
+    // over the remainder is rejected outright rather than clamped, so an
+    // attendant is told their number was impossible instead of silently
+    // getting a different one.
+    p_admit_count: typeof body.checkedInPartySize === 'number' ? body.checkedInPartySize : null,
     p_checked_in_by: auditLabel,
     p_checked_in_door: displayDoor,
-    // Null lets the RPC default to the full RSVP'd party; it also clamps to
-    // 1..party_size, so a malformed client can't inflate the headcount.
-    p_checked_in_party_size:
-      typeof body.checkedInPartySize === 'number' ? body.checkedInPartySize : null,
+    p_request_id: body.requestId ?? null,
   })
   if (error) return NextResponse.json({ status: 'error', message: 'Check-in failed' }, { status: 500 })
 
-  // The RPC returns an all-null row (not an error) when another device won
-  // the race between our lookup above and the atomic UPDATE.
-  if (!updated || !updated.checked_in_at) {
-    await broadcastCheckin(eventId, {
-      status: 'duplicate',
-      guestName,
-      partySize: rsvpdPartySize,
-      doorLabel: displayDoor,
-      at: new Date().toISOString(),
-    })
+  const admit = (admitRows as AdmitResult[] | null)?.[0]
+  if (!admit) return NextResponse.json({ status: 'error', message: 'Check-in failed' }, { status: 500 })
+
+  // The first delivery of this request id is still running on another
+  // connection. Drawing a result now would either double-count or show an
+  // outcome that is about to change, so the device is told to retry.
+  if (admit.result === 'in_progress') {
+    return NextResponse.json(
+      { status: 'error', message: 'Still processing that scan — try again' },
+      { status: 409 }
+    )
+  }
+
+  const remaining = Math.max(admit.allowance - admit.total_admitted, 0)
+
+  if (admit.result !== 'admitted') {
+    // 'exhausted' is the door-facing duplicate: this pass has no entries
+    // left. The other codes are guarded above and only reachable if the
+    // roster changed between that read and this call.
+    const duplicate = admit.result === 'exhausted'
+    if (duplicate) {
+      await broadcastCheckin(eventId, {
+        status: 'duplicate',
+        guestName,
+        partySize: admit.total_admitted,
+        doorLabel: displayDoor,
+        at: admit.first_admitted_at ?? new Date().toISOString(),
+      })
+    }
     return NextResponse.json({
-      status: 'duplicate',
+      status: duplicate ? 'duplicate' : 'invalid',
+      message: duplicate ? undefined : 'This guest is no longer marked as attending',
       guestName,
       partySize: rsvpdPartySize,
-      checkedInPartySize: null,
-      checkedInAt: null,
+      checkedInPartySize: admit.total_admitted,
+      checkedInAt: admit.first_admitted_at,
+      entryAllowance: admit.allowance,
+      remainingAllowance: remaining,
       isVip,
       groupTag,
       table: tableName,
     })
   }
 
-  const admitted = updated.checked_in_party_size ?? rsvpdPartySize
-
+  // A replay is reported exactly like the response it is replacing, so a
+  // scanner that retried a lost request sees the same card it would have
+  // seen the first time.
   await broadcastCheckin(eventId, {
     status: 'success',
     guestName,
-    partySize: admitted,
+    partySize: admit.total_admitted,
     doorLabel: displayDoor,
-    at: updated.checked_in_at,
+    at: admit.first_admitted_at ?? new Date().toISOString(),
   })
 
   return NextResponse.json({
     status: 'success',
     guestName,
     partySize: rsvpdPartySize,
-    checkedInPartySize: admitted,
+    checkedInPartySize: admit.total_admitted,
+    checkedInAt: admit.first_admitted_at,
+    admittedNow: admit.admitted_now,
+    entryAllowance: admit.allowance,
+    remainingAllowance: remaining,
+    isReplay: admit.is_replay,
     isVip,
     groupTag,
     table: tableName,

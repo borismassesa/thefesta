@@ -10,9 +10,24 @@ interface AmendBody {
   /** Identify the guest the same two ways a scan can. */
   qrToken?: string
   invitationId?: string
-  /** The corrected number of people who actually arrived. */
+  /** The corrected number of people who actually arrived. 0 fully reverses
+   *  the check-in. */
   checkedInPartySize?: number
+  /** Why the headcount was corrected. Recorded in the audit ledger. */
+  reason?: string
+  /** Stable id for one correction, reused across its retries. */
+  requestId?: string
   doorLabel?: string
+}
+
+/** One row of amend_guest_invitation_checkin()'s result table. */
+interface AmendResult {
+  result: 'amended' | 'not_found' | 'wrong_event' | 'invalid_count' | 'not_checked_in' | 'request_conflict' | 'in_progress'
+  is_replay: boolean
+  total_admitted: number
+  allowance: number
+  first_admitted_at: string | null
+  rsvp_party_size: number
 }
 
 /**
@@ -29,7 +44,7 @@ interface AmendBody {
  * action rather than a side effect of re-scanning.
  */
 export async function POST(request: Request) {
-  const { eventId, accessToken, qrToken, invitationId, checkedInPartySize, doorLabel } =
+  const { eventId, accessToken, qrToken, invitationId, checkedInPartySize, reason, requestId, doorLabel } =
     (await request.json().catch(() => ({}))) as AmendBody
 
   if (!eventId || !accessToken || typeof checkedInPartySize !== 'number') {
@@ -71,7 +86,7 @@ export async function POST(request: Request) {
 
   const { data: invitation } = await supabase
     .from('guest_invitations')
-    .select('id, event_id, guest_contact_id, party_size, checked_in_at')
+    .select('id, event_id, guest_contact_id, party_size, entry_allowance, checked_in_at')
     .eq('id', targetInvitationId)
     .eq('event_id', eventId)
     .maybeSingle()
@@ -79,23 +94,49 @@ export async function POST(request: Request) {
   if (!invitation) {
     return NextResponse.json({ status: 'invalid', message: 'This pass is not for this event' })
   }
-  if (!invitation.checked_in_at) {
-    return NextResponse.json({ status: 'invalid', message: 'This guest has not been checked in yet' })
-  }
 
-  // Clamp to 1..party_size for the same reason the RPC does: never let a
-  // client inflate the headcount past what was actually invited.
-  const rsvpd = invitation.party_size ?? 1
-  const amended = Math.min(Math.max(checkedInPartySize, 1), Math.max(rsvpd, 1))
-
-  const { error } = await supabase
-    .from('guest_invitations')
-    .update({ checked_in_party_size: amended })
-    .eq('id', targetInvitationId)
-    .eq('event_id', eventId)
+  // The correction goes through the one RPC allowed to lower the counter. It
+  // writes checked_in_count and its deprecated mirror together, enforces the
+  // allowance and the event binding, and records the reason. Updating the two
+  // columns from here would put a second source of truth in the same row.
+  const { data: amendRows, error } = await supabase.rpc('amend_guest_invitation_checkin', {
+    p_guest_invitation_id: targetInvitationId,
+    p_event_id: eventId,
+    p_new_count: checkedInPartySize,
+    // The DB requires a reason for every hand-corrected headcount. The
+    // attendant's own words when they gave them, otherwise what this endpoint
+    // exists to do.
+    p_reason: reason?.trim() || 'Attendant corrected the arrival headcount at the door',
+    p_amended_by: doorLabel || 'Main Gate',
+    p_request_id: requestId ?? null,
+  })
   if (error) {
     return NextResponse.json({ status: 'error', message: 'Could not update headcount' }, { status: 500 })
   }
+
+  const amendResult = (amendRows as AmendResult[] | null)?.[0]
+  if (!amendResult) {
+    return NextResponse.json({ status: 'error', message: 'Could not update headcount' }, { status: 500 })
+  }
+
+  if (amendResult.result === 'in_progress') {
+    return NextResponse.json(
+      { status: 'error', message: 'Still processing that correction — try again' },
+      { status: 409 }
+    )
+  }
+  if (amendResult.result !== 'amended') {
+    const message =
+      amendResult.result === 'not_checked_in'
+        ? 'This guest has not been checked in yet'
+        : amendResult.result === 'invalid_count'
+          ? `Enter a number between 0 and ${amendResult.allowance}`
+          : 'This pass is not for this event'
+    return NextResponse.json({ status: 'invalid', message })
+  }
+
+  const rsvpd = invitation.party_size ?? 1
+  const amended = amendResult.total_admitted
 
   const { data: guest } = await supabase
     .from('guest_contacts')
@@ -123,7 +164,9 @@ export async function POST(request: Request) {
     guestName: guest?.full_name ?? 'Guest',
     partySize: amended,
     doorLabel: doorLabel || 'Main Gate',
-    at: invitation.checked_in_at,
+    // From the RPC, not the row read before the write: a correction to 0 is a
+    // full reversal and clears the arrival, so the pre-write value is stale.
+    at: amendResult.first_admitted_at ?? new Date().toISOString(),
   })
 
   return NextResponse.json({
@@ -131,6 +174,10 @@ export async function POST(request: Request) {
     guestName: guest?.full_name ?? 'Guest',
     partySize: rsvpd,
     checkedInPartySize: amended,
+    checkedInAt: amendResult.first_admitted_at,
+    entryAllowance: amendResult.allowance,
+    remainingAllowance: Math.max(amendResult.allowance - amended, 0),
+    isReplay: amendResult.is_replay,
     isVip,
     groupTag,
     table: tableName,
