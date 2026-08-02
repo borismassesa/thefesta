@@ -155,6 +155,14 @@ CREATE TABLE IF NOT EXISTS public.invitation_card_delivery_assets (
   -- Comparing created_at instead would make reclaim unrepeatable, since there is
   -- nothing to move.
   claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  -- How many times preparation has been attempted.
+  --
+  -- Bounds retries for faults classified as transient. Without a ceiling, a
+  -- design that kills the renderer on every run would be retried on every send,
+  -- spending a render per guest to reach the same failure.
+  attempt_count INT NOT NULL DEFAULT 1 CHECK (attempt_count >= 0),
+  last_attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   -- Null means it does not expire. Meta may refetch a header long after the
   -- send, so a short expiry would break delivery rather than protect anything.
   expires_at TIMESTAMPTZ,
@@ -171,6 +179,8 @@ COMMENT ON COLUMN public.invitation_card_delivery_assets.token_hash IS
   'SHA-256 of the bearer token. The raw token exists only in the URL that was sent.';
 COMMENT ON COLUMN public.invitation_card_delivery_assets.render_error_code IS
   'Stable failure code for a failed preparation. Codes only: never a provider message, a font URL, a storage path or a guest name.';
+COMMENT ON COLUMN public.invitation_card_delivery_assets.attempt_count IS
+  'Preparation attempts so far. Retries of transient faults stop at a cap so a deterministically broken design cannot consume work forever.';
 COMMENT ON COLUMN public.invitation_card_delivery_assets.claimed_at IS
   'Render lease. A pending row whose claim has expired may be reclaimed by another worker via a conditional update on this column.';
 

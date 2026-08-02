@@ -488,3 +488,30 @@ The reverse case, a `ready` row whose object has gone missing, is deliberately
 left to PR 3. The public route has to handle a missing object anyway, and it is
 the only place that learns of it without adding a storage round trip to every
 reuse in a two hundred guest send.
+
+### Why the WASM runtime gate belongs to PR 3
+
+A preview deployment of PR 2 cannot prove that Vercel packages and locates the
+`.wasm`, because PR 2 has no caller. Measured on a real production build of
+opus_pass at this commit:
+
+```
+next build                       exit 0
+*.wasm anywhere in .next         none
+index_bg.wasm in any trace file  none
+prepare-guest-asset in a bundle  no, only in .tsbuildinfo
+```
+
+Nothing imports the preparation service yet, so Next never bundles it and the
+`.wasm` never enters the output. A green preview would be evidence about code
+that was not deployed.
+
+The gate is real and stays; it moves to PR 3, where the token route imports the
+service and the module actually enters a server bundle. PR 3 must prove at
+runtime, on a preview, that `initWasm` resolves the file, that font buffers reach
+resvg, and that the PNG passes signature, dimension and ink checks on a repeated
+invocation after memoisation.
+
+`ensureWasm` reads the file through `require.resolve('@resvg/resvg-wasm/index_bg.wasm')`.
+If tracing misses it once there is a caller, the fix is
+`outputFileTracingIncludes` in next.config for the route that pulls it in.

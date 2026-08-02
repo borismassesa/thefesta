@@ -58,7 +58,10 @@ export type PrepareFailureCode =
   | 'SVG_INVALID'
   | 'OUTPUT_BLANK'
   | 'OUTPUT_LIMIT_EXCEEDED'
-  | 'RASTER_FAILED'
+  /** The renderer itself faulted. Might be the runtime, so bounded retries. */
+  | 'RASTER_RUNTIME_FAILED'
+  /** The artwork cannot be rendered. Will fail identically forever. */
+  | 'RASTER_INPUT_UNSUPPORTED'
   | 'STORAGE_WRITE_FAILED'
   /**
    * Another worker holds the claim and has not finished.
@@ -124,6 +127,7 @@ type AssetRow = {
   png_storage_path: string | null
   render_error_code: string | null
   claimed_at: string
+  attempt_count: number
 }
 
 /**
@@ -355,6 +359,7 @@ async function claimAsset(
       render_variant: input.renderVariant,
       token_hash: tokenHash,
       status: 'pending',
+      attempt_count: 1,
     })
     .select('id')
     .maybeSingle<{ id: string }>()
@@ -377,7 +382,11 @@ async function claimAsset(
   // A recorded fault that was about infrastructure rather than about this card
   // must not be permanent. Leaving it would mean one storage blip strands a
   // guest's invitation forever, since every later attempt just replays the code.
-  if (existing.status === 'failed' && RETRYABLE_FAILURES.has(existing.render_error_code ?? '')) {
+  if (
+    existing.status === 'failed' &&
+    RETRYABLE_FAILURES.has(existing.render_error_code ?? '') &&
+    existing.attempt_count < MAX_TRANSIENT_ATTEMPTS
+  ) {
     const retaken = await takeOver(supabase, existing, 'failed')
     if (retaken) return { kind: 'claimed', row: retaken }
   }
@@ -401,10 +410,20 @@ async function claimAsset(
  */
 const RETRYABLE_FAILURES = new Set<string>([
   'STORAGE_WRITE_FAILED',
-  'RASTER_FAILED',
   'FONT_DOWNLOAD_FAILED',
+  'RASTER_RUNTIME_FAILED',
   'PREPARATION_IN_PROGRESS',
 ])
+
+/**
+ * Attempts allowed for a transient fault before it is treated as permanent.
+ *
+ * RASTER_RUNTIME_FAILED is the reason this exists. It cannot distinguish a
+ * runtime hiccup from an artwork that kills the renderer every time, so without
+ * a ceiling one broken design would burn a render per guest on every send,
+ * forever, to arrive at the same answer.
+ */
+const MAX_TRANSIENT_ATTEMPTS = 3
 
 /**
  * Take an asset over from whoever held it, atomically.
@@ -425,7 +444,15 @@ async function takeOver(
 ): Promise<{ id: string } | null> {
   const { data } = await supabase
     .from('invitation_card_delivery_assets')
-    .update({ status: 'pending', claimed_at: new Date().toISOString(), render_error_code: null })
+    .update({
+      status: 'pending',
+      claimed_at: new Date().toISOString(),
+      last_attempted_at: new Date().toISOString(),
+      // Safe as a read-then-write because it rides the same compare-and-swap:
+      // a competing writer moves claimed_at and this update matches nothing.
+      attempt_count: observed.attempt_count + 1,
+      render_error_code: null,
+    })
     .eq('id', observed.id)
     .eq('status', expectedStatus)
     .eq('claimed_at', observed.claimed_at)
@@ -454,7 +481,7 @@ async function readAsset(
 ): Promise<AssetRow | null> {
   const { data } = await supabase
     .from('invitation_card_delivery_assets')
-    .select('id, status, png_storage_path, render_error_code, claimed_at')
+    .select('id, status, png_storage_path, render_error_code, claimed_at, attempt_count')
     .eq('design_release_id', input.designReleaseId)
     .eq('guest_id', input.guestId)
     .eq('render_variant', input.renderVariant)
@@ -486,12 +513,16 @@ function fromRasterCode(code: RasterErrorCode): PrepareFailureCode {
     case 'SVG_INVALID':
     case 'OUTPUT_BLANK':
     case 'OUTPUT_LIMIT_EXCEEDED':
-    case 'RASTER_FAILED':
       return code
+    // Broad by nature: it covers a resvg throw that is not a parse error, which
+    // may be the runtime or may be this artwork. Treated as runtime so it can be
+    // retried, but the attempt cap stops that becoming unbounded.
+    case 'RASTER_FAILED':
+      return 'RASTER_RUNTIME_FAILED'
     // An initialisation failure is an infrastructure fault, not a fact about
     // this card. Reported as a generic raster failure so a retry is sensible.
     case 'WASM_INITIALIZATION_FAILED':
-      return 'RASTER_FAILED'
+      return 'RASTER_RUNTIME_FAILED'
     default: {
       // Compile-time exhaustiveness: an unhandled code cannot slip past.
       const exhaustive: never = code
@@ -505,11 +536,12 @@ const FAILURE_CODES = new Set<string>([
   'RELEASE_NOT_FOUND', 'GUEST_NOT_FOUND', 'RELEASE_SVG_MISSING', 'GUEST_NAME_MISSING',
   'GUEST_ROLE_UNMAPPED', 'FONT_UNRESOLVED', 'FONT_FORMAT_UNSUPPORTED', 'FONT_NOT_LICENSED',
   'FONT_DOWNLOAD_FAILED', 'SVG_INVALID', 'OUTPUT_BLANK', 'OUTPUT_LIMIT_EXCEEDED',
-  'RASTER_FAILED', 'STORAGE_WRITE_FAILED', 'PREPARATION_IN_PROGRESS', 'TOKEN_SECRET_MISSING',
+  'RASTER_RUNTIME_FAILED', 'RASTER_INPUT_UNSUPPORTED', 'STORAGE_WRITE_FAILED',
+  'PREPARATION_IN_PROGRESS', 'TOKEN_SECRET_MISSING',
 ])
 
 function asFailureCode(stored: string | null): PrepareFailureCode {
-  return stored && FAILURE_CODES.has(stored) ? (stored as PrepareFailureCode) : 'RASTER_FAILED'
+  return stored && FAILURE_CODES.has(stored) ? (stored as PrepareFailureCode) : 'RASTER_RUNTIME_FAILED'
 }
 
 async function loadBindings(

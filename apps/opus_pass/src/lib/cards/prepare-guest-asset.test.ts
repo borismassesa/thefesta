@@ -331,6 +331,7 @@ test('a stale pending claim is reclaimed and completed', async () => {
       png_storage_path: null,
       render_error_code: null,
       claimed_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+      attempt_count: 1,
     },
   ]
 
@@ -357,6 +358,7 @@ test('a fresh pending claim is left alone', async () => {
       png_storage_path: null,
       render_error_code: null,
       claimed_at: new Date().toISOString(),
+      attempt_count: 1,
     },
   ]
 
@@ -381,6 +383,7 @@ test('a recorded failure is reported again rather than re-rendered', async () =>
       png_storage_path: null,
       render_error_code: 'FONT_UNRESOLVED',
       claimed_at: new Date().toISOString(),
+      attempt_count: 1,
     },
   ]
 
@@ -448,7 +451,7 @@ test('two simultaneous reclaimers of a stale lease produce one render', async ()
     {
       id: 'stranded', design_release_id: RELEASE_ID, guest_id: GUEST_ID,
       render_variant: VARIANT, token_hash: 'whatever', status: 'pending',
-      png_storage_path: null, render_error_code: null, claimed_at: stale,
+      png_storage_path: null, render_error_code: null, claimed_at: stale, attempt_count: 1,
     },
   ]
 
@@ -510,4 +513,57 @@ test('the token is domain-separated and versioned', () => {
     .digest('base64url')
 
   assert.equal(token, expected)
+})
+
+test('a transient fault stops retrying at the attempt cap', async () => {
+  // Without this, an artwork that kills the renderer every time would be retried
+  // on every send for every guest, forever, to reach the same answer.
+  const client = makeClient()
+  client.tables['invitation_card_delivery_assets'] = [
+    {
+      id: 'exhausted', design_release_id: RELEASE_ID, guest_id: GUEST_ID,
+      render_variant: VARIANT, token_hash: 'whatever', status: 'failed',
+      png_storage_path: null, render_error_code: 'RASTER_RUNTIME_FAILED',
+      claimed_at: new Date().toISOString(), attempt_count: 3,
+    },
+  ]
+
+  const result = await run(client)
+
+  assert.equal(result.ok, false)
+  if (!result.ok) assert.equal(result.code, 'RASTER_RUNTIME_FAILED')
+  // Reported, not retried.
+  assert.equal(client.uploadCount, 0)
+  assert.equal(client.asset()?.attempt_count, 3)
+})
+
+test('each retake increments the attempt counter', async () => {
+  const client = makeClient()
+  client.failUploadOnce = true
+
+  await run(client)
+  assert.equal(client.asset()?.attempt_count, 1, 'first attempt')
+
+  await run(client)
+
+  assert.equal(client.asset()?.attempt_count, 2, 'retake counts as an attempt')
+  assert.equal(client.asset()?.status, 'ready')
+})
+
+test('a permanent raster fault is never retried, whatever the count', async () => {
+  const client = makeClient()
+  client.tables['invitation_card_delivery_assets'] = [
+    {
+      id: 'bad-input', design_release_id: RELEASE_ID, guest_id: GUEST_ID,
+      render_variant: VARIANT, token_hash: 'whatever', status: 'failed',
+      png_storage_path: null, render_error_code: 'RASTER_INPUT_UNSUPPORTED',
+      claimed_at: new Date().toISOString(), attempt_count: 1,
+    },
+  ]
+
+  const result = await run(client)
+
+  assert.equal(result.ok, false)
+  if (!result.ok) assert.equal(result.code, 'RASTER_INPUT_UNSUPPORTED')
+  assert.equal(client.uploadCount, 0)
 })
