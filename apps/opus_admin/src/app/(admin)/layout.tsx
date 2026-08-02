@@ -6,6 +6,7 @@ import { Header } from '@/components/Header'
 import { DesktopOnlyNotice } from '@/components/DesktopOnlyNotice'
 import { PageHeadingProvider } from '@/components/PageHeading'
 import { PageSearchProvider } from '@/components/PageSearch'
+import { getInboxUnreadCount } from './inbox/data'
 import {
   getAdminAccessRole,
   getCallerPermissions,
@@ -50,7 +51,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               SecondarySidebarSlot so the Header stays only above the content. */}
           <div id="secondary-sidebar" className="shrink-0" />
           <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
-            <Header profile={profile} />
+            <Header profile={profile} inboxUnread={getInboxUnreadCount()} />
             <main className="flex-1 overflow-y-auto overflow-x-hidden">
               {children}
             </main>

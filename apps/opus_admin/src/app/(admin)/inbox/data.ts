@@ -618,3 +618,14 @@ Looking forward to your review.`,
     ],
   },
 ]
+
+// Unread count for the header's Messages badge. Derived from the same list
+// the page renders, so the badge can never claim something /inbox does not
+// show. Archived threads are excluded — they are out of the working set even
+// if they were never opened.
+//
+// This is the one place to repoint when the inbox moves off DEMO_INBOX: swap
+// the source here and the header follows.
+export function getInboxUnreadCount(): number {
+  return DEMO_INBOX.filter((i) => i.unread && i.status !== 'archived').length
+}

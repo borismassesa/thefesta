@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, LogOut, MessagesSquare, Search, Settings, X } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
-import SupportBell from "./SupportBell";
 import NotificationBell from "./NotificationBell";
 import { transitionApprovalRequest } from "@/app/(admin)/approvals/actions";
 import { usePageHeading } from "./PageHeading";
@@ -19,7 +18,15 @@ import type { CallerProfile } from "@/lib/admin-auth";
 const BADGE_SLOT_ID = 'page-header-badge'
 const ACTIONS_SLOT_ID = 'page-header-actions'
 
-export function Header({ profile }: { profile: CallerProfile }) {
+export function Header({
+  profile,
+  inboxUnread = 0,
+}: {
+  profile: CallerProfile
+  // Resolved by the layout: the header is a client component and has no
+  // business reaching for inbox data itself.
+  inboxUnread?: number
+}) {
   // Heading and search are both driven by each page via context — the page
   // is the only thing that knows what it's actually showing and what a
   // search query should match against.
@@ -109,22 +116,29 @@ export function Header({ profile }: { profile: CallerProfile }) {
           </div>
         )}
 
+        {/* Messages: unread threads on /inbox. The count is resolved on the
+            server from the same list the page renders, so the badge and the
+            page can never disagree. No unread, no badge. */}
         <Link
           href="/inbox"
-          aria-label="Messages"
-          className="relative text-gray-400 hover:text-gray-600 transition-colors"
+          title="Messages"
+          aria-label={
+            inboxUnread > 0 ? `Messages, ${inboxUnread} unread` : "Messages"
+          }
+          className="relative rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
         >
           <MessagesSquare className="w-5 h-5" />
-          <span className="absolute -top-0.5 right-0 w-2 h-2 bg-red-500 border-2 border-gray-50 rounded-full"></span>
+          {inboxUnread > 0 && (
+            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+              {inboxUnread > 9 ? "9+" : inboxUnread}
+            </span>
+          )}
         </Link>
 
-        {/* Support: live dropdown of Opus support conversations awaiting a
-            human, with an unread count. Polls client-side. */}
-        <SupportBell />
-
-        {/* Workflow notifications: approvals and anything else that publishes
-            to workflow_events. Inline approve is handed in here so the bell
-            itself stays free of any Approvals-module dependency. */}
+        {/* The one bell: workflow notifications (approvals and anything else
+            that publishes to workflow_events) plus the live support queue.
+            Inline approve is handed in here so the bell itself stays free of
+            any Approvals-module dependency. */}
         <NotificationBell
           onApprove={async (requestId) => {
             const res = await transitionApprovalRequest(requestId, "Approved", {
