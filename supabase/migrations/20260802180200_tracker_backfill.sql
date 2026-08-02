@@ -38,7 +38,10 @@ BEGIN
     'brand',
     e.slug,
     e.name,
-    COALESCE(e.md_employee_id, e.acting_md_employee_id),
+    -- The legacy tracker moved from one md_employee_id to an ordered
+    -- md_employee_ids array in 20260701000007. Keep the first permanent MD as
+    -- the stable owner, falling back to the acting MD only when none is set.
+    COALESCE(e.md_employee_ids[1], e.acting_md_employee_id),
     e.sort_order,
     jsonb_build_object('imported_from', 'md_tracker_engines', 'engine_id', e.id)
   FROM md_tracker_engines e

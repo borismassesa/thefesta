@@ -504,7 +504,8 @@ BEGIN
   ]
   LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
-    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM PUBLIC, anon, authenticated', t);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', t);
   END LOOP;
 END
 $$;

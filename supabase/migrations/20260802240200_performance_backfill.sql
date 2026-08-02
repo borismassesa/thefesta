@@ -113,19 +113,25 @@ BEGIN
         )
         RETURNING id INTO v_goal;
 
-        INSERT INTO goal_key_results (
-          goal_id, title, measurement_type, start_value, target_value,
-          current_value, direction, unit
-        ) VALUES (
-          v_goal,
-          'Monthly target',
-          'number',
-          0,
-          rec.monthly_target,
-          0,
-          'increase',
-          rec.kpi_key
-        );
+        -- A zero in the legacy KPI table means "target not set" (for example
+        -- revenue_attributed), not "aim to stay at zero". Arithmetic key
+        -- results deliberately reject target = start because attainment would
+        -- divide by zero, so leave that goal ready for an owner to define.
+        IF rec.monthly_target <> 0 THEN
+          INSERT INTO goal_key_results (
+            goal_id, title, measurement_type, start_value, target_value,
+            current_value, direction, unit
+          ) VALUES (
+            v_goal,
+            'Monthly target',
+            'number',
+            0,
+            rec.monthly_target,
+            0,
+            'increase',
+            rec.kpi_key
+          );
+        END IF;
 
         v_created := v_created + 1;
       END IF;
