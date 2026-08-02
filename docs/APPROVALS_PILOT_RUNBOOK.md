@@ -4,17 +4,24 @@ Three gates stand between the current state and a desktop-only employee pilot.
 None of them are engineering. This is the order to do them in and exactly what
 to run.
 
-Current verified state (1 August 2026):
+Current verified state (2 August 2026):
 
 - Application code is **deployed** to `admin.opusfesta.com`.
   `/api/notifications/retry` returns 401 (exists, rejecting unauthenticated
   probes) and `/insights/notifications` returns 307 (exists, redirecting to
   sign-in).
-- `app.settings.opus_admin_base_url` — **UNSET**
-- `app.settings.notification_retry_secret` — **UNSET**
-- pg_cron job `notification-email-retry` — **active**, firing every 10 minutes
-  into a no-op because the settings above are missing.
+- Retry config lives in **Supabase Vault**, not `app.settings.*`. Hosted
+  Supabase denies `ALTER DATABASE ... SET` to the dashboard role, so that
+  route is not available on this project. Both secrets
+  (`opus_admin_base_url`, `notification_retry_secret`) are **stored**.
+- pg_cron job `notification-email-retry` — **active**, every 10 minutes,
+  command `SELECT public.trigger_notification_retry();` (no credential in
+  the schedule).
 - Undelivered notifications: 0.
+
+Gate 1 below is therefore **already done** on this project. It is kept as the
+procedure for a fresh environment, and because the secret still has to match
+what Vercel holds.
 
 ---
 
@@ -55,31 +62,40 @@ will not see the new value until you redeploy.
 npm run deploy:admin -- --prod
 ```
 
-### Step 4. Set the database settings
+### Step 4. Store the config in Vault
 
 Supabase → SQL Editor. Replace `<SECRET>` with the same value from step 1.
 
+Do **not** reach for `ALTER DATABASE postgres SET app.settings.…`. Hosted
+Supabase refuses it for the dashboard role (`ERROR: 42501: permission denied
+to set parameter`), and the workaround people fall into — inlining the secret
+into `cron.job.command` — puts a production credential in plaintext in a table
+`anon` and `authenticated` can both read, and in every backup and schema dump.
+
 ```sql
-ALTER DATABASE postgres SET app.settings.opus_admin_base_url = 'https://admin.opusfesta.com';
-ALTER DATABASE postgres SET app.settings.notification_retry_secret = '<SECRET>';
+SELECT vault.create_secret('https://admin.opusfesta.com', 'opus_admin_base_url');
+SELECT vault.create_secret('<SECRET>', 'notification_retry_secret');
 ```
 
-`ALTER DATABASE ... SET` only applies to **new** connections. pg_cron opens a
-fresh connection per run, so the next tick picks it up, but anything holding a
-pooled connection will not. If verification fails immediately, wait one cycle
-before investigating.
+To rotate rather than create, use `vault.update_secret(<uuid>, '<SECRET>')`
+with the id from `vault.secrets`. `trigger_notification_retry()` reads Vault on
+every run, so a rotation takes effect on the next tick with no redeploy.
 
 ### Step 5. Verify
 
-Confirm both settings landed:
+Confirm both secrets landed and the schedule carries no credential:
 
 ```sql
 SELECT
-  coalesce(current_setting('app.settings.opus_admin_base_url', true), '(UNSET)') AS base_url,
-  CASE WHEN current_setting('app.settings.notification_retry_secret', true) IS NULL
-       THEN '(UNSET)' ELSE 'set' END AS secret,
-  (SELECT count(*) FROM cron.job WHERE jobname='notification-email-retry' AND active) AS cron_active;
+  (SELECT count(*) FROM vault.decrypted_secrets WHERE name='opus_admin_base_url')       AS base_url,
+  (SELECT count(*) FROM vault.decrypted_secrets WHERE name='notification_retry_secret') AS secret,
+  (SELECT command FROM cron.job WHERE jobname='notification-email-retry')               AS cron_command,
+  (SELECT count(*) FROM cron.job WHERE jobname='notification-email-retry' AND active)   AS cron_active;
 ```
+
+Both counts must be `1`, and `cron_command` must be exactly
+`SELECT public.trigger_notification_retry();` — anything longer means a secret
+is sitting in the schedule.
 
 Fire the trigger manually rather than waiting ten minutes:
 
@@ -100,7 +116,8 @@ LIMIT 3;
 - `200` — working. The body reports `claimed`/`sent`/`failed`/`abandoned`.
 - `401` — the Vercel secret and the database secret do not match, or step 3
   was skipped so the deployment has not picked up the variable.
-- No rows — the trigger no-opped, meaning a setting is still unset.
+- No rows — the trigger no-opped, meaning neither Vault nor `app.settings.*`
+  yielded a base URL and secret. Re-run step 5.
 
 Finally, from the repo:
 

@@ -611,7 +611,11 @@ function CreateCatalog({
               accent="#B45309"
               tint="#FEF3C7"
               label="Favourites"
-              blurb="Pinned by you. Starred types also appear under Quick create."
+              blurb={
+                favouritesOnly
+                  ? 'Pinned by you. Filtered to favourites only.'
+                  : 'Pinned by you. Starred types also appear under Quick create.'
+              }
               items={starred}
               view={view}
               stats={stats}
