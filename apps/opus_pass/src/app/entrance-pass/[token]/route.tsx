@@ -64,7 +64,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
         { name: 'Dancing Script', data: nameFontBuf, style: 'normal', weight: 400 },
         { name: 'Playfair Display', data: serifFontBuf, style: 'normal', weight: 700 },
       ],
-      headers: { 'cache-control': 'private, no-store' },
+      headers: {
+        // The PNG contains the guest's scannable credential, so it must never
+        // reach a shared cache where another guest could be served it.
+        'cache-control': 'private, no-store',
+        // The ticket URL carries the guest's own capability token. Without
+        // this, opening it from anywhere that renders HTML would leak that
+        // token to whatever the page links to next.
+        'referrer-policy': 'no-referrer',
+      },
     },
   )
 }
