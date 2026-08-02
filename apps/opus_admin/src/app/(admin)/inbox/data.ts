@@ -618,3 +618,16 @@ Looking forward to your review.`,
     ],
   },
 ]
+
+// First-paint seed for the header's Messages badge. Counted off the same list
+// the page renders, and with the same rule the page's own "Unread" folder uses
+// — archived threads are excluded, since they are out of the working set even
+// if they were never opened. Once /inbox mounts it republishes the live count
+// (see InboxUnread), because read state lives in that page's local state and
+// is never written back here.
+//
+// This is the one place to repoint when the inbox moves off DEMO_INBOX: swap
+// the source here and the header follows.
+export function getInboxUnreadCount(): number {
+  return DEMO_INBOX.filter((i) => i.unread && i.status !== 'archived').length
+}

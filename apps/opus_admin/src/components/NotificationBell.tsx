@@ -1,15 +1,38 @@
 'use client'
 
-// Staff notification bell. Reads `staff_notifications` (channel='bell') for
-// the signed-in employee.
+// The admin's single notification bell. Two things feed it:
 //
-// Distinct from SupportBell, which is a live queue of customer conversations
-// awaiting a reply. This one is the workflow inbox: things that happened in
-// Approvals (and, as other modules publish to workflow_events, everywhere
-// else) that this person needs to know about or act on.
+//  1. `staff_notifications` (channel='bell') for the signed-in employee — the
+//     workflow inbox: things that happened in Approvals (and, as other modules
+//     publish to workflow_events, everywhere else) that this person needs to
+//     know about or act on. Stored, so they carry read/archived state.
+//  2. Support conversations awaiting a human, polled from
+//     /api/support/notifications. These are a live queue, not stored
+//     notifications: they clear when someone replies, so they have no read
+//     state and no archive action.
+//
+// They used to be two adjacent bells wearing the same icon, which nobody could
+// tell apart. Support keeps its own tab here so the distinction survives.
 
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { Bell, Check, CheckCheck, ExternalLink, Inbox, X } from 'lucide-react'
+import Link from 'next/link'
+import {
+  AlertTriangle,
+  Bell,
+  CalendarX,
+  Check,
+  CheckCheck,
+  Clock,
+  CreditCard,
+  ExternalLink,
+  Headset,
+  Inbox,
+  MessageSquare,
+  RefreshCcw,
+  ShieldAlert,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   archiveNotification,
@@ -24,7 +47,33 @@ import {
   type StaffNotification,
 } from '@/lib/notifications/types'
 
-const TABS: (NotificationCategory | 'all')[] = ['all', 'approvals', 'requests', 'system']
+// 'support' is a bell-only tab: it is fed by the live support queue, not by a
+// staff_notifications row, so it deliberately is not a NotificationCategory.
+type Tab = NotificationCategory | 'all' | 'support'
+
+const TABS: Tab[] = ['all', 'approvals', 'requests', 'support', 'system']
+
+const TAB_LABEL: Record<Tab, string> = { ...CATEGORY_LABEL, support: 'Support' }
+
+type SupportItem = {
+  id: string
+  subject: string | null
+  topic: string | null
+  lastMessageAt: string
+}
+
+const TOPIC_ICON: Record<string, LucideIcon> = {
+  refund: RefreshCcw,
+  payment: CreditCard,
+  cancellation: CalendarX,
+  human_request: Headset,
+  complaint: AlertTriangle,
+  account: ShieldAlert,
+}
+
+function topicIcon(topic: string | null): LucideIcon {
+  return (topic && TOPIC_ICON[topic]) || MessageSquare
+}
 
 function timeAgo(iso: string, now: number): string {
   const s = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 1000))
@@ -51,7 +100,15 @@ export default function NotificationBell({
   // Set alongside the data it timestamps, so relative times are "as of the
   // last fetch" and never differ between server and client render.
   const [fetchedAt, setFetchedAt] = useState(0)
-  const [tab, setTab] = useState<NotificationCategory | 'all'>('all')
+  const [support, setSupport] = useState<SupportItem[]>([])
+  const [supportCount, setSupportCount] = useState(0)
+  const [supportFetchedAt, setSupportFetchedAt] = useState(0)
+  // The support endpoint 401s for staff without support.read. Hide the tab
+  // rather than showing one that is permanently empty for them. Only an
+  // auth refusal hides it — a 500 means the queue is unreadable right now,
+  // not that this person may not see it.
+  const [supportAllowed, setSupportAllowed] = useState(false)
+  const [tab, setTab] = useState<Tab>('all')
   const [pending, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -72,8 +129,49 @@ export default function NotificationBell({
     }
   }, [])
 
+  // Support is a live queue rather than stored rows, so it keeps the poll it
+  // had as its own bell. The stored notifications still refresh on open.
+  useEffect(() => {
+    let alive = true
+    const load = async () => {
+      try {
+        const res = await fetch('/api/support/notifications')
+        if (!alive) return
+        if (res.status === 401 || res.status === 403) {
+          setSupportAllowed(false)
+          return
+        }
+        if (!res.ok) {
+          // Server-side failure. Leave the tab as it was and keep the last
+          // known queue; the next poll will pick it up.
+          console.error('[support] notifications poll failed', res.status)
+          return
+        }
+        const data = (await res.json()) as { count: number; items: SupportItem[] }
+        if (!alive) return
+        setSupportAllowed(true)
+        setSupportCount(data.count ?? 0)
+        setSupport(data.items ?? [])
+        setSupportFetchedAt(Date.now())
+      } catch {
+        /* transient — keep the last known queue */
+      }
+    }
+    void load()
+    const t = setInterval(load, 30000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [])
+
   const unread = items.filter((i) => i.status === 'unread')
-  const visible = tab === 'all' ? items : items.filter((i) => i.category === tab)
+  const visible =
+    tab === 'all' ? items : tab === 'support' ? [] : items.filter((i) => i.category === tab)
+  // Support rows show under their own tab and at the top of All, where they
+  // read as the most actionable thing in the panel.
+  const visibleSupport = tab === 'all' || tab === 'support' ? support : []
+  const tabs = TABS.filter((t) => t !== 'support' || supportAllowed)
 
   useEffect(() => {
     if (!open) return
@@ -145,31 +243,31 @@ export default function NotificationBell({
   const categoryCounts = TABS.reduce<Record<string, number>>((acc, t) => {
     acc[t] =
       t === 'all'
-        ? unread.length
-        : unread.filter((i) => i.category === t).length
+        ? unread.length + supportCount
+        : t === 'support'
+          ? supportCount
+          : unread.filter((i) => i.category === t).length
     return acc
   }, {})
+
+  // One badge for the one bell: unread workflow notifications plus support
+  // conversations still waiting on a human.
+  const badge = unread.length + supportCount
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
         onClick={openPanel}
-        // Two bells sit side by side in the header. Until they merge into a
-        // single notification centre, each has to say which one it is.
-        title="Workflow notifications"
-        aria-label={
-          unread.length > 0
-            ? `Workflow notifications, ${unread.length} unread`
-            : 'Workflow notifications'
-        }
+        title="Notifications"
+        aria-label={badge > 0 ? `Notifications, ${badge} needing attention` : 'Notifications'}
         aria-expanded={open}
         className="relative rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
       >
         <Bell className="h-5 w-5" />
-        {unread.length > 0 && (
+        {badge > 0 && (
           <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-            {unread.length > 9 ? '9+' : unread.length}
+            {badge > 9 ? '9+' : badge}
           </span>
         )}
       </button>
@@ -178,21 +276,31 @@ export default function NotificationBell({
         <div className="absolute right-0 z-50 mt-2 w-[380px] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_20px_50px_-20px_rgba(0,0,0,0.3)]">
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
             <p className="text-sm font-semibold text-gray-900">Notifications</p>
-            {unread.length > 0 && (
+            {tab === 'support' ? (
+              <Link
+                href="/support?filter=attention"
+                onClick={() => setOpen(false)}
+                className="text-xs font-semibold text-[#5B2D8E] hover:text-[#7E5896]"
+              >
+                View all
+              </Link>
+            ) : (
+              unread.length > 0 && (
               <button
                 type="button"
                 onClick={markAll}
                 disabled={pending}
                 className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-[#5B2D8E] hover:bg-[#F8EDFF] disabled:opacity-50"
               >
-                <CheckCheck className="h-3.5 w-3.5" />
-                Mark all read
-              </button>
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Mark all read
+                </button>
+              )
             )}
           </div>
 
           <div className="flex gap-1 border-b border-gray-100 px-2 py-1.5">
-            {TABS.map((t) => (
+            {tabs.map((t) => (
               <button
                 key={t}
                 type="button"
@@ -202,7 +310,7 @@ export default function NotificationBell({
                   tab === t ? 'bg-[#F0DFF6] text-[#5B2D8E]' : 'text-gray-500 hover:bg-gray-50',
                 )}
               >
-                {CATEGORY_LABEL[t]}
+                {TAB_LABEL[t]}
                 {categoryCounts[t] > 0 && (
                   <span className="ml-1 text-[10px] text-rose-500">{categoryCounts[t]}</span>
                 )}
@@ -211,18 +319,55 @@ export default function NotificationBell({
           </div>
 
           <div className="max-h-[420px] overflow-y-auto">
-            {visible.length === 0 ? (
+            {visible.length === 0 && visibleSupport.length === 0 ? (
               <div className="px-4 py-10 text-center">
                 <Inbox className="mx-auto h-6 w-6 text-gray-300" />
                 <p className="mt-2 text-sm font-medium text-gray-700">Nothing here</p>
                 <p className="mt-0.5 text-xs text-gray-500">
                   {tab === 'all'
                     ? 'Approvals and updates will appear here.'
-                    : `No ${CATEGORY_LABEL[tab].toLowerCase()} notifications.`}
+                    : tab === 'support'
+                      ? 'No conversations are waiting on a human.'
+                      : `No ${TAB_LABEL[tab].toLowerCase()} notifications.`}
                 </p>
               </div>
             ) : (
               <ul className="divide-y divide-gray-50">
+                {visibleSupport.map((it) => {
+                  const Icon = topicIcon(it.topic)
+                  return (
+                    <li key={`support-${it.id}`}>
+                      <Link
+                        href={`/support/${it.id}`}
+                        onClick={() => setOpen(false)}
+                        className="flex gap-3 px-4 py-3 transition-colors hover:bg-gray-50"
+                      >
+                        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-[#1A1A1A]">
+                            {it.subject || 'New conversation'}
+                          </p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                              Needs human
+                            </span>
+                            {it.topic && (
+                              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-gray-600">
+                                {it.topic.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-400">
+                            <Clock className="h-3 w-3" />
+                            {timeAgo(it.lastMessageAt, supportFetchedAt)}
+                          </p>
+                        </div>
+                      </Link>
+                    </li>
+                  )
+                })}
                 {visible.map((n) => (
                   <li
                     key={n.id}

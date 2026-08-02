@@ -30,6 +30,7 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { usePublishInboxUnread } from '@/components/InboxUnread'
 import { SOURCE_META } from './data'
 import type {
   InboxAttachment,
@@ -171,6 +172,11 @@ export function InboxClient({ initial }: { initial: InboxItem[] }) {
     for (const it of items) if (it.status !== 'archived') bySource[it.source] += 1
     return { byFolder, bySource }
   }, [items])
+
+  // Keep the header's Messages badge honest: this page owns read/archive
+  // state, so it is the only thing that knows the count once anyone opens a
+  // thread. Publishes the same number the "Unread" folder shows.
+  usePublishInboxUnread(counts.byFolder.unread)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
