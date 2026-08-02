@@ -47,6 +47,11 @@ UPDATE guest_invitations SET entry_allowance = 1
  WHERE event_id = '<event>' AND checked_in_count <= 1;
 ```
 
+This decays and must be re-run: invitations created afterwards derive their
+allowance from `party_size`, and any later `party_size` edit re-derives it
+upward. During a live event guests are still being added, so treat it as a
+holding action, not a switch.
+
 Passes that already admitted more than one are deliberately excluded, because
 the trigger refuses an allowance below the headcount already inside. Handle
 those with Tier 2 rather than forcing them.
@@ -60,7 +65,8 @@ keeps accurate.
 Almost every failure here is a data question, not a schema question.
 
 ```sql
--- Rows where the deprecated mirror and the counter disagree (should be none)
+-- Rows where the deprecated mirror and the counter disagree (should be none;
+-- the migration resyncs the mirror during backfill, so a hit here is real)
 SELECT id, checked_in_count, checked_in_party_size, entry_allowance
   FROM guest_invitations
  WHERE checked_in_count <> COALESCE(checked_in_party_size, 0)
@@ -109,8 +115,16 @@ COMMIT;
 
 Do **not** add `DROP COLUMN entry_allowance, checked_in_count` and do **not**
 drop `checkin_scan_events`. Leaving them costs two integer columns and keeps
-the only record of partial admissions. Re-applying the migration afterwards is
-then a no-op on data, because every step is written to be idempotent.
+the only record of partial admissions.
+
+**Re-applying the migration after a Tier 3 revert is NOT safe.** The DDL is
+idempotent; the two backfills are not. On a second run they reset every
+allowance back to `party_size` and recompute every live counter from the
+deprecated mirror, discarding any allowance override and any floored value. If
+the trigger from the first application is still installed, those same
+statements also abort part-way on the authorisation guard. Restore from a
+backup, or hand-write a repair, rather than re-running this file against a
+database that has already carried live counters.
 
 ## Operational notes
 
@@ -121,8 +135,10 @@ SELECT * FROM supabase_migrations.schema_migrations
  WHERE version LIKE '20260802210000%';
 ```
 
-**Idempotency keys.** The scanner sends a `requestId` per admission attempt
-and reuses it when retrying a failed one. Without it a lost response followed
+**Idempotency keys.** The camera path sends a `requestId` per admission
+attempt and reuses it when retrying that same failed scan. The manual-roster,
+entry-code and amend paths deliberately mint a fresh id per tap and are never
+replayed. Without it a lost response followed
 by a re-scan admits the party twice. Any new client calling
 `checkin_admit_guest()` must send one.
 

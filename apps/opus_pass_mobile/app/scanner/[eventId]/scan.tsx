@@ -176,6 +176,11 @@ export default function ScanScreen() {
           status: 'error',
           message: getErrorMessage(err, 'Network error'),
         });
+        // Same reasoning as runScan, and it matters more here: the amend may
+        // well have landed and freed headroom. Without this, the next re-scan
+        // of the pass mints a fresh id and re-admits the heads this correction
+        // just released — silently undoing it, and reporting success.
+        lastResultRef.current = 'error';
       } finally {
         setPending(false);
       }

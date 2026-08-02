@@ -80,13 +80,13 @@ start_backend() {
   fi
 }
 
-# Reset a fixture row. Lowering checked_in_count is refused outside
-# amend_guest_invitation_checkin(), so the reset takes the same
-# transaction-local authorisation that RPC sets. One -c is one transaction.
+# Reset a fixture row. ANY change to checked_in_count is refused outside the
+# two RPCs, so the reset takes the same transaction-local authorisation they
+# set. One -c is one transaction, so the flag covers the UPDATE.
 reset_row() { # $1 invitation, $2 allowance
   psql_run -At -c "
     DELETE FROM checkin_scan_events WHERE guest_invitation_id = '$1';
-    SELECT set_config('opuspass.checkin_amend', 'on', true);
+    SELECT set_config('opuspass.checkin_writer', 'on', true);
     UPDATE guest_invitations
        SET checked_in_count = 0, checked_in_at = NULL, checked_in_by = NULL,
            checked_in_door = NULL, checked_in_party_size = NULL,
@@ -133,14 +133,15 @@ run_race() { # $1 label, $2 invitation, $3 allowance, $4 admit arg, $5 shared|un
     (
       psql_run -At -c "
         SELECT pg_sleep(GREATEST(0, extract(epoch FROM ('$start'::timestamptz - clock_timestamp()))));
-        SELECT result FROM checkin_admit_guest(
+        SELECT result || ':' || is_replay FROM checkin_admit_guest(
           '$2', '$EVENT', $4, 'Racer $i', 'Gate $i', $req);
       " 2>/dev/null | tail -1 > "$tmp/$i"
     ) &
   done
   wait
 
-  RACE_ADMITTED=$(cat "$tmp"/* | grep -c '^admitted$')
+  RACE_ADMITTED=$(cat "$tmp"/* | grep -c '^admitted:')
+  RACE_REPLAYS=$(cat "$tmp"/* | grep -c ':true$')
   RACE_FINAL=$(psql_run -At -c "SELECT checked_in_count FROM guest_invitations WHERE id = '$2'")
   echo "--- $1"
   echo "    outcomes:    $(cat "$tmp"/* | sort | uniq -c | tr '\n' ' ' | tr -s ' ')"
@@ -167,6 +168,10 @@ psql_run -At -c "DELETE FROM checkin_scan_events
                   WHERE request_id = '00000000-dead-beef-0000-000000000001';" >/dev/null 2>&1
 run_race "C: $RACERS deliveries of ONE request id" '44444444-0000-0000-0000-000000000012' 4 '2' shared
 expect "$RACE_FINAL" 2 "a retry storm must admit exactly one party"
+# The counter alone is not enough: without the replay flag the route would
+# report every retry as a fresh admission and the couple's feed would draw
+# seven phantom arrivals for one guest.
+expect "$RACE_REPLAYS" $((RACERS - 1)) "every delivery but one must be flagged as a replay"
 
 # ---------------------------------------------------------------------------
 # An admission contending with an administrative edit. Both lock acquisition

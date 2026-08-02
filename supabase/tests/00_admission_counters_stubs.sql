@@ -55,7 +55,15 @@ CREATE TABLE guest_invitations (
   checked_in_door TEXT,
   checked_in_party_size INT,
 
-  UNIQUE (guest_contact_id, event_id)
+  UNIQUE (guest_contact_id, event_id),
+
+  -- From 20260722000003. Included because the counter migration has to
+  -- redefine it: without this here, the suite would pass while production
+  -- rejected any admission past party_size.
+  CONSTRAINT checked_in_party_size_range CHECK (
+    checked_in_party_size IS NULL
+    OR checked_in_party_size BETWEEN 1 AND GREATEST(COALESCE(party_size, 1), 1)
+  )
 );
 
 -- Rows that exist BEFORE the counter migration, covering every backfill case.

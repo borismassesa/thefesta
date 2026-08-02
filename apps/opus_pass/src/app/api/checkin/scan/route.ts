@@ -27,9 +27,24 @@ interface ScanBody {
   attendantName?: string
 }
 
-/** One row of checkin_admit_guest()'s result table. */
+/**
+ * One row of checkin_admit_guest()'s result table.
+ *
+ * Every value here is emitted by the RPC in
+ * supabase/migrations/20260802210000_opuspass_admission_counters.sql. Adding a
+ * result there without adding it here is silent: the route falls through to
+ * whatever its last `else` says, which is how a valid guest once got told they
+ * were not attending.
+ */
 interface AdmitResult {
-  result: 'admitted' | 'exhausted' | 'not_attending' | 'wrong_event' | 'not_found' | 'in_progress'
+  result:
+    | 'admitted'
+    | 'exhausted'
+    | 'not_attending'
+    | 'wrong_event'
+    | 'not_found'
+    | 'request_conflict'
+    | 'in_progress'
   is_replay: boolean
   admitted_now: number
   total_admitted: number
@@ -72,11 +87,14 @@ export async function POST(request: Request) {
   if (!eventId || !accessToken) {
     return NextResponse.json({ status: 'error', message: 'Malformed request' }, { status: 400 })
   }
-  // Exactly one admission path must be supplied. A manual override must carry
-  // a reason so the audit trail can always explain a scan-less admission.
-  // A scan carries a QR; every scan-less admission (roster pick or typed
-  // code) must carry a reason so the audit trail can explain it.
+  // A scan carries a QR; every scan-less admission (roster pick or typed code)
+  // must carry a reason so the audit trail can explain it. A body carrying
+  // both is refused rather than silently resolved as a scan, so an attendant
+  // who believes they did a manual override never quietly gets one.
   if (!qrToken && !((invitationId || entryCode) && manualReason)) {
+    return NextResponse.json({ status: 'error', message: 'Malformed request' }, { status: 400 })
+  }
+  if (qrToken && (invitationId || entryCode)) {
     return NextResponse.json({ status: 'error', message: 'Malformed request' }, { status: 400 })
   }
 
@@ -145,14 +163,28 @@ export async function POST(request: Request) {
   // validating at this door, and is also how revocation works: a guest the
   // couple later moved off "attending" is refused even though their token is
   // still cryptographically valid — no separate revocation table needed.
-  const { data: invitation } = await supabase
+  const { data: invitation, error: invitationError } = await supabase
     .from('guest_invitations')
-    .select(
-      'id, event_id, guest_contact_id, party_size, entry_allowance, checked_in_count, checked_in_at, checked_in_party_size, rsvp_status'
-    )
+    .select('id, event_id, guest_contact_id, party_size, rsvp_status')
     .eq('id', targetInvitationId)
     .eq('event_id', eventId)
     .maybeSingle()
+
+  // A transient query failure also yields a null row. Reporting that as "not
+  // for this event" turns a database blip into a definitive-sounding refusal
+  // of a legitimate guest, so the two are answered differently.
+  if (invitationError) {
+    console.error('[checkin] invitation lookup failed', {
+      eventId,
+      invitationId: targetInvitationId,
+      code: invitationError.code,
+      message: invitationError.message,
+    })
+    return NextResponse.json(
+      { status: 'error', message: "Couldn't verify this pass — try again" },
+      { status: 503 }
+    )
+  }
 
   if (!invitation) {
     return NextResponse.json({ status: 'invalid', message: 'This pass is not for this event' })
@@ -203,15 +235,26 @@ export async function POST(request: Request) {
     p_event_id: eventId,
     // Null admits the whole remaining allowance, which is the common
     // "everyone in this party walked in together" case. An explicit count
-    // over the remainder is rejected outright rather than clamped, so an
-    // attendant is told their number was impossible instead of silently
-    // getting a different one.
+    // over the remainder is rejected outright rather than clamped. Note the
+    // RPC reports that as 'exhausted', which reads at the door as a duplicate:
+    // it does NOT currently say "that number was impossible".
     p_admit_count: typeof body.checkedInPartySize === 'number' ? body.checkedInPartySize : null,
     p_checked_in_by: auditLabel,
     p_checked_in_door: displayDoor,
     p_request_id: body.requestId ?? null,
   })
-  if (error) return NextResponse.json({ status: 'error', message: 'Check-in failed' }, { status: 500 })
+  if (error) {
+    // The Postgres error is the only thing that distinguishes a constraint
+    // breach from an exhausted connection pool at 11pm during an event.
+    console.error('[checkin] admit RPC failed', {
+      eventId,
+      invitationId: targetInvitationId,
+      requestId: body.requestId,
+      code: error.code,
+      message: error.message,
+    })
+    return NextResponse.json({ status: 'error', message: 'Check-in failed' }, { status: 500 })
+  }
 
   const admit = (admitRows as AdmitResult[] | null)?.[0]
   if (!admit) return NextResponse.json({ status: 'error', message: 'Check-in failed' }, { status: 500 })
@@ -222,6 +265,17 @@ export async function POST(request: Request) {
   if (admit.result === 'in_progress') {
     return NextResponse.json(
       { status: 'error', message: 'Still processing that scan — try again' },
+      { status: 409 }
+    )
+  }
+
+  // The scan id was already claimed against a DIFFERENT guest, so nothing was
+  // admitted and nothing was replayed. This says nothing about the guest in
+  // front of the attendant, and must not be reported as though it did: the
+  // pass may be perfectly valid and the right answer is simply to scan again.
+  if (admit.result === 'request_conflict') {
+    return NextResponse.json(
+      { status: 'error', message: 'That scan was already used for another guest — scan again' },
       { status: 409 }
     )
   }
@@ -260,13 +314,18 @@ export async function POST(request: Request) {
   // A replay is reported exactly like the response it is replacing, so a
   // scanner that retried a lost request sees the same card it would have
   // seen the first time.
-  await broadcastCheckin(eventId, {
-    status: 'success',
-    guestName,
-    partySize: admit.total_admitted,
-    doorLabel: displayDoor,
-    at: admit.first_admitted_at ?? new Date().toISOString(),
-  })
+  // Not on a replay: the arrival was already announced by the delivery that
+  // actually admitted them, and the couple's live feed would otherwise show
+  // the same guest walking in once per retry.
+  if (!admit.is_replay) {
+    await broadcastCheckin(eventId, {
+      status: 'success',
+      guestName,
+      partySize: admit.total_admitted,
+      doorLabel: displayDoor,
+      at: admit.first_admitted_at ?? new Date().toISOString(),
+    })
+  }
 
   return NextResponse.json({
     status: 'success',

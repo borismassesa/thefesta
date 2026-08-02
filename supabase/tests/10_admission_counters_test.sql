@@ -39,6 +39,21 @@ BEGIN
   PERFORM assert_eq(r.entry_allowance, 1, 'A4 pathological party_size 0 floors allowance to 1');
 END $$;
 
+-- The deprecated mirror must come out of the backfill agreeing with the
+-- counter, or every reader still on it disagrees with the door from day one.
+DO $$
+DECLARE bad INT;
+BEGIN
+  SELECT count(*)::INT INTO bad FROM guest_invitations
+   WHERE checked_in_at IS NOT NULL
+     AND checked_in_party_size IS DISTINCT FROM checked_in_count;
+  PERFORM assert_eq(bad, 0, 'A5 backfill leaves the deprecated mirror equal to the counter');
+
+  PERFORM assert_eq((SELECT checked_in_party_size FROM guest_invitations
+                     WHERE id = '44444444-0000-0000-0000-000000000003'),
+                    3, 'A6 a pre-mirror legacy row gets its mirror populated');
+END $$;
+
 -- ===========================================================================
 -- B. Fresh fixtures for behavioural tests
 -- ===========================================================================
@@ -364,7 +379,11 @@ END $$;
 -- ===========================================================================
 DO $$
 BEGIN
+  -- Any unauthorised counter write is now refused before the CHECK is even
+  -- reached, so the constraint itself is exercised through the authorised
+  -- path: the bound must hold even for a writer that is allowed to write.
   BEGIN
+    PERFORM set_config('opuspass.checkin_writer', 'on', TRUE);
     UPDATE guest_invitations SET checked_in_count = 99
      WHERE id = '44444444-0000-0000-0000-000000000010';
     RAISE EXCEPTION 'FAIL: E1 counter above allowance was accepted';
@@ -379,7 +398,7 @@ BEGIN
      WHERE id = '44444444-0000-0000-0000-000000000010';
     RAISE EXCEPTION 'FAIL: E2 negative counter was accepted';
   EXCEPTION WHEN insufficient_privilege THEN
-    RAISE NOTICE 'pass: E2 negative counter refused by the amend-path guard';
+    RAISE NOTICE 'pass: E2 negative counter refused by the writer guard';
   END;
 
   -- and the CHECK still backs it up on an INSERT, where no OLD row exists
@@ -562,12 +581,14 @@ BEGIN
                      ORDER BY created_at DESC LIMIT 1),
                     2, 'H4 audit records the EFFECTIVE allowance');
 
-  -- direct increase of the counter beyond the allowance: rejected
+  -- direct increase of the counter beyond the allowance: rejected by the
+  -- writer guard before the CHECK is reached. The CHECK itself is exercised
+  -- through the authorised path in E1.
   BEGIN
     UPDATE guest_invitations SET checked_in_count = 99
      WHERE id = '44444444-0000-0000-0000-000000000031';
     RAISE EXCEPTION 'FAIL: H5 counter above allowance accepted';
-  EXCEPTION WHEN check_violation THEN
+  EXCEPTION WHEN insufficient_privilege THEN
     RAISE NOTICE 'pass: H5 direct counter increase beyond allowance rejected';
   END;
 
@@ -579,6 +600,44 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN
     RAISE NOTICE 'pass: H6 counter may only be lowered by the amend RPC';
   END;
+
+  -- direct RAISE within the allowance: also rejected. It passes every CHECK
+  -- but leaves checked_in_at NULL, producing a row that reads "fully arrived"
+  -- to the counter and "never arrived" to the timestamp, after which the next
+  -- real scan refuses a guest whose pass was never scanned.
+  BEGIN
+    UPDATE guest_invitations SET checked_in_count = 3
+     WHERE id = '44444444-0000-0000-0000-000000000031';
+    RAISE EXCEPTION 'FAIL: H7 unauthorised counter raise accepted';
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'pass: H7 counter may only be raised by the admit RPC';
+  END;
+
+  PERFORM assert_eq((SELECT count(*)::INT FROM guest_invitations
+                     WHERE checked_in_at IS NULL AND checked_in_count > 0),
+                    0, 'H8 no row is admitted without a timestamp');
+END $$;
+
+-- ===========================================================================
+-- H9. An allowance raised above party_size is actually admissible
+-- ===========================================================================
+-- The deprecated mirror used to be bounded by party_size while the counter is
+-- bounded by the allowance. Admitting past party_size then failed on a raw
+-- check_violation surfaced at the door as "Check-in failed".
+DO $$
+DECLARE res RECORD; r guest_invitations;
+BEGIN
+  UPDATE guest_invitations SET entry_allowance = 6
+   WHERE id = '44444444-0000-0000-0000-000000000011';   -- party_size 2
+
+  SELECT * INTO res FROM checkin_admit_guest(
+    '44444444-0000-0000-0000-000000000011', '22222222-2222-2222-2222-222222222222',
+    3, 'Asha', 'Main Gate', gen_random_uuid());
+  PERFORM assert_eq(res.result, 'admitted', 'H9 admits past party_size on a raised allowance');
+
+  SELECT * INTO r FROM guest_invitations WHERE id = '44444444-0000-0000-0000-000000000011';
+  PERFORM assert_eq(r.checked_in_count, 5, 'H9 counter passed party_size');
+  PERFORM assert_eq(r.checked_in_party_size, 5, 'H9 mirror followed it past party_size');
 END $$;
 
 -- ===========================================================================
@@ -702,6 +761,43 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN
     RAISE NOTICE 'pass: J11 amend authorisation does not leak past the RPC';
   END;
+END $$;
+
+-- ===========================================================================
+-- J12. A request id cannot cross between the two RPCs
+-- ===========================================================================
+INSERT INTO guest_contacts (id, user_id, full_name) VALUES
+  ('33333333-0000-0000-0000-000000000050', '11111111-1111-1111-1111-111111111111', 'Cross RPC Guest');
+INSERT INTO guest_invitations (id, user_id, guest_contact_id, event_id, rsvp_status, party_size) VALUES
+  ('44444444-0000-0000-0000-000000000050', '11111111-1111-1111-1111-111111111111',
+   '33333333-0000-0000-0000-000000000050', '22222222-2222-2222-2222-222222222222', 'attending', 4);
+
+DO $$
+DECLARE res RECORD; req UUID := gen_random_uuid(); admit_req UUID := gen_random_uuid();
+BEGIN
+  -- An admission's id presented to amend is a conflict, not a replay: the
+  -- correction would otherwise be silently discarded and answered with the
+  -- admission's own outcome.
+  SELECT * INTO res FROM checkin_admit_guest(
+    '44444444-0000-0000-0000-000000000050', '22222222-2222-2222-2222-222222222222',
+    1, 'Asha', 'Main Gate', admit_req);
+  PERFORM assert_eq(res.result, 'admitted', 'J12 setup admission');
+
+  SELECT * INTO res FROM amend_guest_invitation_checkin(
+    '44444444-0000-0000-0000-000000000050', '22222222-2222-2222-2222-222222222222',
+    1, 'reusing an admission id', 'Asha', admit_req);
+  PERFORM assert_eq(res.result, 'request_conflict', 'J12 admit id refused by amend');
+
+  -- and the reverse
+  SELECT * INTO res FROM amend_guest_invitation_checkin(
+    '44444444-0000-0000-0000-000000000050', '22222222-2222-2222-2222-222222222222',
+    1, 'a real correction', 'Asha', req);
+  PERFORM assert_eq(res.result, 'amended', 'J12 real correction lands');
+
+  SELECT * INTO res FROM checkin_admit_guest(
+    '44444444-0000-0000-0000-000000000050', '22222222-2222-2222-2222-222222222222',
+    1, 'Asha', 'Main Gate', req);
+  PERFORM assert_eq(res.result, 'request_conflict', 'J12 amend id refused by admit');
 END $$;
 
 -- ===========================================================================

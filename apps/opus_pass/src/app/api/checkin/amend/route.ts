@@ -33,15 +33,13 @@ interface AmendResult {
 /**
  * Corrects how many of an already-admitted party actually arrived.
  *
- * Exists as its own route because check-in is deliberately first-scan-wins:
- * checkin_guest_invitation() only updates rows where checked_in_at IS NULL,
- * so a second scan can never silently rewrite an admission. That's the right
- * default for the door, but it leaves no way to fix "RSVP'd 3, only 2 came"
- * once the pass is scanned.
+ * Exists as its own route because a re-scan can only ever admit MORE of a
+ * party: checkin_admit_guest() adds to the counter and refuses once the
+ * allowance is spent, so it can never bring a headcount down. Correcting
+ * "RSVP'd 3, only 2 came" needs the one path allowed to lower the counter.
  *
- * Keeping it separate from /scan means a genuine duplicate scan still reads
- * as a duplicate, and every headcount correction is an explicit, intentional
- * action rather than a side effect of re-scanning.
+ * Keeping it separate from /scan also means every reduction is an explicit,
+ * intentional act carrying a reason, rather than a side effect of re-scanning.
  */
 export async function POST(request: Request) {
   const { eventId, accessToken, qrToken, invitationId, checkedInPartySize, reason, requestId, doorLabel } =
@@ -111,6 +109,15 @@ export async function POST(request: Request) {
     p_request_id: requestId ?? null,
   })
   if (error) {
+    // Without this the on-call engineer gets a 500 and a five-word string.
+    // A constraint breach and a dead connection pool look identical otherwise.
+    console.error('[checkin] amend RPC failed', {
+      eventId,
+      invitationId: targetInvitationId,
+      requestId,
+      code: error.code,
+      message: error.message,
+    })
     return NextResponse.json({ status: 'error', message: 'Could not update headcount' }, { status: 500 })
   }
 
@@ -126,6 +133,16 @@ export async function POST(request: Request) {
     )
   }
   if (amendResult.result !== 'amended') {
+    // A conflict says nothing about the pass: the request id was claimed
+    // against a different guest, so nothing was amended and nothing replayed.
+    // Reporting it as a wrong-event pass would be a false statement about a
+    // guest standing at the door.
+    if (amendResult.result === 'request_conflict') {
+      return NextResponse.json(
+        { status: 'error', message: 'That correction id was already used for another guest — try again' },
+        { status: 409 }
+      )
+    }
     const message =
       amendResult.result === 'not_checked_in'
         ? 'This guest has not been checked in yet'
@@ -159,15 +176,21 @@ export async function POST(request: Request) {
 
   // Re-broadcast so live dashboards converge on the corrected number rather
   // than keeping the optimistic full-party figure from the original scan.
-  await broadcastCheckin(eventId, {
-    status: 'success',
-    guestName: guest?.full_name ?? 'Guest',
-    partySize: amended,
-    doorLabel: doorLabel || 'Main Gate',
+  //
+  // Skipped entirely for a full reversal: the admin console increments its
+  // arrivals counter on every 'success', so broadcasting one here would add an
+  // arrival for the guest this correction just recorded as never having come.
+  if (amended > 0) {
+    await broadcastCheckin(eventId, {
+      status: 'success',
+      guestName: guest?.full_name ?? 'Guest',
+      partySize: amended,
+      doorLabel: doorLabel || 'Main Gate',
     // From the RPC, not the row read before the write: a correction to 0 is a
     // full reversal and clears the arrival, so the pre-write value is stale.
-    at: amendResult.first_admitted_at ?? new Date().toISOString(),
-  })
+      at: amendResult.first_admitted_at ?? new Date().toISOString(),
+    })
+  }
 
   return NextResponse.json({
     status: 'success',

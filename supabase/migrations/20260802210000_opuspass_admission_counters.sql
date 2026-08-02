@@ -30,8 +30,10 @@ ALTER TABLE guest_invitations
   ADD COLUMN IF NOT EXISTS entry_allowance INT NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS checked_in_count INT NOT NULL DEFAULT 0;
 
--- Backfill BEFORE the CHECK constraints go on, so a bad legacy row fails the
--- migration loudly here rather than at some later door scan.
+-- Backfill BEFORE the CHECK constraints go on, so they validate against
+-- normalised data. Note the backfill CLAMPS rather than rejects: a pathological
+-- legacy row (party_size 0, a mirror above its own party) is silently
+-- normalised here, not surfaced.
 --
 -- entry_allowance comes from the RSVP'd headcount. GREATEST(...,1) because
 -- party_size has a NOT NULL default of 1 but nothing has ever stopped a
@@ -45,8 +47,19 @@ WHERE entry_allowance IS DISTINCT FROM GREATEST(COALESCE(party_size, 1), 1);
 -- confirmed at the door and is the only honest figure; party_size is the
 -- fallback for rows admitted before that column existed (the old 3-arg RPC
 -- recorded the whole party), and 1 is the last resort.
+-- checked_in_party_size is rewritten from the counter in the same statement.
+-- Two legacy shapes leave the two headcounts disagreeing otherwise: a row
+-- admitted before that column existed (NULL mirror, non-zero counter), and a
+-- row whose party_size was later trimmed below its recorded arrival (the
+-- counter clamps to the allowance, the mirror does not). Since the mirror's
+-- whole contract from here on is "same number as the counter", it has to start
+-- out that way.
 UPDATE guest_invitations
 SET checked_in_count = LEAST(
+      GREATEST(COALESCE(checked_in_party_size, party_size, 1), 1),
+      entry_allowance
+    ),
+    checked_in_party_size = LEAST(
       GREATEST(COALESCE(checked_in_party_size, party_size, 1), 1),
       entry_allowance
     )
@@ -58,6 +71,22 @@ ALTER TABLE guest_invitations
   DROP CONSTRAINT IF EXISTS guest_invitations_entry_allowance_positive,
   DROP CONSTRAINT IF EXISTS guest_invitations_checked_in_count_non_negative,
   DROP CONSTRAINT IF EXISTS guest_invitations_checked_in_count_within_allowance;
+
+-- 20260722000003 bounded checked_in_party_size by party_size. Now that the
+-- column is a mirror of checked_in_count, it has to carry the counter's bound
+-- instead: an allowance raised above party_size would otherwise let the
+-- counter reach a value the mirror is forbidden to hold, and the admission
+-- that crossed the line would fail on a raw check_violation surfaced at the
+-- door as "Check-in failed".
+ALTER TABLE guest_invitations
+  DROP CONSTRAINT IF EXISTS checked_in_party_size_range;
+
+ALTER TABLE guest_invitations
+  ADD CONSTRAINT checked_in_party_size_range
+    CHECK (
+      checked_in_party_size IS NULL
+      OR checked_in_party_size BETWEEN 1 AND GREATEST(entry_allowance, 1)
+    );
 
 ALTER TABLE guest_invitations
   ADD CONSTRAINT guest_invitations_entry_allowance_positive
@@ -177,12 +206,27 @@ COMMENT ON TABLE guest_invitation_allowance_events IS
 -- party_size is written from several places (the public RSVP page, the
 -- WhatsApp webhook, the couple's dashboard, admin tooling). Rather than
 -- update every writer and hope none is added later, the allowance tracks the
--- RSVP'd headcount by default. An explicit entry_allowance write always wins,
--- which is what a "VIP admits 6" override will use.
+-- RSVP'd headcount.
+--
+-- LIMITATION, deliberate for now: an explicit entry_allowance write wins only
+-- until the next party_size change. Nothing on the row distinguishes a derived
+-- allowance from an overridden one, so a later RSVP edit recomputes it from
+-- party_size and the override is lost. That cuts both ways: a widened VIP
+-- allowance silently shrinks, and a deliberately RESTRICTED one silently
+-- widens. Nothing issues overrides today. Before anything does, this needs a
+-- column marking the allowance as overridden (or a NULL sentinel meaning
+-- "derive"), so the branch below can skip those rows.
 
+-- SECURITY DEFINER because this trigger writes to
+-- guest_invitation_allowance_events, which has RLS on and no policies. Running
+-- as the invoking role would make an ordinary RSVP edit (guest_invitations is
+-- owner-writable by `authenticated`) fail on the audit insert and abort the
+-- whole edit, which is the exact outcome the flooring branch exists to avoid.
+-- A trigger function is not PostgREST-reachable, so it needs no REVOKE.
 CREATE OR REPLACE FUNCTION guest_invitations_sync_entry_allowance()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
@@ -198,14 +242,20 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- A downward correction of the counter is a reversal, and reversals must
-  -- carry a reason and an audit row. amend_guest_invitation_checkin() sets a
-  -- transaction-local flag to mark itself as that authorised path; anything
-  -- else lowering the counter is a stray write and is refused.
-  IF NEW.checked_in_count < OLD.checked_in_count
-     AND COALESCE(current_setting('opuspass.checkin_amend', TRUE), '') <> 'on' THEN
+  -- ANY movement of the counter must come from one of the two RPCs, which set
+  -- a transaction-local flag to identify themselves.
+  --
+  -- Guarding both directions, not just downward: a raise that stays within the
+  -- allowance passes every CHECK, yet leaves checked_in_at NULL. That row then
+  -- reads as "fully arrived" to every counter-based reader and "never arrived"
+  -- to every checked_in_at-based one, and the next real scan refuses a guest
+  -- who never had a pass scanned. guest_invitations has several writers (the
+  -- RSVP page, the WhatsApp webhook, the couple's dashboard, admin tooling),
+  -- which is the same reason the downward guard exists.
+  IF NEW.checked_in_count IS DISTINCT FROM OLD.checked_in_count
+     AND COALESCE(current_setting('opuspass.checkin_writer', TRUE), '') <> 'on' THEN
     RAISE EXCEPTION
-      'checked_in_count may only be lowered by amend_guest_invitation_checkin() (invitation %)',
+      'checked_in_count may only be changed by checkin_admit_guest() or amend_guest_invitation_checkin() (invitation %)',
       NEW.id
       USING ERRCODE = 'insufficient_privilege';
   END IF;
@@ -246,7 +296,6 @@ BEGIN
         NEW.entry_allowance, NEW.checked_in_count, NEW.id
         USING ERRCODE = 'check_violation';
     END IF;
-    NEW.entry_allowance := GREATEST(NEW.entry_allowance, 1);
   END IF;
 
   -- Floor at 1 only. Deliberately NOT floored at NEW.checked_in_count: doing
@@ -308,6 +357,7 @@ DECLARE
   v_prior      checkin_scan_events;
   v_updated    guest_invitations;
   v_admitted   INT := 0;
+  v_updated_rows INT := 0;
   v_result     TEXT;
 BEGIN
   IF p_event_id IS NULL THEN
@@ -317,7 +367,14 @@ BEGIN
   -- Read by id ALONE so a pass for another event can be reported as such
   -- rather than as a generic "not found", which would leave an attendant
   -- unable to tell a fake pass from a right-guest-wrong-day pass.
-  SELECT * INTO v_inv FROM guest_invitations WHERE id = p_guest_invitation_id;
+  --
+  -- FOR UPDATE because admitted_now and the ledger's admitted_count are derived
+  -- by subtracting this snapshot from the post-UPDATE row. Without the lock two
+  -- doors admitting 2 each of a party of 4 both read count=0, and both report
+  -- having admitted the whole party: the counter stays correct at 4 while the
+  -- ledger sums to 6, destroying the per-door record a headcount dispute would
+  -- be settled with.
+  SELECT * INTO v_inv FROM guest_invitations WHERE id = p_guest_invitation_id FOR UPDATE;
 
   IF NOT FOUND THEN
     RETURN QUERY SELECT 'not_found'::TEXT, FALSE, 0, 0, 0, NULL::TIMESTAMPTZ, 0;
@@ -353,8 +410,12 @@ BEGIN
       -- Re-presenting an id under a different invitation or event would
       -- otherwise return that other guest's "admitted" and wave this one
       -- through on someone else's admission.
+      -- Both RPCs share this table's request_id space. A claim made by the
+      -- amend path is not an admission, so replaying it here would answer an
+      -- admission with a correction's outcome.
       IF v_prior.guest_invitation_id <> p_guest_invitation_id
-         OR v_prior.event_id <> p_event_id THEN
+         OR v_prior.event_id <> p_event_id
+         OR v_prior.source = 'amend' THEN
         RETURN QUERY SELECT 'request_conflict'::TEXT, FALSE, 0,
                             v_inv.checked_in_count, v_inv.entry_allowance,
                             v_inv.checked_in_at, COALESCE(v_inv.party_size, 1);
@@ -386,6 +447,13 @@ BEGIN
   -- while an unspecified count admits whatever is left. The >= 1 guard
   -- covers both a zero/negative explicit count and an already-exhausted
   -- allowance.
+  -- Opens the authorisation window for the trigger, and it is closed again
+  -- immediately after the UPDATE below. The flag is transaction-local, so
+  -- leaving it open would let every later statement in the SAME transaction
+  -- write the counter freely — which is exactly what a caller batching an
+  -- admission with other work would do by accident.
+  PERFORM set_config('opuspass.checkin_writer', 'on', TRUE);
+
   UPDATE guest_invitations gi
   SET checked_in_count = gi.checked_in_count
                        + COALESCE(p_admit_count, gi.entry_allowance - gi.checked_in_count),
@@ -405,7 +473,12 @@ BEGIN
       + COALESCE(p_admit_count, gi.entry_allowance - gi.checked_in_count) <= gi.entry_allowance
   RETURNING * INTO v_updated;
 
-  IF FOUND THEN
+  -- ROW_COUNT before anything else: GET DIAGNOSTICS leaves FOUND alone, but
+  -- the set_config below would set it unconditionally.
+  GET DIAGNOSTICS v_updated_rows = ROW_COUNT;
+  PERFORM set_config('opuspass.checkin_writer', 'off', TRUE);
+
+  IF v_updated_rows > 0 THEN
     v_admitted := v_updated.checked_in_count - v_inv.checked_in_count;
 
     IF p_request_id IS NOT NULL THEN
@@ -500,6 +573,7 @@ DECLARE
   v_updated    guest_invitations;
   v_prior      checkin_scan_events;
   v_claim_rows INT := 0;
+  v_updated_rows INT := 0;
   v_delta      INT;
 BEGIN
   IF p_event_id IS NULL THEN
@@ -511,7 +585,7 @@ BEGIN
     RAISE EXCEPTION 'amend_guest_invitation_checkin requires a reason';
   END IF;
 
-  SELECT * INTO v_inv FROM guest_invitations WHERE id = p_guest_invitation_id;
+  SELECT * INTO v_inv FROM guest_invitations WHERE id = p_guest_invitation_id FOR UPDATE;
   IF NOT FOUND THEN
     RETURN QUERY SELECT 'not_found'::TEXT, FALSE, 0, 0, NULL::TIMESTAMPTZ, 0;
     RETURN;
@@ -547,8 +621,12 @@ BEGIN
 
     IF v_claim_rows = 0 THEN
       SELECT * INTO v_prior FROM checkin_scan_events WHERE request_id = p_request_id;
+      -- An id already claimed by an ADMISSION is not a correction to replay:
+      -- returning its 'admitted' outcome here would silently discard the
+      -- amendment and report a result the caller cannot interpret.
       IF v_prior.guest_invitation_id <> p_guest_invitation_id
-         OR v_prior.event_id <> p_event_id THEN
+         OR v_prior.event_id <> p_event_id
+         OR v_prior.source <> 'amend' THEN
         RETURN QUERY SELECT 'request_conflict'::TEXT, FALSE,
                             v_inv.checked_in_count, v_inv.entry_allowance,
                             v_inv.checked_in_at, COALESCE(v_inv.party_size, 1);
@@ -562,10 +640,10 @@ BEGIN
     END IF;
   END IF;
 
-  -- Marks this transaction as the authorised lowering path for the trigger.
+  -- Marks this transaction as an authorised counter writer for the trigger.
   -- Transaction-local (third argument TRUE), so it cannot leak into a later
   -- statement on a pooled connection.
-  PERFORM set_config('opuspass.checkin_amend', 'on', TRUE);
+  PERFORM set_config('opuspass.checkin_writer', 'on', TRUE);
 
   UPDATE guest_invitations gi
   SET checked_in_count = p_new_count,
@@ -581,9 +659,14 @@ BEGIN
     AND p_new_count <= gi.entry_allowance
   RETURNING * INTO v_updated;
 
-  PERFORM set_config('opuspass.checkin_amend', 'off', TRUE);
+  -- ROW_COUNT captured IMMEDIATELY, before anything else can touch FOUND.
+  -- set_config() returns a row, so a PERFORM here would set FOUND true
+  -- unconditionally and make the recovery branch below dead code: a zero-row
+  -- amendment would then report success with NULL totals.
+  GET DIAGNOSTICS v_updated_rows = ROW_COUNT;
+  PERFORM set_config('opuspass.checkin_writer', 'off', TRUE);
 
-  IF NOT FOUND THEN
+  IF v_updated_rows = 0 THEN
     -- The allowance moved under us between the read and the write.
     SELECT * INTO v_inv FROM guest_invitations WHERE id = p_guest_invitation_id;
     IF p_request_id IS NOT NULL THEN
@@ -630,10 +713,14 @@ GRANT EXECUTE ON FUNCTION amend_guest_invitation_checkin(UUID, UUID, INT, TEXT, 
 -- ad-hoc tooling, so the old name keeps working with its old contract:
 -- returns the row on success, an all-NULL row when the guest is already in.
 --
--- It is strictly weaker than checkin_admit_guest:
+-- It differs from checkin_admit_guest in three ways that matter:
 --   - cannot verify event context (the old signature carries no event id)
 --   - has no caller-supplied idempotency key, so retries are NOT replayed
---   - preserves the older, looser authorisation semantics
+--   - returns NULL for EVERY non-admission, not just "already checked in":
+--     unknown pass, wrong event and withdrawn RSVP all look identical to a
+--     legacy caller. It is also STRICTER than the function it replaces, which
+--     had no RSVP gate at all, and it no longer reports duplicates: repeated
+--     calls keep admitting one at a time until the allowance is spent.
 --
 -- Two deliberate safety reductions relative to the old behaviour:
 --   1. It admits EXACTLY ONE person per call and ignores p_checked_in_party_size.
@@ -681,7 +768,9 @@ BEGIN
   );
 
   IF v_result <> 'admitted' THEN
-    RETURN NULL; -- old contract: NULL row means "already checked in"
+    -- Old contract: a NULL row. It cannot distinguish exhausted from
+    -- not_attending, wrong_event or not_found — see the header note.
+    RETURN NULL;
   END IF;
 
   SELECT * INTO v_row FROM guest_invitations WHERE id = p_guest_invitation_id;
