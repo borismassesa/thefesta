@@ -224,6 +224,27 @@ BEGIN
     RETURN;
   END IF;
 
+  -- No active credential. Whether one may be minted depends entirely on WHY.
+  --
+  -- Revocation is a deliberate withdrawal, and this function is reached by the
+  -- guest simply reopening the ticket link already sitting in their WhatsApp
+  -- thread. Minting here would mean a revoked pass silently comes back to life
+  -- on the next page load, which defeats revocation completely. Re-issuing
+  -- after a withdrawal has to go through rotate_admission_credential(), which
+  -- demands a reason.
+  --
+  -- Expiry is different: it is a lazy sweep, not a decision, so a fresh
+  -- credential after it is the intended behaviour.
+  SELECT * INTO v_cred FROM admission_credentials
+   WHERE guest_invitation_id = p_guest_invitation_id
+   ORDER BY issued_at DESC, created_at DESC
+   LIMIT 1;
+
+  IF FOUND AND v_cred.status = 'revoked' THEN
+    RETURN QUERY SELECT 'revoked'::TEXT, NULL::UUID, NULL::TEXT, NULL::INT, FALSE;
+    RETURN;
+  END IF;
+
   INSERT INTO admission_credentials (
     guest_invitation_id, token_hash, token_ciphertext, encryption_key_version, issuance_source
   ) VALUES (

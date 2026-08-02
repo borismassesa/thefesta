@@ -209,9 +209,16 @@ test('an event with no end time falls back to its start plus a day', () => {
   assert.equal(legacyCredentialsAllowed(event, new Date('2026-09-01T00:00:00Z')), false)
 })
 
-test('an event with no timestamps at all keeps working', () => {
-  // Deliberate: there is no schedule to age it out on, and stranding real
-  // guests at a door is worse than keeping a measured branch alive.
+test('an undated event ages out on its creation date instead', () => {
+  // "Date to be announced" is a normal state in this product, so an undated
+  // event must not hold the legacy branch open forever — that branch is
+  // retired on the evidence that nothing uses it any more.
+  const event = { starts_at: null, ends_at: null, created_at: '2026-08-01T00:00:00Z' }
+  assert.equal(legacyCredentialsAllowed(event, new Date('2026-09-01T00:00:00Z')), true)
+  assert.equal(legacyCredentialsAllowed(event, new Date('2027-06-01T00:00:00Z')), false)
+})
+
+test('an event with nothing to anchor to at all is refused', () => {
   const event = { starts_at: null, ends_at: null }
-  assert.equal(legacyCredentialsAllowed(event, new Date('2030-01-01T00:00:00Z')), true)
+  assert.equal(legacyCredentialsAllowed(event, new Date('2026-08-02T00:00:00Z')), false)
 })

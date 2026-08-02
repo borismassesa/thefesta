@@ -38,7 +38,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   const pass = await getEntrancePassData(token, eventId)
   if (!pass) return new Response('Not found', { status: 404 })
 
-  let templateBuf: Buffer, nameFontBuf: Buffer, serifFontBuf: Buffer, qrDataUrl: string
+  let templateBuf: Buffer, nameFontBuf: Buffer, serifFontBuf: Buffer, qrDataUrl: string | null
   try {
     ;[templateBuf, nameFontBuf, serifFontBuf, qrDataUrl] = await Promise.all([
       readPublicFile('entrance-pass', 'ticket-template.png'),
@@ -50,6 +50,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     console.error('[entrance-pass] failed to load ticket assets', err)
     return new Response('Ticket temporarily unavailable', { status: 500 })
   }
+
+  // Withdrawn. Drawing anything here would put a working pass back in the
+  // guest's hands, so the ticket simply stops existing.
+  if (!qrDataUrl) return new Response('Not found', { status: 404 })
 
   return new ImageResponse(
     buildTicketElement({
