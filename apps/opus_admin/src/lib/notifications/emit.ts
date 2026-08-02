@@ -314,13 +314,18 @@ export async function emitWorkflowEvent(input: EmitInput): Promise<EmitSummary> 
       continue
     }
 
+    // Rendered through the same registry the retry worker uses, so an inline
+    // send and a retried send produce byte-identical email. An event type with
+    // no template (a bell-only event such as attendance.gap_detected) is not a
+    // failure: nothing was owed by email in the first place.
+    const rendered = renderNotificationEmail(input.eventType, payload, recipient)
+    if (!rendered) {
+      trace({ reason: 'template_missing', channel: 'email', employeeId: recipient.employeeId })
+      continue
+    }
+
     try {
-      // Rendered through the same registry the retry worker uses, so an
-      // inline send and a retried send produce byte-identical email.
-      const result = await input.sendEmail!(
-        recipient.email,
-        renderNotificationEmail(input.eventType, payload, recipient),
-      )
+      const result = await input.sendEmail!(recipient.email, rendered)
       if (result.sent) {
         summary.emailsSent += 1
         if (row) {
