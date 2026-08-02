@@ -344,6 +344,8 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
         'growth.admin',
         'support.read',
         'support.write',
+        'commissions.read',
+        'commissions.manage',
       ])
     case 'editor':
       return new Set(['cms.read', 'cms.write', 'cms.publish', 'vendor.read'])
@@ -351,6 +353,7 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
       return new Set([
         'cms.read', 'vendor.read', 'bookings.read', 'finance.read',
         'workforce.read', 'workforce.roles.read', 'insights.read',
+        'commissions.read',
       ])
     case 'author':
       // Authors don't access the dashboard — they live under /contribute.

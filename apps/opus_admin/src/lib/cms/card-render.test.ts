@@ -222,3 +222,153 @@ test('the artwork is still valid after a colour render', () => {
   const tags = (s: string) => (s.match(/<[a-zA-Z][^>]*>/g) ?? []).length
   assert.equal(tags(svg), tags(SWATCH_CARD))
 })
+
+// ── Writing colour into off-spec exports ──
+// The rule these share: whatever we write must actually WIN. A colour that is
+// reported as applied but loses to a stylesheet is the worst outcome available,
+// because nothing downstream knows the card is wrong.
+
+test('a class-styled swatch is overridden by an inline style, not a losing attribute', () => {
+  const svg = `<svg><defs><style>.cls-2{fill:#024231;}</style></defs>` +
+    `<g id="palette_swatch_1"><circle class="cls-2" cx="1" cy="1" r="1"/></g></svg>`
+  const { svg: out, applied } = renderCardSvg(
+    svg,
+    [{ role: 'palette_1', layerIds: ['palette_swatch_1'], kind: 'colour' }],
+    { palette_1: '#7A1F2B' },
+  )
+  assert.deepEqual(applied, ['palette_1'])
+  // A bare fill attribute here would render as #024231 despite being "applied".
+  assert.match(out, /style="fill:#7A1F2B"/)
+  assert.doesNotMatch(out, /<circle[^>]*\sfill="#7A1F2B"/)
+})
+
+test('an existing inline fill is overwritten in place', () => {
+  const svg = `<svg><g id="palette_swatch_1"><circle style="opacity:1;fill:#024231" cx="1" cy="1" r="1"/></g></svg>`
+  const { svg: out, applied } = renderCardSvg(
+    svg,
+    [{ role: 'palette_1', layerIds: ['palette_swatch_1'], kind: 'colour' }],
+    { palette_1: '#7A1F2B' },
+  )
+  assert.deepEqual(applied, ['palette_1'])
+  assert.match(out, /style="opacity:1;fill:#7A1F2B"/)
+})
+
+test('a swatch named on the shape itself can still be coloured', () => {
+  const svg = `<svg><g id="Wedding_card_Image"><image width="10" height="10" xlink:href="data:image/png;base64,AA"/>` +
+    `<circle id="palette_swatch_1" cx="1" cy="1" r="1" fill="#024231"/></g></svg>`
+  const { svg: out, applied } = renderCardSvg(
+    svg,
+    [{ role: 'palette_1', layerIds: ['palette_swatch_1'], kind: 'colour' }],
+    { palette_1: '#7A1F2B' },
+  )
+  assert.deepEqual(applied, ['palette_1'])
+  assert.match(out, /fill="#7A1F2B"/)
+})
+
+test('a role left pointing at a stale layer and a live one is refused', () => {
+  // Guards the regression a re-export causes: the mapper used to keep the old
+  // id alongside the new one, and two layers on one colour is not renderable.
+  const svg = `<svg><g id="palette_swatch_1"><circle cx="1" cy="1" r="1" fill="#024231"/></g></svg>`
+  const { applied, skipped } = renderCardSvg(
+    svg,
+    [{ role: 'palette_1', layerIds: ['palette_swatch_1_Image', 'palette_swatch_1'], kind: 'colour' }],
+    { palette_1: '#7A1F2B' },
+  )
+  assert.deepEqual(applied, [])
+  assert.equal(skipped[0].reason, 'multi_layer')
+})
+
+test('a stale binding reports the mapping problem, not the old rasterised flag', () => {
+  // The flag describes the export the card was mapped against. Reporting it
+  // after a re-export tells the designer to redo work they have already done.
+  const svg = `<svg><g id="palette_swatch_1"><circle cx="1" cy="1" r="1" fill="#024231"/></g></svg>`
+  const { skipped } = renderCardSvg(
+    svg,
+    [{ role: 'palette_1', layerIds: ['palette_swatch_1_Image'], kind: 'colour', rasterised: true }],
+    { palette_1: '#7A1F2B' },
+  )
+  assert.equal(skipped[0].reason, 'layer_missing')
+})
+
+test('a layer the artwork really does bake in is still reported as rasterised', () => {
+  const { skipped } = renderCardSvg(CARD, BINDINGS, { couple_name_1: 'Moses Seeta' })
+  const couple = skipped.find((s) => s.role === 'couple_name_1')
+  assert.equal(couple?.reason, 'rasterised')
+})
+
+// ── Kerned text and unnamed groups ──
+// Illustrator emits one tspan per kerning adjustment, and does not always wrap
+// the first character. Both shapes appear on the reference card's date.
+
+test('a kerned run collapses to one tspan and stays balanced', () => {
+  // 'AGOSTI' as Illustrator exports it: four fragments of one run.
+  const svg =
+    `<svg><g id="date_month"><text transform="translate(573 720)" font-size="23">` +
+    `<tspan letter-spacing="-0.02em">A</tspan><tspan x="16.74" y="0">G</tspan>` +
+    `<tspan x="33.51" y="0">O</tspan><tspan x="52.02" y="0">STI</tspan></text></g></svg>`
+  const { svg: out, applied } = renderCardSvg(
+    svg,
+    [{ role: 'date_month', layerIds: ['date_month'] }],
+    { date_month: 'DESEMBA' },
+  )
+  assert.deepEqual(applied, ['date_month'])
+  assert.match(out, /<tspan letter-spacing="-0\.02em">DESEMBA<\/tspan>/)
+  assert.doesNotMatch(out, /AGOSTI|STI/)
+  // The <text>'s own typesetting must survive.
+  assert.match(out, /transform="translate\(573 720\)" font-size="23"/)
+  assert.equal((out.match(/<tspan\b/g) ?? []).length, (out.match(/<\/tspan>/g) ?? []).length)
+})
+
+test('a run starting outside a tspan does not leave a stray closer', () => {
+  // The year: '2' sits directly in the <text>, the rest in tspans. Replacing
+  // naively removes the openers and leaves '</tspan>' behind, which is invalid
+  // XML and renders as a broken card with no error raised anywhere.
+  const svg =
+    `<svg><g id="date_year"><text>2<tspan x="15" y="0">0</tspan><tspan x="30" y="0">26</tspan></text></g></svg>`
+  const { svg: out, applied } = renderCardSvg(
+    svg,
+    [{ role: 'date_year', layerIds: ['date_year'] }],
+    { date_year: '2027' },
+  )
+  assert.deepEqual(applied, ['date_year'])
+  assert.match(out, /<text>2027<\/text>/)
+  assert.equal((out.match(/<tspan\b/g) ?? []).length, (out.match(/<\/tspan>/g) ?? []).length)
+})
+
+test('a run ending outside a tspan is closed rather than left open', () => {
+  const svg = `<svg><g id="x"><text><tspan>A</tspan>B</text></g></svg>`
+  const { svg: out } = renderCardSvg(svg, [{ role: 'venue_1_place', layerIds: ['x'] }], {
+    venue_1_place: 'Mlimani',
+  })
+  assert.equal((out.match(/<tspan\b/g) ?? []).length, (out.match(/<\/tspan>/g) ?? []).length)
+  assert.match(out, /Mlimani/)
+})
+
+test('two text nodes in one unnamed group become two mappable fields', () => {
+  // The reference card leaves the month and the year loose in the artboard
+  // group, so the layer as a whole reads 'AGOSTI 2026' and maps to neither.
+  const svg =
+    `<svg><g id="Artboard_1"><text><tspan>AGOSTI</tspan></text><text><tspan>2026</tspan></text></g></svg>`
+  const { applied, skipped } = renderCardSvg(
+    svg,
+    [
+      { role: 'date_month', layerIds: ['Artboard_1#1'] },
+      { role: 'date_year', layerIds: ['Artboard_1#2'] },
+    ],
+    { date_month: 'DESEMBA', date_year: '2027' },
+  )
+  assert.deepEqual(applied.sort(), ['date_month', 'date_year'])
+  assert.deepEqual(skipped, [])
+})
+
+test('the whole group is still refused, since it holds two different fields', () => {
+  const svg =
+    `<svg><g id="Artboard_1"><text><tspan>AGOSTI</tspan></text><text><tspan>2026</tspan></text></g></svg>`
+  const { applied, skipped } = renderCardSvg(
+    svg,
+    [{ role: 'date_month', layerIds: ['Artboard_1'] }],
+    { date_month: 'DESEMBA' },
+  )
+  assert.deepEqual(applied, [])
+  assert.equal(skipped[0].reason, 'complex_text')
+})

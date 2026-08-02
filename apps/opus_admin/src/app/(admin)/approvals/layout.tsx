@@ -19,7 +19,9 @@ export default async function ApprovalsLayout({ children }: { children: ReactNod
     redirect('/')
   }
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+    // Tight top padding: the tab bar sits directly under the page heading
+    // and reads as part of it, so the usual page-top gap just orphans it.
+    <div className="mx-auto max-w-[1400px] px-4 pb-8 pt-3 sm:px-6 sm:pb-10 sm:pt-4 lg:px-8">
       {children}
     </div>
   )

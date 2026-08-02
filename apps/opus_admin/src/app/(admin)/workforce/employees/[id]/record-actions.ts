@@ -30,6 +30,12 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_RE.test(value)
+}
+
 // File-storage constants — used by both record actions (delete cleanup)
 // and the attachment helpers below. Bucket already exists from
 // migration 042; the 10MB cap matches the bucket file_size_limit.
@@ -44,6 +50,13 @@ const RECORD_TABLES: Record<RecordKind, string> = {
   certification: 'workforce_employee_certifications',
   badge: 'workforce_employee_badges',
   document: 'workforce_employee_documents',
+}
+
+// recordKind arrives from the client, so test it with an own-property
+// check: a plain `RECORD_TABLES[kind]` lookup answers truthily for
+// inherited keys like 'constructor'.
+function isRecordKind(value: unknown): value is RecordKind {
+  return typeof value === 'string' && Object.hasOwn(RECORD_TABLES, value)
 }
 
 async function getCallerEmployeeId(): Promise<string | null> {
@@ -516,15 +529,16 @@ export async function uploadRecordAttachment(formData: FormData): Promise<void> 
   await requirePermission('workforce.write')
 
   const employeeId = formData.get('employeeId')
-  const recordKind = formData.get('recordKind') as RecordKind | null
+  const recordKind = formData.get('recordKind')
   const recordId = formData.get('recordId')
   const file = formData.get('file')
 
-  if (typeof employeeId !== 'string' || !employeeId) throw new Error('Missing employee id.')
-  if (typeof recordId !== 'string' || !recordId) throw new Error('Missing record id.')
-  if (!recordKind || !RECORD_TABLES[recordKind]) {
-    throw new Error('Unknown record kind.')
-  }
+  // These three become the storage key below, so they're checked to the
+  // shape the path convention assumes rather than just "non-empty".
+  if (!isUuid(employeeId)) throw new Error('Missing employee id.')
+  if (!isUuid(recordId)) throw new Error('Missing record id.')
+  if (!isRecordKind(recordKind)) throw new Error('Unknown record kind.')
+  const table = RECORD_TABLES[recordKind]
   if (!(file instanceof File)) throw new Error('No file provided.')
   if (file.size === 0) throw new Error('File is empty.')
   if (file.size > MAX_FILE_BYTES) {
@@ -532,7 +546,6 @@ export async function uploadRecordAttachment(formData: FormData): Promise<void> 
   }
 
   const supabase = createSupabaseAdminClient()
-  const table = RECORD_TABLES[recordKind]
 
   // Look up the existing attachment so we can delete the old file on
   // a successful re-upload (avoids orphaned objects piling up).
@@ -591,9 +604,9 @@ export async function removeRecordAttachment(
   recordId: string,
 ): Promise<void> {
   await requirePermission('workforce.write')
-  if (!RECORD_TABLES[recordKind]) throw new Error('Unknown record kind.')
-  const supabase = createSupabaseAdminClient()
+  if (!isRecordKind(recordKind)) throw new Error('Unknown record kind.')
   const table = RECORD_TABLES[recordKind]
+  const supabase = createSupabaseAdminClient()
 
   const { data: existing } = await supabase
     .from(table)
@@ -629,17 +642,56 @@ export type AttachmentUrlResult =
   | { ok: true; url: string }
   | { ok: false; error: string }
 
-export async function getRecordAttachmentUrl(storagePath: string): Promise<AttachmentUrlResult> {
+// Identify the attachment by the record that owns it, never by a raw
+// storage key. The `employees` bucket holds far more than these four
+// record kinds, and the path convention
+// (`{employee_id}/{record_kind}/{record_id}/…`) is guessable, so signing
+// a caller-supplied path would let any workforce.read holder pull any
+// object out of the bucket. Resolving the row first means the only paths
+// we ever sign are ones the record tables actually point at.
+export async function getRecordAttachmentUrl(
+  employeeId: string,
+  recordKind: RecordKind,
+  recordId: string,
+): Promise<AttachmentUrlResult> {
   // Reading is gated on workforce.read so any signed-in member of the
   // HR / admin team can preview, not just write-capable users.
   await requirePermission('workforce.read')
-  if (!storagePath) return { ok: false, error: 'Missing storage path.' }
+
+  if (!isRecordKind(recordKind)) return { ok: false, error: 'Unknown record kind.' }
+  if (!isUuid(employeeId) || !isUuid(recordId)) {
+    return { ok: false, error: 'Attachment not found.' }
+  }
+  const table = RECORD_TABLES[recordKind]
+
   const supabase = createSupabaseAdminClient()
+  const { data: record, error: lookupErr } = await supabase
+    .from(table)
+    .select('storage_path')
+    .eq('id', recordId)
+    .eq('employee_id', employeeId)
+    .maybeSingle<{ storage_path: string | null }>()
+
+  // Collapse "no such row", "row belongs to another employee" and a
+  // lookup failure into one answer so the response can't be used to
+  // probe which record ids exist.
+  if (lookupErr || !record?.storage_path) {
+    return { ok: false, error: 'Attachment not found.' }
+  }
+
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS)
+    .createSignedUrl(record.storage_path, SIGNED_URL_TTL_SECONDS)
   if (error || !data) {
-    return { ok: false, error: error?.message ?? 'Could not generate signed URL.' }
+    // The provider message can carry the storage key, which is the one thing
+    // this function now refuses to accept as input. Log it, return a generic
+    // string to the browser.
+    console.error('[workforce] attachment signed URL failed', {
+      employeeId,
+      recordKind,
+      reason: error?.message ?? 'unknown',
+    })
+    return { ok: false, error: 'Could not open that attachment.' }
   }
   return { ok: true, url: data.signedUrl }
 }

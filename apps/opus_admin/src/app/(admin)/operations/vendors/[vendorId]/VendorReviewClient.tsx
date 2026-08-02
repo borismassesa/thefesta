@@ -45,7 +45,7 @@ import {
   completeVendorDocumentRequest,
   deleteVendor,
   deleteVendorPayoutMethod,
-  generateSignedUrl,
+  generateVendorFileUrl,
   getVendorDeletionImpact,
   reactivateVendor,
   rejectDocument,
@@ -840,13 +840,14 @@ export default function VendorReviewClient(props: VendorReviewProps) {
             title="Verification & Payout"
             description="Approve the required legal documents, confirm the vendor agreement, and verify the payout account before activating the vendor."
           >
-            <AgreementReviewCard agreements={agreements} />
+            <AgreementReviewCard vendorId={vendor.id} agreements={agreements} />
 
             <PayoutSection vendorId={vendor.id} payouts={payouts} />
 
             {/* Identity (required) — NIDA front/back + liveness selfie captured
                 by the vendor's camera. Same approve/reject flow as any doc. */}
             <DocReviewCard
+              vendorId={vendor.id}
               title="National ID — Front"
               subtitle="Front of the Tanzania National ID (NIDA). Required."
               icon={IdCard}
@@ -862,6 +863,7 @@ export default function VendorReviewClient(props: VendorReviewProps) {
             />
 
             <DocReviewCard
+              vendorId={vendor.id}
               title="National ID — Back"
               subtitle="Back of the Tanzania National ID (NIDA). Required."
               icon={IdCard}
@@ -877,6 +879,7 @@ export default function VendorReviewClient(props: VendorReviewProps) {
             />
 
             <DocReviewCard
+              vendorId={vendor.id}
               title="Liveness selfie"
               subtitle="Selfie captured to confirm the vendor matches their ID. Required."
               icon={ScanFace}
@@ -892,6 +895,7 @@ export default function VendorReviewClient(props: VendorReviewProps) {
             />
 
             <DocReviewCard
+              vendorId={vendor.id}
               title="TRA TIN certificate"
               subtitle="Tanzania Revenue Authority tax ID. Optional."
               icon={FileText}
@@ -907,6 +911,7 @@ export default function VendorReviewClient(props: VendorReviewProps) {
             />
 
             <DocReviewCard
+              vendorId={vendor.id}
               title="Business license"
               subtitle="BRELA registration, council license, or sole-proprietor declaration. Optional."
               icon={FileText}
@@ -2209,6 +2214,7 @@ function printAgreementRecord(
 }
 
 function DocReviewCard({
+  vendorId,
   title,
   subtitle,
   icon: Icon,
@@ -2218,6 +2224,7 @@ function DocReviewCard({
   onReject,
   actionsDisabled,
 }: {
+  vendorId: string
   title: string
   subtitle: string
   icon: typeof FileText
@@ -2240,7 +2247,10 @@ function DocReviewCard({
       return
     }
     let cancelled = false
-    generateSignedUrl(doc.storagePath).then((res) => {
+    generateVendorFileUrl(vendorId, {
+      kind: 'verification-document',
+      documentId: doc.id,
+    }).then((res) => {
       if (cancelled) return
       if (!res.ok) {
         setUrlError(res.error)
@@ -2251,7 +2261,7 @@ function DocReviewCard({
     return () => {
       cancelled = true
     }
-  }, [doc?.storagePath, doc?.id])
+  }, [vendorId, doc?.storagePath, doc?.id])
 
   const isPending = doc?.status === 'pending_review'
   const isApproved = doc?.status === 'approved'
@@ -2455,8 +2465,10 @@ function DocReviewCard({
 }
 
 function AgreementReviewCard({
+  vendorId,
   agreements,
 }: {
+  vendorId: string
   agreements: VendorReviewProps['agreements']
 }) {
   const signedCount = agreements.filter((a) => a.signed).length
@@ -2494,7 +2506,7 @@ function AgreementReviewCard({
 
       <div className="flex flex-col gap-3">
         {agreements.map((doc) => (
-          <AgreementDocRow key={doc.version} doc={doc} />
+          <AgreementDocRow key={doc.version} vendorId={vendorId} doc={doc} />
         ))}
       </div>
     </article>
@@ -2506,24 +2518,31 @@ function AgreementReviewCard({
  * signed, or a muted "not signed" placeholder otherwise.
  */
 function AgreementDocRow({
+  vendorId,
   doc,
 }: {
+  vendorId: string
   doc: VendorReviewProps['agreements'][number]
 }) {
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null)
-  const imagePath = doc.signed?.signatureImagePath ?? null
+  // Only an existence signal now — the action rebuilds the key itself from
+  // the agreement version after confirming the row belongs to this vendor.
+  const hasSignatureImage = Boolean(doc.signed?.signatureImagePath)
 
   useEffect(() => {
-    if (!imagePath) return
+    if (!hasSignatureImage) return
     let cancelled = false
-    generateSignedUrl(imagePath).then((res) => {
+    generateVendorFileUrl(vendorId, {
+      kind: 'agreement-signature',
+      agreementVersion: doc.version,
+    }).then((res) => {
       if (cancelled) return
       if (res.ok) setSignatureUrl(res.url)
     })
     return () => {
       cancelled = true
     }
-  }, [imagePath])
+  }, [hasSignatureImage, vendorId, doc.version])
 
   return (
     <div
@@ -2821,9 +2840,12 @@ function DocumentRequestsPanel({
     })
   }
 
-  const preview = (storagePath: string) => {
+  const preview = (requestId: string) => {
     startTransition(async () => {
-      const res = await generateSignedUrl(storagePath)
+      const res = await generateVendorFileUrl(vendorId, {
+        kind: 'document-request',
+        requestId,
+      })
       if (!res.ok) {
         setError(res.error)
         return
@@ -2950,7 +2972,7 @@ function DocumentRequestsPanel({
                         {r.storagePath && (
                           <button
                             type="button"
-                            onClick={() => preview(r.storagePath as string)}
+                            onClick={() => preview(r.id)}
                             disabled={pending}
                             className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                           >

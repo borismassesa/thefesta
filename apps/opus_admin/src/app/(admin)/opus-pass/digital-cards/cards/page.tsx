@@ -6,6 +6,7 @@ import { HeaderActionsSlot } from '@/components/HeaderPortals'
 import { hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { resolveOpusPassAssetUrl } from '@/lib/cms/opus-pass-asset-url'
+import { assessBindings, type CardFieldBinding } from '@/lib/cms/card-field-roles'
 import {
   DEFAULT_PRODUCT_SORT,
   NO_BADGE,
@@ -30,7 +31,7 @@ const BASE = '/opus-pass/digital-cards/cards'
 type ListRow = Pick<
   DigitalCardProductRecord,
   'id' | 'slug' | 'name' | 'category' | 'badge' |
-  'treatment' | 'image_url' | 'designs' | 'published' | 'updated_at'
+  'treatment' | 'image_url' | 'artwork_svg_url' | 'designs' | 'published' | 'updated_at'
 > & {
   /**
    * The nightly job's suggestion. Not on DigitalCardProductRecord because the
@@ -39,6 +40,11 @@ type ListRow = Pick<
    * narrows it to most_popular/trending.
    */
   badge_auto: ProductBadge | null
+  /**
+   * The card's layer mapping, so the list can say which cards can take an
+   * order. Read-only here; it is edited on the card's Artwork tab.
+   */
+  field_bindings: CardFieldBinding[] | null
 }
 
 /** One row of public.website_invitations_product_sales, keyed by card id. */
@@ -186,7 +192,7 @@ export default async function DigitalCardProductsListPage({
   let query = supabase
     .from('website_invitations_products')
     .select(
-      'id, slug, name, category, badge, badge_auto, treatment, image_url, designs, published, updated_at',
+      'id, slug, name, category, badge, badge_auto, treatment, image_url, artwork_svg_url, designs, published, updated_at, field_bindings',
       { count: 'exact' },
     )
 
@@ -328,6 +334,11 @@ export default async function DigitalCardProductsListPage({
                             {p.name}
                           </p>
                           <p className="text-xs text-gray-400 truncate">{p.treatment}</p>
+                          <CardSetupBadge
+                            artworkUrl={p.artwork_svg_url}
+                            bindings={p.field_bindings}
+                            category={p.category}
+                          />
                         </div>
                       </Link>
                     </td>
@@ -490,5 +501,47 @@ function PageLink({
     >
       {children}
     </Link>
+  )
+}
+
+/**
+ * Whether a card's artwork is set up well enough to take an order.
+ *
+ * This is the one thing the old Templates list showed that the catalogue did
+ * not, and it is the reason that list existed. Surfacing it here means the
+ * question "which of our cards actually work?" is answered without a second
+ * tab over the same table.
+ */
+function CardSetupBadge({
+  artworkUrl,
+  bindings,
+  category,
+}: {
+  artworkUrl: string | null
+  bindings: CardFieldBinding[] | null
+  category: string
+}) {
+  // Only SVG artwork carries layers, so nothing else can be mapped at all.
+  const isSvg = /\.svg(\?|#|$)/i.test((artworkUrl ?? '').trim())
+  if (!isSvg) return null
+
+  const mapping = bindings ?? []
+  if (mapping.length === 0) {
+    return (
+      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+        Artwork not mapped
+      </span>
+    )
+  }
+  const readiness = assessBindings(mapping, category)
+  return readiness.canFulfilOrders ? (
+    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#9FE870] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#14361f]">
+      Ready for orders
+    </span>
+  ) : (
+    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+      {readiness.blocked.length + readiness.unbound.length} field
+      {readiness.blocked.length + readiness.unbound.length === 1 ? '' : 's'} to map
+    </span>
   )
 }

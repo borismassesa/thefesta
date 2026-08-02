@@ -1,6 +1,7 @@
 import 'server-only'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from './supabase'
 import { getCallerEmail } from './admin-auth'
+import { logDbError } from '@/lib/log-safe'
 
 // Append-only writer for the audit_log table. The Technology dashboard
 // lane and /insights/audit both read this stream.
@@ -42,7 +43,7 @@ export async function recordAuditEvent(event: AuditEvent): Promise<void> {
     } catch (error) {
       // Silently absorb — if the caller isn't a Clerk session we just
       // log the event without an actor. The metadata can still help.
-      console.warn('[audit-log] actor resolution failed:', error)
+      logDbError('audit_log.resolve_actor', error)
     }
   }
 
@@ -58,14 +59,12 @@ export async function recordAuditEvent(event: AuditEvent): Promise<void> {
       metadata: event.metadata ?? {},
     })
     if (error) {
-      console.warn('[audit-log] insert failed:', error.message, {
-        eventType: event.eventType,
-      })
+      logDbError('audit_log.insert', error, { eventType: event.eventType })
     }
   } catch (error) {
     // Logging must never throw — swallow and warn so caller flow
     // proceeds unaffected.
-    console.warn('[audit-log] unexpected write error:', error)
+    logDbError('audit_log.insert', error, { eventType: event.eventType })
   }
 }
 

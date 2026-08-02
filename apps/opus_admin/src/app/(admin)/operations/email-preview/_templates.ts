@@ -1,4 +1,5 @@
 import { buildContributorInviteEmail } from '@/lib/contributor-invite-email'
+import { buildCardReviewEmail } from '@/lib/card-review-email'
 import { buildDesignBriefEmail } from '@/lib/design-brief-email'
 import { buildEditorialNotificationEmail } from '@/lib/editorial-notification-email'
 import {
@@ -49,6 +50,26 @@ export const TEMPLATE_PREVIEWS: TemplatePreview[] = [
         cardNames: ['Opus Royal Ivory', 'Amani Champagne Royale'],
         digitalCards: 200,
         printedCards: 25,
+        adminBaseUrl: 'https://admin.opusfesta.com',
+      }),
+  },
+  {
+    slug: 'card-review',
+    title: 'Card ready for review',
+    description:
+      'Tells whoever can release cards that a finished design is waiting on a second pair of eyes. Nothing reaches the couple until someone approves it.',
+    recipient: 'Reviewers (CARD_REVIEW_NOTIFY_EMAIL, else staff with cms.publish)',
+    trigger: 'A designer submits a card for review',
+    build: () =>
+      buildCardReviewEmail({
+        designId: '9cad6b64-bd4a-4dfb-9fb4-8946449bddfe',
+        cardName: 'Opus Royal Ivory',
+        orderRef: 'OF-2026-A9A2C0',
+        coupleName: 'Tausi Swedi',
+        eventDate: '2026-08-08',
+        submittedBy: 'designer@opusfesta.com',
+        fieldsFilled: 19,
+        fieldsTotal: 19,
         adminBaseUrl: 'https://admin.opusfesta.com',
       }),
   },

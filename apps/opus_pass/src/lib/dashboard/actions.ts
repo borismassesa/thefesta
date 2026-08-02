@@ -7,7 +7,7 @@ import { requireDashboardUser } from './auth'
 import { createNotification } from './notifications'
 import type { PledgePageConfig, PledgePaymentMethod, CollectorEventContent } from './pledge-page'
 import { paymentMethodsToText, resolveEventCover, EVENTLESS_COVER_KEY } from './pledge-page'
-import { PLEDGE_TEMPLATE_FREE_TIER_IDS, parseTemplateCardItemId } from './pledge-card-templates'
+import { PLEDGE_TEMPLATE_FREE_TIER_IDS, parseTemplateCardItemId, resolveEventPackageTierId } from './pledge-card-templates'
 import { THANK_YOU_FREE_TIER_IDS, resolveThankYouCover, type ThankYouCardConfig } from './thank-you'
 import {
   coupleSlugBase,
@@ -22,7 +22,21 @@ import {
   publicOrigin,
   slugBaseOf,
 } from './share'
-import { getMyCollectorToken, getMyPledgeToken, getWhatsAppEntitlement, getEvents, fetchPaidOrdersForCouple, ownedEventIds, resolveOwnedEventId, resolveEventIdOrDefault, computeEntrancePassVars, consumeSendCredit, releaseSendCredit, entranceCoupleName } from './queries'
+import {
+  computeEntrancePassVars,
+  consumeSendCredit,
+  entranceCoupleName,
+  fetchPaidOrdersForCouple,
+  getEvents,
+  getMyCollectorToken,
+  getMyPledgeToken,
+  getWhatsAppEntitlement,
+  isOrderReleasedForInvites,
+  ownedEventIds,
+  releaseSendCredit,
+  resolveEventIdOrDefault,
+  resolveOwnedEventId,
+} from './queries'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import type { LinkRequestKind } from '@/lib/whatsapp/types'
 import { getSmsProvider } from '@/lib/sms'
@@ -1226,10 +1240,7 @@ export async function applyPledgeCardTemplate(eventId: string, cardImageUrl: str
     .maybeSingle<{ whatsapp_phone: string | null; pledge_page: PledgePageConfig | null }>()
 
   const orders = await fetchPaidOrdersForCouple(supabase, user.id, user.email, profile?.whatsapp_phone ?? null)
-  const order = orders.find((o) => o.event_id === eventId)
-  const items = order?.items ?? []
-  const withImage = items.find((it) => it.image)
-  const tierId = withImage?.tierId ?? items[0]?.tierId ?? null
+  const tierId = resolveEventPackageTierId(orders, eventId)
   const hasFreeAccess = Boolean(tierId && PLEDGE_TEMPLATE_FREE_TIER_IDS.includes(tierId))
   // Individual template purchases are event-scoped: buying a design for one
   // event must not unlock it for another event under the same account.
@@ -1328,10 +1339,7 @@ export async function applyThankYouCardTemplate(
     .eq('user_id', user.id)
     .maybeSingle<{ whatsapp_phone: string | null }>()
   const orders = await fetchPaidOrdersForCouple(supabase, user.id, user.email, profileForOrders?.whatsapp_phone ?? null)
-  const order = orders.find((o) => o.event_id === eventId)
-  const items = order?.items ?? []
-  const withImage = items.find((it) => it.image)
-  const tierId = withImage?.tierId ?? items[0]?.tierId ?? null
+  const tierId = resolveEventPackageTierId(orders, eventId)
   const hasFreeAccess = Boolean(tierId && THANK_YOU_FREE_TIER_IDS.includes(tierId))
   // Individual template purchases are event-scoped: buying a design for one
   // event must not unlock it for another event under the same account.
@@ -3753,6 +3761,9 @@ export async function assignOrderToEvent(orderId: string, eventId: string): Prom
   const orders = await fetchPaidOrdersForCouple(supabase, user.id, user.email, profile?.whatsapp_phone ?? null)
   const order = orders.find((o) => o.id === orderId)
   if (!order) throw new Error('Order not found')
+  if (!isOrderReleasedForInvites(order)) {
+    throw new Error('This card is not available yet. It becomes assignable after the design is approved.')
+  }
 
   const { error } = await supabase.from('invitation_orders').update({ event_id: eventId }).eq('id', orderId)
   if (error) throw new Error(error.message)

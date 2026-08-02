@@ -34,3 +34,34 @@ export function parseTemplateCardItemId(
   const m = TEMPLATE_ITEM_ID_RE.exec(itemId)
   return m ? { type: m[1] as TemplateCardType, templateId: m[2] } : null
 }
+
+/** Minimal shape of a paid order needed to derive an event's package tier —
+ *  structural so this module stays free of a queries.ts import. */
+interface TierBearingOrder {
+  event_id: string | null
+  items: { id?: string; image?: string; tierId?: string }[] | null
+}
+
+/**
+ * The package tier behind an event's paid orders.
+ *
+ * Scans EVERY paid order for the event, not just the most recent one. A
+ * single-design template purchase (`template:<type>:<id>`) carries no tierId,
+ * so picking only the newest order made buying one card erase the couple's
+ * package entitlement and re-lock the whole picker. Template lines are skipped
+ * outright and the first real package tier found wins; orders arrive newest
+ * first, so that stays "most recent package tier".
+ */
+export function resolveEventPackageTierId(
+  orders: TierBearingOrder[],
+  eventId: string,
+): string | null {
+  for (const order of orders) {
+    if (order.event_id !== eventId) continue
+    const items = (order.items ?? []).filter((it) => !(it.id && parseTemplateCardItemId(it.id)))
+    const withImage = items.find((it) => it.image && it.tierId)
+    const tierId = withImage?.tierId ?? items.find((it) => it.tierId)?.tierId ?? null
+    if (tierId) return tierId
+  }
+  return null
+}

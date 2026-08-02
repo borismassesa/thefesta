@@ -142,8 +142,10 @@ export type DigitalCardProductRecord = {
   palettes: DigitalCardPalette[]
   /** Built-in CSS card design, used when image_url is empty. */
   treatment: ProductTreatment
-  /** Attached front card artwork (SVG). When set, replaces the CSS design on the page. */
+  /** Flattened public hero/cover image for the catalogue and first detail slide. */
   image_url: string
+  /** Editable front artwork (SVG) used for layer mapping and personalised rendering. */
+  artwork_svg_url: string
   /** Attached back card artwork (SVG). Optional — leave empty to omit back design. */
   back_image_url: string
   /** Extra card views/scenes shown as gallery thumbnails. */
@@ -197,6 +199,7 @@ export function normalizeDigitalCardProduct(
     description: row.description ?? '',
     description_sw: row.description_sw ?? '',
     image_url: row.image_url ?? '',
+    artwork_svg_url: row.artwork_svg_url ?? '',
     back_image_url: row.back_image_url ?? '',
     swatches: row.swatches ?? [],
     palettes: row.palettes ?? [],
@@ -226,6 +229,7 @@ export function emptyDigitalCardProduct(
     palettes: [],
     treatment: 'classic-serif',
     image_url: '',
+    artwork_svg_url: '',
     back_image_url: '',
     gallery: [],
     designs: [],

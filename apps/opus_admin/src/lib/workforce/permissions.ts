@@ -199,4 +199,10 @@ export const ALL_PERMISSION_KEYS: readonly PermissionKey[] = [
   'growth.admin',
   'support.read',
   'support.write',
+  // Custom card commissions. Split three ways because the studio ladder and
+  // the Ops desk are different jobs: a designer must reach their own task
+  // board without being able to reassign work or pass their own QA.
+  'commissions.read',
+  'commissions.manage',
+  'commissions.design',
 ] as const

@@ -46,10 +46,19 @@ test('reads named layers from an Illustrator export', () => {
 })
 
 test('keeps document order so the form reads like the card', () => {
+  // Event_Title holds three <text> nodes, so its individual nodes are offered
+  // too. They sit directly under their parent rather than at the end, or the
+  // list would stop reading top to bottom like the card does.
   assert.deepEqual(
     extractCardTextLayers(ILLUSTRATOR_CARD).map((l) => l.id),
-    ['Event_Title', 'Intro', 'Names', 'Date'],
+    ['Event_Title', 'Event_Title#1', 'Event_Title#2', 'Event_Title#3', 'Intro', 'Names', 'Date'],
   )
+})
+
+test('a layer with one text node is not given a redundant #1 twin', () => {
+  const ids = extractCardTextLayers(ILLUSTRATOR_CARD).map((l) => l.id)
+  assert.ok(ids.includes('Names'))
+  assert.ok(!ids.includes('Names#1'), 'Names is already addressable by its own id')
 })
 
 test('drops named groups that hold no text', () => {
@@ -169,4 +178,41 @@ test('a bitmap layer is not reported as a shape layer', () => {
   const { shapeLayers, rasterLayers } = inspectCardArtwork(svg)
   assert.deepEqual(shapeLayers, [])
   assert.deepEqual(rasterLayers.map((l) => l.id), ['bg_Image'])
+})
+
+// ── Exports that don't follow the spec ──
+// Designers will get these wrong at volume, and a swatch we can't see is a
+// swatch the mapper can never offer.
+
+test('a swatch named on the shape itself is found, not swallowed by its group', () => {
+  // The real Opus Royal Ivory failure: five correctly drawn circles named
+  // individually, sitting loose in a group that also held the floral bitmap.
+  const svg = `<svg><g id="Wedding_card_Image"><image width="10" height="10" xlink:href="data:image/png;base64,AA"/>` +
+    `<circle id="palette_swatch_1" cx="1" cy="1" r="1" fill="#024231"/></g></svg>`
+  const { shapeLayers, rasterLayers } = inspectCardArtwork(svg)
+  assert.deepEqual(shapeLayers.map((l) => l.id), ['palette_swatch_1'])
+  assert.equal(shapeLayers[0].currentFill, '#024231')
+  // The parent is still reported as artwork, and is not offered as a colour.
+  assert.deepEqual(rasterLayers.map((l) => l.id), ['Wedding_card_Image'])
+})
+
+test('a group and its deduped child are one layer, not two', () => {
+  const svg = `<svg><g id="palette_swatch_1"><circle id="palette_swatch_1-2" cx="1" cy="1" r="1" fill="#b67c24"/></g></svg>`
+  const { shapeLayers } = inspectCardArtwork(svg)
+  assert.deepEqual(shapeLayers.map((l) => l.id), ['palette_swatch_1'])
+})
+
+test('a colour declared by an Internal CSS class is read, not reported as absent', () => {
+  // Illustrator's default export puts every fill in <defs> and leaves only a class.
+  const svg = `<svg><defs><style>.cls-2{fill:#024231;}</style></defs>` +
+    `<g id="palette_swatch_1"><circle class="cls-2" cx="1" cy="1" r="1"/></g></svg>`
+  const { shapeLayers } = inspectCardArtwork(svg)
+  assert.equal(shapeLayers[0].currentFill, '#024231')
+})
+
+test('a class beats a fill attribute, matching how the browser renders it', () => {
+  const svg = `<svg><defs><style>.cls-2{fill:#024231;}</style></defs>` +
+    `<g id="palette_swatch_1"><circle class="cls-2" fill="#000000" cx="1" cy="1" r="1"/></g></svg>`
+  const { shapeLayers } = inspectCardArtwork(svg)
+  assert.equal(shapeLayers[0].currentFill, '#024231')
 })

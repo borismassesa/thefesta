@@ -42,7 +42,11 @@ export function readMetaConfig(): MetaConfig | null {
  *  templates. Independently configured since each needs its own Meta
  *  approval; null when that specific kind's template isn't set up yet. */
 function readLinkTemplateConfig(kind: LinkRequestKind): { templateName: string; language: string } | null {
-  const envPrefix = kind === 'collector' ? 'COLLECTOR' : 'PLEDGE'
+  // Each kind is a separately approved Meta template, so each gets its own
+  // env pair. A missing one returns null rather than falling back to another
+  // kind's template — sending a pledge template for a card-details request
+  // would put the wrong link in front of a couple.
+  const envPrefix = { collector: 'COLLECTOR', pledge: 'PLEDGE', card_details: 'CARD_DETAILS' }[kind]
   const templateName = process.env[`WHATSAPP_TEMPLATE_NAME_${envPrefix}`]
   if (!templateName) return null
   return {

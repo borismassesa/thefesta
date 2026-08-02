@@ -439,9 +439,18 @@ export default function ThankYouView({
       <style>{css}</style>
 
       <div className="head dash-header-safe">
-        <div>
+        <div className="headcopy">
           <h1>{strings.heading}</h1>
-          <p className="sub">{strings.subheading}</p>
+          <div className="subrow">
+            <p className="sub">{strings.subheading}</p>
+            <EventPicker
+              events={events}
+              selectedId={selectedEventId ?? ''}
+              strings={scopeStrings}
+              disabled={pending}
+              className="headpicker"
+            />
+          </div>
         </div>
       </div>
 
@@ -468,13 +477,6 @@ export default function ThankYouView({
           <HeartHandshake size={14} /> Thank you
           {guests.length > 0 ? <span className="stbcnt">{guests.length}</span> : null}
         </button>
-        <EventPicker
-          events={events}
-          selectedId={selectedEventId ?? ''}
-          strings={scopeStrings}
-          disabled={pending}
-          className="ml-auto"
-        />
       </div>
 
       {/* Thank-you card: a design pulled from the invitation catalog, used as
@@ -891,6 +893,15 @@ const css = `
 .ty .serif{ font-family:var(--font-cormorant),Georgia,serif; }
 .ty h1{ font-weight:700; font-size:30px; letter-spacing:-.3px; }
 .ty .head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.ty .headcopy{ min-width:0; flex:1; }
+/* Subheading row carries the event picker at its right end, matching the
+   Send Invites console so the control sits in the same place on every tab. */
+.ty .subrow{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:6px; }
+.ty .subrow .sub{ min-width:240px; flex:1; margin-top:0; }
+.ty .headpicker{ margin-left:auto; }
+@media (min-width:1024px){
+  .ty .subrow{ width:calc(100% + 15rem); }
+}
 .ty .sub{ color:var(--muted); font-size:14px; max-width:640px; line-height:1.5; }
 .ty .sendtabs{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; margin-top:22px;
   border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding-top:12px; }

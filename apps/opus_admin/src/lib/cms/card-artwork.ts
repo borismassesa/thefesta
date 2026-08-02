@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { readRequiredFonts, type RequiredFont } from '@opusfesta/lib'
 import { inspectCardArtwork, type CardArtworkInspection } from '@/lib/cms/card-svg-fields'
 import { resolveOpusPassAssetUrl } from '@/lib/cms/opus-pass-asset-url'
 
@@ -10,7 +11,19 @@ const MAX_ARTWORK_BYTES = 12 * 1024 * 1024
 const FETCH_TIMEOUT_MS = 15_000
 
 export type ArtworkLoad =
-  | ({ ok: true; /** Raw file, needed to render a personalised copy. */ svg: string } & CardArtworkInspection)
+  | ({
+      ok: true
+      /** Raw file, needed to render a personalised copy. */
+      svg: string
+      /**
+       * Typefaces the artwork asks for by name but does not carry.
+       *
+       * Named fonts are invisible until something tries to draw them: a face
+       * that isn't installed falls back to a generic serif silently, so a card
+       * can look finished and still be in the wrong typeface.
+       */
+      requiredFonts: RequiredFont[]
+    } & CardArtworkInspection)
   | { ok: false; reason: string }
 
 /**
@@ -20,14 +33,14 @@ export type ArtworkLoad =
  * didn't load" are both ordinary states the mapper has to explain to an admin,
  * not errors that should blank the page.
  */
-export async function loadCardArtwork(imageUrl: string): Promise<ArtworkLoad> {
-  const url = imageUrl.trim()
-  if (!url) return { ok: false, reason: 'This card has no front artwork attached yet.' }
+export async function loadCardArtwork(artworkSvgUrl: string): Promise<ArtworkLoad> {
+  const url = artworkSvgUrl.trim()
+  if (!url) return { ok: false, reason: 'This card has no editable SVG artwork attached yet.' }
   if (!/\.svg(\?|#|$)/i.test(url)) {
     return {
       ok: false,
       reason:
-        'The front artwork is a flat image (PNG/JPG), not an SVG. Text layers can only be read from SVG artwork.',
+        'The editable artwork is a flat image (PNG/JPG), not an SVG. Text layers can only be read from SVG artwork.',
     }
   }
 
@@ -59,7 +72,7 @@ export async function loadCardArtwork(imageUrl: string): Promise<ArtworkLoad> {
     if (inspection.textLayers.length === 0 && inspection.rasterLayers.length === 0) {
       return { ok: false, reason: 'No named layers found. The export may have flattened everything.' }
     }
-    return { ok: true, svg, ...inspection }
+    return { ok: true, svg, requiredFonts: readRequiredFonts(svg), ...inspection }
   } catch (error) {
     const timedOut = error instanceof Error && error.name === 'TimeoutError'
     return {

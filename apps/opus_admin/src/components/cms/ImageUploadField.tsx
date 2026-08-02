@@ -15,19 +15,23 @@ type Props = {
   previewAspect?: string
   /** Preview max width (Tailwind w-* utility). Defaults to max-w-sm. */
   previewWidth?: string
-  /** Which file kind to accept. 'svg' restricts to SVG only. Defaults to 'image'. */
-  accept?: 'image' | 'svg'
+  /** Which file kind to accept. 'svg' restricts to SVG only. 'raster' excludes SVG. Defaults to 'image'. */
+  accept?: 'image' | 'svg' | 'raster'
 }
 
-const ACCEPT_ATTR: Record<'image' | 'svg', string> = {
+const ACCEPT_ATTR: Record<'image' | 'svg' | 'raster', string> = {
   image: 'image/jpeg,image/png,image/webp,image/gif,image/avif,image/svg+xml',
   svg: 'image/svg+xml,.svg',
+  raster: 'image/jpeg,image/png,image/webp,image/gif,image/avif',
 }
 
-const FILE_NOUN: Record<'image' | 'svg', string> = {
+const FILE_NOUN: Record<'image' | 'svg' | 'raster', string> = {
   image: 'image',
   svg: 'SVG',
+  raster: 'image',
 }
+
+const RASTER_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'])
 
 const inputCls =
   'w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C9A0DC] focus:border-transparent transition-all'
@@ -52,6 +56,10 @@ export function ImageUploadField({
     setError(null)
     if (accept === 'svg' && file.type !== 'image/svg+xml' && !file.name.toLowerCase().endsWith('.svg')) {
       setError('Please choose an SVG file.')
+      return
+    }
+    if (accept === 'raster' && !RASTER_MIME.has(file.type)) {
+      setError('Please choose a JPEG, PNG, WebP, GIF, or AVIF image.')
       return
     }
     startTransition(async () => {

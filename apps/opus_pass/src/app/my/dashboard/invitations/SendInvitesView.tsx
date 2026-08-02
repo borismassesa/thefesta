@@ -35,6 +35,9 @@ import {
   HeartHandshake,
   Mail,
   Share2,
+  CalendarDays,
+  MapPin,
+  Users,
 } from 'lucide-react'
 import {
   enableInviteSharing,
@@ -193,6 +196,17 @@ interface PendingSend {
 }
 
 type SendTab = 'saveDates' | 'cards' | 'responses' | 'followups' | 'ticket' | 'checkins'
+
+/** How far a production order is through its promised turnaround. Built on the
+ *  server so the day number is identical either side of hydration. */
+export type ProductionEta = {
+  /** 1-based day within the window, clamped to `total`. */
+  day: number
+  total: number
+  pct: number
+  dueLabel: string
+  late: boolean
+}
 const SEND_TABS: SendTab[] = ['saveDates', 'cards', 'responses', 'followups', 'ticket', 'checkins']
 type SaveDateTemplate = {
   id: string
@@ -207,6 +221,8 @@ export default function SendInvitesView({
   rsvpsCopy,
   saveDateTemplates = [],
   initialTab,
+  pendingCardDetails = 0,
+  productionEta = null,
 }: {
   data: SendInvitesData
   strings: DashboardSendStrings
@@ -214,6 +230,10 @@ export default function SendInvitesView({
   rsvpsCopy: RsvpsDashboardCopy
   saveDateTemplates?: SaveDateTemplate[]
   initialTab?: string
+  /** Design jobs still waiting on details from this couple. */
+  pendingCardDetails?: number
+  /** Position inside the promised turnaround. Null when we cannot say. */
+  productionEta?: ProductionEta | null
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -540,6 +560,15 @@ export default function SendInvitesView({
   const showCategoryPill = Boolean(
     event.eventTypeLabel && event.eventTypeLabel.toLowerCase() !== headingName.toLowerCase(),
   )
+  const productionOrder = event.productionOrder
+  const canSendDigitalCards = event.hasPaidOrder
+  const showCardProductionLock = sendTab === 'cards' && !canSendDigitalCards && Boolean(productionOrder)
+  const isDesigningNow = productionOrder?.fulfillmentStatus === 'in_progress'
+  const productionStatusLabel = isDesigningNow
+    ? strings.card_status_designing
+    : strings.card_status_confirmed
+  const displayCardImageUrl = showCardProductionLock ? (productionOrder?.cardImageUrl ?? null) : event.cardImageUrl
+  const displayCardTreatment = showCardProductionLock ? (productionOrder?.cardTreatment ?? null) : event.cardTreatment
 
   const previewBody = INVITE_TEMPLATE.body
     .replace('{{1}}', sampleGuest.trim() || 'Amina')
@@ -1112,7 +1141,7 @@ export default function SendInvitesView({
       <style>{css}</style>
 
       <div className="head dash-header-safe">
-        <div>
+        <div className="headcopy">
           <h1>
             {sendTab === 'checkins'
               ? strings.checkin_title
@@ -1126,23 +1155,37 @@ export default function SendInvitesView({
                       ? strings.save_dates_title
                       : strings.heading}
           </h1>
-          <p className="sub">
-            {sendTab === 'checkins'
-              ? strings.checkin_desc
-              : sendTab === 'ticket'
-                ? strings.entrance_desc
-                : sendTab === 'followups'
-                  ? strings.followups_desc
-                  : sendTab === 'responses'
-                    ? strings.responses_desc
-                    : sendTab === 'saveDates'
-                      ? hasSelectedSaveDate
-                        ? strings.save_dates_desc
-                        : strings.save_dates_no_design_desc
-                    : event.hasPaidOrder
-                      ? strings.subheading
-                      : strings.no_design_subheading}
-          </p>
+          <div className="subrow">
+            <p className="sub">
+              {sendTab === 'checkins'
+                ? strings.checkin_desc
+                : sendTab === 'ticket'
+                  ? strings.entrance_desc
+                  : sendTab === 'followups'
+                    ? strings.followups_desc
+                    : sendTab === 'responses'
+                      ? strings.responses_desc
+                      : sendTab === 'saveDates'
+                        ? hasSelectedSaveDate
+                          ? strings.save_dates_desc
+                          : strings.save_dates_no_design_desc
+                      : event.hasPaidOrder
+                        ? strings.subheading
+                        : event.productionOrder
+                          ? strings.card_locked_body
+                        : strings.no_design_subheading}
+            </p>
+            {events.length > 1 ? (
+              <EventPicker
+                events={events}
+                selectedId={selectedEventId ?? ''}
+                strings={scopeStrings}
+                disabled={pending}
+                onSelect={switchEvent}
+                className="headpicker"
+              />
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -1202,16 +1245,6 @@ export default function SendInvitesView({
         <Link role="tab" aria-selected={false} className="stb" href={thankYouHref}>
           <HeartHandshake size={14} /> {strings.tab_thank_you}
         </Link>
-        {events.length > 1 ? (
-          <EventPicker
-            events={events}
-            selectedId={selectedEventId ?? ''}
-            strings={scopeStrings}
-            disabled={pending}
-            onSelect={switchEvent}
-            className="ml-auto"
-          />
-        ) : null}
       </div>
 
       {/* Paid designs bought before this event existed, or before the couple
@@ -1427,7 +1460,7 @@ export default function SendInvitesView({
       {/* Event context — cards/ticket only; the Check-ins tab has its own
           live summary card below. */}
       {sendTab !== 'checkins' && sendTab !== 'saveDates' && sendTab !== 'responses' && sendTab !== 'followups' ? (
-      <div className="ctx">
+      <div className={`ctx${showCardProductionLock ? ' production' : ''}`}>
         <div className="ctxbody">
           {sendTab === 'ticket' ? (
             <div className="ccard ticket">
@@ -1444,18 +1477,37 @@ export default function SendInvitesView({
               />
             </div>
           ) : (
-            <div className={`ccard${event.cardImageUrl || event.cardTreatment ? '' : ' noDesign'}`}>
-              {event.cardImageUrl ? (
-                <Image
-                  src={event.cardImageUrl}
-                  alt={`${event.coupleName} invitation card`}
-                  fill
-                  sizes="92px"
-                  quality={90}
-                  className="object-cover"
-                />
-              ) : event.cardTreatment ? (
-                <InvitationVisual treatment={event.cardTreatment} />
+            <div className={`ccard${displayCardImageUrl || displayCardTreatment ? '' : ' noDesign'}`}>
+              {displayCardImageUrl ? (
+                <>
+                  <Image
+                    src={displayCardImageUrl}
+                    alt={
+                      showCardProductionLock
+                        ? `${productionOrder?.cardName ?? ''} ${strings.card_sample_badge}`.trim()
+                        : `${event.coupleName} invitation card`
+                    }
+                    fill
+                    sizes="92px"
+                    quality={90}
+                    className="object-cover"
+                  />
+                  {/* Before release this is the CATALOGUE shot, carrying the
+                      sample couple's names and date. Unlabelled it sits where
+                      the finished card will later sit, so it reads as "my card
+                      is done and the names are wrong". Say what it is. */}
+                  {showCardProductionLock ? (
+                    <span className="samplestrip">{strings.card_sample_badge}</span>
+                  ) : null}
+                </>
+              ) : displayCardTreatment ? (
+                <InvitationVisual treatment={displayCardTreatment} />
+              ) : showCardProductionLock ? (
+                /* Icon only: the tracker right below already says the card is
+                   in production, so repeating it here just doubles up. */
+                <div className="ci noDesign passive" aria-label={strings.card_in_production}>
+                  <ImagePlus size={20} />
+                </div>
               ) : (
                 <a href={unassignedOrders.length > 0 ? '#unassigned-orders' : cardDesignHref} className="ci noDesign">
                   <ImagePlus size={20} />
@@ -1467,7 +1519,7 @@ export default function SendInvitesView({
           <div className="cinfo">
             <div className="cinfo-head">
               <h3>{headingName}</h3>
-              {isCardSendTab && !editingSettings ? (
+              {isCardSendTab && event.hasPaidOrder && !editingSettings ? (
                 <div className="ctxhead">
                   <button className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
                     <Pencil size={13} /> {strings.settings_edit}
@@ -1494,14 +1546,20 @@ export default function SendInvitesView({
               ) : null}
             </div>
             <div className="row">
-              {event.dateLabel ? <span>📅 {event.dateLabel}</span> : null}
-              {event.venue ? <span>📍 {event.venue}</span> : null}
+              {event.dateLabel ? (
+                <span className="mi"><CalendarDays size={14} /> {event.dateLabel}</span>
+              ) : null}
+              {event.venue ? (
+                <span className="mi"><MapPin size={14} /> {event.venue}</span>
+              ) : null}
               {sendTab === 'ticket' ? (
                 entranceQuota.purchased > 0 ? (
                   <span className="badge">✓ {strings.entrance_purchased}</span>
                 ) : null
               ) : (
                 <>
+                  {/* In production the phase is told once, by the tracker below,
+                      so the header carries identity only. */}
                   {!event.hasPaidOrder && showCategoryPill ? (
                     <span className="catpill">{event.eventTypeLabel}</span>
                   ) : null}
@@ -1575,10 +1633,145 @@ export default function SendInvitesView({
                 ) : null}
               </>
             ) : null}
+            {showCardProductionLock && productionOrder ? (
+              <>
+                <div className="pmeta">
+                  {productionOrder.cardTier ? (
+                    <span className="fact"><i>{strings.fact_package}</i>{productionOrder.cardTier}</span>
+                  ) : null}
+                  {productionOrder.cardName ? (
+                    <span className="fact"><i>{strings.fact_design}</i>{productionOrder.cardName}</span>
+                  ) : null}
+                  {productionOrder.purchasedGuests > 0 ? (
+                    <span className="fact">
+                      <i>{strings.fact_invites_paid}</i>
+                      {fmt(strings.fact_to_share, { n: productionOrder.purchasedGuests })}
+                    </span>
+                  ) : null}
+                </div>
+                {productionOrder.addOns.length > 0 ? (
+                  <div className="addons">
+                    <span className="al">{strings.addons_label}</span>
+                    {productionOrder.addOns.map((a) => (
+                      <span key={a} className="ao">{a}</span>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : null}
           </div>
+
+          {/* Production tracker — a full-bleed band under the identity block,
+              not a second rounded card inside this one. The left column tells
+              the couple where the order has got to; the right answers the two
+              questions the tracker itself can't ("when do I hear?", "what can
+              I do now?") instead of leaving that width empty. */}
+          {showCardProductionLock && productionOrder ? (
+            <div className="prodlock">
+              <div className="prodpanel">
+                <div className="prodmain">
+                  {/* .prodmain is the two-column grid, so it must have exactly
+                      two children: this column, and the aside. Leaving the head,
+                      copy and tracker as loose children deals them alternately
+                      across both columns. */}
+                  <div className="prodcol">
+                    <div className="prodpanel-head">
+                      <span className="dp"><em />{strings.card_in_production}</span>
+                      <b>{strings.card_locked_title}</b>
+                    </div>
+                    <p>{strings.card_locked_body}</p>
+                    {productionOrder.cardImageUrl ? (
+                      <p className="note">{strings.card_sample_note}</p>
+                    ) : null}
+                    <ol className="prodsteps" aria-label={`${strings.card_in_production}: ${productionStatusLabel}`}>
+                      {/* State words only where they carry information: the step
+                          that is done, the one running, and the single one that
+                          comes next. Labelling every future step "Next" told the
+                          couple nothing about which was imminent. */}
+                      <li className="step done">
+                        <span className="mark"><Check size={12} strokeWidth={3.4} /></span>
+                        <span className="txt">
+                          <b>{strings.card_status_confirmed}</b>
+                          <i>{strings.card_step_state_done}</i>
+                        </span>
+                      </li>
+                      <li className={`step ${isDesigningNow ? 'active' : 'locked'}`}>
+                        <span className="mark" />
+                        <span className="txt">
+                          <b>{strings.card_status_designing}</b>
+                          <i>{isDesigningNow ? strings.card_step_state_now : strings.card_step_state_next}</i>
+                        </span>
+                      </li>
+                      <li className="step locked">
+                        <span className="mark" />
+                        <span className="txt">
+                          <b>{strings.card_status_released}</b>
+                          {isDesigningNow ? <i>{strings.card_step_state_next}</i> : null}
+                        </span>
+                      </li>
+                    </ol>
+                  </div>
+
+                  {/* One sentence, one heading, the actions. Two labelled blocks
+                      made a short waiting message feel like a form. */}
+                  <aside className="prodaside">
+                    {/* The clock, kept visibly separate from the phase tracker:
+                        this is how far into the promised window we are, not how
+                        much of the work is done. */}
+                    {productionEta ? (
+                      <div className="peta">
+                        <span className="pnl">{strings.card_eta_label}</span>
+                        <div className={`bar${productionEta.late ? ' late' : ''}`}>
+                          <i style={{ width: `${productionEta.pct}%` }} />
+                        </div>
+                        <span className="etacap">
+                          {productionEta.late
+                            ? fmt(strings.card_eta_late, { m: productionEta.total })
+                            : fmt(strings.card_eta_caption, {
+                                n: productionEta.day,
+                                m: productionEta.total,
+                                date: productionEta.dueLabel,
+                              })}
+                        </span>
+                      </div>
+                    ) : null}
+                    <p className="reassure">
+                      {pendingCardDetails > 0
+                        ? strings.card_locked_details_note
+                        : strings.card_locked_hear_body}
+                    </p>
+                    <span className="pnl">{strings.card_locked_meanwhile}</span>
+                    <div className="pacts">
+                      {/* The couple's own outstanding details are what the
+                          designer is actually waiting on, so that outranks the
+                          things they could do anyway. */}
+                      {pendingCardDetails > 0 ? (
+                        <Link href="/my/dashboard/card-details" className="btn pri">
+                          <ClipboardCheck size={14} /> {strings.card_locked_details_cta}
+                        </Link>
+                      ) : null}
+                      <Link
+                        href="/my/dashboard/guests"
+                        className={`btn ${pendingCardDetails > 0 ? 'ghost' : 'pri'}`}
+                      >
+                        <Users size={14} /> {strings.card_locked_guests_cta}
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        onClick={() => { setSendTab('saveDates'); setSelected(new Set()) }}
+                      >
+                        <CalendarHeart size={14} /> {strings.card_locked_savedates_cta}
+                      </button>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
-        {isCardSendTab ? (
+        {isCardSendTab && event.hasPaidOrder ? (
           <div className="ctxsend">
             {editingSettings ? (
               <div className="vars">
@@ -1722,7 +1915,7 @@ export default function SendInvitesView({
 
       {/* Funnel + quota — Digital Cards only; Entrance Pass has its own
        *  quota bar in the event context card above. */}
-      {sendTab === 'cards' ? (
+      {sendTab === 'cards' && event.hasPaidOrder ? (
         <div className="funnel">
           <div className="fc"><div className="fcicon"><Send size={13} /></div><div className="n">{funnel.invited}</div><div className="l">{strings.funnel_invited}</div></div>
           <div className="fc"><div className="fcicon"><CheckCheck size={13} /></div><div className="n">{funnel.delivered}</div><div className="l"><span className="ar">→</span> {strings.funnel_delivered}</div></div>
@@ -1864,7 +2057,7 @@ export default function SendInvitesView({
       ) : null}
 
       {/* Guest table — save-the-dates/cards/ticket only. */}
-      {sendTab !== 'checkins' && sendTab !== 'responses' && sendTab !== 'followups' && (sendTab !== 'saveDates' || hasSelectedSaveDate) ? (
+      {sendTab !== 'checkins' && sendTab !== 'responses' && sendTab !== 'followups' && (sendTab !== 'saveDates' || hasSelectedSaveDate) && (sendTab !== 'cards' || event.hasPaidOrder) ? (
       <div className="gt">
         {sendTab === 'saveDates' ? (
           <div className="sdguesthead">
@@ -2433,6 +2626,13 @@ const css = `
 .si .serif{ font-family:var(--font-cormorant),Georgia,serif; }
 .si h1{ font-weight:700; font-size:30px; letter-spacing:-.3px; }
 .si .head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.si .headcopy{ min-width:0; flex:1; }
+.si .subrow{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:6px; }
+.si .subrow .sub{ min-width:240px; flex:1; margin-top:0; }
+.si .headpicker{ margin-left:auto; }
+@media (min-width:1024px){
+  .si .subrow{ width:calc(100% + 15rem); }
+}
 .si .evswitch{ display:flex; align-items:center; gap:8px; margin-left:auto; font-size:12px; font-weight:600; color:var(--muted); }
 .si .selwrap{ position:relative; display:inline-flex; align-items:center; }
 .si .evswitch select{ appearance:none; border:1px solid var(--line); border-radius:10px; padding:8px 34px 8px 12px;
@@ -2471,11 +2671,19 @@ const css = `
 @keyframes si-spin{ to{ transform:rotate(360deg); } }
 .si .ctx{ position:relative; background:#fff; border:1px solid var(--line); border-radius:20px;
   padding:22px; margin:22px 0 18px; box-shadow:var(--soft); }
+.si .ctx.production{ padding:24px 26px; }
 .si .ctxhead{ display:flex; gap:8px; flex-wrap:wrap; }
 .si .ctxbody{ display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+/* Production state: the art and the identity sit side by side at the top,
+   the tracker spans both columns underneath. Top-aligned, so a short info
+   column never leaves the card art floating in the middle of dead space. */
+.si .ctx.production .ctxbody{ display:grid; grid-template-columns:132px minmax(0,1fr);
+  align-items:start; gap:20px 26px; }
 .si .cinfo-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 .si .ccard{ width:92px; height:122px; flex:none; border-radius:14px; position:relative; overflow:hidden;
   background:linear-gradient(155deg,var(--purple),var(--lav)); box-shadow:0 4px 14px rgba(107,63,160,.22); }
+/* 5:7 — the canonical card proportion, so the art is shown as designed. */
+.si .ctx.production .ccard{ width:132px; height:185px; border-radius:14px; box-shadow:0 8px 22px rgba(28,27,31,.16); }
 .si .ccard.noDesign{ background:linear-gradient(155deg,var(--lav-soft),#fff); border:1.5px dashed var(--lav); box-shadow:none; }
 .si .ccard.ticket{ width:112px; height:162px; border-radius:8px; background:transparent; box-shadow:0 4px 14px rgba(92,45,141,.25); }
 .si .ccard .ci{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
@@ -2483,11 +2691,15 @@ const css = `
 .si .ccard .ci b{ font-size:13px; line-height:1.25; }
 .si .ccard .ci span{ font-size:7px; letter-spacing:1.2px; opacity:.85; }
 .si .ccard .ci.noDesign{ text-decoration:none; cursor:pointer; color:var(--purple-d); gap:7px; }
+.si .ccard .ci.noDesign.passive{ cursor:default; text-decoration:none; }
 .si .ccard .ci.noDesign svg{ width:20px; height:20px; opacity:.7; }
 .si .ccard .ci.noDesign span{ opacity:.7; }
 .si .ccard .ci.noDesign b{ font-size:11.5px; line-height:1.3; text-decoration:underline; }
+.si .ccard .ci.noDesign.passive b{ text-decoration:none; }
 .si .ctx h3{ font-size:19px; font-weight:600; }
-.si .ctx .row{ display:flex; gap:14px; color:var(--muted); font-size:13px; margin-top:6px; flex-wrap:wrap; align-items:center; }
+.si .ctx .row{ display:flex; gap:8px 14px; color:var(--muted); font-size:13px; margin-top:7px; flex-wrap:wrap; align-items:center; }
+.si .ctx .row .mi{ display:inline-flex; align-items:center; gap:6px; }
+.si .ctx .row .mi svg{ color:var(--faint); flex:none; }
 .si .sdtemplates{ margin:22px 0 18px; padding:18px 20px; background:#fff; border:1px solid var(--line);
   border-radius:20px; box-shadow:var(--soft); }
 .si .sdtemplates h3{ font-size:16px; font-weight:700; color:var(--ink); }
@@ -2526,14 +2738,91 @@ const css = `
 .si .sdqr img{ width:64px; height:64px; flex:none; }
 .si .badge, .si .catpill{ display:inline-flex; align-items:center; gap:5px; background:var(--green); color:var(--green-tx);
   font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:999px; }
+.si .badge.pending{ background:var(--amber-bg); color:var(--amber-tx); border:1px solid var(--amber-bd); }
 .si .cinfo{ min-width:0; flex:1; }
 .si .pmeta{ display:flex; flex-wrap:wrap; align-items:center; gap:9px 24px; margin-top:12px; }
+/* Even columns under a hairline, so the order facts read as one spec strip
+   the full width of the card rather than three pills huddled on the left. */
+.si .ctx.production .pmeta{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  align-items:start; gap:14px 24px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
 .si .pmeta .fact{ display:inline-flex; flex-direction:column; gap:2px; font-size:13.5px; font-weight:600; color:var(--ink); }
 .si .pmeta .fact i{ font-style:normal; font-size:9.5px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--faint); }
 .si .addons{ display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-top:12px; }
 .si .addons .al{ font-size:9.5px; font-weight:600; letter-spacing:.6px; text-transform:uppercase; color:var(--faint); }
 .si .addons .ao{ display:inline-flex; align-items:center; background:var(--lav-soft); color:var(--purple-d);
   font-size:11.5px; font-weight:600; padding:4px 11px; border-radius:999px; }
+/* The waiting state is news, not an alarm: a warm wash rather than a solid
+   amber block competing with the card art. Full-bleed to the card's edges —
+   a bordered panel inside a bordered card gave two competing outlines 20px
+   apart — so it reads as a section of this card, not a card within it. */
+.si .prodlock{ grid-column:1/-1; margin:6px -26px -24px; }
+.si .prodpanel{ border-top:1px solid #f0e6d2; border-radius:0 0 19px 19px; padding:18px 26px 20px;
+  background:linear-gradient(180deg,#FFFCF3 0%,#FFFDF8 100%); }
+/* Exactly two children: the column of status, and the aside. */
+.si .prodmain{ display:grid; grid-template-columns:minmax(0,1fr) minmax(230px,290px); gap:20px 30px; }
+.si .prodcol{ min-width:0; }
+.si .prodaside{ min-width:0; padding-left:30px; border-left:1px solid #f2eadb; }
+.si .prodaside .pnl{ display:block; margin-top:16px; font-size:9.5px; font-weight:700; letter-spacing:.6px;
+  text-transform:uppercase; color:var(--faint); }
+.si .prodaside .reassure{ margin:0; font-size:12px; line-height:1.5; color:#6b6670; }
+.si .prodaside > :first-child{ margin-top:0; }
+/* Reuses the dashboard's .bar, warmed to the panel and kept away from the
+   tracker's green so time can't be misread as work completed. */
+.si .peta .bar{ margin-top:8px; background:#F3EADA; }
+.si .peta .bar i{ background:linear-gradient(90deg,#c99318,#e3b445); }
+.si .etacap{ display:block; margin-top:7px; font-size:11.5px; font-weight:600; color:#8a6d1a; }
+.si .peta + .reassure{ margin-top:12px; }
+.si .peta .bar.late i{ background:#c99318; }
+.si .pacts{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; margin-top:9px; }
+.si .pacts .btn{ font-size:13px; padding:8px 14px; text-decoration:none; }
+.si .prodpanel-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.si .prodpanel .dp{ display:inline-flex; align-items:center; gap:6px; background:#FBF0CF; color:#7d5d08;
+  font-size:10.5px; font-weight:800; letter-spacing:.3px; padding:5px 11px; border-radius:999px; flex:none; }
+.si .prodpanel .dp em{ width:6px; height:6px; border-radius:999px; background:#c99318; flex:none;
+  animation:si-prodpulse 1.8s ease-in-out infinite; }
+@keyframes si-prodpulse{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.45; transform:scale(.8); } }
+.si .prodpanel b{ color:var(--ink); font-size:14px; font-weight:700; }
+/* Hierarchy by weight, not by heat: the primary explanation is the darkest
+   text, the thumbnail footnote steps down. Colouring the footnote amber made
+   the least important line the loudest one in the panel. */
+.si .prodpanel p{ margin-top:7px; max-width:62ch; font-size:12.5px; line-height:1.5; color:#5f5a66; }
+.si .prodpanel p.note{ margin-top:6px; font-size:11.5px; color:#7a7580; }
+/* Scrim caption over the thumbnail: the art stays legible, but it can never be
+   mistaken for the couple's finished card. */
+.si .ctx.production .ccard .samplestrip{ position:absolute; left:0; right:0; bottom:0; padding:16px 8px 6px;
+  text-align:center; font-size:9px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:#fff;
+  background:linear-gradient(180deg,rgba(20,18,30,0) 0%,rgba(20,18,30,.74) 62%); }
+/* Horizontal tracker: the rail is drawn per step, from its own marker to the
+   next one, so it fills green exactly as far as the couple has actually got. */
+.si .prodsteps{ list-style:none; padding:0; margin:18px 0 0; display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr)); }
+.si .prodsteps .step{ position:relative; padding-right:18px; }
+.si .prodsteps .step::before{ content:''; position:absolute; left:11px; right:0; top:10px; height:2px;
+  background:var(--line); border-radius:2px; }
+.si .prodsteps .step:last-child{ padding-right:0; }
+.si .prodsteps .step:last-child::before{ display:none; }
+.si .prodsteps .step.done::before{ background:var(--green); }
+/* All three markers are the same object in different states. Numbering two of
+   them and ticking the third implied these were steps the couple takes; they
+   are all things done to the order. */
+.si .prodsteps .mark{ position:relative; z-index:1; width:22px; height:22px; border-radius:999px;
+  display:grid; place-items:center; background:#fff; border:2px solid var(--line); color:var(--green-tx); }
+.si .prodsteps .step.done .mark{ background:var(--green); border-color:var(--green); }
+.si .prodsteps .step.active .mark{ border-color:#c99318; box-shadow:0 0 0 4px rgba(201,147,24,.15); }
+.si .prodsteps .step.active .mark::after{ content:''; width:8px; height:8px; border-radius:999px; background:#c99318; }
+.si .prodsteps .txt{ display:block; margin-top:10px; padding-right:14px; }
+.si .prodsteps .txt b{ display:block; font-size:12.5px; font-weight:700; color:var(--ink); }
+.si .prodsteps .txt i{ display:block; margin-top:2px; font-style:normal; font-size:11px; font-weight:600; color:var(--muted); }
+.si .prodsteps .step.done .txt i{ color:var(--green-tx); }
+.si .prodsteps .step.active .txt i{ color:#a37a12; }
+.si .prodsteps .step.locked .txt b, .si .prodsteps .step.locked .txt i{ color:var(--faint); }
+/* Motion here marks a state that changes over days, so it earns nothing for
+   anyone who has asked the OS to keep still. Covers the live check-in dot and
+   the arrivals feed too, which never had a guard. */
+@media (prefers-reduced-motion: reduce){
+  /* The busy spinner stays: it is the only signal that a send is in flight. */
+  .si .prodpanel .dp em, .si .livedot.on, .si .lf{ animation:none; }
+  .si .btn:hover{ transform:none; } }
 .si .funnel{ display:grid; grid-template-columns:repeat(4,1fr) 1.5fr; gap:12px; }
 .si .fc{ position:relative; background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px 18px; box-shadow:var(--soft); }
 .si .fcicon{ position:absolute; top:14px; right:14px; width:26px; height:26px; border-radius:50%;
@@ -2742,11 +3031,33 @@ const css = `
 .si .noseat{ font-size:12px; color:var(--faint); }
 
 @media(max-width:900px){ .si .funnel{ grid-template-columns:repeat(2,1fr); }
-  .si .funnel .quota{ grid-column:span 2; } }
+  .si .funnel .quota{ grid-column:span 2; }
+  .si .ctx.production .ctxbody{ grid-template-columns:104px minmax(0,1fr); gap:16px 18px; }
+  .si .ctx.production .ccard{ width:104px; height:146px; }
+  /* Too narrow to sit two columns side by side: the aside drops below the
+     tracker and its rule moves to the top edge. */
+  .si .prodmain{ grid-template-columns:minmax(0,1fr); gap:16px; }
+  .si .prodaside{ padding-left:0; padding-top:16px; border-left:none; border-top:1px solid #f2eadb; }
+  .si .pacts{ flex-direction:row; flex-wrap:wrap; align-items:center; } }
 @media(max-width:760px){ .si .sdshare{ flex-direction:column; }
   .si .sdmedia{ width:100%; min-height:0; aspect-ratio:5/7; }
   .si .sdlinkrow{ align-items:stretch; flex-direction:column; }
   .si .sdlinkrow .btn{ justify-content:center; }
   .si .sdqr{ margin-left:0; width:100%; justify-content:flex-start; } }
-@media(max-width:640px){ .si .gth .acts{ margin-left:0; width:100%; justify-content:flex-start; } }
+@media(max-width:640px){ .si .gth .acts{ margin-left:0; width:100%; justify-content:flex-start; }
+  .si .ctx.production{ padding:18px; }
+  .si .prodlock{ margin:6px -18px -18px; }
+  .si .prodpanel{ padding:16px 18px 18px; }
+  /* Phone: the art takes its own row so the name, facts and tracker each get
+     the full width instead of wrapping a word per line beside it. */
+  .si .ctx.production .ctxbody{ grid-template-columns:minmax(0,1fr); gap:14px; }
+  .si .ctx.production .ccard{ width:110px; height:154px; }
+  .si .ctx.production .pmeta{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .si .prodpanel-head{ align-items:flex-start; flex-direction:column; }
+  /* Narrow screens turn the tracker upright: the rail runs down the markers. */
+  .si .prodsteps{ grid-template-columns:1fr; gap:14px; }
+  .si .prodsteps .step{ display:grid; grid-template-columns:22px minmax(0,1fr); align-items:center;
+    gap:10px; padding-right:0; }
+  .si .prodsteps .step::before{ left:10px; right:auto; top:22px; bottom:-14px; width:2px; height:auto; }
+  .si .prodsteps .txt{ margin-top:0; padding-right:0; } }
 `

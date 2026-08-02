@@ -728,6 +728,8 @@ export interface DashboardChromeStrings {
   nav_website: string
   nav_seating: string
   nav_guestbook: string
+  nav_cards: string
+  nav_card_details: string
   // Sidebar + drawer controls (titles / aria-labels)
   collapse_expand: string
   collapse_collapse: string
@@ -946,6 +948,28 @@ export interface DashboardSendStrings {
   no_design_cta: string
   no_design_pick_cta: string
   card_purchased: string
+  card_in_production: string
+  card_status_confirmed: string
+  card_status_designing: string
+  card_status_released: string
+  card_step_state_done: string
+  card_step_state_now: string
+  card_step_state_next: string
+  card_locked_title: string
+  card_locked_body: string
+  card_eta_label: string
+  card_eta_caption: string // {n} {m} {date}
+  card_eta_late: string // {m}
+  /** Promised turnaround in days. Blank or 0 hides the countdown entirely. */
+  card_turnaround_days: string
+  card_locked_hear_body: string
+  card_locked_details_note: string
+  card_locked_meanwhile: string
+  card_locked_details_cta: string
+  card_locked_guests_cta: string
+  card_locked_savedates_cta: string
+  card_sample_badge: string
+  card_sample_note: string
   entrance_purchased: string
   fact_package: string
   fact_design: string
@@ -1856,6 +1880,8 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     nav_website: 'Wedding website',
     nav_seating: 'Seat collection',
     nav_guestbook: 'Guestbook',
+    nav_cards: 'My cards',
+    nav_card_details: 'Card details',
     collapse_expand: 'Expand sidebar',
     collapse_collapse: 'Collapse sidebar',
     menu_open: 'Open menu',
@@ -2044,6 +2070,29 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     no_design_cta: 'Browse card designs',
     no_design_pick_cta: 'Pick your paid design',
     card_purchased: 'Card purchased',
+    card_in_production: 'Card in production',
+    card_status_confirmed: 'Order confirmed',
+    card_status_designing: 'Design in progress',
+    card_status_released: 'Approved to send',
+    card_step_state_done: 'Done',
+    card_step_state_now: 'Happening now',
+    card_step_state_next: 'Up next',
+    card_locked_title: 'Your card is being prepared',
+    card_locked_body:
+      'Guest sending, delivery stats and your invite quota unlock as soon as the design is approved.',
+    card_eta_label: 'Expected ready',
+    card_eta_caption: 'Day {n} of {m}, expected by {date}',
+    card_eta_late: 'Past the usual {m} days. We are on it.',
+    card_turnaround_days: '',
+    card_locked_hear_body:
+      'Nothing is needed from you. We get in touch the moment your card is ready.',
+    card_locked_details_note: 'Your designer is waiting on a few details from you.',
+    card_locked_meanwhile: 'While you wait',
+    card_locked_details_cta: 'Send your card details',
+    card_locked_guests_cta: 'Build your guest list',
+    card_locked_savedates_cta: 'Send save the dates',
+    card_sample_badge: 'Sample',
+    card_sample_note: 'Sample wording shown. Your details are set before release.',
     entrance_purchased: 'Entrance passes ready',
     fact_package: 'Package',
     fact_design: 'Design',
