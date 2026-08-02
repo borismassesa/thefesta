@@ -215,3 +215,23 @@ test('an event with no timestamps at all keeps working', () => {
   const event = { starts_at: null, ends_at: null }
   assert.equal(legacyCredentialsAllowed(event, new Date('2030-01-01T00:00:00Z')), true)
 })
+
+test('a wallet management token never parses as an admission credential', () => {
+  // WMT1 is the /p/<token> capability. If it parsed as legacy_hmac it would be
+  // rejected by the HMAC verifier anyway, but it would also be filed in the
+  // audit as a legacy scan and inflate the number the legacy branch is retired
+  // on. Any colon-bearing value that is not a valid OP1 is refused outright.
+  const walletToken = `WMT1:${randomBytes(32).toString('base64url')}`
+  assert.equal(parseAdmissionCredential(walletToken), null)
+})
+
+test('every namespaced value other than OP1 is refused, not downgraded', () => {
+  for (const value of [
+    'OP2:aaaaaaaaaaaaaaaaaaaaaaaa',
+    'WMT1:aaaaaaaaaaaaaaaaaaaaaaaa',
+    'anything:aaaaaaaaaaaaaaaaaaaa',
+    'a:b',
+  ]) {
+    assert.equal(parseAdmissionCredential(value), null, `should reject: ${value}`)
+  }
+})
