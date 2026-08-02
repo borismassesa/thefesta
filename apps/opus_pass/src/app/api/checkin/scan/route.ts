@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
-import { candidateScannerAccessHashes, verifyEntryPassToken } from '@/lib/checkin/tokens'
+import { candidateScannerAccessHashes } from '@/lib/checkin/tokens'
+import { recordCredentialVerification, verifyAdmissionCredential } from '@/lib/checkin/credentials'
+import { legacyCredentialsAllowed } from '@/lib/checkin/credential-core'
 import { broadcastCheckin } from '@/lib/checkin/broadcast'
 import { RATE_LIMITED_RESPONSE, withinRateLimit } from '@/lib/checkin/rate-limit'
 
@@ -131,15 +133,52 @@ export async function POST(request: Request) {
   const effectiveAttendantName = access.attendant_name || attendantName
 
   // Resolve which invitation is being admitted. For a camera scan this comes
-  // from the signed token (never from a client-supplied id); for a manual
-  // override the attendant picked it off the roster we issued them.
+  // from the verified credential (never from a client-supplied id, which is
+  // why `invitationId` below is only honoured on the manual path); for a
+  // manual override the attendant picked it off the roster we issued them.
   let targetInvitationId: string
+  let credentialId: string | null = null
+  let credentialFormat: 'opaque_v1' | 'legacy_hmac' | null = null
+
   if (qrToken) {
-    const payload = verifyEntryPassToken(qrToken)
-    if (!payload) {
+    const verification = await verifyAdmissionCredential(qrToken, {
+      // Anchored to the event this scanner is authorised for, so a stale
+      // ticket cannot reach a more permissive window via its own event.
+      legacyAllowed: async () => {
+        const { data: ev } = await supabase
+          .from('wedding_events')
+          .select('starts_at, ends_at')
+          .eq('id', eventId)
+          .maybeSingle<{ starts_at: string | null; ends_at: string | null }>()
+        return ev ? legacyCredentialsAllowed(ev) : false
+      },
+    })
+
+    if (!verification.valid) {
+      await recordCredentialVerification({
+        eventId,
+        verification,
+        verificationResult: verification.reason,
+        scannerAccessTokenId: access.id,
+        requestId: body.requestId ?? null,
+      })
+      // One message for every failure mode. Telling the door apart "revoked"
+      // from "never issued" would let anyone holding a scanner code probe the
+      // credential space for valid values.
       return NextResponse.json({ status: 'invalid', message: 'Not a valid entry pass' })
     }
-    targetInvitationId = payload.invitationId
+
+    targetInvitationId = verification.invitationId
+    credentialFormat = verification.format
+    credentialId = verification.format === 'opaque_v1' ? verification.credentialId : null
+
+    await recordCredentialVerification({
+      eventId,
+      verification,
+      verificationResult: 'verified',
+      scannerAccessTokenId: access.id,
+      requestId: body.requestId ?? null,
+    })
   } else if (entryCode) {
     // Scoped to this event, which is why a 6-character code is enough: it
     // only has to be unique among one guest list, and it identifies rather
@@ -309,6 +348,18 @@ export async function POST(request: Request) {
       groupTag,
       table: tableName,
     })
+  }
+
+  // Tag the admission ledger with the credential that opened the door. Done
+  // as its own write rather than through the admission RPC so PR 1's
+  // counter contract stays exactly as reviewed. Best-effort: a missing tag
+  // must never undo an admission that already happened.
+  if (body.requestId && credentialFormat) {
+    const { error: tagError } = await supabase
+      .from('checkin_scan_events')
+      .update({ credential_id: credentialId, credential_format: credentialFormat })
+      .eq('request_id', body.requestId)
+    if (tagError) console.error('[checkin] could not tag scan with credential', { code: tagError.code })
   }
 
   // A replay is reported exactly like the response it is replacing, so a

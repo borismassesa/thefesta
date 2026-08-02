@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
-import { candidateScannerAccessHashes, verifyEntryPassToken } from '@/lib/checkin/tokens'
+import { candidateScannerAccessHashes } from '@/lib/checkin/tokens'
+import { recordCredentialVerification, verifyAdmissionCredential } from '@/lib/checkin/credentials'
+import { legacyCredentialsAllowed } from '@/lib/checkin/credential-core'
 import { broadcastCheckin } from '@/lib/checkin/broadcast'
 import { RATE_LIMITED_RESPONSE, withinRateLimit } from '@/lib/checkin/rate-limit'
 
@@ -73,11 +75,33 @@ export async function POST(request: Request) {
     return NextResponse.json(RATE_LIMITED_RESPONSE, { status: 429 })
   }
 
+  // Same verifier as /scan: a correction identifies the guest by exactly the
+  // credentials an admission does, so the two must not drift apart.
   let targetInvitationId: string
   if (qrToken) {
-    const payload = verifyEntryPassToken(qrToken)
-    if (!payload) return NextResponse.json({ status: 'invalid', message: 'Not a valid entry pass' })
-    targetInvitationId = payload.invitationId
+    const verification = await verifyAdmissionCredential(qrToken, {
+      legacyAllowed: async () => {
+        const { data: ev } = await supabase
+          .from('wedding_events')
+          .select('starts_at, ends_at')
+          .eq('id', eventId)
+          .maybeSingle<{ starts_at: string | null; ends_at: string | null }>()
+        return ev ? legacyCredentialsAllowed(ev) : false
+      },
+    })
+
+    await recordCredentialVerification({
+      eventId,
+      verification,
+      verificationResult: verification.valid ? 'verified' : verification.reason,
+      scannerAccessTokenId: access.id,
+      requestId: requestId ?? null,
+    })
+
+    if (!verification.valid) {
+      return NextResponse.json({ status: 'invalid', message: 'Not a valid entry pass' })
+    }
+    targetInvitationId = verification.invitationId
   } else {
     targetInvitationId = invitationId as string
   }
