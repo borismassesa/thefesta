@@ -38,10 +38,13 @@ export class FakePreparationClient {
 
   /** Counters the tests assert on. */
   uploadCount = 0
+  uploadAttempts = 0
   renderedFor: string[] = []
 
   /** Failure injection. */
   failUploadOnce = false
+  /** Fail every upload, for counting how many executions the cap permits. */
+  failUploadAlways = false
   failReadyUpdate = false
 
   private nextId = 1
@@ -119,6 +122,8 @@ export class FakePreparationClient {
         }
       },
       upload: async (path: string, body: Buffer) => {
+        this.uploadAttempts += 1
+        if (this.failUploadAlways) return { data: null, error: { message: 'upload failed' } }
         if (this.failUploadOnce) {
           this.failUploadOnce = false
           return { data: null, error: { message: 'upload failed' } }

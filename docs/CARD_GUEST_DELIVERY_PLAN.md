@@ -515,3 +515,94 @@ invocation after memoisation.
 `ensureWasm` reads the file through `require.resolve('@resvg/resvg-wasm/index_bg.wasm')`.
 If tracing misses it once there is a caller, the fix is
 `outputFileTracingIncludes` in next.config for the route that pulls it in.
+
+## PR 3 hard gates
+
+These are not optional follow-ups. PR 2 can be merged without them only because
+nothing calls the service, the migration is additive, and no send behaviour
+changes. The moment a route exists, every one of these applies.
+
+**1. The rasterisation path builds and runs, not just the application.** Prove
+the module is actually in the deployed output before trusting a green build:
+
+```
+prepare-guest-asset appears in the route's trace
+index_bg.wasm appears in .next or that trace
+the deployed route runs initWasm successfully
+a repeat invocation succeeds after module-level memoisation
+font buffers reach resvg, and the PNG passes signature, dimension and ink checks
+```
+
+If tracing misses the asset, scope `outputFileTracingIncludes` to the single
+route that pulls it in. Never an app-wide glob. Also confirm the wasm package
+still initialises from the bytes we hand it once bundled: the standalone spike is
+not evidence about the Next server runtime.
+
+**2. The real Supabase client and Storage API, not only SQL.** The Postgres pass
+covered DDL, backfill, unique constraints, MVCC, the lease CAS and SQL-level RLS.
+It says nothing about PostgREST query translation for these exact filters,
+Storage upload and overwrite behaviour, bucket policy through the storage API,
+client result shapes, or how provider errors normalise. Exercise the whole
+sequence against an isolated staging project or an ephemeral local Supabase kept
+OUTSIDE this repository, since adding a `config.toml` here is an architectural
+change rather than test setup:
+
+```
+claim row → download frozen SVG → download font objects
+→ upload PNG at the deterministic key → mark ready
+→ retry and reuse → simulate a failed ready-update after a successful upload
+→ retry and reconcile
+```
+
+**3. Missing object never becomes a successful media response.** A `ready` row
+whose object has gone must produce a generic 404 outward, a sanitised diagnostic
+inward, and a downgrade of the row so send preflight stops treating it as usable.
+Detecting it only when Meta fetches would move the failure boundary back to after
+Send, which is the thing this design exists to prevent. Verification does not
+require a HEAD per guest: check on reuse during preparation, or reconcile
+periodically, or let the route downgrade and have the send retry preparation.
+
+**4. No casual diagnostic route.** Prefer proving the runtime through the real
+feature path with a non-customer fixture. If a temporary route is unavoidable it
+must be unavailable in production, behind an internal secret, excluded from
+analytics, incapable of accepting caller-supplied SVG or font input, and removed
+before merge. An endpoint that rasterises attacker-supplied input is a
+denial-of-service surface.
+
+## Rollout order
+
+Applying this migration early is safer than holding it, because it is additive
+and nothing reads the new tables yet. Deploying code that expects missing tables
+is the riskier direction.
+
+```
+1. merge PR 2
+2. apply the migration to staging
+3. verify tables, RLS and bucket there
+4. deploy the PR 3 preview
+5. run the full raster and token-route integration
+6. apply the migration to production
+7. deploy PR 3 to production dormant or feature-flagged
+8. enable only after smoke tests
+```
+
+## Token secret
+
+`CARD_ASSET_TOKEN_SECRET` does not block PR 2: nothing derives a token yet, and
+the service already fails closed when it is absent, which is the correct state
+for any environment where the feature must stay off. It must exist before PR 3
+runs in any environment, with a SEPARATE value per environment.
+
+Rotation has to be settled before PR 3 reaches production. Because the token is
+derived rather than stored, changing the secret invalidates every guest URL
+already sent, immediately. The minimum acceptable model is two secrets read
+together, current and previous, with the asset carrying or implying which version
+minted it:
+
+```
+CARD_ASSET_TOKEN_SECRET_CURRENT
+CARD_ASSET_TOKEN_SECRET_PREVIOUS
+```
+
+The token payload is already versioned (`opus-card-asset:v1:...`), so a format
+change is separable from a key change.

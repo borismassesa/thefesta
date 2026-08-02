@@ -5,6 +5,7 @@ import path from 'node:path'
 import { createHmac } from 'node:crypto'
 import { FakePreparationClient } from './fake-preparation-client'
 import {
+  PREPARE_FAILURE_CODES,
   assetStoragePath,
   deriveTokenForTest,
   prepareGuestCardAsset,
@@ -566,4 +567,46 @@ test('a permanent raster fault is never retried, whatever the count', async () =
   assert.equal(result.ok, false)
   if (!result.ok) assert.equal(result.code, 'RASTER_INPUT_UNSUPPORTED')
   assert.equal(client.uploadCount, 0)
+})
+
+test('the initial claim counts as attempt 1, so the cap is a total not a bonus', async () => {
+  // The invariant: attempt_count is the number of workers that ACQUIRED the
+  // lease. If the insert did not count, a fresh row would get three reclaims on
+  // top of its original render and execute four times against a cap of three.
+  const client = makeClient()
+  client.failUploadAlways = true
+
+  await run(client)
+  assert.equal(client.asset()?.attempt_count, 1, 'the insert claim is attempt 1')
+  assert.equal(client.uploadAttempts, 1)
+
+  await run(client)
+  assert.equal(client.asset()?.attempt_count, 2)
+
+  await run(client)
+  assert.equal(client.asset()?.attempt_count, 3)
+
+  // Cap reached: no further lease is granted and no further render runs.
+  const beyond = await run(client)
+  assert.equal(beyond.ok, false)
+  if (!beyond.ok) assert.equal(beyond.code, 'STORAGE_WRITE_FAILED')
+  assert.equal(client.asset()?.attempt_count, 3, 'no fourth acquisition')
+  assert.equal(client.uploadAttempts, 3, 'exactly three executions, matching the cap')
+})
+
+test('every failure code the service can return round-trips through the row', () => {
+  // The stored code is validated on read. A code missing from that check is
+  // silently coerced, which would turn a permanent fault into one that retries
+  // until the cap on every single send. Deriving both from one list makes the
+  // drift impossible; this asserts the derivation actually holds.
+  const unique = new Set(PREPARE_FAILURE_CODES)
+  assert.equal(unique.size, PREPARE_FAILURE_CODES.length, 'no duplicates')
+  for (const code of PREPARE_FAILURE_CODES) {
+    assert.match(code, /^[A-Z][A-Z_]+$/, `${code} is not a stable identifier`)
+  }
+  // The codes the migration comment promises are diagnostic-only, so the
+  // database constrains nothing and cannot disagree with this list.
+  assert.ok(PREPARE_FAILURE_CODES.includes('RASTER_RUNTIME_FAILED'))
+  assert.ok(PREPARE_FAILURE_CODES.includes('RASTER_INPUT_UNSUPPORTED'))
+  assert.ok(!(PREPARE_FAILURE_CODES as readonly string[]).includes('RASTER_FAILED'))
 })

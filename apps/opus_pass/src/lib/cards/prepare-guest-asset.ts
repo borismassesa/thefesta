@@ -45,34 +45,45 @@ export type PrepareGuestCardAssetResult =
   | { ok: true; status: 'created' | 'reused'; assetId: string; pngStoragePath: string }
   | { ok: false; code: PrepareFailureCode }
 
-export type PrepareFailureCode =
-  | 'RELEASE_NOT_FOUND'
-  | 'GUEST_NOT_FOUND'
-  | 'RELEASE_SVG_MISSING'
-  | 'GUEST_NAME_MISSING'
-  | 'GUEST_ROLE_UNMAPPED'
-  | 'FONT_UNRESOLVED'
-  | 'FONT_FORMAT_UNSUPPORTED'
-  | 'FONT_NOT_LICENSED'
-  | 'FONT_DOWNLOAD_FAILED'
-  | 'SVG_INVALID'
-  | 'OUTPUT_BLANK'
-  | 'OUTPUT_LIMIT_EXCEEDED'
+/**
+ * Every way preparation can refuse.
+ *
+ * Declared as a value and the type derived from it, not the other way round.
+ * The stored `render_error_code` has to be validated at runtime when it is read
+ * back, and a hand-maintained second list would drift: a code missing from it
+ * gets silently coerced to RASTER_RUNTIME_FAILED, turning a permanent fault into
+ * one that retries forever.
+ */
+export const PREPARE_FAILURE_CODES = [
+  'RELEASE_NOT_FOUND',
+  'GUEST_NOT_FOUND',
+  'RELEASE_SVG_MISSING',
+  'GUEST_NAME_MISSING',
+  'GUEST_ROLE_UNMAPPED',
+  'FONT_UNRESOLVED',
+  'FONT_FORMAT_UNSUPPORTED',
+  'FONT_NOT_LICENSED',
+  'FONT_DOWNLOAD_FAILED',
+  'SVG_INVALID',
+  'OUTPUT_BLANK',
+  'OUTPUT_LIMIT_EXCEEDED',
   /** The renderer itself faulted. Might be the runtime, so bounded retries. */
-  | 'RASTER_RUNTIME_FAILED'
+  'RASTER_RUNTIME_FAILED',
   /** The artwork cannot be rendered. Will fail identically forever. */
-  | 'RASTER_INPUT_UNSUPPORTED'
-  | 'STORAGE_WRITE_FAILED'
+  'RASTER_INPUT_UNSUPPORTED',
+  'STORAGE_WRITE_FAILED',
   /**
    * Another worker holds the claim and has not finished.
    *
    * Not in the original contract, but the claim protocol makes it reachable and
-   * the alternative would be reporting 'reused' for an asset that has no PNG
-   * yet. The caller retries.
+   * the alternative would be reporting 'reused' for an asset with no PNG yet.
    */
-  | 'PREPARATION_IN_PROGRESS'
+  'PREPARATION_IN_PROGRESS',
   /** Deployment misconfiguration: the token secret is absent. */
-  | 'TOKEN_SECRET_MISSING'
+  'TOKEN_SECRET_MISSING',
+] as const
+
+export type PrepareFailureCode = (typeof PREPARE_FAILURE_CODES)[number]
 
 /**
  * The slice of the Supabase client this service uses.
@@ -531,14 +542,8 @@ function fromRasterCode(code: RasterErrorCode): PrepareFailureCode {
   }
 }
 
-/** Only codes this service defines survive a round trip through the row. */
-const FAILURE_CODES = new Set<string>([
-  'RELEASE_NOT_FOUND', 'GUEST_NOT_FOUND', 'RELEASE_SVG_MISSING', 'GUEST_NAME_MISSING',
-  'GUEST_ROLE_UNMAPPED', 'FONT_UNRESOLVED', 'FONT_FORMAT_UNSUPPORTED', 'FONT_NOT_LICENSED',
-  'FONT_DOWNLOAD_FAILED', 'SVG_INVALID', 'OUTPUT_BLANK', 'OUTPUT_LIMIT_EXCEEDED',
-  'RASTER_RUNTIME_FAILED', 'RASTER_INPUT_UNSUPPORTED', 'STORAGE_WRITE_FAILED',
-  'PREPARATION_IN_PROGRESS', 'TOKEN_SECRET_MISSING',
-])
+/** Derived, so it cannot fall behind the union. */
+const FAILURE_CODES: ReadonlySet<string> = new Set(PREPARE_FAILURE_CODES)
 
 function asFailureCode(stored: string | null): PrepareFailureCode {
   return stored && FAILURE_CODES.has(stored) ? (stored as PrepareFailureCode) : 'RASTER_RUNTIME_FAILED'
