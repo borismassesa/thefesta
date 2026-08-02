@@ -16,6 +16,7 @@ import Avatar from '../_components/Avatar'
 import Kpi, { KpiRow } from '../_components/Kpi'
 import type { Department, Employee, Shift, ShiftType } from '../_lib/data'
 import { clearShift, upsertShift } from './actions'
+import { isCurrentEmployee } from '../_lib/types'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const SHIFT_TYPES: ShiftType[] = ['Full day', 'Half day', 'On-call', 'Remote', 'Off']
@@ -73,7 +74,7 @@ export default function ScheduleClient({
 
   const rosterEmployees = useMemo(() => {
     return employees
-      .filter((e) => e.status !== 'Resigned')
+      .filter((e) => isCurrentEmployee(e.status))
       .filter((e) => department === 'All' || e.department === department)
   }, [employees, department])
 
