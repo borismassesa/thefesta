@@ -8,6 +8,7 @@ import NotificationBell from "./NotificationBell";
 import { transitionApprovalRequest } from "@/app/(admin)/approvals/actions";
 import { usePageHeading } from "./PageHeading";
 import { usePageSearch } from "./PageSearch";
+import { useInboxUnread } from "./InboxUnread";
 import type { CallerProfile } from "@/lib/admin-auth";
 
 // Two empty placeholders sit in the header for pages that need to inject
@@ -18,20 +19,14 @@ import type { CallerProfile } from "@/lib/admin-auth";
 const BADGE_SLOT_ID = 'page-header-badge'
 const ACTIONS_SLOT_ID = 'page-header-actions'
 
-export function Header({
-  profile,
-  inboxUnread = 0,
-}: {
-  profile: CallerProfile
-  // Resolved by the layout: the header is a client component and has no
-  // business reaching for inbox data itself.
-  inboxUnread?: number
-}) {
+export function Header({ profile }: { profile: CallerProfile }) {
   // Heading and search are both driven by each page via context — the page
   // is the only thing that knows what it's actually showing and what a
   // search query should match against.
   const heading = usePageHeading()
   const search = usePageSearch()
+  // Seeded by the layout, then republished by /inbox as threads are read.
+  const inboxUnread = useInboxUnread()
 
   return (
     <header className="flex items-center justify-between gap-6 pt-4 pb-3 px-8 bg-gray-50/50 relative z-10 w-full shrink-0">
@@ -116,9 +111,9 @@ export function Header({
           </div>
         )}
 
-        {/* Messages: unread threads on /inbox. The count is resolved on the
-            server from the same list the page renders, so the badge and the
-            page can never disagree. No unread, no badge. */}
+        {/* Messages: unread threads on /inbox. Seeded on the server from the
+            same list the page renders, then republished by the page itself as
+            threads are read, so the two stay in step. No unread, no badge. */}
         <Link
           href="/inbox"
           title="Messages"

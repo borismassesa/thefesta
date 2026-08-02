@@ -6,6 +6,7 @@ import { Header } from '@/components/Header'
 import { DesktopOnlyNotice } from '@/components/DesktopOnlyNotice'
 import { PageHeadingProvider } from '@/components/PageHeading'
 import { PageSearchProvider } from '@/components/PageSearch'
+import { InboxUnreadProvider } from '@/components/InboxUnread'
 import { getInboxUnreadCount } from './inbox/data'
 import {
   getAdminAccessRole,
@@ -38,25 +39,36 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   // "Last sign-in" column accurate.
   after(recordDashboardLogin)
 
+  // Seed for the Header's Messages badge. Cheap and synchronous today (an
+  // in-memory filter over the inbox list), which is the only reason it sits
+  // in the render path of a force-dynamic layout — the same reason
+  // recordDashboardLogin above is deferred via after(). When the inbox moves
+  // off demo data this must NOT become a blocking query here: fetch it from
+  // the client provider or a route handler, or defer it, so the layout keeps
+  // its promise of adding no round-trip to every navigation.
+  const inboxUnreadSeed = getInboxUnreadCount()
+
   return (
     <PageHeadingProvider>
       <PageSearchProvider>
-        {/* The shell has no responsive layout; this states that plainly
-            below the lg breakpoint rather than serving a broken one. */}
-        <DesktopOnlyNotice />
-        <div className="flex h-screen bg-[#FDFDFD] font-sans antialiased text-gray-900">
-          <Sidebar permissions={permissions} profile={profile} />
-          {/* Full-height secondary-sidebar column. Empty (0-width) on pages
-              without a secondary nav; pages portal their sidebar in via
-              SecondarySidebarSlot so the Header stays only above the content. */}
-          <div id="secondary-sidebar" className="shrink-0" />
-          <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
-            <Header profile={profile} inboxUnread={getInboxUnreadCount()} />
-            <main className="flex-1 overflow-y-auto overflow-x-hidden">
-              {children}
-            </main>
+        <InboxUnreadProvider initial={inboxUnreadSeed}>
+          {/* The shell has no responsive layout; this states that plainly
+              below the lg breakpoint rather than serving a broken one. */}
+          <DesktopOnlyNotice />
+          <div className="flex h-screen bg-[#FDFDFD] font-sans antialiased text-gray-900">
+            <Sidebar permissions={permissions} profile={profile} />
+            {/* Full-height secondary-sidebar column. Empty (0-width) on pages
+                without a secondary nav; pages portal their sidebar in via
+                SecondarySidebarSlot so the Header stays only above the content. */}
+            <div id="secondary-sidebar" className="shrink-0" />
+            <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+              <Header profile={profile} />
+              <main className="flex-1 overflow-y-auto overflow-x-hidden">
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
+        </InboxUnreadProvider>
       </PageSearchProvider>
     </PageHeadingProvider>
   )

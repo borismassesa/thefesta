@@ -104,7 +104,9 @@ export default function NotificationBell({
   const [supportCount, setSupportCount] = useState(0)
   const [supportFetchedAt, setSupportFetchedAt] = useState(0)
   // The support endpoint 401s for staff without support.read. Hide the tab
-  // rather than showing one that is permanently empty for them.
+  // rather than showing one that is permanently empty for them. Only an
+  // auth refusal hides it — a 500 means the queue is unreadable right now,
+  // not that this person may not see it.
   const [supportAllowed, setSupportAllowed] = useState(false)
   const [tab, setTab] = useState<Tab>('all')
   const [pending, startTransition] = useTransition()
@@ -135,8 +137,14 @@ export default function NotificationBell({
       try {
         const res = await fetch('/api/support/notifications')
         if (!alive) return
-        if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
           setSupportAllowed(false)
+          return
+        }
+        if (!res.ok) {
+          // Server-side failure. Leave the tab as it was and keep the last
+          // known queue; the next poll will pick it up.
+          console.error('[support] notifications poll failed', res.status)
           return
         }
         const data = (await res.json()) as { count: number; items: SupportItem[] }
