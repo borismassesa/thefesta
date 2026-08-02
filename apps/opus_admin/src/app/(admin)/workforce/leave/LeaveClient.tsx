@@ -20,7 +20,7 @@ import Kpi, { KpiRow } from '../_components/Kpi'
 import { formatDate } from '../_lib/format'
 import type {
   AttendancePoint,
-  Employee,
+  EmployeeLeaveView,
   LeaveRequest,
   LeaveStatus,
   LeaveType,
@@ -60,9 +60,11 @@ export default function LeaveClient({
   requests,
   attendance,
 }: {
-  employees: Employee[]
+  employees: EmployeeLeaveView[]
   requests: LeaveRequest[]
   attendance: AttendancePoint[]
+  isOrgScope?: boolean
+  isEmptyTeam?: boolean
 }) {
   const [tab, setTab] = useState<Tab>('requests')
 
@@ -149,8 +151,8 @@ function RequestsTable({
   employees,
 }: {
   requests: LeaveRequest[]
-  byId: Map<string, Employee>
-  employees: Employee[]
+  byId: Map<string, EmployeeLeaveView>
+  employees: EmployeeLeaveView[]
 }) {
   const [filter, setFilter] = useState<LeaveStatus | 'All'>('All')
   const [search, setSearch] = useState('')
@@ -165,7 +167,12 @@ function RequestsTable({
     setBusyId(id)
     startTransition(async () => {
       try {
-        await decideLeaveRequest(id, decision)
+        // The action returns expected failures instead of throwing, because
+        // Next redacts thrown Server Action messages in production. Only the
+        // controlled message is shown; an unexpected throw falls to the catch
+        // and renders a generic string.
+        const result = await decideLeaveRequest(id, decision)
+        if (!result.ok) setError(result.error)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not update the request.')
       } finally {
@@ -340,7 +347,7 @@ function LeaveRequestDialog({
   onClose,
 }: {
   request: LeaveRequest
-  employee: Employee | undefined
+  employee: EmployeeLeaveView | undefined
   onClose: () => void
 }) {
   const [pending, startTransition] = useTransition()
@@ -471,7 +478,7 @@ function SubmitLeaveDialog({
   employees,
   onClose,
 }: {
-  employees: Employee[]
+  employees: EmployeeLeaveView[]
   onClose: () => void
 }) {
   const [employeeId, setEmployeeId] = useState(employees[0]?.id ?? '')
@@ -638,7 +645,7 @@ function AttendanceTable({
   byId,
 }: {
   attendance: AttendancePoint[]
-  byId: Map<string, Employee>
+  byId: Map<string, EmployeeLeaveView>
 }) {
   const [pending, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -736,7 +743,7 @@ function AttendanceTable({
   )
 }
 
-function BalancesTable({ employees }: { employees: Employee[] }) {
+function BalancesTable({ employees }: { employees: EmployeeLeaveView[] }) {
   return (
     <div className="overflow-x-auto no-scrollbar rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
       <div

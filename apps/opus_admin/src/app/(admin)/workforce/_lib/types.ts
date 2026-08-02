@@ -105,6 +105,23 @@ export function toEmployeeDirectoryView(e: Employee): EmployeeDirectoryView {
   }
 }
 
+/**
+ * Leave-surface projection: the directory fields plus the one balance figure
+ * the Leave screen renders.
+ *
+ * A SEPARATE view rather than widening EmployeeDirectoryView, so that adding
+ * a balance to the Leave page does not silently ship it to the Roles page too.
+ * Purpose-specific views keep each screen's payload to what it actually needs.
+ * Still excludes salary, phone, notes and clerk_user_id.
+ */
+export type EmployeeLeaveView = EmployeeDirectoryView & {
+  leaveBalanceDays: number
+}
+
+export function toEmployeeLeaveView(e: Employee): EmployeeLeaveView {
+  return { ...toEmployeeDirectoryView(e), leaveBalanceDays: e.leaveBalanceDays }
+}
+
 export type ShiftType = 'Full day' | 'Half day' | 'On-call' | 'Remote' | 'Off'
 
 export type WorkforceShift = {

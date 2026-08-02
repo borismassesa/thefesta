@@ -3,6 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { requirePermission } from '@/lib/admin-auth'
+import { recordAuditEvent } from '@/lib/audit-log'
+import { canDecideLeaveRequest, type LeaveDecision } from './_lib/approval-policy'
+import { getLeaveRequestForDecision } from './_lib/queries'
 import type { LeaveStatus, LeaveType } from '../_lib/types'
 
 const LEAVE_TYPES = new Set<LeaveType>([
@@ -59,45 +62,116 @@ export async function submitLeaveRequest(input: SubmitLeaveInput): Promise<{ id:
   return { id: data.id }
 }
 
-export async function decideLeaveRequest(id: string, decision: Extract<LeaveStatus, 'Approved' | 'Rejected'>): Promise<void> {
-  await requirePermission('workforce.write')
+export type DecideResult = { ok: true } | { ok: false; error: string }
 
-  const supabase = createSupabaseAdminClient()
-  // Read the request — we need employee_id + day count for the balance update.
-  const { data: req, error: fetchError } = await supabase
-    .from('workforce_leave_requests')
-    .select('id, employee_id, days, status, leave_type')
-    .eq('id', id)
-    .single<{ id: string; employee_id: string; days: number; status: LeaveStatus; leave_type: LeaveType }>()
-  if (fetchError) throw fetchError
-  if (req.status !== 'Pending') {
-    throw new Error('Only pending requests can be approved or rejected.')
+/**
+ * Approve or reject a leave request.
+ *
+ * Authority is TEAM or ORG (spec 4): a manager may decide for their direct
+ * reports without holding any Workforce key, and workforce.leave.approve
+ * grants it organisation-wide. Legacy workforce.write expands into that key,
+ * so today's approvers are unaffected.
+ *
+ * Boundary, in order:
+ *   1. resolve the caller
+ *   2. load the stored row
+ *   3. confirm it exists
+ *   4+5. confirm scope AND not self-approval  (canDecideLeaveRequest)
+ *   6+7. confirm status is Pending and the transition is legal
+ *   8. CONDITIONAL update on (id, status='Pending'), verifying one row
+ *   9. audit
+ *   10. revalidate both surfaces
+ */
+export async function decideLeaveRequest(
+  id: string,
+  decision: LeaveDecision,
+): Promise<DecideResult> {
+  if (decision !== 'Approved' && decision !== 'Rejected') {
+    return { ok: false, error: 'Pick approve or reject.' }
   }
 
-  const { error: updateError } = await supabase
+  const { scope, row } = await getLeaveRequestForDecision(id)
+  if (!row) return { ok: false, error: 'That request no longer exists.' }
+
+  const allowed = canDecideLeaveRequest(
+    { id: row.id, employeeId: row.employee_id, status: row.status },
+    scope,
+  )
+  if (!allowed.allowed) return { ok: false, error: allowed.reason }
+
+  const supabase = createSupabaseAdminClient()
+  // The status predicate is what makes this safe against a stale page. If
+  // another approver decided between the read above and this write, zero rows
+  // match and we report the conflict instead of silently overwriting their
+  // decision. Without it, two approvers could approve and reject the same
+  // request, and the balance below could be deducted twice.
+  const { data: updated, error: updateError } = await supabase
     .from('workforce_leave_requests')
     .update({ status: decision, reviewed_at: new Date().toISOString() })
     .eq('id', id)
-  if (updateError) throw updateError
+    .eq('status', 'Pending')
+    .select('id')
+    .returns<Array<{ id: string }>>()
+  if (updateError) {
+    console.error('[workforce-leave] decide failed', updateError)
+    return { ok: false, error: 'We could not record that decision. Try again.' }
+  }
+  if ((updated?.length ?? 0) !== 1) {
+    return {
+      ok: false,
+      error: 'Someone else decided this request first. Refresh to see the current status.',
+    }
+  }
 
-  // Deduct from balance only on approval and only for paid leave types.
-  if (decision === 'Approved' && req.leave_type === 'Annual') {
+  // Deduct only on approval, only for Annual, and only now that the
+  // conditional update has confirmed WE are the decider.
+  if (decision === 'Approved' && row.leave_type === 'Annual') {
     const { data: emp, error: balanceError } = await supabase
       .from('workforce_employees')
       .select('leave_balance_days')
-      .eq('id', req.employee_id)
+      .eq('id', row.employee_id)
       .single<{ leave_balance_days: number }>()
-    if (balanceError) throw balanceError
-    const nextBalance = Math.max(0, emp.leave_balance_days - req.days)
-    const { error: deductError } = await supabase
-      .from('workforce_employees')
-      .update({ leave_balance_days: nextBalance })
-      .eq('id', req.employee_id)
-    if (deductError) throw deductError
+    if (balanceError) {
+      console.error('[workforce-leave] balance read failed', balanceError)
+    } else {
+      const { error: deductError } = await supabase
+        .from('workforce_employees')
+        .update({ leave_balance_days: Math.max(0, emp.leave_balance_days - row.days) })
+        .eq('id', row.employee_id)
+      if (deductError) console.error('[workforce-leave] balance write failed', deductError)
+    }
   }
+
+  // Identifiers, subject, actor, transition and timestamp — but NOT the
+  // employee's free-text reason, which routinely carries medical or family
+  // detail that does not belong in an audit trail.
+  //
+  // NOTE: workforce_leave_requests.reviewed_by is NOT written. Its foreign key
+  // points at admin_whitelist, the legacy table superseded by
+  // workforce_employees, so it cannot hold a real approver id. The actor is
+  // recorded here instead. Repointing that FK is tracked as follow-up work.
+  await recordAuditEvent({
+    eventType: decision === 'Approved' ? 'workforce.leave_approved' : 'workforce.leave_rejected',
+    severity: 'info',
+    message: `Leave request ${id} ${decision.toLowerCase()}`,
+    targetResource: `workforce_leave_requests:${id}`,
+    metadata: {
+      subjectEmployeeId: row.employee_id,
+      actorEmployeeId: scope.employee?.id ?? null,
+      from: 'Pending',
+      to: decision,
+      leaveType: row.leave_type,
+      days: row.days,
+      viaOrgPermission: scope.permissions.has('workforce.leave.approve'),
+    },
+  })
 
   revalidatePath('/workforce/leave')
   revalidatePath('/workforce/employees')
+  // The subject sees the outcome on their own surface.
+  revalidatePath('/workspace/leave')
+  revalidatePath('/workspace')
+  return { ok: true }
 }
 
 export async function cancelLeaveRequest(id: string): Promise<void> {
