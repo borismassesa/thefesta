@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS wallet_management_tokens (
   encryption_key_version INTEGER NOT NULL,
 
   status TEXT NOT NULL DEFAULT 'active',
+  -- Why the link was turned off. Demanded by revoke_wallet_management_token()
+  -- and kept: "why is this guest's pass dead" is the whole question anyone
+  -- asks later, and requiring a reason only to discard it is worse than not
+  -- asking at all.
+  revocation_reason TEXT,
 
   issued_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at TIMESTAMPTZ,
@@ -222,7 +227,7 @@ BEGIN
 
   WITH revoked AS (
     UPDATE wallet_management_tokens
-       SET status = 'revoked', revoked_at = now()
+       SET status = 'revoked', revoked_at = now(), revocation_reason = p_reason
      WHERE guest_invitation_id = p_guest_invitation_id
        AND status = 'active'
     RETURNING 1

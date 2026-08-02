@@ -142,6 +142,9 @@ BEGIN
 
   n := revoke_wallet_management_token('44444444-0000-0000-0000-000000000200', 'Guest forwarded it');
   PERFORM assert_eq(n, 1, 'Y2 revocation turns off the live link');
+  PERFORM assert_eq((SELECT revocation_reason FROM wallet_management_tokens
+                     WHERE token_hash = decode(test_hash('WMT1:aaa'), 'hex')),
+                    'Guest forwarded it', 'Y2 and records WHY it was turned off');
   SELECT * INTO res FROM resolve_wallet_management_token(test_hash('WMT1:aaa'));
   PERFORM assert_eq(res.token_status, 'revoked', 'Y2 the link no longer works');
 

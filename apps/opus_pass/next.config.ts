@@ -38,6 +38,11 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/entrance-pass/[token]': ['./public/entrance-pass/**', './public/fonts/**'],
     '/entrance-pass/preview': ['./public/entrance-pass/**', './public/fonts/**'],
+    // The guest's own pass surface draws the same artwork through the same
+    // dynamic path.join, so it needs the same entry. Without it this route
+    // works in dev and 500s in production, which is the worst shape a bug of
+    // this kind can take.
+    '/p/[token]/pass': ['./public/entrance-pass/**', './public/fonts/**'],
   },
   // opus_pass is served at the root of its own subdomain (opuspass.opusfesta.com).
   // The marketing site links straight to that subdomain; opusfesta.com/opuspass/*

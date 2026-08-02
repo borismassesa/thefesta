@@ -13,6 +13,8 @@ export default function robots(): MetadataRoute.Robots {
           '/rsvp/',
           '/pledge/',
           '/collect/',
+          // Per-guest pass surface, same class as /rsvp and /pledge above.
+          '/p/',
           '/digital-cards/checkout',
           '/digital-cards/cart',
           '/digital-cards/confirmation',
