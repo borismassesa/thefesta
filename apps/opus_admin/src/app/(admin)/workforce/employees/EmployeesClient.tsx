@@ -35,12 +35,16 @@ import {
   EmployeeFormDialog,
   type ManagerCandidate,
 } from './_components/EmployeeDialogs'
+import { EMPLOYEE_STATUSES, isCurrentEmployee } from '../_lib/types'
 
-const STATUS_TONE: Record<EmployeeStatus, 'green' | 'amber' | 'purple' | 'gray'> = {
+const STATUS_TONE: Record<EmployeeStatus, 'green' | 'amber' | 'rose' | 'purple' | 'gray'> = {
   Active: 'green',
   'On Leave': 'amber',
   Onboarding: 'purple',
   Resigned: 'gray',
+  // Access-withdrawing states read as warnings, not as neutral metadata.
+  Suspended: 'amber',
+  Terminated: 'rose',
 }
 
 const TYPE_TONE: Record<EmploymentType, 'blue' | 'green' | 'amber' | 'purple'> = {
@@ -51,7 +55,7 @@ const TYPE_TONE: Record<EmploymentType, 'blue' | 'green' | 'amber' | 'purple'> =
 }
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ['Permanent', 'Contract', 'Probation', 'Intern']
-const STATUSES: EmployeeStatus[] = ['Active', 'On Leave', 'Onboarding', 'Resigned']
+const STATUSES: EmployeeStatus[] = EMPLOYEE_STATUSES
 
 // Seven columns: Employee, Employee ID, Role, Type, Joined, Status,
 // Actions. ID sits second so the identity block (name + email +
@@ -68,12 +72,14 @@ export default function EmployeesClient({
   openJobs,
   roles,
   canManageAccess,
+  annualLeaveEntitlementDays,
 }: {
   employees: Employee[]
   departments: Department[]
   openJobs: number
   roles: WorkforceRole[]
   canManageAccess: boolean
+  annualLeaveEntitlementDays: number
 }) {
   const router = useRouter()
   // Manager-picker options — the roster itself is the source. Sorted
@@ -113,11 +119,11 @@ export default function EmployeesClient({
   }, [employees, search, department, status, type])
 
   const totalSalary = useMemo(
-    () => employees.filter((e) => e.status !== 'Resigned').reduce((sum, e) => sum + e.salaryTzs, 0),
+    () => employees.filter((e) => isCurrentEmployee(e.status)).reduce((sum, e) => sum + e.salaryTzs, 0),
     [employees],
   )
 
-  const totalActive = employees.filter((e) => e.status !== 'Resigned').length
+  const totalActive = employees.filter((e) => isCurrentEmployee(e.status)).length
   const totalDepartments = new Set(employees.map((e) => e.department)).size
   const totalLocations = new Set(employees.map((e) => e.location)).size
   const hasActiveFilters = department !== 'All' || status !== 'All' || type !== 'All' || search !== ''
@@ -320,6 +326,7 @@ export default function EmployeesClient({
           roles={roles}
           managerCandidates={managerCandidates}
           canManageAccess={canManageAccess}
+          annualLeaveEntitlementDays={annualLeaveEntitlementDays}
           onClose={() => setShowAdd(false)}
         />
       )}
@@ -331,6 +338,7 @@ export default function EmployeesClient({
           roles={roles}
           managerCandidates={managerCandidates}
           canManageAccess={canManageAccess}
+          annualLeaveEntitlementDays={annualLeaveEntitlementDays}
           onClose={() => setEditing(null)}
         />
       )}

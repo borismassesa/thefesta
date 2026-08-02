@@ -18,9 +18,10 @@ import type {
   Location,
   WorkforceRole,
 } from '../../_lib/data'
+import { EMPLOYEE_STATUSES } from '../../_lib/data'
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ['Permanent', 'Contract', 'Probation', 'Intern']
-const STATUSES: EmployeeStatus[] = ['Active', 'On Leave', 'Onboarding', 'Resigned']
+const STATUSES: EmployeeStatus[] = EMPLOYEE_STATUSES
 const LOCATIONS: Location[] = ['Dar es Salaam', 'Arusha', 'Zanzibar', 'Remote']
 
 // Shared form dialog — handles both create and edit. Switching off `mode`
@@ -42,6 +43,7 @@ type FormDialogProps =
       roles: WorkforceRole[]
       managerCandidates: ManagerCandidate[]
       canManageAccess: boolean
+      annualLeaveEntitlementDays: number
       onClose: () => void
       employee?: never
     }
@@ -51,6 +53,7 @@ type FormDialogProps =
       roles: WorkforceRole[]
       managerCandidates: ManagerCandidate[]
       canManageAccess: boolean
+      annualLeaveEntitlementDays: number
       onClose: () => void
       employee: Employee
     }
@@ -76,7 +79,7 @@ export function EmployeeFormDialog(props: FormDialogProps) {
   const [location, setLocation] = useState<Location>(seed?.location ?? 'Dar es Salaam')
   const [startDate, setStartDate] = useState(seed?.startDate ?? new Date().toISOString().slice(0, 10))
   const [salaryTzs, setSalaryTzs] = useState(seed ? String(seed.salaryTzs) : '')
-  const [leaveBalance, setLeaveBalance] = useState(seed ? String(seed.leaveBalanceDays) : '21')
+  const [leaveBalance, setLeaveBalance] = useState(seed ? String(seed.leaveBalanceDays) : String(props.annualLeaveEntitlementDays))
   // "" sentinel maps to null manager_id — Postgres won't accept the
   // empty string into a UUID column, so we always coerce before sending.
   const [managerId, setManagerId] = useState<string>(seed?.managerId ?? '')

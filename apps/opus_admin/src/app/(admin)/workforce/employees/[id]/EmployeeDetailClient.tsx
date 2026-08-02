@@ -69,11 +69,14 @@ import { AttachmentControl } from './_components/AttachmentControl'
 
 type Tab = 'work' | 'resume' | 'certifications' | 'badges' | 'documents'
 
-const STATUS_TONE: Record<EmployeeStatus, 'green' | 'amber' | 'purple' | 'gray'> = {
+const STATUS_TONE: Record<EmployeeStatus, 'green' | 'amber' | 'rose' | 'purple' | 'gray'> = {
   Active: 'green',
   'On Leave': 'amber',
   Onboarding: 'purple',
   Resigned: 'gray',
+  // Access-withdrawing states read as warnings, not as neutral metadata.
+  Suspended: 'amber',
+  Terminated: 'rose',
 }
 
 const TYPE_TONE: Record<EmploymentType, 'blue' | 'green' | 'amber' | 'purple'> = {
@@ -117,6 +120,7 @@ export default function EmployeeDetailClient({
   roles,
   managerCandidates,
   canManageAccess,
+  annualLeaveEntitlementDays,
   resumeEntries,
   skills,
   certifications,
@@ -130,6 +134,7 @@ export default function EmployeeDetailClient({
   roles: WorkforceRole[]
   managerCandidates: ManagerCandidate[]
   canManageAccess: boolean
+  annualLeaveEntitlementDays: number
   resumeEntries: ResumeEntry[]
   skills: EmployeeSkill[]
   certifications: Certification[]
@@ -353,6 +358,7 @@ export default function EmployeeDetailClient({
           roles={roles}
           managerCandidates={managerCandidates}
           canManageAccess={canManageAccess}
+          annualLeaveEntitlementDays={annualLeaveEntitlementDays}
           onClose={() => setEditOpen(false)}
         />
       )}
@@ -1593,4 +1599,3 @@ function EmptySection({
     </div>
   )
 }
-

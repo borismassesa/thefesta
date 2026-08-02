@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { getCallerEmail, requirePermission } from '@/lib/admin-auth'
+import { getAnnualLeaveEntitlementDays, getLeavePolicies } from '../_lib/leave-policy'
 import {
   inviteEmployee as inviteEmployeeViaClerk,
   revokeInvitation as revokeWorkforceInvitation,
@@ -13,6 +14,7 @@ import type {
   EmploymentType,
   Location,
 } from '../_lib/types'
+import { EMPLOYEE_STATUSES } from '../_lib/types'
 
 const DEPARTMENTS = new Set<Department>([
   'Technology',
@@ -33,12 +35,7 @@ const EMPLOYMENT_TYPES = new Set<EmploymentType>([
   'Intern',
 ])
 
-const STATUSES = new Set<EmployeeStatus>([
-  'Active',
-  'On Leave',
-  'Onboarding',
-  'Resigned',
-])
+const STATUSES = new Set<EmployeeStatus>(EMPLOYEE_STATUSES)
 
 const LOCATIONS = new Set<Location>([
   'Dar es Salaam',
@@ -125,6 +122,7 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Create
   const status = input.status ?? 'Onboarding'
   if (!STATUSES.has(status)) return { ok: false, error: 'Pick a known status.' }
 
+  const leavePolicies = await getLeavePolicies()
   const supabase = createSupabaseAdminClient()
   const employeeCode = await nextEmployeeCode()
 
@@ -143,7 +141,7 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Create
       location: input.location,
       start_date: input.startDate,
       salary_tzs: Math.round(input.salaryTzs),
-      leave_balance_days: input.leaveBalanceDays ?? 0,
+      leave_balance_days: input.leaveBalanceDays ?? getAnnualLeaveEntitlementDays(leavePolicies),
       avatar_color: pickAvatarColor(email),
       notes: input.notes?.trim() || null,
     })

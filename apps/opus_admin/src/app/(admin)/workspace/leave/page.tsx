@@ -1,72 +1,73 @@
-import { getSelfIdentity } from '@/lib/workforce/identity'
-import { workspaceNavFor } from '@/lib/workforce/scope'
-import { LEAVE_TYPES } from './_lib/leave-calculation'
-import { getMyLeaveBalance, getMyLeaveRequests } from './_lib/queries'
-import LeaveClient from './LeaveClient'
+import { hasPermission } from '@/lib/admin-auth'
+import { workspaceErrorCode } from '@/lib/workspace/errors'
+import { requireWorkspaceCapability } from '@/lib/workspace/guards'
 import {
-  createMyLeaveRequest,
-  updateMyLeaveRequest,
-  withdrawMyLeaveRequest,
-} from './actions'
+  getApprovalQueue,
+  getHolidays,
+  getLeaveTypes,
+  getMyBalances,
+  getMyRequests,
+  getTeamAvailability,
+  getUpcomingLeave,
+} from '@/lib/leave/queries'
+import { addDays } from '@/lib/leave/days'
+import AccessNotice from '../_components/AccessNotice'
+import WorkspaceHeading from '../_components/WorkspaceHeading'
+import LeaveClient from './LeaveClient'
+import { cancelRequest, createRequest, decideRequest, submitRequest } from './actions'
 
 export const dynamic = 'force-dynamic'
 
-const TZ = 'Africa/Dar_es_Salaam'
+// Leave: balances, requests, the team calendar and the approval queue.
+//
+// Every read is scoped to the resolved employee. The one exception is team
+// availability, which returns colleagues but only whether they are in, never
+// why: "on leave" is fine to share, "bereavement leave" is not.
+export default async function LeavePage() {
+  let context
+  try {
+    context = await requireWorkspaceCapability('tools.use', { action: 'leave.view' })
+  } catch (error) {
+    return (
+      <>
+        <WorkspaceHeading title="Leave" />
+        <AccessNotice code={workspaceErrorCode(error)} />
+      </>
+    )
+  }
 
-function todayInTz(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
-}
+  const { employee } = context
+  const today = new Date().toISOString().slice(0, 10)
+  const isHr = await hasPermission('workforce.write')
 
-// My Leave. Personal surface: everything here is the caller's own, resolved
-// server-side. The queries take no employee id, so there is nothing on this
-// page a client could repoint at somebody else.
-export default async function MyLeavePage() {
-  const identity = await getSelfIdentity()
-  // Layouts and pages render in PARALLEL in the App Router — the layout's
-  // identity guard does not stop this component executing. Without this bail,
-  // requireSelfEmployee inside the queries throws on every request from an
-  // unlinked caller, logging a stack trace behind a card the user is already
-  // being shown correctly. Returning null lets the layout own the message.
-  if (!identity.ok) return null
-  const access = identity.access
-
-  // A resigned employee keeps documents_only, so they can still see their
-  // history but must not be able to raise anything new. The layout already
-  // gates entry; this decides whether the compose affordances render, and the
-  // actions re-check independently.
-  const canRequest = access === 'full'
-
-  const today = todayInTz()
-  const requests = await getMyLeaveRequests()
-  // Derived from the same list, so the figure on screen and the figure the
-  // action checks against can never disagree.
-  const balance = await getMyLeaveBalance(today, requests)
+  const [types, balances, requests, upcoming, holidays, availability, queue] = await Promise.all([
+    getLeaveTypes(),
+    getMyBalances(employee),
+    getMyRequests(employee),
+    getUpcomingLeave(employee),
+    getHolidays(`${today.slice(0, 4)}-01-01`, `${today.slice(0, 4)}-12-31`),
+    getTeamAvailability(employee, today, addDays(today, 27)),
+    getApprovalQueue(employee, { isHr }),
+  ])
 
   return (
-    <LeaveClient
-      balance={balance}
-      requests={requests}
-      leaveTypes={[...LEAVE_TYPES]}
-      today={today}
-      canRequest={canRequest}
-      readOnlyNote={
-        canRequest
-          ? null
-          : 'Your record is closed, so new requests cannot be raised. Your history stays available.'
-      }
-      actions={{
-        create: createMyLeaveRequest,
-        update: updateMyLeaveRequest,
-        withdraw: withdrawMyLeaveRequest,
-      }}
-      // Suppresses the nav-consistency warning if a future access state hides
-      // Leave entirely while this page is still reachable by direct URL.
-      navIncludesLeave={workspaceNavFor(access).includes('leave')}
-    />
+    <>
+      <WorkspaceHeading
+        title="Leave"
+        subtitle="Your balances, your requests, and who is in over the next four weeks."
+      />
+      <LeaveClient
+        today={today}
+        types={types}
+        balances={balances}
+        requests={requests}
+        upcoming={upcoming}
+        holidays={holidays}
+        availability={availability}
+        approvalQueue={queue}
+        isHr={isHr}
+        actions={{ createRequest, submitRequest, decideRequest, cancelRequest }}
+      />
+    </>
   )
 }

@@ -7,6 +7,7 @@ import 'server-only'
 import { clerkClient } from '@clerk/nextjs/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import { countLeaveWeekdaysInclusive } from './leave-days'
 import {
   parseSections,
   type ReportCadence,
@@ -441,7 +442,7 @@ export async function getLeaveRequests(): Promise<LeaveRequest[]> {
     type: r.leave_type,
     startDate: r.start_date,
     endDate: r.end_date,
-    days: r.days,
+    days: countLeaveWeekdaysInclusive(r.start_date, r.end_date),
     status: r.status,
     reason: r.reason,
     submittedAt: r.submitted_at,
