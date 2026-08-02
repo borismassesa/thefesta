@@ -3,7 +3,7 @@
 Vertical-slice plan for making the card a couple paid for the thing their guests
 actually receive, personalised per guest.
 
-Status: plan. PR 1 in progress.
+Status: PR 1 landed (979302cc, shared renderer extraction). PR 2 in progress.
 
 ## The gap today
 
@@ -104,11 +104,21 @@ artwork's original design text in that layer. On the reference card that means
 the released card a couple downloads today reads "Bi. Fabiola Thomas", the
 designer's sample guest.
 
-Decision needed. Either blank the guest layer in the couple-facing release, or
-render it with a neutral placeholder, or keep the sample and accept it. My
-recommendation is a neutral placeholder in the release plus the real name at
-guest-preparation time, because a blank layer makes the card look broken and the
-sample name looks like a mistake we shipped.
+DECIDED: a neutral placeholder in the frozen release, the real name per guest.
+
+```
+Frozen couple-facing release   guest_name = neutral placeholder
+Per-guest delivery asset       guest_name = exact guest display name
+```
+
+The Swahili default is `Jina la Mgeni`. Blank text reads as a broken card and the
+designer's sample name reads as a mistake we shipped, so neither is acceptable on
+an artefact the couple downloads. The placeholder should become locale-aware
+later; one safe default now beats either alternative.
+
+Note this also means the role's `example` in `CARD_FIELD_ROLES` must not be
+reused as the placeholder while it still reads `Bi. Fabiola Thomas`. An example
+is designer-facing guidance, not customer-facing copy.
 
 ## Delivery asset model
 
@@ -200,12 +210,40 @@ are invisible to the rasteriser. They must still be baked in, because the frozen
 SVG is also what the couple downloads and views in a browser, but the raster path
 has to be handed the font FILES separately.
 
-**2. Name resolution works, and the name-keying trap does not exist.** With two
-fonts loaded, all three forms resolve to the correct face: the real family
-(`Dancing Script`), the PostScript name alone (`DancingScript-Regular`), and
-Illustrator's list form (`DancingScript-Regular, Dancing Script`). No
-`font-family` rewriting is needed. This was the plan's main worry and it is not a
-problem.
+**2. resvg matches on FAMILY NAME plus weight, never on PostScript name, so the
+raster step must pin the face explicitly.**
+
+An earlier run of this spike concluded the opposite, that PostScript names
+resolve fine and no rewriting is needed. That was a false positive: it used two
+fonts of DIFFERENT families with one face each, so an unmatched name fell through
+to resvg's silent fallback, which happened to be the font the test expected.
+Finding 4 below is that same mechanism.
+
+Retested with a real regular+bold pair of ONE family, which is Royal Ivory's
+actual situation (`Bookman Old Style Regular` and `Bookman Old Style Bold`):
+
+```
+font-family="Arial"                             -> Regular   correct
+font-family="Arial" font-weight="700"           -> Bold      correct
+font-family="Arial-BoldMT, Arial" weight="700"  -> Bold      correct
+font-family="Arial-BoldMT, Arial"  (no weight)  -> Regular   WRONG
+font-family="ArialMT, Arial"                    -> Regular   correct
+```
+
+The PostScript-ish first entry Illustrator emits is ignored. Resolution runs off
+the second entry, the real family, combined with `font-weight`.
+
+Royal Ivory survives this only by luck: its one bold layer, `Bi._Fabiola_Thomas`,
+does carry `font-weight="700"`, and every `font-family` list happens to name the
+real family second. That layer is the GUEST NAME, the one field the delivery path
+substitutes, so a wrong weight there would be wrong on every guest card. An
+export that names a bold face without a weight attribute, or that omits the real
+family from the list, renders in the wrong face with no error.
+
+So the raster step does not trust the artwork's font naming. Before rasterising,
+it rewrites each text element's `font-family` to the matched face's canonical
+family and sets weight and style from that face. That rewrite is pure and belongs
+in `@opusfesta/lib`; only the wasm call belongs in the app.
 
 **3. WOFF is not supported. Renders blank.** The font library stores
 `ttf|otf|woff|woff2` (see `FONT_MEDIA` in `card-font-match.ts`), so any face
@@ -239,8 +277,9 @@ Consequences, now requirements rather than options:
 Raster step MUST
   read required fonts from the FROZEN svg   (readRequiredFonts)
   match them to library faces               (matchCardFonts)
-  download the bytes and write TTF/OTF to disk (resvg takes paths)
-  pass them via font.fontFiles with loadSystemFonts: false
+  PIN each text element to the matched face's canonical family + weight + style,
+    because resvg ignores the PostScript name Illustrator writes first
+  download the face bytes and pass them as fontBuffers (wasm build takes buffers)
   build that options object in ONE typed place, never inline
 
 Preparation MUST FAIL, not rasterise, when
