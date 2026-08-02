@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
-import { escapeLike, getCallerPermissions } from '@/lib/admin-auth'
+import { escapeLike, getCallerEmail, getCallerPermissions } from '@/lib/admin-auth'
 import { recordAuditEvent } from '@/lib/audit-log'
 import {
   EMPTY_TEAM_SCOPE,
@@ -129,7 +129,32 @@ async function tryLinkClerkId(
  */
 export const getSelfIdentity = cache(async (): Promise<SelfIdentityResult> => {
   const { userId } = await auth()
-  if (!userId) return resolveSelfIdentity(false, [])
+
+  // No Clerk session. Normally that is UNAUTHENTICATED, but the local
+  // DISABLE_ADMIN_AUTH bypass grants 'owner' without ever creating one, so a
+  // developer would otherwise see "please sign in" on every Workspace page
+  // while the rest of the dashboard worked. getCallerEmail already owns that
+  // rule (real session wins; placeholder only when there is no session at
+  // all), so we defer to it rather than re-deriving the bypass here.
+  //
+  // Identity repair is deliberately skipped on this path: there is no Clerk
+  // user to link, and writing a placeholder id would corrupt a real row.
+  if (!userId) {
+    const devEmail = await getCallerEmail()
+    if (!devEmail || !hasSupabaseAdminConfig()) return resolveSelfIdentity(false, [])
+    const supabase = createSupabaseAdminClient()
+    const { data } = await supabase
+      .from('workforce_employees')
+      .select(EMPLOYEE_COLUMNS)
+      .ilike('email', escapeLike(devEmail))
+      .returns<EmployeeRow[]>()
+    // Treat the bypass as AUTHENTICATED even with no matching row. A developer
+    // whose placeholder email has no employee record is EMPLOYEE_NOT_LINKED,
+    // not UNAUTHENTICATED — returning the latter would bounce them to
+    // /sign-in, where the bypass means there is nothing to sign in to.
+    return resolveSelfIdentity(true, (data ?? []).map(toSelfEmployee))
+  }
+
   if (!hasSupabaseAdminConfig()) {
     console.warn('[workforce-identity] Supabase admin env missing')
     return resolveSelfIdentity(true, [])
