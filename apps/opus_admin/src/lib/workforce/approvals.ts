@@ -148,3 +148,34 @@ export function canCompleteTask(
 export function canManageTask(task: TaskRef, scope: CallerScope): boolean {
   return canActOnEmployee(scope, task.assigneeId, 'workforce.tasks.assign')
 }
+
+// ---------------------------------------------------------------------------
+// Read scope (spec 2.8, 4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Which employees' records may this caller READ?
+ *
+ * Generalised from the leave surface so attendance, timesheets and
+ * performance cannot each invent their own answer. The only thing that varies
+ * between modules is which org-level keys grant the wide view.
+ *
+ * `none` is returned for a manager whose direct-report set is currently
+ * empty. That must yield NO rows — never a fallback to department or
+ * organisation scope, which is the failure mode this whole phase exists to
+ * prevent.
+ */
+export type ReadScope =
+  | { kind: 'org' }
+  | { kind: 'team'; employeeIds: string[] }
+  | { kind: 'none' }
+
+export function resolveReadScope(
+  scope: CallerScope,
+  orgKeys: readonly PermissionKey[],
+): ReadScope {
+  if (orgKeys.some((k) => scope.permissions.has(k))) return { kind: 'org' }
+  const reports = scope.team.directReportIds
+  if (reports.length > 0) return { kind: 'team', employeeIds: [...reports] }
+  return { kind: 'none' }
+}

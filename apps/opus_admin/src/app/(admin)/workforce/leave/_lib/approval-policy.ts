@@ -1,4 +1,9 @@
-import { canApprove, type ApprovalDecision } from '@/lib/workforce/approvals'
+import {
+  canApprove,
+  resolveReadScope,
+  type ApprovalDecision,
+  type ReadScope,
+} from '@/lib/workforce/approvals'
 import type { CallerScope } from '@/lib/workforce/scope'
 
 // Pure leave-approval policy. Composes the shared primitives rather than
@@ -53,19 +58,9 @@ export function canDecideLeaveRequest(
  * current direct reports, which yields no rows rather than falling back to
  * department or organisation scope.
  */
-export type LeaveReadScope =
-  | { kind: 'org' }
-  | { kind: 'team'; employeeIds: string[] }
-  | { kind: 'none' }
+export type LeaveReadScope = ReadScope
 
 export function leaveReadScope(scope: CallerScope): LeaveReadScope {
-  if (scope.permissions.has('workforce.leave.read') ||
-      scope.permissions.has(LEAVE_APPROVE_PERMISSION)) {
-    return { kind: 'org' }
-  }
-  const reports = scope.team.directReportIds
-  // A manager with zero active reports gets an empty team scope, never a
-  // widened one. deriveTeamScope has already excluded resigned reports.
-  if (reports.length > 0) return { kind: 'team', employeeIds: [...reports] }
-  return { kind: 'none' }
+  // Delegates to the shared primitive; only the org keys are leave-specific.
+  return resolveReadScope(scope, ['workforce.leave.read', LEAVE_APPROVE_PERMISSION])
 }
