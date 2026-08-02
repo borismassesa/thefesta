@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
+    "test": "tsx --test $(find src -name '*.test.ts' | sort)",
     "clean": "rm -rf .next"
   },
   "dependencies": {
