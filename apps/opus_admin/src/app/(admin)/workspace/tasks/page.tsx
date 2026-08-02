@@ -1,5 +1,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { getSelfIdentity } from '@/lib/workforce/identity'
+import { workspaceErrorCode } from '@/lib/workspace/errors'
+import { requireWorkspaceCapability } from '@/lib/workspace/guards'
+import AccessNotice from '../../workspace/_components/AccessNotice'
 import { getAssignedTasksForEmployee } from '../../workforce/_lib/queries'
 import MyTasksHeading from './MyTasksHeading'
 import MyTasksList from './MyTasksList'
@@ -14,8 +16,10 @@ export const dynamic = 'force-dynamic'
 // grouped by status, with mark complete / start / reopen via the server
 // actions. The `source` on each task routes the action to the right table.
 //
-// Auth: covered by the (admin)/workforce layout (workforce.read). The
-// actions enforce per-row ownership of their own.
+// Auth: the Workspace resolver identifies the employee from their Clerk
+// session and enforces their access state ('tools.use'), the same gate the
+// actions apply. The Workspace layout supplies the shell; the actions enforce
+// per-row ownership as well.
 
 export type MyTask = {
   id: string
@@ -30,24 +34,19 @@ export type MyTask = {
 }
 
 export default async function MyTasksPage() {
-  // The Workspace layout has already resolved and gated identity; this reuses
-  // the same per-request cached result rather than re-querying by email.
-  const identity = await getSelfIdentity()
-  const employee = identity.ok ? identity.employee : null
-
-  const supabase = createSupabaseAdminClient()
-
-  if (!employee) {
+  let employee
+  try {
+    ;({ employee } = await requireWorkspaceCapability('tools.use', { action: 'tasks.view' }))
+  } catch (error) {
     return (
       <div className="pb-12">
-        <MyTasksHeading
-          title="My tasks"
-          subtitle="No workforce record yet — ask an admin to add you."
-        />
+        <MyTasksHeading title="My tasks" />
+        <AccessNotice code={workspaceErrorCode(error)} />
       </div>
     )
   }
 
+  const supabase = createSupabaseAdminClient()
   const { data: internRows, error: internError } = await supabase
     .from('intern_tasks')
     .select('id, title, description, status, category, due_date, completed_at')

@@ -1,70 +1,50 @@
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
-import { getAdminAccessRole, getCallerPermissions, isAdminDashboardRole } from '@/lib/admin-auth'
-import { getSelfIdentity } from '@/lib/workforce/identity'
-import {
-  hasAnyWorkforcePermission,
-  selfIdentityMessage,
-  workspaceNavFor,
-} from '@/lib/workforce/scope'
-import WorkspaceUnavailable from './_components/WorkspaceUnavailable'
+import { capabilitiesFor } from '@/lib/workspace/access'
+import { getWorkspaceSession } from '@/lib/workspace/identity'
+import AccessNotice from './_components/AccessNotice'
+import WorkspaceNav from './_components/WorkspaceNav'
 
 export const dynamic = 'force-dynamic'
 
-// ---------------------------------------------------------------------------
-// Workspace shell — gated on IDENTITY, not on a permission.
-// ---------------------------------------------------------------------------
-// Implements sections 1, 2.6 and 5.1 of
-// docs/WORKSPACE_WORKFORCE_ARCHITECTURE.md.
+// Route shell for Workspace, the employee self-service module.
 //
-// This is the whole point of the Workspace/Workforce split. There is no
-// "can view my own time clock" permission because no coherent role denies it.
-// The gate is "is there a workforce_employees row linked to this Clerk user".
+// The layout resolves the employee ONCE on the server (React.cache makes the
+// page's own resolution free) and decides whether the module opens at all. What
+// it does NOT do is authorize the page beneath it: each page and each server
+// action calls requireWorkspaceCapability for itself, because a layout that
+// rendered is not evidence that a later server action is allowed to write.
 //
-// Contrast with ../workforce/layout.tsx, which redirects on a missing
-// workforce.read. That gate is why My Tasks and the Daily Tracker — both
-// personal surfaces that were wrongly filed under /workforce — are unreachable
-// today for content-editor and vendor-success, i.e. for Marketing, Content,
-// UI & UX Design, Operations and Studio. Five of the nine departments.
-//
-// A failure here renders an explanation, never a bare 403 or a stack trace.
+// Three outcomes:
+//   unauthenticated -> bounce to sign-in.
+//   unresolved      -> render the reason, no children. Missing, ambiguous and
+//                      conflicting identities all land here and fail safe.
+//   resolved        -> render the shell. `denied` still renders the shell, with
+//                      the notice in place of the page.
 export default async function WorkspaceLayout({ children }: { children: ReactNode }) {
-  const role = await getAdminAccessRole()
-  if (!isAdminDashboardRole(role)) redirect('/contribute')
+  const session = await getWorkspaceSession()
 
-  const identity = await getSelfIdentity()
-
-  if (!identity.ok) {
-    // Not signed in at all is a routing problem, not a Workspace problem:
-    // send them to sign in rather than rendering a card that says "please
-    // sign in" behind the authenticated shell.
-    if (identity.error === 'UNAUTHENTICATED') redirect('/sign-in')
-    // The copy differs for an administrator with no employee profile (a
-    // legitimate state: they hold org permissions but were never added to the
-    // directory) versus an ordinary user whose profile was never activated.
-    const permissions = await getCallerPermissions()
-    return (
-      <WorkspaceUnavailable
-        message={selfIdentityMessage(identity.error, hasAnyWorkforcePermission(permissions))}
-        showWorkforceLink={hasAnyWorkforcePermission(permissions)}
-      />
-    )
+  if (session.status === 'unauthenticated') {
+    redirect('/sign-in?redirect_url=/workspace')
   }
 
-  // A resigned employee keeps documents_only: payslips and letters stay
-  // reachable, but there is nothing to clock into and no requests to raise.
-  if (workspaceNavFor(identity.access).length === 0) {
-    return (
-      <WorkspaceUnavailable
-        message="Your Workspace is closed. Contact People Ops if you need access to your records."
-        showWorkforceLink={false}
-      />
-    )
-  }
-
-  return (
+  const shell = (body: ReactNode, nav?: ReactNode) => (
     <div className="mx-auto max-w-[1400px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8 lg:px-8 lg:pb-10">
-      {children}
+      {nav}
+      {body}
     </div>
+  )
+
+  if (session.status === 'unresolved') {
+    return shell(<AccessNotice code={session.code} />)
+  }
+
+  if (session.access === 'denied') {
+    return shell(<AccessNotice code="access_denied" />)
+  }
+
+  return shell(
+    children,
+    <WorkspaceNav access={session.access} capabilities={capabilitiesFor(session.access)} />,
   )
 }

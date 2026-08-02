@@ -2,8 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { getSelfIdentity } from '@/lib/workforce/identity'
 import { recordAuditEvent } from '@/lib/audit-log'
+import { logDbError } from '@/lib/log-safe'
+import { WorkspaceError } from '@/lib/workspace/errors'
+import { requireWorkspaceCapability } from '@/lib/workspace/guards'
+import { recordWorkspaceActivity } from '@/lib/workspace/activity'
 
 // Server actions for the "My tasks" page. Each is scoped to the caller's
 // own employee row — admin-side editing of other people's tasks happens
@@ -13,10 +16,13 @@ import { recordAuditEvent } from '@/lib/audit-log'
 // `workforce_tasks` (instances generated from admin assignments). The
 // `source` discriminator routes each status change to the right table.
 //
-// Authz: we resolve the caller's workforce_employees row by email and
-// only permit mutations where the task's employee_id matches. Enforced
-// server-side because the admin app uses the service role key (bypasses
-// RLS); the email-match check is the gate.
+// Authz: the employee is resolved from the Clerk session by the Workspace
+// identity resolver, which also enforces the access state ('tools.use' is
+// granted by full access only). The caller supplies a task id, never an
+// employee id, and the UPDATE is filtered on the resolved employee_id — so a
+// non-owner update matches zero rows even if the ownership check above it were
+// somehow bypassed. Enforced server-side because the admin app uses the service
+// role key and bypasses RLS.
 
 export type TaskSource = 'intern' | 'assigned'
 type TaskStatus = 'Todo' | 'In Progress' | 'Done'
@@ -26,23 +32,14 @@ const TABLE: Record<TaskSource, 'intern_tasks' | 'workforce_tasks'> = {
   assigned: 'workforce_tasks',
 }
 
-// Identity comes from the shared resolver, which keys on clerk_user_id and
-// escapes the email fallback. The previous implementation here did an
-// UNESCAPED .ilike('email', email), so an address like `john_doe@x.com`
-// matched any character at the underscore and could resolve to a different
-// employee — meaning "complete my task" could complete someone else's.
-async function resolveCallerEmployee(): Promise<{ id: string } | null> {
-  const identity = await getSelfIdentity()
-  return identity.ok ? { id: identity.employee.id } : null
-}
-
 async function setTaskStatus(
   taskId: string,
   source: TaskSource,
   target: TaskStatus,
 ): Promise<void> {
-  const employee = await resolveCallerEmployee()
-  if (!employee) throw new Error('No workforce profile — ask an admin to add you.')
+  const { employee } = await requireWorkspaceCapability('tools.use', {
+    action: `tasks.${target.toLowerCase().replace(' ', '_')}`,
+  })
 
   const table = TABLE[source]
   const supabase = createSupabaseAdminClient()
@@ -54,7 +51,10 @@ async function setTaskStatus(
     .select('id, employee_id')
     .eq('id', taskId)
     .maybeSingle<{ id: string; employee_id: string }>()
-  if (lookupError) throw lookupError
+  if (lookupError) {
+    logDbError(`workspace.tasks.lookup`, lookupError, { employeeId: employee.id })
+    throw new WorkspaceError('unavailable')
+  }
   if (!task) throw new Error('Task not found.')
   if (task.employee_id !== employee.id) {
     void recordAuditEvent({
@@ -75,8 +75,23 @@ async function setTaskStatus(
     .update(patch)
     .eq('id', taskId)
     .eq('employee_id', employee.id)
-  if (error) throw error
-  revalidatePath('/workspace/tasks')
+  if (error) {
+    logDbError('workspace.tasks.update', error, { employeeId: employee.id })
+    throw new WorkspaceError('unavailable')
+  }
+
+  void recordWorkspaceActivity({
+    employeeId: employee.id,
+    eventType: 'workspace.task.status_changed',
+    summary: `Moved a task to ${target}`,
+    actorEmployeeId: employee.id,
+    actorClerkId: employee.clerkUserId,
+    targetResource: `${table}:${taskId}`,
+    metadata: { source, status: target },
+  })
+
+  revalidatePath('/workspace')
+  revalidatePath('/workforce/my-tasks')
   revalidatePath('/workforce/tasks')
   revalidatePath('/')
 }
