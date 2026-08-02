@@ -3,11 +3,11 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { createHmac } from 'node:crypto'
+import { deriveAssetToken } from './asset-tokens'
 import { FakePreparationClient } from './fake-preparation-client'
 import {
   PREPARE_FAILURE_CODES,
   assetStoragePath,
-  deriveTokenForTest,
   prepareGuestCardAsset,
   type PreparationClient,
 } from './prepare-guest-asset'
@@ -506,7 +506,7 @@ test('a permanent failure is not retried', async () => {
 test('the token is domain-separated and versioned', () => {
   // Guards against the same secret minting colliding values for another purpose,
   // and leaves room to change the format without silently breaking sent URLs.
-  const token = deriveTokenForTest({
+  const token = deriveAssetToken({
     designReleaseId: RELEASE_ID, guestId: GUEST_ID, renderVariant: VARIANT,
   })
   const expected = createHmac('sha256', process.env.CARD_ASSET_TOKEN_SECRET as string)

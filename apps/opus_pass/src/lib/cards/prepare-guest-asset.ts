@@ -1,4 +1,3 @@
-import { createHash, createHmac } from 'node:crypto'
 import {
   assertGuestSubstituted,
   matchCardFonts,
@@ -13,6 +12,7 @@ import {
   type RasterFontCandidate,
 } from '@opusfesta/lib'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { deriveAssetToken, hashAssetToken } from './asset-tokens'
 import { rasteriseCard, type RasterFont } from './raster'
 
 // Turning an approved release into one guest's card image.
@@ -72,6 +72,8 @@ export const PREPARE_FAILURE_CODES = [
   /** The artwork cannot be rendered. Will fail identically forever. */
   'RASTER_INPUT_UNSUPPORTED',
   'STORAGE_WRITE_FAILED',
+  /** The route found a ready row whose object had gone. Rebuildable. */
+  'STORAGE_OBJECT_MISSING',
   /**
    * Another worker holds the claim and has not finished.
    *
@@ -110,16 +112,10 @@ const OUTPUT_WIDTH_PX = 1080
 const CLAIM_LEASE_MS = 90_000
 
 /**
- * Token derivation inputs.
- *
- * ROTATION IS A BREAKING CHANGE. Because the token is derived rather than
- * stored, changing CARD_ASSET_TOKEN_SECRET invalidates every URL already sent to
- * a guest. Supporting rotation would mean recording which secret version an
- * asset was minted under and accepting both during a changeover; until that
- * exists, treat the secret as permanent for the life of a send.
+ * ROTATION IS A BREAKING CHANGE for URLs already sent. See asset-tokens.ts: new
+ * assets mint from CURRENT while PREVIOUS stays accepted, so a rotation is a
+ * two-deploy operation rather than a silent outage mid-send.
  */
-const TOKEN_DOMAIN = 'opus-card-asset'
-const TOKEN_VERSION = 'v1'
 
 /** How long a loser waits for the winner before telling the caller to retry. */
 const WAIT_FOR_WINNER_MS = 3_000
@@ -152,31 +148,6 @@ function logFailure(input: PrepareGuestCardAssetInput, code: PrepareFailureCode)
   console.warn(
     `[card-asset] prepare failed code=${code} release=${input.designReleaseId} guest=${input.guestId} variant=${input.renderVariant}`,
   )
-}
-
-/**
- * The bearer token for one asset, derived rather than stored.
- *
- * Keyed on the three immutable identifiers, so it is stable across retries and a
- * new release necessarily produces a new token. Returns null when the secret is
- * absent: minting a guessable token would be worse than refusing to prepare.
- */
-function deriveToken(input: PrepareGuestCardAssetInput): string | null {
-  const secret = process.env.CARD_ASSET_TOKEN_SECRET
-  if (!secret) return null
-  // Domain-separated and versioned. Without the prefix the same secret could be
-  // reused for another token purpose and produce colliding values; without the
-  // version the format could never change without silently invalidating every
-  // URL already sent.
-  const payload = `${TOKEN_DOMAIN}:${TOKEN_VERSION}:${input.designReleaseId}:${input.guestId}:${input.renderVariant}`
-  return createHmac('sha256', secret).update(payload).digest('base64url')
-}
-
-/** Exposed so a test can pin the derivation format without re-implementing it. */
-export const deriveTokenForTest = deriveToken
-
-export function tokenHashFor(token: string): string {
-  return createHash('sha256').update(token).digest('hex')
 }
 
 /** Deterministic and free of anything mutable or identifying. */
@@ -213,7 +184,7 @@ export async function prepareGuestCardAsset(
     return { ok: false, code }
   }
 
-  const token = deriveToken(input)
+  const token = deriveAssetToken(input)
   if (!token) return fail('TOKEN_SECRET_MISSING')
 
   // ── The release, which must still be the one this asset is bound to ──
@@ -238,7 +209,7 @@ export async function prepareGuestCardAsset(
   if (!guestName) return fail('GUEST_NAME_MISSING')
 
   // ── Claim ──
-  const claim = await claimAsset(supabase, input, tokenHashFor(token))
+  const claim = await claimAsset(supabase, input, hashAssetToken(token))
   if (claim.kind === 'existing') {
     if (claim.row.status === 'ready' && claim.row.png_storage_path) {
       return { ok: true, status: 'reused', assetId: claim.row.id, pngStoragePath: claim.row.png_storage_path }
@@ -421,6 +392,9 @@ async function claimAsset(
  */
 const RETRYABLE_FAILURES = new Set<string>([
   'STORAGE_WRITE_FAILED',
+  // Set by the public route when a ready asset's object had vanished. Rebuilding
+  // it is exactly what preparation is for, so it must be retryable.
+  'STORAGE_OBJECT_MISSING',
   'FONT_DOWNLOAD_FAILED',
   'RASTER_RUNTIME_FAILED',
   'PREPARATION_IN_PROGRESS',
