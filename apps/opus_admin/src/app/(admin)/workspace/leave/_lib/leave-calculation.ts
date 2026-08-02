@@ -47,15 +47,31 @@ export function daysBetween(startDate: string, endDate: string): number {
 }
 
 /**
- * Which leave types draw down the annual balance.
+ * The company's annual leave allowance, in days.
  *
- * Only 'Annual' does. Sick, Maternity, Paternity and Compassionate are
- * separately entitled, and Unpaid by definition costs no balance. This
- * mirrors the deduction rule in decideLeaveRequest, which fires only for
- * Annual on approval.
+ * A single pool covering EVERY leave type. There is no per-type entitlement
+ * and no separate sick or compassionate allowance.
  */
-export function affectsBalance(type: LeaveType): boolean {
-  return type === 'Annual'
+export const ANNUAL_ENTITLEMENT_DAYS = 28
+
+/**
+ * Which leave types draw down the balance. ALL of them.
+ *
+ * Confirmed as company policy: the 28 days are one pool, and it does not
+ * matter whether a day is taken as Sick, Compassionate, Maternity, Paternity
+ * or Annual — it comes out of the same allowance.
+ *
+ * This CORRECTS the previous rule, which deducted only for 'Annual'. Under
+ * that rule an employee could take months of Sick or Compassionate leave with
+ * their balance untouched, which is exactly what the live data shows: one
+ * employee has 98 approved days and still reads 28 of 28 remaining.
+ *
+ * Kept as a function rather than inlined as `true` because Unpaid is the one
+ * type where this deserves a second look — unpaid leave drawing down a paid
+ * allowance is unusual — and this is where that exception would go.
+ */
+export function affectsBalance(_type: LeaveType): boolean {
+  return true
 }
 
 /**

@@ -5,6 +5,10 @@ import { createSupabaseAdminClient } from '@/lib/supabase'
 import { requirePermission } from '@/lib/admin-auth'
 import { recordAuditEvent } from '@/lib/audit-log'
 import { canDecideLeaveRequest, type LeaveDecision } from './_lib/approval-policy'
+// The canonical duration + type helpers. This file used to carry its own
+// copy of daysBetween; both surfaces now share one implementation so they
+// cannot drift on "how many days is this".
+import { daysBetween, isLeaveType } from '../../workspace/leave/_lib/leave-calculation'
 import { getLeaveRequestForDecision } from './_lib/queries'
 import type { LeaveStatus, LeaveType } from '../_lib/types'
 
@@ -17,11 +21,6 @@ const LEAVE_TYPES = new Set<LeaveType>([
   'Unpaid',
 ])
 
-function daysBetween(start: string, end: string): number {
-  const s = new Date(start)
-  const e = new Date(end)
-  return Math.max(1, Math.floor((e.getTime() - s.getTime()) / 86400000) + 1)
-}
 
 export type SubmitLeaveInput = {
   employeeId: string
@@ -85,6 +84,7 @@ export type DecideResult = { ok: true } | { ok: false; error: string }
 export async function decideLeaveRequest(
   id: string,
   decision: LeaveDecision,
+  note?: string,
 ): Promise<DecideResult> {
   if (decision !== 'Approved' && decision !== 'Rejected') {
     return { ok: false, error: 'Pick approve or reject.' }
@@ -110,6 +110,7 @@ export async function decideLeaveRequest(
       p_request_id: id,
       p_decision: decision,
       p_reviewer_employee_id: scope.employee?.id ?? null,
+      p_decision_note: typeof note === 'string' && note.trim() ? note.trim().slice(0, 1000) : null,
     })
     .maybeSingle<{
       decided: boolean
@@ -151,6 +152,10 @@ export async function decideLeaveRequest(
       leaveType: row.leave_type,
       days: row.days,
       viaOrgPermission: scope.permissions.has('workforce.leave.approve'),
+      // Whether a note was left, not what it said: the note may discuss
+      // health or family circumstances and belongs on the row, not in an
+      // audit trail that is read far more widely.
+      hasDecisionNote: Boolean(note && note.trim()),
     },
   })
 
@@ -202,4 +207,101 @@ export async function upsertAttendance(input: UpsertAttendanceInput): Promise<vo
     )
   if (error) throw error
   revalidatePath('/workforce/leave')
+}
+
+
+// ---------------------------------------------------------------------------
+// Admin edit of a pending request
+// ---------------------------------------------------------------------------
+
+export type EditLeaveInput = {
+  type: LeaveType
+  startDate: string
+  endDate: string
+  reason: string
+}
+
+/**
+ * Correct the details of a request before deciding it.
+ *
+ * Same authority as deciding: team scope for your own direct reports, or
+ * workforce.leave.approve organisation-wide. Editing someone's request is at
+ * least as consequential as approving it, so it is not a lesser gate.
+ *
+ * PENDING ONLY. A decided request is deliberately immutable here: the balance
+ * has already been drawn down against the stored day count, so changing the
+ * dates afterwards would leave the deduction and the record disagreeing with
+ * no compensating adjustment. Correcting a decided request means reversing the
+ * balance too, which is a People Ops operation rather than an inline edit.
+ */
+export async function editLeaveRequest(
+  id: string,
+  input: EditLeaveInput,
+): Promise<DecideResult> {
+  const { scope, row } = await getLeaveRequestForDecision(id)
+  if (!row) return { ok: false, error: 'That request no longer exists.' }
+
+  // canDecideLeaveRequest already checks scope, self-approval and Pending
+  // status — exactly the conditions that should gate an edit.
+  const allowed = canDecideLeaveRequest(
+    { id: row.id, employeeId: row.employee_id, status: row.status },
+    scope,
+  )
+  if (!allowed.allowed) return { ok: false, error: allowed.reason }
+
+  if (!isLeaveType(input.type)) return { ok: false, error: 'Pick a known leave type.' }
+  if (input.endDate < input.startDate) {
+    return { ok: false, error: 'The end date must be on or after the start date.' }
+  }
+  const reason = input.reason.trim()
+  if (reason.length < 3) return { ok: false, error: 'Give a short reason for the request.' }
+
+  const days = daysBetween(input.startDate, input.endDate)
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('workforce_leave_requests')
+    .update({
+      leave_type: input.type,
+      start_date: input.startDate,
+      end_date: input.endDate,
+      days,
+      reason,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    // Re-asserted at write time: if an approver decided between the read and
+    // this update, the edit matches nothing rather than quietly altering a
+    // request whose balance has already been deducted.
+    .eq('status', 'Pending')
+    .select('id')
+    .returns<Array<{ id: string }>>()
+  if (error) {
+    console.error('[workforce-leave] edit failed', error)
+    return { ok: false, error: 'We could not save those changes. Try again.' }
+  }
+  if ((data?.length ?? 0) !== 1) {
+    return {
+      ok: false,
+      error: 'Someone decided this request while you were editing. Refresh to see it.',
+    }
+  }
+
+  await recordAuditEvent({
+    eventType: 'workforce.leave_edited',
+    severity: 'warn',
+    message: `Leave request ${id} edited before decision`,
+    targetResource: `workforce_leave_requests:${id}`,
+    metadata: {
+      subjectEmployeeId: row.employee_id,
+      actorEmployeeId: scope.employee?.id ?? null,
+      leaveTypeFrom: row.leave_type,
+      leaveTypeTo: input.type,
+      daysFrom: row.days,
+      daysTo: days,
+    },
+  })
+
+  revalidatePath('/workforce/leave')
+  revalidatePath('/workspace/leave')
+  return { ok: true }
 }

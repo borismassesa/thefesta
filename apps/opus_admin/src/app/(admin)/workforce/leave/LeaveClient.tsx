@@ -27,6 +27,7 @@ import type {
   LeaveStatus,
   LeaveType,
 } from '../_lib/data'
+import { ANNUAL_ENTITLEMENT_DAYS } from '../../workspace/leave/_lib/leave-calculation'
 import { cancelLeaveRequest, decideLeaveRequest, submitLeaveRequest, upsertAttendance } from './actions'
 
 const LEAVE_TYPES: LeaveType[] = ['Annual', 'Sick', 'Maternity', 'Paternity', 'Compassionate', 'Unpaid']
@@ -186,7 +187,7 @@ function RequestsTable({
   const [submitting, setSubmitting] = useState(false)
   const [viewing, setViewing] = useState<LeaveRequest | null>(null)
 
-  function decide(id: string, decision: 'Approved' | 'Rejected') {
+  function decide(id: string, decision: 'Approved' | 'Rejected', note?: string) {
     setError(null)
     setBusyId(id)
     startTransition(async () => {
@@ -195,7 +196,7 @@ function RequestsTable({
         // Next redacts thrown Server Action messages in production. Only the
         // controlled message is shown; an unexpected throw falls to the catch
         // and renders a generic string.
-        const result = await decideLeaveRequest(id, decision)
+        const result = await decideLeaveRequest(id, decision, note)
         if (!result.ok) setError(result.error)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not update the request.')
@@ -324,37 +325,13 @@ function RequestsTable({
                 <div>
                   <StatusPill tone={STATUS_TONE[r.status]} label={r.status} />
                 </div>
-                <div className="flex justify-end gap-1.5">
-                  {r.status === 'Pending' ? (
-                    <>
-                      <button
-                        type="button"
-                        title="Approve"
-                        disabled={pending && busyId === r.id}
-                        onClick={() => decide(r.id, 'Approved')}
-                        className="rounded-md p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Reject"
-                        disabled={pending && busyId === r.id}
-                        onClick={() => decide(r.id, 'Rejected')}
-                        className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-                      >
-                        <XCircle className="h-4 w-4" />
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setViewing(r)}
-                      className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                    >
-                      View
-                    </button>
-                  )}
+                <div className="flex justify-end">
+                  <DecisionActions
+                    request={r}
+                    busy={pending && busyId === r.id}
+                    onDecide={decide}
+                    onView={() => setViewing(r)}
+                  />
                 </div>
               </div>
             )
@@ -781,6 +758,142 @@ function AttendanceTable({
   )
 }
 
+/**
+ * Row actions for a leave request.
+ *
+ * Replaces two unlabelled icon buttons. Four things were wrong with those:
+ *
+ *  1. Bare check / cross icons sat adjacent at the same size and weight, so
+ *     approve and reject were a pixel apart and told apart only by colour.
+ *  2. A single click decided immediately. Approving now deducts the annual
+ *     balance atomically, so a misclick is a real correction job, and the
+ *     employee sees the wrong outcome in their Workspace straight away.
+ *  3. Pending rows had NO View button, and the reason cell is line-clamped to
+ *     two lines. You could not read the full justification before deciding.
+ *  4. Decided rows showed only "View", with no indication of what happened
+ *     beyond the status pill.
+ *
+ * So: labelled buttons, a deliberate confirm step, and View available on every
+ * row including pending ones.
+ */
+function DecisionActions({
+  request,
+  busy,
+  onDecide,
+  onView,
+}: {
+  request: LeaveRequest
+  busy: boolean
+  onDecide: (id: string, decision: 'Approved' | 'Rejected', note?: string) => void
+  onView: () => void
+}) {
+  const [arming, setArming] = useState<'Approved' | 'Rejected' | null>(null)
+  const [note, setNote] = useState('')
+
+  // Disarm on its own so a half-pressed decision cannot sit waiting on screen
+  // to be completed by a later, unrelated click.
+  useEffect(() => {
+    if (!arming) return
+    // Longer than a plain confirm because there is now a note to type. Only
+    // disarms while the field is untouched, so a half-written note is never
+    // discarded from under the approver.
+    if (note) return
+    const t = setTimeout(() => setArming(null), 8000)
+    return () => clearTimeout(t)
+  }, [arming, note])
+
+  if (request.status !== 'Pending') {
+    return (
+      <button
+        type="button"
+        onClick={onView}
+        className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+      >
+        View
+      </button>
+    )
+  }
+
+  if (arming) {
+    const approving = arming === 'Approved'
+    return (
+      <div className="flex min-w-[260px] flex-col items-end gap-1.5">
+        <span className="text-xs font-medium text-gray-500">
+          {approving ? 'Approve' : 'Reject'} {request.days}{' '}
+          {request.days === 1 ? 'day' : 'days'}?
+        </span>
+        <input
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={1000}
+          autoFocus
+          placeholder={approving ? 'Note (optional)' : 'Why? (recommended)'}
+          className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]"
+        />
+        <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            onDecide(request.id, arming, note)
+            setArming(null)
+            setNote('')
+          }}
+          className={cn(
+            'rounded-md px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50',
+            approving ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700',
+          )}
+        >
+          {busy ? 'Saving…' : 'Confirm'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setArming(null)
+            setNote('')
+          }}
+          className="rounded-md px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <button
+        type="button"
+        onClick={onView}
+        title="Read the full reason"
+        className="rounded-md px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+      >
+        View
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setArming('Rejected')}
+        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:border-rose-200 hover:bg-rose-50 disabled:opacity-50"
+      >
+        <XCircle className="h-3.5 w-3.5" />
+        Reject
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setArming('Approved')}
+        className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+      >
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Approve
+      </button>
+    </div>
+  )
+}
+
 function BalancesTable({
   employees,
   requests,
@@ -805,6 +918,8 @@ function BalancesTable({
     const map = new Map<string, { annual: number; other: number }>()
     for (const r of requests) {
       if (r.status !== 'Approved') continue
+      // EVERY type counts against the same 28-day pool, so the split is by
+      // type for information only — all of it is deducted.
       const entry = map.get(r.employeeId) ?? { annual: 0, other: 0 }
       if (r.type === 'Annual') entry.annual += r.days
       else entry.other += r.days
@@ -826,13 +941,16 @@ function BalancesTable({
       </div>
       {employees.map((e) => {
         const t = taken.get(e.id) ?? { annual: 0, other: 0 }
-        // Entitlement follows from the deduction rule: whatever is left plus
-        // whatever Annual has already been deducted. Zero only when the
-        // employee has no balance AND has taken no annual leave, which means
-        // no entitlement is recorded — not that it is all used up.
-        const entitlement = e.leaveBalanceDays + t.annual
-        const pct = entitlement > 0 ? Math.round((t.annual / entitlement) * 100) : null
         const totalTaken = t.annual + t.other
+        // One company-wide pool. Every leave type draws from it.
+        const entitlement = ANNUAL_ENTITLEMENT_DAYS
+        const pct = Math.min(100, Math.round((totalTaken / entitlement) * 100))
+        // The stored balance was only ever decremented for Annual, so for
+        // anyone with non-Annual approved leave it overstates what is left.
+        // Show the stored figure AND what the rule implies, rather than
+        // silently presenting either as the truth.
+        const implied = Math.max(0, entitlement - totalTaken)
+        const stale = implied !== e.leaveBalanceDays
         return (
           <div
             key={e.id}
@@ -848,13 +966,15 @@ function BalancesTable({
             </div>
             <div className="text-sm text-gray-600">{e.department}</div>
             <div className="text-sm tabular-nums text-gray-900">
-              {entitlement > 0 ? (
-                <>
-                  <span className="font-semibold">{e.leaveBalanceDays}</span>
-                  <span className="text-gray-400"> / {entitlement} days</span>
-                </>
-              ) : (
-                <span className="text-gray-400">Not set</span>
+              <span className="font-semibold">{implied}</span>
+              <span className="text-gray-400"> / {entitlement} days</span>
+              {stale && (
+                <p
+                  className="mt-0.5 text-[11px] font-medium text-amber-600"
+                  title={`Stored balance reads ${e.leaveBalanceDays}. Non-annual leave was never deducted under the old rule.`}
+                >
+                  stored: {e.leaveBalanceDays}
+                </p>
               )}
             </div>
             <div>
@@ -866,11 +986,18 @@ function BalancesTable({
                     <span className="font-semibold">{totalTaken}</span>
                     <span className="text-gray-400"> {totalTaken === 1 ? 'day' : 'days'}</span>
                   </p>
-                  <p className="mt-0.5 text-[11px] text-gray-500">
-                    {t.annual > 0 && `${t.annual} annual`}
-                    {t.annual > 0 && t.other > 0 && ' · '}
-                    {t.other > 0 && `${t.other} other`}
-                    {pct !== null && t.annual > 0 && ` · ${pct}% of entitlement`}
+                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className={cn(
+                        'h-full rounded-full',
+                        pct >= 100 ? 'bg-rose-400' : pct > 75 ? 'bg-amber-400' : 'bg-[#7E5896]',
+                      )}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    {pct}% of {entitlement} days
+                    {t.annual > 0 && t.other > 0 && ` · ${t.annual} annual, ${t.other} other`}
                   </p>
                 </>
               )}

@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert'
 import { describe, it } from 'node:test'
 import {
+  ANNUAL_ENTITLEMENT_DAYS,
   balanceAfter,
   daysBetween,
   exceedsBalance,
@@ -36,17 +37,27 @@ describe('leave calculation matches the canonical Workforce implementation', () 
   it('a same-day request is one day, never zero', () => {
     assert.equal(daysBetween('2026-08-10', '2026-08-10'), 1)
   })
-  it('only Annual draws down the balance', () => {
+  // Company policy: 28 days a year, ONE pool. It does not matter which type
+  // a day is taken as. This replaces the old Annual-only rule, under which
+  // months of Sick or Compassionate leave cost nothing.
+  it('every leave type draws down the same pool', () => {
     assert.equal(balanceAfter(18, 'Annual', 3), 15)
-    assert.equal(balanceAfter(18, 'Sick', 3), 18)
-    assert.equal(balanceAfter(18, 'Unpaid', 3), 18)
+    assert.equal(balanceAfter(18, 'Sick', 3), 15)
+    assert.equal(balanceAfter(18, 'Compassionate', 3), 15)
+    assert.equal(balanceAfter(18, 'Maternity', 3), 15)
+    assert.equal(balanceAfter(18, 'Unpaid', 3), 15)
+  })
+  it('the entitlement is 28 days', () => {
+    assert.equal(ANNUAL_ENTITLEMENT_DAYS, 28)
   })
   it('balance never goes negative, matching the approval clamp', () => {
     assert.equal(balanceAfter(2, 'Annual', 10), 0)
   })
-  it('exceedsBalance only fires for balance-affecting types', () => {
+  it('exceedsBalance fires for every type', () => {
     assert.equal(exceedsBalance(2, 'Annual', 10), true)
-    assert.equal(exceedsBalance(2, 'Sick', 10), false)
+    assert.equal(exceedsBalance(2, 'Sick', 10), true)
+    assert.equal(exceedsBalance(2, 'Unpaid', 10), true)
+    assert.equal(exceedsBalance(20, 'Sick', 10), false)
   })
   it('detects touching and contained ranges', () => {
     const a = { startDate: '2026-08-10', endDate: '2026-08-12' }
@@ -138,10 +149,10 @@ describe('creation eligibility', () => {
   it('rejects Annual leave beyond the balance', () => {
     assert.equal(canCreateRequest({ ...base, days: 30, currentBalance: 18 }).allowed, false)
   })
-  it('allows Sick leave beyond the annual balance', () => {
+  it('rejects Sick leave beyond the balance too, since it is one pool', () => {
     assert.equal(
       canCreateRequest({ ...base, type: 'Sick', days: 30, currentBalance: 2 }).allowed,
-      true,
+      false,
     )
   })
 })
