@@ -127,13 +127,21 @@ export interface GuestInvitation {
   /** Last time this guest was sent a thank-you message for THIS event. NULL = never sent. */
   thank_you_sent_at: string | null
   thank_you_count: number
-  /** Door check-in audit for THIS event, written by the checkin_guest_invitation
+  /** How many people this pass may admit in total. Follows party_size unless
+   *  set explicitly (a VIP pass admitting more than the RSVP'd headcount). */
+  entry_allowance: number
+  /** How many of the allowance have walked in. 0 = not yet arrived. Source of
+   *  truth for admission, written by the checkin_admit_guest RPC. */
+  checked_in_count: number
+  /** Door check-in audit for THIS event, written by the checkin_admit_guest
    *  RPC when an attendant scans the guest's entrance pass. NULL until they
-   *  arrive; drives the couple's live Check-ins view. */
+   *  arrive; drives the couple's live Check-ins view. Pinned to the FIRST
+   *  admission, so a partly-arrived party does not keep moving it. */
   checked_in_at: string | null
   checked_in_by: string | null
   checked_in_door: string | null
-  /** Headcount actually admitted at the door (clamped 1..party_size). */
+  /** @deprecated Mirrors checked_in_count. Read checked_in_count instead;
+   *  this column exists only until the dashboards move over. */
   checked_in_party_size: number | null
   created_at: string
   updated_at: string
