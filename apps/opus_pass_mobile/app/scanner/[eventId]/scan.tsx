@@ -15,7 +15,7 @@ import { PartySizeSheet } from '@/components/scanner/PartySizeSheet';
 import { ScanTipsBanner, ScanTipsModal } from '@/components/scanner/ScanTipsModal';
 import { amendPartySize, submitScan, validateScannerSession } from '@/lib/api/checkin';
 import { getErrorMessage } from '@/lib/errors';
-import { arrivedHeads } from '@/lib/scannerRoster';
+import { arrivedHeads, clampArrived } from '@/lib/scannerRoster';
 import { useScannerSession } from '@/hooks/useScannerSession';
 import { useScannerTips } from '@/hooks/useScannerTips';
 import { useTheme } from '@/theme/useTheme';
@@ -48,9 +48,12 @@ export default function ScanScreen() {
 
   const [result, setResult] = useState<CheckinScanResult | null>(null);
   const [pending, setPending] = useState(false);
-  /** Party-size prompt, shown only when the guest RSVP'd for more than one. */
+  /** Party-size prompt, shown only when the guest RSVP'd for more than one.
+   *  Identified by QR token after a camera scan, or by invitation id after a
+   *  typed-code admission — the amend endpoint accepts either. */
   const [partyPrompt, setPartyPrompt] = useState<{
-    qrToken: string;
+    qrToken?: string;
+    invitationId?: string;
     guestName: string;
     partySize: number;
     groupTag: string | null;
@@ -155,7 +158,7 @@ export default function ScanScreen() {
    * Only the amend path is allowed to reduce it, and only with a reason.
    */
   const correctPartySize = useCallback(
-    async (qrToken: string, arrived: number) => {
+    async (target: { qrToken?: string; invitationId?: string }, arrived: number) => {
       if (!session) return;
       setPartyPrompt(null);
       setPending(true);
@@ -163,7 +166,8 @@ export default function ScanScreen() {
         const amended = await amendPartySize({
           eventId: session.eventId,
           accessToken: session.accessToken,
-          qrToken,
+          qrToken: target.qrToken,
+          invitationId: target.invitationId,
           checkedInPartySize: arrived,
           reason: 'Attendant confirmed how many of the party actually arrived',
           requestId: Crypto.randomUUID(),
@@ -195,8 +199,12 @@ export default function ScanScreen() {
    * result overlay reports it exactly like a scan.
    */
   const admitManually = useCallback(
-    async (guest: RosterEntry): Promise<CheckinScanResult> => {
+    async (guest: RosterEntry, arrived: number): Promise<CheckinScanResult> => {
       if (!session) return { status: 'error', message: 'Session expired' };
+      // Same 1..party_size range the server enforces. Left undefined when the
+      // full party arrived so the server's authoritative party_size fills the
+      // default — the roster copy here could be stale.
+      const confirmed = clampArrived(arrived, guest.partySize);
       try {
         const manualResult = await submitScan({
           eventId: session.eventId,
@@ -207,6 +215,7 @@ export default function ScanScreen() {
           // action, so it should never be replayed. It still gives the
           // admission its own row in the server-side audit trail.
           requestId: Crypto.randomUUID(),
+          checkedInPartySize: confirmed === guest.partySize ? undefined : confirmed,
           doorLabel: session.doorLabel,
           attendantName: session.attendantName ?? undefined,
         });
@@ -241,6 +250,22 @@ export default function ScanScreen() {
         });
         if (codeResult.status === 'success') {
           void queryClient.invalidateQueries({ queryKey: ['scanner', 'roster', eventId] });
+          // Unlike a roster pick there is no confirm card on this path, so a
+          // multi-person party gets the same after-the-fact headcount prompt a
+          // scan does, amending by invitation id. The id has to come from the
+          // local roster (the scan response doesn't carry it) — when the
+          // roster failed to load, the admission simply stands at full party.
+          if ((codeResult.partySize ?? 1) > 1) {
+            const entry = (rosterQuery.data ?? []).find((g) => g.entryCode === entryCode);
+            if (entry) {
+              setPartyPrompt({
+                invitationId: entry.invitationId,
+                guestName: codeResult.guestName ?? 'Guest',
+                partySize: codeResult.partySize ?? 1,
+                groupTag: codeResult.groupTag ?? null,
+              });
+            }
+          }
         }
         return codeResult;
       } catch (err) {
@@ -250,7 +275,7 @@ export default function ScanScreen() {
         };
       }
     },
-    [session, queryClient, eventId]
+    [session, queryClient, eventId, rosterQuery.data]
   );
 
   /** Show the manual admission through the same overlay a scan produces. */
@@ -621,7 +646,11 @@ export default function ScanScreen() {
           // back would be a round trip that changes nothing, so drop straight
           // to the result overlay instead.
           if (arrived === partyPrompt.partySize) setPartyPrompt(null);
-          else void correctPartySize(partyPrompt.qrToken, arrived);
+          else
+            void correctPartySize(
+              { qrToken: partyPrompt.qrToken, invitationId: partyPrompt.invitationId },
+              arrived
+            );
         }}
       />
 

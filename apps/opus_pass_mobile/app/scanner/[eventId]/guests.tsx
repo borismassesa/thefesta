@@ -20,7 +20,13 @@ import { GuestConfirmCard } from '@/components/scanner/GuestConfirmCard';
 import { PartyBadge } from '@/components/scanner/PartyBadge';
 import { submitScan, validateScannerSession } from '@/lib/api/checkin';
 import { getErrorMessage } from '@/lib/errors';
-import { arrivedHeads, countLabel, groupRoster, UNGROUPED_LABEL } from '@/lib/scannerRoster';
+import {
+  arrivedHeads,
+  clampArrived,
+  countLabel,
+  groupRoster,
+  UNGROUPED_LABEL,
+} from '@/lib/scannerRoster';
 import { useScannerSession } from '@/hooks/useScannerSession';
 import { useTheme } from '@/theme/useTheme';
 import type { RosterEntry } from '@/types/checkin';
@@ -121,10 +127,14 @@ export default function ScannerGuestsScreen() {
     [visible, filter]
   );
 
-  const admit = async (guest: RosterEntry) => {
+  const admit = async (guest: RosterEntry, arrived: number) => {
     if (!session || admitting) return;
     setAdmitting(true);
     setAdmitError(null);
+    // Same 1..party_size range the server enforces. Left undefined when the
+    // full party arrived so the server's authoritative party_size fills the
+    // default — the roster copy here could be stale.
+    const confirmed = clampArrived(arrived, guest.partySize);
     try {
       // submitScan resolves rather than throws for every domain outcome —
       // a rejected pass, an already-used one, a 429, an expired session. So
@@ -140,6 +150,7 @@ export default function ScannerGuestsScreen() {
         // Deliberate per-tap admission, so a new id every time. It gives this
         // admission its own row in the server-side scan audit trail.
         requestId: Crypto.randomUUID(),
+        checkedInPartySize: confirmed === guest.partySize ? undefined : confirmed,
         doorLabel: session.doorLabel,
         attendantName: session.attendantName ?? undefined,
       });
@@ -384,7 +395,7 @@ export default function ScannerGuestsScreen() {
           setConfirming(null);
           setAdmitError(null);
         }}
-        onConfirm={(guest) => void admit(guest)}
+        onConfirm={(guest, arrived) => void admit(guest, arrived)}
       />
     </SafeAreaView>
   );

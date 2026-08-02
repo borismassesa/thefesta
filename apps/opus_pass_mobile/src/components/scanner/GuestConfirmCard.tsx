@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GuestAvatar } from '@/components/scanner/GuestAvatar';
 import { PartyBadge } from '@/components/scanner/PartyBadge';
+import { clampArrived } from '@/lib/scannerRoster';
 import { useTheme } from '@/theme/useTheme';
 import type { RosterEntry } from '@/types/checkin';
 
@@ -30,7 +31,10 @@ interface GuestConfirmCardProps {
    *  against a check-in the server never recorded. */
   error?: string | null;
   onCancel: () => void;
-  onConfirm: (guest: RosterEntry) => void;
+  /** Fires with the guest and the confirmed headcount. For a party of 1 the
+   *  count is always 1; larger parties default to everyone unless the
+   *  attendant steps it down. */
+  onConfirm: (guest: RosterEntry, arrived: number) => void;
 }
 
 /**
@@ -59,6 +63,21 @@ export function GuestConfirmCard({
   const lastGuest = useRef<RosterEntry | null>(null);
   if (incomingGuest) lastGuest.current = incomingGuest;
   const guest = incomingGuest ?? lastGuest.current;
+
+  // The headcount going in with this confirmation. Defaults to the full party
+  // so the common everyone-came case needs no input; the QR scan path asks the
+  // same question through PartySizeSheet, and both feed the number the couple
+  // is billed against, so a manual admit must not silently assume the RSVP.
+  const [arriving, setArriving] = useState(() =>
+    clampArrived(incomingGuest?.partySize ?? 1, incomingGuest?.partySize ?? 1)
+  );
+  const incomingId = incomingGuest?.invitationId;
+  const incomingParty = incomingGuest?.partySize;
+  // Reset per guest, not per open: the card stays mounted between guests, and
+  // one party's correction must never carry over to the next.
+  useEffect(() => {
+    if (incomingId) setArriving(clampArrived(incomingParty ?? 1, incomingParty ?? 1));
+  }, [incomingId, incomingParty]);
 
   if (!guest) return null;
 
@@ -229,6 +248,60 @@ export function GuestConfirmCard({
         {/* Stacked, full width and thumb-height: the attendant is one-handed
             with a phone in the other hand's light. */}
         <View className="border-t border-ed-outline-variant px-4 pb-2 pt-3">
+          {/* Headcount stepper for parties bigger than one. In the footer, not
+              the scrolled detail: it has to be visible next to the check-in
+              button it changes, on any screen size. A stepper rather than the
+              PartySizeSheet's typed input because passes are overwhelmingly
+              Singles and Doubles — the whole correction is one tap on minus —
+              and unlike the scan path the party size is known before
+              admitting, so no second sheet is needed. */}
+          {!arrived && guest.partySize > 1 ? (
+            <View className="mb-3 flex-row items-center justify-between rounded-2xl border border-ed-outline-variant bg-ed-surface px-4 py-3">
+              <View className="min-w-0 flex-1 pr-3">
+                <Text className="font-work-sans-semibold text-[15px] text-ed-on-surface">
+                  Arriving now
+                </Text>
+                <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
+                  Invited {guest.partySize}
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-3">
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Fewer people arriving"
+                  accessibilityState={{ disabled: busy || arriving <= 1 }}
+                  disabled={busy || arriving <= 1}
+                  hitSlop={8}
+                  onPress={() => setArriving((n) => clampArrived(n - 1, guest.partySize))}
+                  className="h-11 w-11 items-center justify-center rounded-full"
+                  style={{
+                    backgroundColor: editorial.surfaceContainer,
+                    opacity: busy || arriving <= 1 ? 0.4 : 1,
+                  }}
+                >
+                  <Ionicons name="remove" size={20} color={editorial.onSurface} />
+                </Pressable>
+                <Text className="min-w-[28px] text-center font-work-sans-bold text-xl text-ed-on-surface">
+                  {arriving}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="More people arriving"
+                  accessibilityState={{ disabled: busy || arriving >= guest.partySize }}
+                  disabled={busy || arriving >= guest.partySize}
+                  hitSlop={8}
+                  onPress={() => setArriving((n) => clampArrived(n + 1, guest.partySize))}
+                  className="h-11 w-11 items-center justify-center rounded-full"
+                  style={{
+                    backgroundColor: editorial.surfaceContainer,
+                    opacity: busy || arriving >= guest.partySize ? 0.4 : 1,
+                  }}
+                >
+                  <Ionicons name="add" size={20} color={editorial.onSurface} />
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
           {/* Sits with the buttons, not up in the scrolled detail, so it is
               on screen next to the control the attendant just pressed. */}
           {error ? (
@@ -265,7 +338,7 @@ export function GuestConfirmCard({
             accessibilityRole="button"
             accessibilityState={{ disabled: arrived || busy }}
             disabled={arrived || busy}
-            onPress={() => onConfirm(guest)}
+            onPress={() => onConfirm(guest, arriving)}
             className="mt-3 h-14 items-center justify-center rounded-2xl bg-ed-primary-container"
             style={{ opacity: arrived || busy ? 0.5 : 1 }}
           >
@@ -273,11 +346,16 @@ export function GuestConfirmCard({
               <ActivityIndicator color={editorial.onPrimary} />
             ) : (
               <Text className="font-work-sans-bold text-base text-ed-on-primary">
+                {/* The button restates the number being recorded, so a
+                    mis-tapped stepper is caught here rather than on the
+                    invoice. */}
                 {arrived
                   ? 'Already checked in'
-                  : guest.partySize > 1
-                    ? `Check in party of ${guest.partySize}`
-                    : 'Check in'}
+                  : guest.partySize === 1
+                    ? 'Check in'
+                    : arriving === guest.partySize
+                      ? `Check in party of ${guest.partySize}`
+                      : `Check in ${arriving} of ${guest.partySize}`}
               </Text>
             )}
           </Pressable>

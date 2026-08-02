@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GuestAvatar } from '@/components/scanner/GuestAvatar';
 import { PartyBadge } from '@/components/scanner/PartyBadge';
+import { clampArrived } from '@/lib/scannerRoster';
 import { useTheme } from '@/theme/useTheme';
 
 /** The success green used by the scan result overlay, so an accepted pass
@@ -74,7 +75,9 @@ export function PartySizeSheet({
   }, [visible, partySize]);
 
   const parsed = Number.parseInt(value, 10);
-  const valid = Number.isFinite(parsed) && parsed >= 1 && parsed <= partySize;
+  // Valid means the server would record it unchanged — same 1..party_size
+  // clamp as checkin_guest_invitation(), via the shared helper.
+  const valid = Number.isFinite(parsed) && clampArrived(parsed, partySize) === parsed;
 
   return (
     <Modal
