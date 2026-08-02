@@ -5,13 +5,16 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useSetPageHeading } from '@/components/PageHeading'
 import {
   BarChart3,
+  Check,
   ChevronDown,
   Inbox,
   LayoutDashboard,
   LayoutGrid,
+  List,
   ListChecks,
   Plus,
   Search,
+  SlidersHorizontal,
   Star,
   Wrench,
 } from 'lucide-react'
@@ -23,6 +26,7 @@ import { isOwnedBy, isRelevantTo, isWaitingOn } from './scoping'
 import { categoryStats, type CategoryStats } from './stats'
 import type { ApprovalAnalytics } from './queries'
 import { useFavourites } from './useFavourites'
+import { prefKey, useLocalPref } from './localPref'
 import OverviewView from './OverviewView'
 import {
   addApprovalNote,
@@ -526,48 +530,82 @@ function CreateCatalog({
   onNew: (k: ApprovalCategoryKey) => void
 }) {
   const [search, setSearch] = useState('')
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>(ALL_GROUPS)
+  const [favouritesOnly, setFavouritesOnly] = useState(false)
+  const [usedOnly, setUsedOnly] = useState(false)
+  // Persisted per account, so the choice survives a reload rather than
+  // resetting to whichever layout we happened to pick as the default.
+  const [viewPref, setViewPref] = useLocalPref(prefKey('catalog-view', actorEmail))
+  const view: CatalogView = viewPref === 'cards' ? 'cards' : 'list'
+
   const stats = useMemo(
     () => categoryStats(requests, actorEmail, now),
     [requests, actorEmail, now],
   )
 
   const query = search.trim().toLowerCase()
-  const matches = (c: ApprovalCategory) =>
-    !query ||
-    c.label.toLowerCase().includes(query) ||
-    c.blurb.toLowerCase().includes(query) ||
-    findGroup(c.group).label.toLowerCase().includes(query)
+  const matches = (c: ApprovalCategory) => {
+    const textHit =
+      !query ||
+      c.label.toLowerCase().includes(query) ||
+      c.blurb.toLowerCase().includes(query) ||
+      findGroup(c.group).label.toLowerCase().includes(query)
+    if (!textHit) return false
+    if (groupFilter !== ALL_GROUPS && findGroup(c.group).label !== groupFilter) return false
+    if (usedOnly && (stats.get(c.key)?.total ?? 0) === 0) return false
+    return true
+  }
 
   const starred = categories.filter((c) => favourites.includes(c.key) && matches(c))
-  const visibleGroups = CATEGORY_GROUPS.map((group) => ({
-    group,
-    items: categoriesInGroup(categories, group.key).filter(matches),
-  })).filter((g) => g.items.length > 0)
+  // Favourites-only collapses to the single starred section. Rendering the
+  // group sections underneath as well would just repeat the same rows.
+  const visibleGroups = favouritesOnly
+    ? []
+    : CATEGORY_GROUPS.map((group) => ({
+        group,
+        items: categoriesInGroup(categories, group.key).filter(matches),
+      })).filter((g) => g.items.length > 0)
 
   return (
-    <div className="space-y-6">
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          // The placeholder is the only visible naming, and a placeholder is
-          // not an accessible name: it is announced inconsistently and is gone
-          // as soon as the field has content.
-          aria-label="Search request types"
-          placeholder="Search request types…"
-          className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]"
-        />
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div className="relative min-w-0 xl:w-[min(44rem,48%)]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            // The placeholder is the only visible naming, and a placeholder is
+            // not an accessible name: it is announced inconsistently and is gone
+            // as soon as the field has content.
+            aria-label="Search request types"
+            placeholder="Search request types…"
+            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]"
+          />
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 xl:flex-1 xl:justify-end">
+          <GroupDropdown value={groupFilter} onChange={setGroupFilter} />
+          <CatalogFilterMenu
+            favouritesOnly={favouritesOnly}
+            onFavouritesOnlyChange={setFavouritesOnly}
+            usedOnly={usedOnly}
+            onUsedOnlyChange={setUsedOnly}
+          />
+          <ViewSwitch value={view} onChange={setViewPref} />
+        </div>
       </div>
 
       {visibleGroups.length === 0 && starred.length === 0 ? (
         <EmptyState
-          title={`Nothing matches “${search.trim()}”.`}
-          hint="Try the business function instead — travel, finance, legal."
+          title={query ? `Nothing matches “${search.trim()}”.` : 'Nothing matches these filters.'}
+          hint={
+            query
+              ? 'Try the business function instead — travel, finance, legal.'
+              : 'Clear a filter to see more request types.'
+          }
         />
       ) : (
-        <>
+        <div className="space-y-6 pt-2">
           {starred.length > 0 && (
             <CatalogSection
               accent="#B45309"
@@ -575,6 +613,7 @@ function CreateCatalog({
               label="Favourites"
               blurb="Pinned by you. Starred types also appear under Quick create."
               items={starred}
+              view={view}
               stats={stats}
               favourites={favourites}
               onToggleFavourite={onToggleFavourite}
@@ -590,6 +629,7 @@ function CreateCatalog({
               label={group.label}
               blurb={group.blurb}
               items={items}
+              view={view}
               stats={stats}
               favourites={favourites}
               onToggleFavourite={onToggleFavourite}
@@ -597,9 +637,186 @@ function CreateCatalog({
               onNew={onNew}
             />
           ))}
-        </>
+        </div>
       )}
     </div>
+  )
+}
+
+type CatalogView = 'list' | 'cards'
+
+const ALL_GROUPS = 'All'
+type GroupFilter = string
+const GROUP_FILTERS: readonly GroupFilter[] = [ALL_GROUPS, ...CATEGORY_GROUPS.map((g) => g.label)]
+
+function GroupDropdown({
+  value,
+  onChange,
+}: {
+  value: GroupFilter
+  onChange: (next: GroupFilter) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div
+      className="relative shrink-0"
+      onBlur={(e) => {
+        const nextFocus = e.relatedTarget as Node | null
+        if (!nextFocus || !e.currentTarget.contains(nextFocus)) setOpen(false)
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((next) => !next)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          'inline-flex h-9 min-w-44 items-center justify-between gap-3 rounded-lg border bg-white px-3 text-left text-xs font-semibold transition',
+          open
+            ? 'border-transparent ring-2 ring-[#C9A0DC]'
+            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
+        )}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="text-gray-500">Group</span>
+          <span className="truncate text-gray-900">{value}</span>
+        </span>
+        <ChevronDown
+          className={cn('h-3.5 w-3.5 shrink-0 text-gray-400 transition', open && 'rotate-180')}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Request type group"
+          className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 shadow-[0_18px_40px_-24px_rgba(15,23,42,0.45)]"
+        >
+          {GROUP_FILTERS.map((option) => {
+            const selected = option === value
+            return (
+              <button
+                key={option}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => {
+                  onChange(option)
+                  setOpen(false)
+                }}
+                className={cn(
+                  'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition',
+                  selected
+                    ? 'bg-[#F0DFF6] text-[#5B2D8E]'
+                    : 'text-gray-700 hover:bg-gray-50',
+                )}
+              >
+                <span className="truncate">{option}</span>
+                {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ViewSwitch({
+  value,
+  onChange,
+}: {
+  value: CatalogView
+  onChange: (next: CatalogView) => void
+}) {
+  const options: { key: CatalogView; label: string; Icon: typeof List }[] = [
+    { key: 'list', label: 'List', Icon: List },
+    { key: 'cards', label: 'Cards', Icon: LayoutGrid },
+  ]
+  return (
+    <div className="inline-flex shrink-0 rounded-lg border border-gray-200 bg-white p-0.5">
+      {options.map(({ key, label, Icon }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onChange(key)}
+          aria-pressed={value === key}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors',
+            value === key
+              ? 'bg-[#F0DFF6] text-[#5B2D8E]'
+              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700',
+          )}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function CatalogFilterMenu({
+  favouritesOnly,
+  onFavouritesOnlyChange,
+  usedOnly,
+  onUsedOnlyChange,
+}: {
+  favouritesOnly: boolean
+  onFavouritesOnlyChange: (next: boolean) => void
+  usedOnly: boolean
+  onUsedOnlyChange: (next: boolean) => void
+}) {
+  const activeCount = (favouritesOnly ? 1 : 0) + (usedOnly ? 1 : 0)
+
+  return (
+    <details className="group/filter relative">
+      <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 [&::-webkit-details-marker]:hidden">
+        <SlidersHorizontal className="h-3.5 w-3.5" />
+        Filters
+        {activeCount > 0 && (
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F0DFF6] px-1.5 text-[11px] text-[#5B2D8E]">
+            {activeCount}
+          </span>
+        )}
+        <ChevronDown className="h-3.5 w-3.5 transition group-open/filter:rotate-180" />
+      </summary>
+      <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-gray-200 bg-white p-2 shadow-[0_18px_40px_-24px_rgba(15,23,42,0.45)]">
+        <FilterCheckbox
+          label="Favourites"
+          checked={favouritesOnly}
+          onChange={onFavouritesOnlyChange}
+          icon={<Star className={cn('h-3.5 w-3.5', favouritesOnly && 'fill-current')} />}
+        />
+        <FilterCheckbox label="Used before" checked={usedOnly} onChange={onUsedOnlyChange} />
+      </div>
+    </details>
+  )
+}
+
+function FilterCheckbox({
+  label,
+  checked,
+  onChange,
+  icon,
+}: {
+  label: string
+  checked: boolean
+  onChange: (next: boolean) => void
+  icon?: React.ReactNode
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 rounded border-gray-300 text-[#7E5896] focus:ring-[#C9A0DC]"
+      />
+      {icon}
+      <span>{label}</span>
+    </label>
   )
 }
 
@@ -609,6 +826,7 @@ function CatalogSection({
   label,
   blurb,
   items,
+  view,
   stats,
   favourites,
   onToggleFavourite,
@@ -620,6 +838,7 @@ function CatalogSection({
   label: string
   blurb: string
   items: ApprovalCategory[]
+  view: CatalogView
   stats: Map<ApprovalCategoryKey, CategoryStats>
   favourites: ApprovalCategoryKey[]
   onToggleFavourite: (k: ApprovalCategoryKey) => void
@@ -646,52 +865,118 @@ function CatalogSection({
         </div>
         <span className="ml-3 h-px flex-1" style={{ backgroundColor: tint }} aria-hidden />
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-        {items.map((c) => (
-          <CategoryTile
-            key={c.key}
-            category={c}
-            stats={stats.get(c.key)}
-            favourite={favourites.includes(c.key)}
-            onToggleFavourite={() => onToggleFavourite(c.key)}
-            onOpen={() => onPickCategory(c.key)}
-            onNew={() => onNew(c.key)}
-          />
-        ))}
+      {/* items-start on the grid, not the default stretch: a card whose
+          history is open would otherwise drag every sibling in its row to
+          the same height and pad them with dead space. */}
+      <div
+        className={cn(
+          view === 'cards'
+            ? 'grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4'
+            : 'space-y-2',
+        )}
+      >
+        {items.map((c) => {
+          const props = {
+            category: c,
+            stats: stats.get(c.key),
+            favourite: favourites.includes(c.key),
+            onToggleFavourite: () => onToggleFavourite(c.key),
+            onOpen: () => onPickCategory(c.key),
+            onNew: () => onNew(c.key),
+          }
+          return view === 'cards' ? (
+            <CategoryCard key={c.key} {...props} />
+          ) : (
+            <CategoryRow key={c.key} {...props} />
+          )
+        })}
       </div>
     </section>
   )
 }
 
-function CategoryTile({
+type CategoryItemProps = {
+  category: ApprovalCategory
+  // Undefined when nobody has ever raised this type. The item then shows no
+  // metrics at all rather than a set of zeroes pretending to be data.
+  stats: CategoryStats | undefined
+  favourite: boolean
+  onToggleFavourite: () => void
+  onOpen: () => void
+  onNew: () => void
+}
+
+// List variant. The whole row is the hit area for "show me these requests",
+// but the row itself is not a button — the title's ::after is stretched over
+// it instead. A role="button" wrapper around a star and a CTA would be nested
+// interactive content, which is invalid and hides both inner controls from
+// assistive tech. Same contract in the card variant below.
+function CategoryRow({
   category,
   stats,
   favourite,
   onToggleFavourite,
   onOpen,
   onNew,
-}: {
-  category: ApprovalCategory
-  // Undefined when nobody has ever raised this type. The card then shows
-  // no metrics at all rather than a row of zeroes pretending to be data.
-  stats: CategoryStats | undefined
-  favourite: boolean
-  onToggleFavourite: () => void
-  onOpen: () => void
-  onNew: () => void
-}) {
+}: CategoryItemProps) {
   const Icon = ICONS[category.iconKey]
-  const [statsCollapsed, setStatsCollapsed] = useState(false)
-  const statsId = `category-stats-${category.key}`
+  const statsId = `category-stats-row-${category.key}`
 
   return (
-    // The whole card is the hit area for "show me these requests", but the
-    // card itself is not a button — the title's ::after is stretched over
-    // it instead. A role="button" wrapper around a star and a CTA would be
-    // nested interactive content, which is invalid and hides both inner
-    // controls from assistive tech. The green CTA stays reserved for the
-    // one action that creates something; previously every card shouted it.
-    <div className="group relative rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] transition hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-[0_10px_24px_-12px_rgba(0,0,0,0.2)] focus-within:border-gray-200">
+    <div className="group relative rounded-xl border border-gray-100 bg-white px-4 py-3 text-left transition hover:border-gray-200 hover:bg-gray-50/60 focus-within:border-gray-200">
+      <div className="flex items-start gap-3">
+        <span
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+          style={{ backgroundColor: category.tint, color: category.accent }}
+        >
+          <Icon className="h-5 w-5" />
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <CategoryTitle label={category.label} onOpen={onOpen} />
+          <p className="mt-0.5 text-xs text-gray-500">{category.blurb}</p>
+          {/* Three across: a row has the width for it, so the open panel
+              stays one line tall instead of stacking. */}
+          <HistoryDisclosure stats={stats} id={statsId} columns="sm:grid-cols-3" />
+        </div>
+
+        {/* self-start, so opening History does not drag the actions down the
+            row away from the title they belong to. */}
+        <div className="mt-0.5 flex shrink-0 items-center gap-2 self-start">
+          {/* Silent when there is no history. "No requests yet" repeated down
+              every row was noise on a page that is mostly untouched types. */}
+          {stats && stats.total > 0 && (
+            <span className="hidden text-[11px] font-medium text-gray-500 sm:inline">
+              {formatRequestCount(stats.total)}
+            </span>
+          )}
+          <FavouriteStar
+            label={category.label}
+            favourite={favourite}
+            onToggleFavourite={onToggleFavourite}
+          />
+          <StartButton label={category.label} onNew={onNew} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Card variant. Same content, stacked instead of strung across a row, for
+// people who read the catalog by scanning rather than by list.
+function CategoryCard({
+  category,
+  stats,
+  favourite,
+  onToggleFavourite,
+  onOpen,
+  onNew,
+}: CategoryItemProps) {
+  const Icon = ICONS[category.iconKey]
+  const statsId = `category-stats-card-${category.key}`
+
+  return (
+    <div className="group relative rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] transition hover:border-gray-200 hover:shadow-[0_10px_24px_-12px_rgba(0,0,0,0.2)] focus-within:border-gray-200">
       <div className="flex items-start gap-3">
         <span
           className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105"
@@ -700,103 +985,146 @@ function CategoryTile({
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <button
-            type="button"
-            onClick={onOpen}
-            aria-label={`Open ${category.label} requests`}
-            className="block max-w-full truncate rounded text-sm font-semibold text-gray-900 outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-[#7E5896] focus-visible:ring-offset-2"
-          >
-            {category.label}
-          </button>
-          <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{category.blurb}</p>
+          <CategoryTitle label={category.label} onOpen={onOpen} />
+          {/* min-h holds two lines so the header block is the same height on
+              every card, which keeps the Start buttons on a shared baseline
+              even though the grid no longer stretches the cards themselves. */}
+          <p className="mt-0.5 line-clamp-2 min-h-8 text-xs text-gray-500">{category.blurb}</p>
         </div>
-        <button
-          type="button"
-          onClick={onToggleFavourite}
-          aria-pressed={favourite}
-          aria-label={
-            favourite
-              ? `Remove ${category.label} from favourites`
-              : `Add ${category.label} to favourites`
-          }
-          className={cn(
-            'relative z-10 shrink-0 rounded-md p-1.5 transition',
-            favourite
-              ? 'text-amber-500'
-              : 'text-gray-300 opacity-0 hover:text-amber-500 focus-visible:opacity-100 group-hover:opacity-100',
-          )}
-        >
-          <Star className={cn('h-4 w-4', favourite && 'fill-amber-400')} />
-        </button>
+        <FavouriteStar
+          label={category.label}
+          favourite={favourite}
+          onToggleFavourite={onToggleFavourite}
+        />
       </div>
 
-      {stats && stats.total > 0 && !statsCollapsed && (
-        <dl
-          id={statsId}
-          className="mt-3 grid gap-2 rounded-lg border border-gray-100 bg-gray-50/70 p-2.5 text-[11px] sm:grid-cols-2"
-        >
-          <div>
-            <dt className="font-bold uppercase tracking-wider text-gray-400">Raised</dt>
-            <dd className="mt-0.5 font-semibold text-gray-800">
-              {stats.thisYear} this year
-            </dd>
-          </div>
-          {stats.avgDecisionDays !== null && (
-            <div>
-              <dt className="font-bold uppercase tracking-wider text-gray-400">Decision</dt>
-              <dd className="mt-0.5 font-semibold text-gray-800">
-                {stats.avgDecisionDays < 1
-                  ? `${Math.max(1, Math.round(stats.avgDecisionDays * 24))}h average`
-                  : `${stats.avgDecisionDays.toFixed(1)}d average`}
-              </dd>
-            </div>
-          )}
-          {stats.typicalApprovers.length > 0 && (
-            <div className="min-w-0 sm:col-span-2">
-              <dt className="font-bold uppercase tracking-wider text-gray-400">Typical reviewer</dt>
-              <dd className="mt-0.5 truncate font-semibold text-gray-800">
-                {stats.typicalApprovers.join(' · ')}
-              </dd>
-            </div>
-          )}
-        </dl>
-      )}
+      {/* One column: a card is too narrow to read three metrics side by side. */}
+      <HistoryDisclosure stats={stats} id={statsId} columns="" />
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate text-[11px] font-medium text-gray-500">
-            {stats && stats.total > 0 ? formatRequestCount(stats.total) : 'No requests yet'}
-          </span>
-          {stats && stats.total > 0 && (
-            <button
-              type="button"
-              onClick={() => setStatsCollapsed((collapsed) => !collapsed)}
-              aria-expanded={!statsCollapsed}
-              aria-controls={statsId}
-              aria-label={
-                statsCollapsed
-                  ? `Show ${category.label} request stats`
-                  : `Collapse ${category.label} request stats`
-              }
-              className="relative z-10 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7E5896] focus-visible:ring-offset-2"
-            >
-              <ChevronDown
-                className={cn('h-3.5 w-3.5 transition-transform', !statsCollapsed && 'rotate-180')}
-              />
-            </button>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onNew}
-          aria-label={`New ${category.label} request`}
-          className="relative z-10 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-[11px] font-bold uppercase tracking-wider text-white shadow-[0_8px_18px_-12px_rgba(5,150,105,0.9)] transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-        >
-          <Plus className="h-3 w-3" />
-          Start
-        </button>
+        <span className="min-w-0 truncate text-[11px] font-medium text-gray-500">
+          {stats && stats.total > 0 ? formatRequestCount(stats.total) : ''}
+        </span>
+        <StartButton label={category.label} onNew={onNew} />
       </div>
     </div>
+  )
+}
+
+function CategoryTitle({ label, onOpen }: { label: string; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Open ${label} requests`}
+      className="block max-w-full truncate rounded text-sm font-semibold text-gray-900 outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-[#7E5896] focus-visible:ring-offset-2"
+    >
+      {label}
+    </button>
+  )
+}
+
+function FavouriteStar({
+  label,
+  favourite,
+  onToggleFavourite,
+}: {
+  label: string
+  favourite: boolean
+  onToggleFavourite: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggleFavourite}
+      aria-pressed={favourite}
+      aria-label={favourite ? `Remove ${label} from favourites` : `Add ${label} to favourites`}
+      className={cn(
+        'relative z-10 shrink-0 rounded-md p-1.5 transition',
+        favourite
+          ? 'text-amber-500'
+          : 'text-gray-300 opacity-0 hover:text-amber-500 focus-visible:opacity-100 group-hover:opacity-100',
+      )}
+    >
+      <Star className={cn('h-4 w-4', favourite && 'fill-amber-400')} />
+    </button>
+  )
+}
+
+// Outline, not solid emerald: with one of these on every entry, a page of
+// solid green reads as a dozen competing primary actions. Solid green is
+// kept for the submit on the form this leads to.
+function StartButton({ label, onNew }: { label: string; onNew: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onNew}
+      aria-label={`New ${label} request`}
+      className="relative z-10 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 text-[11px] font-bold uppercase tracking-wider text-gray-700 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+    >
+      <Plus className="h-3 w-3" />
+      Start
+    </button>
+  )
+}
+
+// The disclosure sits on the thing it opens, closed until asked for. Closed
+// it is a live text link rather than a grey bar, which read as dead UI.
+function HistoryDisclosure({
+  stats,
+  id,
+  columns,
+}: {
+  stats: CategoryStats | undefined
+  id: string
+  columns: string
+}) {
+  const [open, setOpen] = useState(false)
+  if (!stats || stats.total === 0) return null
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={id}
+        className="relative z-10 -ml-1 mt-1.5 inline-flex items-center gap-1 rounded-md px-1 py-0.5 text-[11px] font-bold uppercase tracking-wider text-[#7E5896] transition hover:bg-[#7E5896]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7E5896]"
+      >
+        History
+        <ChevronDown
+          className={cn('h-3.5 w-3.5 shrink-0 transition-transform', open && 'rotate-180')}
+        />
+      </button>
+      <dl
+        id={id}
+        hidden={!open}
+        className={cn('mt-1.5 grid gap-3 rounded-lg border border-gray-200 p-2.5 text-[11px]', columns)}
+      >
+        <div>
+          <dt className="font-bold uppercase tracking-wider text-gray-400">Raised</dt>
+          <dd className="mt-0.5 font-semibold text-gray-800">{stats.thisYear} this year</dd>
+        </div>
+        {stats.avgDecisionDays !== null && (
+          <div>
+            <dt className="font-bold uppercase tracking-wider text-gray-400">Decision</dt>
+            <dd className="mt-0.5 font-semibold text-gray-800">
+              {stats.avgDecisionDays < 1
+                ? `${Math.max(1, Math.round(stats.avgDecisionDays * 24))}h average`
+                : `${stats.avgDecisionDays.toFixed(1)}d average`}
+            </dd>
+          </div>
+        )}
+        {stats.typicalApprovers.length > 0 && (
+          <div className="min-w-0">
+            <dt className="font-bold uppercase tracking-wider text-gray-400">Typical reviewer</dt>
+            <dd className="mt-0.5 truncate font-semibold text-gray-800">
+              {stats.typicalApprovers.join(' · ')}
+            </dd>
+          </div>
+        )}
+      </dl>
+    </>
   )
 }
 
