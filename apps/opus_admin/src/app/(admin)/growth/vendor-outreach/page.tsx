@@ -1,5 +1,6 @@
 import { hasAnyPermission, hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import { logGrowthDbError } from '../_lib/action-utils'
 import { getGrowthEmployeeOptions } from '../_lib/queries'
 import VendorOutreachClient, { type OutreachLogEntry, type RosterRow } from './VendorOutreachClient'
 
@@ -89,9 +90,18 @@ export default async function VendorOutreachPage({
       getGrowthEmployeeOptions(),
     ])
 
-  if (targetsError) throw new Error(`[growth] vendor-outreach targets: ${targetsError.message}`)
-  if (monthLogError) throw new Error(`[growth] vendor-outreach month log: ${monthLogError.message}`)
-  if (fullLogError) throw new Error(`[growth] vendor-outreach full log: ${fullLogError.message}`)
+  if (targetsError) {
+    logGrowthDbError('growth.vendor_outreach_targets.select', targetsError)
+    throw new Error('Could not load Growth vendor outreach targets.')
+  }
+  if (monthLogError) {
+    logGrowthDbError('growth.vendor_outreach_log.month_select', monthLogError)
+    throw new Error('Could not load Growth vendor outreach month log.')
+  }
+  if (fullLogError) {
+    logGrowthDbError('growth.vendor_outreach_log.full_select', fullLogError)
+    throw new Error('Could not load Growth vendor outreach log.')
+  }
 
   const doneByStaff = new Map<string, { outreach: number; meetings: number; signed: number }>()
   for (const row of monthLogRows ?? []) {

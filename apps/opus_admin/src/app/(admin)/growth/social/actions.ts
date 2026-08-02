@@ -1,15 +1,20 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import {
+  GROWTH_ERROR,
+  growthDbErrorMessage,
+  logGrowthDbError,
+  missingGrowthRecord,
+  requireGrowthPermission,
+  type ActionResult,
+} from '../_lib/action-utils'
 
 // Server actions for the Social Media section of the Growth Tracker. Content
 // log entries (and filling in a challenge's post-run RESULTS) only require
 // growth.write; defining/editing/deleting challenges requires growth.admin.
 // Mirrors the { ok } result shape used by workforce/daily-tracker/actions.ts.
-
-export type ActionResult = { ok: true } | { ok: false; error: string }
 
 function revalidateAll() {
   revalidatePath('/growth/social')
@@ -52,9 +57,8 @@ function validateContentPostInput(input: ContentPostInput): string | null {
 }
 
 export async function addContentPost(input: ContentPostInput): Promise<ActionResult> {
-  if (!(await hasPermission('growth.write'))) {
-    return { ok: false, error: "You don't have permission to log content posts." }
-  }
+  const denied = await requireGrowthPermission('growth.write')
+  if (denied) return denied
   const validationError = validateContentPostInput(input)
   if (validationError) return { ok: false, error: validationError }
 
@@ -74,8 +78,8 @@ export async function addContentPost(input: ContentPostInput): Promise<ActionRes
     notes: input.notes.trim(),
   })
   if (error) {
-    console.error('[growth] addContentPost failed', error)
-    return { ok: false, error: error.message || 'Could not save.' }
+    logGrowthDbError('growth.social_content_log.insert', error)
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
   }
 
   revalidateAll()
@@ -85,9 +89,8 @@ export async function addContentPost(input: ContentPostInput): Promise<ActionRes
 export type ContentPostPatch = Partial<ContentPostInput>
 
 export async function updateContentPost(id: string, patch: ContentPostPatch): Promise<ActionResult> {
-  if (!(await hasPermission('growth.write'))) {
-    return { ok: false, error: "You don't have permission to edit content posts." }
-  }
+  const denied = await requireGrowthPermission('growth.write')
+  if (denied) return denied
 
   const dbPatch: Record<string, unknown> = {}
   if (patch.postDate !== undefined) {
@@ -124,27 +127,38 @@ export async function updateContentPost(id: string, patch: ContentPostPatch): Pr
   if (patch.notes !== undefined) dbPatch.notes = patch.notes.trim()
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('growth_social_content_log').update(dbPatch).eq('id', id)
+  const { data, error } = await supabase
+    .from('growth_social_content_log')
+    .update(dbPatch)
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (error) {
-    console.error('[growth] updateContentPost failed', error)
-    return { ok: false, error: error.message || 'Could not save.' }
+    logGrowthDbError('growth.social_content_log.update', error, { postId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
   }
+  if (!data) return missingGrowthRecord()
 
   revalidateAll()
   return { ok: true }
 }
 
 export async function deleteContentPost(id: string): Promise<ActionResult> {
-  if (!(await hasPermission('growth.write'))) {
-    return { ok: false, error: "You don't have permission to delete content posts." }
-  }
+  const denied = await requireGrowthPermission('growth.write')
+  if (denied) return denied
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('growth_social_content_log').delete().eq('id', id)
+  const { data, error } = await supabase
+    .from('growth_social_content_log')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (error) {
-    console.error('[growth] deleteContentPost failed', error)
-    return { ok: false, error: error.message || 'Could not delete.' }
+    logGrowthDbError('growth.social_content_log.delete', error, { postId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.delete) }
   }
+  if (!data) return missingGrowthRecord()
 
   revalidateAll()
   return { ok: true }
@@ -168,9 +182,8 @@ function validateChallengeInput(input: ChallengeInput): string | null {
 }
 
 export async function addChallenge(input: ChallengeInput): Promise<ActionResult> {
-  if (!(await hasPermission('growth.admin'))) {
-    return { ok: false, error: "You don't have permission to add challenges." }
-  }
+  const denied = await requireGrowthPermission('growth.admin')
+  if (denied) return denied
   const validationError = validateChallengeInput(input)
   if (validationError) return { ok: false, error: validationError }
 
@@ -183,8 +196,8 @@ export async function addChallenge(input: ChallengeInput): Promise<ActionResult>
     lead_owner_name: input.leadOwnerName.trim(),
   })
   if (error) {
-    console.error('[growth] addChallenge failed', error)
-    return { ok: false, error: error.message || 'Could not save.' }
+    logGrowthDbError('growth.social_challenge.insert', error)
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
   }
 
   revalidateAll()
@@ -194,9 +207,8 @@ export async function addChallenge(input: ChallengeInput): Promise<ActionResult>
 export type ChallengeDefinitionPatch = Partial<ChallengeInput>
 
 export async function updateChallengeDefinition(id: string, patch: ChallengeDefinitionPatch): Promise<ActionResult> {
-  if (!(await hasPermission('growth.admin'))) {
-    return { ok: false, error: "You don't have permission to edit challenges." }
-  }
+  const denied = await requireGrowthPermission('growth.admin')
+  if (denied) return denied
 
   const dbPatch: Record<string, unknown> = {}
   if (patch.launchDate !== undefined) {
@@ -221,11 +233,17 @@ export async function updateChallengeDefinition(id: string, patch: ChallengeDefi
   }
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('growth_social_challenges').update(dbPatch).eq('id', id)
+  const { data, error } = await supabase
+    .from('growth_social_challenges')
+    .update(dbPatch)
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (error) {
-    console.error('[growth] updateChallengeDefinition failed', error)
-    return { ok: false, error: error.message || 'Could not save.' }
+    logGrowthDbError('growth.social_challenge_definition.update', error, { challengeId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
   }
+  if (!data) return missingGrowthRecord()
 
   revalidateAll()
   return { ok: true }
@@ -242,9 +260,8 @@ export type ChallengeResultsPatch = Partial<{
 }>
 
 export async function updateChallengeResults(id: string, patch: ChallengeResultsPatch): Promise<ActionResult> {
-  if (!(await hasPermission('growth.write'))) {
-    return { ok: false, error: "You don't have permission to fill in challenge results." }
-  }
+  const denied = await requireGrowthPermission('growth.write')
+  if (denied) return denied
 
   const dbPatch: Record<string, unknown> = {}
   for (const [key, dbKey] of [
@@ -266,27 +283,38 @@ export async function updateChallengeResults(id: string, patch: ChallengeResults
   if (patch.notes !== undefined) dbPatch.notes = patch.notes.trim()
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('growth_social_challenges').update(dbPatch).eq('id', id)
+  const { data, error } = await supabase
+    .from('growth_social_challenges')
+    .update(dbPatch)
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (error) {
-    console.error('[growth] updateChallengeResults failed', error)
-    return { ok: false, error: error.message || 'Could not save.' }
+    logGrowthDbError('growth.social_challenge_results.update', error, { challengeId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
   }
+  if (!data) return missingGrowthRecord()
 
   revalidateAll()
   return { ok: true }
 }
 
 export async function deleteChallenge(id: string): Promise<ActionResult> {
-  if (!(await hasPermission('growth.admin'))) {
-    return { ok: false, error: "You don't have permission to delete challenges." }
-  }
+  const denied = await requireGrowthPermission('growth.admin')
+  if (denied) return denied
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('growth_social_challenges').delete().eq('id', id)
+  const { data, error } = await supabase
+    .from('growth_social_challenges')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (error) {
-    console.error('[growth] deleteChallenge failed', error)
-    return { ok: false, error: error.message || 'Could not delete.' }
+    logGrowthDbError('growth.social_challenge.delete', error, { challengeId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.delete) }
   }
+  if (!data) return missingGrowthRecord()
 
   revalidateAll()
   return { ok: true }

@@ -1,10 +1,16 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requirePermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-
-export type ActionResult = { ok: true } | { ok: false; error: string }
+import {
+  GROWTH_ERROR,
+  growthDbErrorMessage,
+  logGrowthDbError,
+  missingGrowthRecord,
+  requireGrowthPermission,
+  type ActionResult,
+} from '../_lib/action-utils'
+import { nullableTrimmedText } from '../_lib/text'
 
 export type CampaignInput = {
   startDate: string
@@ -37,11 +43,8 @@ function revalidate() {
 }
 
 export async function addCampaign(input: CampaignInput): Promise<ActionResult> {
-  try {
-    await requirePermission('growth.write')
-  } catch {
-    return { ok: false, error: "You don't have permission to log Growth Tracker data." }
-  }
+  const denied = await requireGrowthPermission('growth.write')
+  if (denied) return denied
 
   const validationError = validate(input)
   if (validationError) return { ok: false, error: validationError }
@@ -58,11 +61,11 @@ export async function addCampaign(input: CampaignInput): Promise<ActionResult> {
     leads: Math.round(input.leads),
     bookings: Math.round(input.bookings),
     revenue_tzs: Math.round(input.revenueTzs),
-    notes: input.notes.trim() || null,
+    notes: nullableTrimmedText(input.notes),
   })
   if (error) {
-    console.error('[growth/marketing] addCampaign failed', error)
-    return { ok: false, error: error.message || 'Could not save the campaign.' }
+    logGrowthDbError('growth.marketing_campaign.insert', error)
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
   }
 
   revalidate()
@@ -70,11 +73,8 @@ export async function addCampaign(input: CampaignInput): Promise<ActionResult> {
 }
 
 export async function updateCampaign(id: string, patch: Partial<CampaignInput>): Promise<ActionResult> {
-  try {
-    await requirePermission('growth.write')
-  } catch {
-    return { ok: false, error: "You don't have permission to log Growth Tracker data." }
-  }
+  const denied = await requireGrowthPermission('growth.write')
+  if (denied) return denied
 
   const validationError = validate(patch)
   if (validationError) return { ok: false, error: validationError }
@@ -90,32 +90,41 @@ export async function updateCampaign(id: string, patch: Partial<CampaignInput>):
   if (patch.leads !== undefined) row.leads = Math.round(patch.leads)
   if (patch.bookings !== undefined) row.bookings = Math.round(patch.bookings)
   if (patch.revenueTzs !== undefined) row.revenue_tzs = Math.round(patch.revenueTzs)
-  if (patch.notes !== undefined) row.notes = patch.notes.trim() || null
+  if (patch.notes !== undefined) row.notes = nullableTrimmedText(patch.notes)
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('growth_marketing_campaigns').update(row).eq('id', id)
+  const { data, error } = await supabase
+    .from('growth_marketing_campaigns')
+    .update(row)
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (error) {
-    console.error('[growth/marketing] updateCampaign failed', error)
-    return { ok: false, error: error.message || 'Could not update the campaign.' }
+    logGrowthDbError('growth.marketing_campaign.update', error, { campaignId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
   }
+  if (!data) return missingGrowthRecord()
 
   revalidate()
   return { ok: true }
 }
 
 export async function deleteCampaign(id: string): Promise<ActionResult> {
-  try {
-    await requirePermission('growth.write')
-  } catch {
-    return { ok: false, error: "You don't have permission to log Growth Tracker data." }
-  }
+  const denied = await requireGrowthPermission('growth.write')
+  if (denied) return denied
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('growth_marketing_campaigns').delete().eq('id', id)
+  const { data, error } = await supabase
+    .from('growth_marketing_campaigns')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (error) {
-    console.error('[growth/marketing] deleteCampaign failed', error)
-    return { ok: false, error: error.message || 'Could not delete the campaign.' }
+    logGrowthDbError('growth.marketing_campaign.delete', error, { campaignId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.delete) }
   }
+  if (!data) return missingGrowthRecord()
 
   revalidate()
   return { ok: true }

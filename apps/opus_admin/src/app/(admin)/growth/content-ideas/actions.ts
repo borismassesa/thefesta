@@ -1,17 +1,19 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import {
+  GROWTH_ERROR,
+  growthDbErrorMessage,
+  logGrowthDbError,
+  missingGrowthRecord,
+  requireGrowthPermission,
+  type ActionResult,
+} from '../_lib/action-utils'
 import type { ContentIdeaKind } from './ContentIdeasClient'
 
-export type ActionResult = { ok: true } | { ok: false; error: string }
-
 async function gate(): Promise<ActionResult | null> {
-  if (!(await hasPermission('growth.admin'))) {
-    return { ok: false, error: "You don't have permission to edit the Content Ideas bank." }
-  }
-  return null
+  return requireGrowthPermission('growth.admin')
 }
 
 export async function addContentIdea(input: {
@@ -33,7 +35,10 @@ export async function addContentIdea(input: {
     details: input.details,
     sort_order: input.sortOrder,
   })
-  if (error) return { ok: false, error: error.message || 'Could not save.' }
+  if (error) {
+    logGrowthDbError('growth.content_idea.insert', error)
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
+  }
 
   revalidatePath('/growth/content-ideas')
   return { ok: true }
@@ -53,8 +58,17 @@ export async function updateContentIdea(
   if (patch.details !== undefined) update.details = patch.details
   if (patch.sortOrder !== undefined) update.sort_order = patch.sortOrder
 
-  const { error } = await supabase.from('growth_content_ideas').update(update).eq('id', id)
-  if (error) return { ok: false, error: error.message || 'Could not save.' }
+  const { data, error } = await supabase
+    .from('growth_content_ideas')
+    .update(update)
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
+  if (error) {
+    logGrowthDbError('growth.content_idea.update', error, { ideaId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
+  }
+  if (!data) return missingGrowthRecord()
 
   revalidatePath('/growth/content-ideas')
   return { ok: true }
@@ -65,8 +79,17 @@ export async function deleteContentIdea(id: string): Promise<ActionResult> {
   if (denied) return denied
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('growth_content_ideas').delete().eq('id', id)
-  if (error) return { ok: false, error: error.message || 'Could not delete.' }
+  const { data, error } = await supabase
+    .from('growth_content_ideas')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
+  if (error) {
+    logGrowthDbError('growth.content_idea.delete', error, { ideaId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.delete) }
+  }
+  if (!data) return missingGrowthRecord()
 
   revalidatePath('/growth/content-ideas')
   return { ok: true }
