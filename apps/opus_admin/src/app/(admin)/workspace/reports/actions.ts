@@ -158,7 +158,7 @@ export async function saveReport(input: SaveReportInput): Promise<SaveReportResu
     return { ok: false, error: error.message || 'Could not save your report.' }
   }
 
-  revalidatePath('/me/reports')
+  revalidatePath('/workspace/reports')
   revalidatePath('/workforce/reports')
 
   let emailStatus: 'sent' | 'skipped' | 'failed' | null = null

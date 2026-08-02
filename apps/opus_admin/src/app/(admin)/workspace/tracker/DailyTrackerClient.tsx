@@ -401,7 +401,7 @@ export default function DailyTrackerClient({
   }
 
   function goToWeek(newWeekStart: string) {
-    router.push(`/workforce/daily-tracker?week=${newWeekStart}`)
+    router.push(`/workspace/tracker?week=${newWeekStart}`)
   }
 
   function commitEntry(engineId: string, date: string) {

@@ -46,7 +46,7 @@ export async function adminInsertPunch(input: AdminPunchInput): Promise<{ id: st
     .single<{ id: string }>()
   if (error) throw new Error(friendlyAlternationError(error.message, input.type))
   revalidatePath('/workforce/timesheets')
-  revalidatePath('/me/timeclock')
+  revalidatePath('/workspace/time-clock')
   return { id: data.id }
 }
 
@@ -70,7 +70,7 @@ export async function adminUpdatePunch(input: AdminPunchUpdate): Promise<void> {
     .eq('id', input.id)
   if (error) throw new Error(friendlyAlternationError(error.message, input.type))
   revalidatePath('/workforce/timesheets')
-  revalidatePath('/me/timeclock')
+  revalidatePath('/workspace/time-clock')
 }
 
 export async function adminDeletePunch(id: string): Promise<void> {
@@ -82,7 +82,7 @@ export async function adminDeletePunch(id: string): Promise<void> {
     .eq('id', id)
   if (error) throw error
   revalidatePath('/workforce/timesheets')
-  revalidatePath('/me/timeclock')
+  revalidatePath('/workspace/time-clock')
 }
 
 // Build a CSV of worked-minutes per employee × day for the given week.

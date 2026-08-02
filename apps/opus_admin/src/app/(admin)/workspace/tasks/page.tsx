@@ -1,7 +1,6 @@
-import { redirect } from 'next/navigation'
-import { getCallerEmail } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { getAssignedTasksForEmployee } from '../_lib/queries'
+import { getSelfIdentity } from '@/lib/workforce/identity'
+import { getAssignedTasksForEmployee } from '../../workforce/_lib/queries'
 import MyTasksHeading from './MyTasksHeading'
 import MyTasksList from './MyTasksList'
 import { completeTask, reopenTask, startTask } from './actions'
@@ -31,15 +30,12 @@ export type MyTask = {
 }
 
 export default async function MyTasksPage() {
-  const email = await getCallerEmail()
-  if (!email) redirect('/')
+  // The Workspace layout has already resolved and gated identity; this reuses
+  // the same per-request cached result rather than re-querying by email.
+  const identity = await getSelfIdentity()
+  const employee = identity.ok ? identity.employee : null
 
   const supabase = createSupabaseAdminClient()
-  const { data: employee } = await supabase
-    .from('workforce_employees')
-    .select('id, full_name, department')
-    .ilike('email', email)
-    .maybeSingle<{ id: string; full_name: string; department: string }>()
 
   if (!employee) {
     return (

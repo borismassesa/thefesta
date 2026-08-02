@@ -19,11 +19,11 @@ import type { WorkspaceNavItem } from '@/lib/workforce/scope'
 
 export const WORKSPACE_ROUTES: Record<WorkspaceNavItem, string> = {
   home: '/workspace',
-  'time-clock': '/me/timeclock',
+  'time-clock': '/workspace/time-clock',
   leave: '/workspace/leave',
-  tasks: '/workforce/my-tasks',
-  reports: '/me/reports',
-  tracker: '/workforce/daily-tracker',
+  tasks: '/workspace/tasks',
+  reports: '/workspace/reports',
+  tracker: '/workspace/tracker',
   calendar: '/workspace/calendar',
   documents: '/workspace/documents',
 }

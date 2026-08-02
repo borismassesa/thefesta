@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getCallerEmail } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import { getSelfIdentity } from '@/lib/workforce/identity'
 import { recordAuditEvent } from '@/lib/audit-log'
 
 // Server actions for the "My tasks" page. Each is scoped to the caller's
@@ -26,16 +26,14 @@ const TABLE: Record<TaskSource, 'intern_tasks' | 'workforce_tasks'> = {
   assigned: 'workforce_tasks',
 }
 
+// Identity comes from the shared resolver, which keys on clerk_user_id and
+// escapes the email fallback. The previous implementation here did an
+// UNESCAPED .ilike('email', email), so an address like `john_doe@x.com`
+// matched any character at the underscore and could resolve to a different
+// employee — meaning "complete my task" could complete someone else's.
 async function resolveCallerEmployee(): Promise<{ id: string } | null> {
-  const email = await getCallerEmail()
-  if (!email) return null
-  const supabase = createSupabaseAdminClient()
-  const { data } = await supabase
-    .from('workforce_employees')
-    .select('id')
-    .ilike('email', email)
-    .maybeSingle<{ id: string }>()
-  return data ?? null
+  const identity = await getSelfIdentity()
+  return identity.ok ? { id: identity.employee.id } : null
 }
 
 async function setTaskStatus(
@@ -78,7 +76,7 @@ async function setTaskStatus(
     .eq('id', taskId)
     .eq('employee_id', employee.id)
   if (error) throw error
-  revalidatePath('/workforce/my-tasks')
+  revalidatePath('/workspace/tasks')
   revalidatePath('/workforce/tasks')
   revalidatePath('/')
 }

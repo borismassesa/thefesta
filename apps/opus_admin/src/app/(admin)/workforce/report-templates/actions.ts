@@ -148,7 +148,7 @@ export async function createTemplate(input: TemplateInput): Promise<TemplateResu
   }
 
   revalidatePath('/workforce/report-templates')
-  revalidatePath('/me/reports')
+  revalidatePath('/workspace/reports')
   return { ok: true, id: data.id }
 }
 
@@ -178,7 +178,7 @@ export async function updateTemplate(id: string, input: TemplateInput): Promise<
   }
 
   revalidatePath('/workforce/report-templates')
-  revalidatePath('/me/reports')
+  revalidatePath('/workspace/reports')
   return { ok: true, id }
 }
 
@@ -191,7 +191,7 @@ export async function setTemplateActive(id: string, isActive: boolean): Promise<
     .eq('id', id)
   if (error) return { ok: false, error: error.message || 'Could not update the template.' }
   revalidatePath('/workforce/report-templates')
-  revalidatePath('/me/reports')
+  revalidatePath('/workspace/reports')
   return { ok: true, id }
 }
 
@@ -203,6 +203,6 @@ export async function deleteTemplate(id: string): Promise<TemplateResult> {
   const { error } = await supabase.from('report_templates').delete().eq('id', id)
   if (error) return { ok: false, error: error.message || 'Could not delete the template.' }
   revalidatePath('/workforce/report-templates')
-  revalidatePath('/me/reports')
+  revalidatePath('/workspace/reports')
   return { ok: true, id }
 }

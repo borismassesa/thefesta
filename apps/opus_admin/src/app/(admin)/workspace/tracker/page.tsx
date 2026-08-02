@@ -1,6 +1,6 @@
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { getCallerEmail, getCallerPermissions, hasAnyPermission } from '@/lib/admin-auth'
-import { getEmployees } from '../_lib/queries'
+import { getEmployees } from '../../workforce/_lib/queries'
 import DailyTrackerClient, {
   type TrackerEngine,
   type TrackerEntry,

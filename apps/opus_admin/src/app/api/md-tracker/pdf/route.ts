@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { hasAnyPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { renderTrackerPdfBuffer, type TrackerPdfEngine, type TrackerPdfEntry } from '@/lib/tracker-pdf'
-import { TRACKER_DAY_LABELS, formatDayDate, formatWeekLabel, getWeekDates } from '@/app/(admin)/workforce/daily-tracker/_lib/week'
+import { TRACKER_DAY_LABELS, formatDayDate, formatWeekLabel, getWeekDates } from '@/app/(admin)/workspace/tracker/_lib/week'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 

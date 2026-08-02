@@ -130,7 +130,7 @@ export async function createAssignment(
   }
 
   revalidatePath('/workforce/tasks')
-  revalidatePath('/workforce/my-tasks')
+  revalidatePath('/workspace/tasks')
   revalidatePath('/')
   return {
     ok: true,
@@ -215,6 +215,6 @@ export async function deleteAssignment(assignmentId: string): Promise<MutateResu
   if (error) return { ok: false, error: error.message || 'Could not delete the assignment.' }
 
   revalidatePath('/workforce/tasks')
-  revalidatePath('/workforce/my-tasks')
+  revalidatePath('/workspace/tasks')
   return { ok: true }
 }
