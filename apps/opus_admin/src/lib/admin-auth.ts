@@ -2,16 +2,26 @@ import { cache } from 'react'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
 import { auditPermissionDenied, recordAuditEvent } from '@/lib/audit-log'
+import {
+  ALL_PERMISSION_KEYS,
+  expandLegacyPermissions,
+} from '@/lib/workforce/permissions'
 
-export type AdminAccessRole = 'owner' | 'admin' | 'editor' | 'author' | 'viewer'
+// Legacy bucket helpers live in role-bucket.ts (pure, no server-only import)
+// and are re-exported here so existing call sites keep working unchanged.
+import {
+  type AdminAccessRole,
+  ADMIN_ACCESS_ROLES,
+  legacyRoleBucket,
+} from '@/lib/role-bucket'
 
-const ADMIN_ACCESS_ROLES: AdminAccessRole[] = [
-  'owner',
-  'admin',
-  'editor',
-  'author',
-  'viewer',
-]
+export {
+  type AdminAccessRole,
+  ADMIN_ACCESS_ROLES,
+  ADMIN_DASHBOARD_ROLES,
+  isAdminDashboardRole,
+  legacyRoleBucket,
+} from '@/lib/role-bucket'
 
 // TEMPORARY: when DISABLE_ADMIN_AUTH=true every caller is treated as an
 // `owner` so the dashboard is reachable without signing in. This is a
@@ -27,20 +37,6 @@ function isAdminAuthDisabled(): boolean {
   )
 }
 
-// Roles that are allowed to load the admin dashboard (everything under
-// `(admin)/`). Authors write articles via /contribute and shouldn't see the
-// admin shell — see comment in operations/articles/actions.ts.
-const ADMIN_DASHBOARD_ROLES: readonly AdminAccessRole[] = [
-  'owner',
-  'admin',
-  'editor',
-  'viewer',
-]
-
-export function isAdminDashboardRole(role: AdminAccessRole | null): boolean {
-  return role !== null && ADMIN_DASHBOARD_ROLES.includes(role)
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -51,30 +47,6 @@ function normalizeRole(value: unknown): AdminAccessRole | null {
   return ADMIN_ACCESS_ROLES.includes(role as AdminAccessRole)
     ? (role as AdminAccessRole)
     : null
-}
-
-// Maps a workforce_roles row (slug + permission_keys) to a legacy role bucket,
-// mirroring the SQL function workforce_role_legacy_bucket(). Legacy slugs map
-// 1:1; custom roles are bucketed by their permission_keys.
-export function legacyRoleBucket(
-  slug: string,
-  permissionKeys: string[],
-): AdminAccessRole {
-  switch (slug) {
-    case 'owner': return 'owner'
-    case 'admin': return 'admin'
-    case 'editor': return 'editor'
-    case 'author': return 'author'
-    case 'viewer': return 'viewer'
-  }
-  const WRITE_KEYS = new Set([
-    'cms.write', 'cms.publish', 'cms.moderate',
-    'vendor.moderate',
-    'workforce.payroll',
-    'platform.admin',
-  ])
-  const hasWrite = permissionKeys.some((k) => WRITE_KEYS.has(k))
-  return hasWrite ? 'admin' : 'viewer'
 }
 
 function readMetadataRole(value: unknown): AdminAccessRole | null {
@@ -203,6 +175,31 @@ export const getCallerEmail = cache(async (): Promise<string | null> => {
   return isAdminAuthDisabled() ? 'dev@opusfesta.com' : null
 })
 
+/**
+ * The caller's canonical `workforce_employees.id`, resolved by `clerk_user_id`.
+ *
+ * Use this for any identity-sensitive check — "is this row mine", "am I
+ * assigning to myself" — rather than re-querying by email. `clerk_user_id` is
+ * a stable UNIQUE column (20260514213347_workforce_dashboard_access.sql:33);
+ * email is mutable, is only case-sensitively unique so two case-variant rows
+ * can both match an ILIKE, and nothing syncs Clerk's address back into
+ * workforce_employees.
+ *
+ * Returns null when the caller has no linked employee row, which is legitimate
+ * for an owner or administrator who was never added to the directory. Callers
+ * performing a security check on the result must fail CLOSED on null rather
+ * than skipping the check.
+ *
+ * Shares the same per-request cache as getAdminAccessRole, so this adds no
+ * round trip.
+ */
+export const getCallerEmployeeId = cache(async (): Promise<string | null> => {
+  const { userId } = await auth()
+  if (!userId) return null
+  const lookup = await getCallerEmployee(userId)
+  return lookup.kind === 'found' ? lookup.id : null
+})
+
 export async function requireAdminRole(
   roles: readonly AdminAccessRole[]
 ): Promise<AdminAccessRole> {
@@ -251,60 +248,12 @@ export async function requireAdminRole(
 
 export type PermissionKey = string
 
-// Keep this list in sync with apps/opus_admin/src/app/(admin)/workforce/_lib/types.ts
-// — duplicated here so this file stays free of the workforce module
-// import (which would create a cycle when workforce actions import from
-// admin-auth).
-const ALL_PERMISSION_KEYS: readonly PermissionKey[] = [
-  'cms.read',
-  'cms.write',
-  'cms.publish',
-  'vendor.read',
-  'vendor.moderate',
-  'bookings.read',
-  'bookings.write',
-  'finance.read',
-  'finance.write',
-  'workforce.read',
-  'workforce.write',
-  'workforce.payroll',
-  'insights.read',
-  'platform.admin',
-  // OpusPass door-staff check-in: assigning attendants + viewing live scans.
-  'opuspass.checkin',
-  // OpusPass ticket generation: importing guest lists + printable entry-pass tickets.
-  'opuspass.tickets',
-  // Pledge Concierge: staff-run pledge campaigns for Elegant/Signature couples.
-  'opuspass.pledges.read',
-  'opuspass.pledges.write',
-  // Couple Accounts: the cross-couple directory + per-couple event console.
-  'opuspass.couples.read',
-  'opuspass.couples.write',
-  // Separate from .write because it is irreversible: deleting an account
-  // cascades their events, guests, RSVPs, pledges and registry away.
-  'opuspass.couples.delete',
-  // MD Daily Tracker: each engine's MD can only write their own engine's rows.
-  'md_tracker.opusfesta.write',
-  'md_tracker.opusstudio.write',
-  'md_tracker.opuspass.write',
-  // MD Daily Tracker: CEO/owner review — edit ceo_comment + reviewed_by across all engines.
-  'md_tracker.review',
-  // Growth Tracker: log outreach contacts / campaigns / content posts / studio bookings.
-  'growth.write',
-  // Growth Tracker: edit KPI targets, the vendor-outreach roster, challenge definitions, content-ideas bank.
-  'growth.admin',
-  // Opus customer-support console: view conversations / reply as an agent.
-  'support.read',
-  'support.write',
-  // Custom card commissions. Split three ways because the studio ladder and the
-  // Ops desk are different jobs: a designer must reach their own task board
-  // without being able to reassign work or pass their own QA.
-  'commissions.read',
-  // Ops: assign, reassign, hold, and pass/fail internal QA.
-  'commissions.manage',
-  // Designer: accept an assignment and upload versions for their OWN tasks.
-  'commissions.design',
-] as const
+// The canonical key catalogue lives in lib/workforce/permissions.ts — a pure
+// module with no imports, so it can be unit-tested and shared with client
+// code. It was previously duplicated here AND in workforce/_lib/types.ts, and
+// the two had already drifted (support.read / support.write existed here but
+// not there, so Support access could not be granted through the Roles UI at
+// all). permissions.sync.test.ts now fails if they diverge again.
 
 // Wrapped in React.cache so that the layout's permission lookup and
 // page.tsx's permission lookup on the same request resolve via one
@@ -339,7 +288,10 @@ export const getCallerPermissions = cache(
       console.error('[admin-auth] workforce_permissions_for_employee error', error)
       return fallbackRolePermissions(role)
     }
-    return new Set(Array.isArray(data) ? data : [])
+    // Full reviewed legacy expansion (spec 3.5). Supersedes PR 0's narrower
+    // expandRolePermissions, which only handled roles.read; that function is a
+    // strict subset of this table and stays exported until #253 merges.
+    return expandLegacyPermissions(new Set(Array.isArray(data) ? data : []))
   },
 )
 
@@ -359,6 +311,23 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
         'bookings.read', 'bookings.write',
         'finance.read', 'finance.write',
         'workforce.read', 'workforce.write', 'workforce.payroll',
+        // roles.read ONLY. Deliberately NOT roles.write / roles.assign.
+        //
+        // This branch is reached when workforce_permissions_for_employee
+        // errors, and the `role` it switches on comes from legacyRoleBucket(),
+        // which promotes finance + people-ops (workforce.payroll),
+        // content-editor (cms.write/cms.publish) and vendor-success
+        // (vendor.moderate) all to 'admin'. Granting the mutating roles.* keys
+        // here would hand exactly those four roles full RBAC control during
+        // any transient RPC failure — including the schema-cache lag right
+        // after this feature's own migration deploys — which is the very
+        // escalation this module exists to close, reached through the error
+        // path instead of the happy path.
+        //
+        // A DB hiccup should degrade an admin to READ-ONLY on roles, never
+        // fail open to write. The safe failure mode for an RBAC-mutating
+        // permission is denial.
+        'workforce.roles.read',
         'insights.read',
         'opuspass.checkin',
         'opuspass.tickets',
@@ -383,7 +352,8 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
     case 'viewer':
       return new Set([
         'cms.read', 'vendor.read', 'bookings.read', 'finance.read',
-        'workforce.read', 'insights.read', 'commissions.read',
+        'workforce.read', 'workforce.roles.read', 'insights.read',
+        'commissions.read',
       ])
     case 'author':
       // Authors don't access the dashboard — they live under /contribute.

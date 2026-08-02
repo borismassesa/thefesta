@@ -6,6 +6,8 @@ export type {
   Candidate,
   Department,
   Employee,
+  EmployeeDirectoryView,
+  EmployeeLeaveView,
   EmployeeStatus,
   EmploymentType,
   Job,

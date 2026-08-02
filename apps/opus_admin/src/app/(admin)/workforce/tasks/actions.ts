@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { DEPARTMENTS } from '../_lib/types'
-import { getCallerScope, type CallerScope } from '../_lib/task-scope'
+import { getCallerScope, isInTaskScope, type CallerScope } from '../_lib/task-scope'
 import type {
   Department,
   TaskCadence,
@@ -79,19 +79,27 @@ export async function createAssignment(
     // Confirm the target exists and capture their department for scoping.
     const { data: target } = await supabase
       .from('workforce_employees')
-      .select('id, department')
+      .select('id')
       .eq('id', input.targetEmployeeId)
-      .maybeSingle<{ id: string; department: Department }>()
+      .maybeSingle<{ id: string }>()
     if (!target) return { ok: false, error: 'That employee no longer exists.' }
-    if (!scope.canAssignAll && target.department !== scope.department) {
-      return { ok: false, error: 'You can only assign to people in your own department.' }
+    // Team tier is direct reports only. Sharing a department is no longer
+    // sufficient — a manager could otherwise assign to peers who do not
+    // report to them.
+    if (!isInTaskScope(scope, target.id)) {
+      return { ok: false, error: 'You can only assign tasks to your direct reports.' }
     }
     targetEmployeeId = target.id
   } else if (input.targetType === 'department') {
     const dept = input.targetDepartment
     if (!dept || !DEPARTMENT_SET.has(dept)) return { ok: false, error: 'Pick a known department.' }
-    if (!scope.canAssignAll && dept !== scope.department) {
-      return { ok: false, error: 'You can only assign to your own department.' }
+    // Department targeting assigns to everyone in that department, which by
+    // definition exceeds any set of direct reports. It is an ORG capability.
+    if (!scope.canAssignAll) {
+      return {
+        ok: false,
+        error: 'Assigning to a whole department needs the Tasks assign permission. You can assign to your direct reports individually.',
+      }
     }
     targetDepartment = dept
   } else {
@@ -130,7 +138,7 @@ export async function createAssignment(
   }
 
   revalidatePath('/workforce/tasks')
-  revalidatePath('/workforce/my-tasks')
+  revalidatePath('/workspace/tasks')
   revalidatePath('/')
   return {
     ok: true,
@@ -165,17 +173,19 @@ async function assertCanMutate(
   if (!data) return { ok: false, error: 'Assignment not found.' }
 
   if (data.target_type === 'department') {
-    if (data.target_department === scope.department) return { ok: true }
-    return { ok: false, error: 'You can only manage your own department’s tasks.' }
+    // A department-wide assignment always covers people outside the caller's
+    // direct reports, so Team tier can never manage one.
+    return {
+      ok: false,
+      error: 'Department-wide assignments need the Tasks assign permission.',
+    }
   }
-  // employee target — check the assignee is in the manager's department
-  const { data: emp } = await supabase
-    .from('workforce_employees')
-    .select('department')
-    .eq('id', data.target_employee_id ?? '')
-    .maybeSingle<{ department: Department }>()
-  if (emp && emp.department === scope.department) return { ok: true }
-  return { ok: false, error: 'You can only manage your own department’s tasks.' }
+  // Employee target — the assignee must be a direct report. No extra query:
+  // the scope already carries the authoritative id list.
+  if (data.target_employee_id && isInTaskScope(scope, data.target_employee_id)) {
+    return { ok: true }
+  }
+  return { ok: false, error: 'You can only manage tasks for your direct reports.' }
 }
 
 export type MutateResult = { ok: true } | { ok: false; error: string }
@@ -215,6 +225,6 @@ export async function deleteAssignment(assignmentId: string): Promise<MutateResu
   if (error) return { ok: false, error: error.message || 'Could not delete the assignment.' }
 
   revalidatePath('/workforce/tasks')
-  revalidatePath('/workforce/my-tasks')
+  revalidatePath('/workspace/tasks')
   return { ok: true }
 }

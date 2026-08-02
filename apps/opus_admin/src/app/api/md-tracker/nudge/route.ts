@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
-import { addDays } from '@/app/(admin)/workforce/daily-tracker/_lib/week'
+import { addDays } from '@/app/(admin)/workspace/tracker/_lib/week'
 
 // Proactive nudge for the MD Daily Tracker: for each engine, if yesterday's
 // entry is missing (or fully empty), email the assigned MD(s) — the tool's

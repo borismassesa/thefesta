@@ -57,6 +57,71 @@ export type Employee = {
   clerkUserId: string | null
 }
 
+// A deliberately NARROW projection of Employee for pages that hand employee
+// data to a client component.
+//
+// Anything a server component passes as a prop is serialised into the RSC
+// payload and is readable in the browser's devtools. Passing the full
+// `Employee` therefore ships salary_tzs, phone, notes and clerk_user_id to
+// every viewer of that page, regardless of whether they hold
+// workforce.payroll. The Roles page did exactly that.
+//
+// Keep this to fields that are genuinely rendered. If a screen needs more,
+// add the field here consciously rather than widening back to `Employee`.
+export type EmployeeDirectoryView = Pick<
+  Employee,
+  | 'id'
+  | 'employeeCode'
+  | 'name'
+  | 'email'
+  | 'jobTitle'
+  | 'department'
+  | 'status'
+  | 'avatarColor'
+  | 'avatarUrl'
+  | 'dashboardAccess'
+  | 'dashboardRoleId'
+  | 'lastDashboardLogin'
+>
+
+/**
+ * Project a full Employee down to the client-safe view. Call this in the
+ * server component, never in the client.
+ */
+export function toEmployeeDirectoryView(e: Employee): EmployeeDirectoryView {
+  return {
+    id: e.id,
+    employeeCode: e.employeeCode,
+    name: e.name,
+    email: e.email,
+    jobTitle: e.jobTitle,
+    department: e.department,
+    status: e.status,
+    avatarColor: e.avatarColor,
+    avatarUrl: e.avatarUrl,
+    dashboardAccess: e.dashboardAccess,
+    dashboardRoleId: e.dashboardRoleId,
+    lastDashboardLogin: e.lastDashboardLogin,
+  }
+}
+
+/**
+ * Leave-surface projection: the directory fields plus the one balance figure
+ * the Leave screen renders.
+ *
+ * A SEPARATE view rather than widening EmployeeDirectoryView, so that adding
+ * a balance to the Leave page does not silently ship it to the Roles page too.
+ * Purpose-specific views keep each screen's payload to what it actually needs.
+ * Still excludes salary, phone, notes and clerk_user_id.
+ */
+export type EmployeeLeaveView = EmployeeDirectoryView & {
+  leaveBalanceDays: number
+}
+
+export function toEmployeeLeaveView(e: Employee): EmployeeLeaveView {
+  return { ...toEmployeeDirectoryView(e), leaveBalanceDays: e.leaveBalanceDays }
+}
+
 export type ShiftType = 'Full day' | 'Half day' | 'On-call' | 'Remote' | 'Off'
 
 export type WorkforceShift = {
@@ -171,6 +236,7 @@ export type PermissionGroup =
   | 'OpusPass'
   | 'MD Tracker'
   | 'Growth Tracker'
+  | 'Support'
 
 export type Permission = {
   key: string
@@ -385,8 +451,41 @@ export const PERMISSIONS: Permission[] = [
   { key: 'workforce.read', group: 'Workforce', label: 'View workforce', description: 'See employees, schedule and leave.' },
   { key: 'workforce.write', group: 'Workforce', label: 'Edit workforce', description: 'Create employees, edit roles, manage payroll.' },
   { key: 'workforce.payroll', group: 'Workforce', label: 'Run payroll', description: 'Approve and release monthly payroll.' },
+  { key: 'workforce.roles.read', group: 'Workforce', label: 'View roles', description: 'Inspect roles, their members and the permission matrix. Read only.' },
+  { key: 'workforce.roles.write', group: 'Workforce', label: 'Edit role definitions', description: 'Create, duplicate and edit roles, and change what permissions a role grants. Does not allow assigning members.' },
+  { key: 'workforce.roles.assign', group: 'Workforce', label: 'Assign roles', description: 'Put people into approved roles and revoke them. Does not allow changing what a role grants, and cannot assign Owner or Admin.' },
+  // Granular workforce keys (spec 3.2). The legacy workforce.read /
+  // workforce.write pair above is retained and expands into these at runtime
+  // via lib/workforce/permissions.ts, so no existing role breaks.
+  { key: 'workforce.employees.read', group: 'Workforce', label: 'View employees', description: 'Browse the directory and employee profile basics.' },
+  { key: 'workforce.employees.write', group: 'Workforce', label: 'Edit employees', description: 'Create and edit employee profiles.' },
+  { key: 'workforce.employee_records.read', group: 'Workforce', label: 'View employee records', description: 'Resume, skills, certifications and badges.' },
+  { key: 'workforce.employee_records.write', group: 'Workforce', label: 'Edit employee records', description: 'Maintain resume, skills, certifications and badges.' },
+  { key: 'workforce.employee_documents.read', group: 'Workforce', label: 'View employee documents', description: 'Read employee documents, subject to each document\u2019s sensitivity class.' },
+  { key: 'workforce.employee_documents.write', group: 'Workforce', label: 'Manage employee documents', description: 'Upload, review and approve employee documents.' },
+  { key: 'workforce.employee_documents.legal', group: 'Workforce', label: 'View legal documents', description: 'Additionally unlocks legally confidential documents. Never granted by legacy expansion.' },
+  { key: 'workforce.leave.read', group: 'Workforce', label: 'View leave', description: 'Organisation-wide leave register and calendar.' },
+  { key: 'workforce.leave.approve', group: 'Workforce', label: 'Approve leave', description: 'Approve or reject any leave request. Never permits approving your own.' },
+  { key: 'workforce.leave.admin', group: 'Workforce', label: 'Administer leave', description: 'Leave policies, balances and manual adjustments.' },
+  { key: 'workforce.attendance.read', group: 'Workforce', label: 'View attendance', description: 'Organisation-wide attendance and exceptions.' },
+  { key: 'workforce.attendance.approve', group: 'Workforce', label: 'Approve attendance', description: 'Approve corrections and missing punches.' },
+  { key: 'workforce.attendance.admin', group: 'Workforce', label: 'Administer attendance', description: 'Attendance policy configuration.' },
+  { key: 'workforce.scheduling.read', group: 'Workforce', label: 'View schedules', description: 'Rosters, shift plans and holiday calendars.' },
+  { key: 'workforce.scheduling.write', group: 'Workforce', label: 'Edit schedules', description: 'Publish rosters, edit shifts and availability.' },
+  { key: 'workforce.timesheets.read', group: 'Workforce', label: 'View timesheets', description: 'Organisation-wide timesheets.' },
+  { key: 'workforce.timesheets.approve', group: 'Workforce', label: 'Approve timesheets', description: 'Sign off submitted timesheets.' },
+  { key: 'workforce.tasks.read', group: 'Workforce', label: 'View tasks', description: 'Organisation-wide task assignments.' },
+  { key: 'workforce.tasks.assign', group: 'Workforce', label: 'Assign tasks', description: 'Create, edit, reassign, cancel and reopen organisation-scoped assignments. Managers cover their own direct reports without this key.' },
+  { key: 'workforce.report_templates.write', group: 'Workforce', label: 'Edit report templates', description: 'Maintain the report form templates staff submit against.' },
+  { key: 'workforce.reports.read', group: 'Workforce', label: 'Workforce analytics', description: 'Turnover, headcount and attendance reporting.' },
+  { key: 'workforce.performance.read', group: 'Workforce', label: 'View performance', description: 'Reviews, objectives and KPIs.' },
+  { key: 'workforce.performance.write', group: 'Workforce', label: 'Manage performance', description: 'Create review cycles and edit objectives.' },
+  { key: 'workforce.recruitment.read', group: 'Workforce', label: 'View recruitment', description: 'Jobs and candidate pipelines.' },
+  { key: 'workforce.recruitment.write', group: 'Workforce', label: 'Manage recruitment', description: 'Post jobs, move candidates and make offers.' },
   { key: 'insights.read', group: 'Insights', label: 'View analytics', description: 'Access dashboards, exports and audit logs.' },
   { key: 'platform.admin', group: 'Platform', label: 'Manage platform', description: 'Domain settings, secrets, feature flags.' },
+  { key: 'support.read', group: 'Support', label: 'View support conversations', description: 'Read the Opus customer-support console and its conversations.' },
+  { key: 'support.write', group: 'Support', label: 'Reply in support', description: 'Reply to customers as an agent and manage conversation state.' },
   { key: 'commissions.read', group: 'OpusPass', label: 'View commissions', description: 'Read the custom card commission queue and design tasks.' },
   { key: 'commissions.manage', group: 'OpusPass', label: 'Run the commission studio', description: 'Assign and reassign designers, put orders on hold, pass or fail internal QA.' },
   { key: 'commissions.design', group: 'OpusPass', label: 'Design commissions', description: 'Accept assigned commission tasks and upload card versions. Scoped to your own tasks only.' },

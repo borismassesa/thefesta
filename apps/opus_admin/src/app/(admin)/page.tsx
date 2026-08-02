@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation'
 import { getCallerPermissions } from '@/lib/admin-auth'
+import { getSelfIdentity } from '@/lib/workforce/identity'
 import DashboardHeading from './_dashboard/DashboardHeading'
 import DashboardErrorBanner from './_dashboard/DashboardErrorBanner'
 import ActionQueue from './_dashboard/ActionQueue'
@@ -35,6 +37,19 @@ function buildSubtitle(department: string | null): string {
 // drives the admin Header.
 
 export default async function DashboardPage() {
+  // A Workspace-only employee (the seeded `employee` role holds zero keys)
+  // would otherwise land on an empty dashboard: every section below is
+  // permission-gated, so they would see chrome and nothing else. Send them to
+  // the surface that is actually theirs.
+  //
+  // Checked before the snapshot query so we do not pay for a dashboard we are
+  // about to redirect away from.
+  const callerPermissions = await getCallerPermissions()
+  if (callerPermissions.size === 0) {
+    const identity = await getSelfIdentity()
+    if (identity.ok) redirect('/workspace')
+  }
+
   const [snapshot, permissions] = await Promise.all([
     getDashboardSnapshot(),
     getCallerPermissions(),

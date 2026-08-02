@@ -89,7 +89,7 @@ export async function saveEntry(input: SaveEntryInput): Promise<ActionResult> {
     return { ok: false, error: error.message || 'Could not save.' }
   }
 
-  revalidatePath('/workforce/daily-tracker')
+  revalidatePath('/workspace/tracker')
   return { ok: true }
 }
 
@@ -133,7 +133,7 @@ export async function saveWeekReview(input: SaveWeekReviewInput): Promise<Action
     return { ok: false, error: error.message || 'Could not save.' }
   }
 
-  revalidatePath('/workforce/daily-tracker')
+  revalidatePath('/workspace/tracker')
   return { ok: true }
 }
 
@@ -166,7 +166,7 @@ export async function assignEngineMds(engineId: string, employeeIds: string[]): 
     return { ok: false, error: error.message || 'Could not save.' }
   }
 
-  revalidatePath('/workforce/daily-tracker')
+  revalidatePath('/workspace/tracker')
   return { ok: true }
 }
 
@@ -194,7 +194,7 @@ export async function assignActingMd(engineId: string, employeeId: string | null
     return { ok: false, error: error.message || 'Could not save.' }
   }
 
-  revalidatePath('/workforce/daily-tracker')
+  revalidatePath('/workspace/tracker')
   return { ok: true }
 }
 
@@ -212,7 +212,7 @@ export async function setEngineWorksSaturday(engineId: string, worksSaturday: bo
     return { ok: false, error: error.message || 'Could not save.' }
   }
 
-  revalidatePath('/workforce/daily-tracker')
+  revalidatePath('/workspace/tracker')
   return { ok: true }
 }
 
@@ -238,7 +238,7 @@ export async function markEngineReviewed(weekId: string, engineId: string): Prom
   )
   if (error) return { ok: false, error: error.message || 'Could not save.' }
 
-  revalidatePath('/workforce/daily-tracker')
+  revalidatePath('/workspace/tracker')
   return { ok: true }
 }
 
@@ -254,6 +254,6 @@ export async function unmarkEngineReviewed(weekId: string, engineId: string): Pr
     .eq('engine_id', engineId)
   if (error) return { ok: false, error: error.message || 'Could not save.' }
 
-  revalidatePath('/workforce/daily-tracker')
+  revalidatePath('/workspace/tracker')
   return { ok: true }
 }

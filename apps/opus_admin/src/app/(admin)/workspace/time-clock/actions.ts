@@ -61,7 +61,7 @@ async function punch(type: 'in' | 'out'): Promise<{ ok: true; punchAt: string }>
     throw error
   }
 
-  revalidatePath('/me/timeclock')
+  revalidatePath('/workspace/time-clock')
   revalidatePath('/workforce/timesheets')
   return { ok: true, punchAt }
 }
