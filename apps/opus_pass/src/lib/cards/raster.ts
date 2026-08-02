@@ -59,12 +59,35 @@ function rasterOptions(fontBuffers: Uint8Array[], widthPx: number) {
  */
 let wasmReady: Promise<void> | null = null
 
+/**
+ * How many times the module actually initialised WASM in this process.
+ *
+ * Exposed so memoisation can be PROVEN rather than inferred from a second
+ * request being quicker, which measures nothing: a warm filesystem cache would
+ * produce the same impression while re-initialising every time.
+ */
+let wasmInitialisations = 0
+
+export function wasmInitCount(): number {
+  return wasmInitialisations
+}
+
 function ensureWasm(): Promise<void> {
   if (!wasmReady) {
     wasmReady = (async () => {
       const { readFile } = await import('node:fs/promises')
-      const path = require.resolve('@resvg/resvg-wasm/index_bg.wasm')
-      await initWasm(await readFile(path))
+      const { dirname, join } = await import('node:path')
+      // Resolve the package's JS entry and take the .wasm as a sibling FILE.
+      //
+      // Never require.resolve the .wasm directly. Turbopack treats a static
+      // reference to a .wasm as a WebAssembly MODULE and tries to instantiate
+      // it, which fails on wasm-bindgen glue with "Can't resolve 'wbg'" and
+      // breaks the whole build. We want the bytes, not a module, so the path is
+      // assembled at runtime and the file is kept in the deployment by an
+      // explicit tracing include in next.config.ts.
+      const packageDir = dirname(require.resolve('@resvg/resvg-wasm'))
+      await initWasm(await readFile(join(packageDir, 'index_bg.wasm')))
+      wasmInitialisations += 1
     })().catch((err) => {
       wasmReady = null
       throw err

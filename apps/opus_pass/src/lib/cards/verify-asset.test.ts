@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { FakePreparationClient } from './fake-preparation-client'
@@ -174,4 +176,54 @@ test('the url extension is stripped before hashing', () => {
   assert.equal(tokenFromSegment('abc'), 'abc')
   // A token that merely contains the substring must not be truncated.
   assert.equal(tokenFromSegment('a.pngb'), 'a.pngb')
+})
+
+// ── Smoke-route access guard ───────────────────────────────────────────────
+// The boundary that keeps a diagnostic endpoint out of production. Worth its
+// own test because every failure looks identical from outside, so a mistake
+// here would not announce itself.
+
+test('the smoke route is refused in production even with the right secret', async () => {
+  const { smokeAccessPermitted } = await import('./smoke-access')
+  const env = process.env
+  process.env = { ...env, VERCEL_ENV: 'production', CARD_DELIVERY_SMOKE_SECRET: 'right' }
+
+  const withSecret = new Request('https://example.test', { headers: { 'x-smoke-secret': 'right' } })
+  assert.equal(smokeAccessPermitted(withSecret), false, 'environment is checked before the secret')
+
+  process.env = env
+})
+
+test('the smoke route needs a secret, and a wrong one is indistinguishable', async () => {
+  const { smokeAccessPermitted } = await import('./smoke-access')
+  const env = process.env
+  process.env = { ...env, VERCEL_ENV: 'preview', CARD_DELIVERY_SMOKE_SECRET: 'right' }
+
+  assert.equal(smokeAccessPermitted(new Request('https://example.test')), false, 'no header')
+  assert.equal(
+    smokeAccessPermitted(new Request('https://example.test', { headers: { 'x-smoke-secret': 'wrong' } })),
+    false,
+  )
+  assert.equal(
+    smokeAccessPermitted(new Request('https://example.test', { headers: { 'x-smoke-secret': 'right' } })),
+    true,
+  )
+
+  // Unconfigured is closed, not open.
+  process.env = { ...env, VERCEL_ENV: 'preview' }
+  delete process.env.CARD_DELIVERY_SMOKE_SECRET
+  assert.equal(
+    smokeAccessPermitted(new Request('https://example.test', { headers: { 'x-smoke-secret': 'right' } })),
+    false,
+  )
+
+  process.env = env
+})
+
+test('the smoke secret is not the asset-token secret', async () => {
+  // Sharing them would couple two unrelated rotations and let route access leak
+  // into the ability to reason about guest URLs.
+  const source = readFileSync(path.join(process.cwd(), 'src/lib/cards/smoke-access.ts'), 'utf8')
+  assert.match(source, /CARD_DELIVERY_SMOKE_SECRET/)
+  assert.doesNotMatch(source, /CARD_ASSET_TOKEN_SECRET/)
 })
