@@ -146,6 +146,15 @@ CREATE TABLE IF NOT EXISTS public.invitation_card_delivery_assets (
   render_error_code TEXT,
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  -- When a worker last took responsibility for rendering this asset.
+  --
+  -- Separate from created_at because it is a lease, not a fact about the row: a
+  -- worker that dies mid-render leaves a pending row forever, and the only safe
+  -- way for another worker to take over is a conditional update on this column.
+  -- Comparing created_at instead would make reclaim unrepeatable, since there is
+  -- nothing to move.
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   -- Null means it does not expire. Meta may refetch a header long after the
   -- send, so a short expiry would break delivery rather than protect anything.
   expires_at TIMESTAMPTZ,
@@ -161,7 +170,9 @@ COMMENT ON TABLE public.invitation_card_delivery_assets IS
 COMMENT ON COLUMN public.invitation_card_delivery_assets.token_hash IS
   'SHA-256 of the bearer token. The raw token exists only in the URL that was sent.';
 COMMENT ON COLUMN public.invitation_card_delivery_assets.render_error_code IS
-  'RasterErrorCode for a failed preparation, so a card can be diagnosed without re-rendering it.';
+  'Stable failure code for a failed preparation. Codes only: never a provider message, a font URL, a storage path or a guest name.';
+COMMENT ON COLUMN public.invitation_card_delivery_assets.claimed_at IS
+  'Render lease. A pending row whose claim has expired may be reclaimed by another worker via a conditional update on this column.';
 
 -- Preparing a send: which of these guests already have an asset for this release.
 CREATE INDEX IF NOT EXISTS invitation_card_delivery_assets_release_idx
@@ -171,6 +182,11 @@ CREATE INDEX IF NOT EXISTS invitation_card_delivery_assets_release_idx
 CREATE INDEX IF NOT EXISTS invitation_card_delivery_assets_failed_idx
   ON public.invitation_card_delivery_assets (design_release_id)
   WHERE status = 'failed';
+
+-- Finding renders whose worker died, so a retry can take them over.
+CREATE INDEX IF NOT EXISTS invitation_card_delivery_assets_stale_idx
+  ON public.invitation_card_delivery_assets (claimed_at)
+  WHERE status = 'pending';
 
 -- ---------------------------------------------------------------------------
 -- Storage for the prepared images
