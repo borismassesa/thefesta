@@ -9,7 +9,17 @@
 // the built-ins. There is no second rendering path to keep in step.
 
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, Plus, RotateCcw, Trash2, X } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  FilePenLine,
+  ListChecks,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CATEGORY_GROUPS } from './data'
 import {
@@ -35,6 +45,9 @@ const FIELD_KINDS: { value: ApprovalFieldKind; label: string }[] = [
   { value: 'number', label: 'Number' },
   { value: 'list', label: 'List of lines' },
 ]
+
+const STATUS_FILTERS = ['All', 'Active', 'Retired'] as const
+type StatusFilter = (typeof STATUS_FILTERS)[number]
 
 // A new type starts with the two fields every request needs. Without them the
 // form renders an empty shell and the first person to use it has nowhere to
@@ -73,6 +86,31 @@ export default function RequestTypesView({
   const [editing, setEditing] = useState<{ draft: CategoryInput; isNew: boolean } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<StatusFilter>('All')
+
+  const activeCount = categories.filter((c) => c.active).length
+  const retiredCount = categories.length - activeCount
+  const totalFields = categories.reduce((sum, c) => sum + c.fields.length, 0)
+  const groupCount = new Set(categories.map((c) => c.group)).size
+  const query = search.trim().toLowerCase()
+  const visibleCategories = categories.filter((c) => {
+    const groupLabel = CATEGORY_GROUPS.find((g) => g.key === c.group)?.label ?? c.group
+    const text =
+      !query ||
+      c.label.toLowerCase().includes(query) ||
+      c.blurb.toLowerCase().includes(query) ||
+      c.key.toLowerCase().includes(query) ||
+      groupLabel.toLowerCase().includes(query)
+    if (!text) return false
+    if (status === 'Active') return c.active
+    if (status === 'Retired') return !c.active
+    return true
+  })
+  const groupedCategories = CATEGORY_GROUPS.map((group) => ({
+    group,
+    items: visibleCategories.filter((c) => c.group === group.key),
+  })).filter(({ items }) => items.length > 0)
 
   async function save() {
     if (!editing) return
@@ -113,21 +151,42 @@ export default function RequestTypesView({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-        <p className="text-xs text-gray-600">
-          Types you create here appear in <span className="font-semibold">Create</span> for
-          everyone. Retiring one stops it being offered without affecting requests already raised
-          against it.
-        </p>
-        <button
-          type="button"
-          onClick={() => { setEditing({ draft: blankDraft(), isNew: true }); setError(null) }}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-700"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New request type
-        </button>
+    <div className="space-y-5">
+      <div className="rounded-xl border border-gray-100 bg-white px-4 py-4 shadow-[0_8px_28px_-24px_rgba(15,23,42,0.45)]">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F8EDFF] text-[#5B2D8E]">
+              <ListChecks className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h2 className="text-base font-semibold text-gray-950">Request type catalog</h2>
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                  {activeCount} active
+                </span>
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">
+                  Create menu
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:w-[32rem]">
+            <RequestTypeStat label="Retired" value={retiredCount} accent="#6B7280" />
+            <RequestTypeStat label="Fields" value={totalFields} accent="#1F5D8C" />
+            <RequestTypeStat label="Departments" value={groupCount} accent="#8A5A09" />
+            <RequestTypeStat label="Total" value={categories.length} accent="#5B2D8E" />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => { setEditing({ draft: blankDraft(), isNew: true }); setError(null) }}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-[0_12px_24px_-16px_rgba(5,150,105,0.9)] transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 xl:w-auto"
+          >
+            <Plus className="h-4 w-4" />
+            New request type
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -139,59 +198,202 @@ export default function RequestTypesView({
       {categories.length === 0 ? (
         <EmptyState title="No request types yet" hint="Create one and it appears under Create." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-          {categories.map((c) => {
-            const Icon = ICONS[c.iconKey]
-            return (
-              <div
-                key={c.key}
-                className={cn(
-                  'flex items-center gap-3 border-b border-gray-100 px-5 py-3 last:border-b-0',
-                  !c.active && 'bg-gray-50/60',
-                )}
-              >
-                <span
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: c.tint, color: c.accent }}
-                >
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className={cn('truncate text-sm font-semibold', c.active ? 'text-gray-900' : 'text-gray-500')}>
-                    {c.label}
-                    {!c.active && (
-                      <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-600">
-                        Retired
-                      </span>
-                    )}
-                  </p>
-                  <p className="truncate text-xs text-gray-500">
-                    {CATEGORY_GROUPS.find((g) => g.key === c.group)?.label ?? c.group} ·{' '}
-                    {c.fields.length} field{c.fields.length === 1 ? '' : 's'} · {c.key}
-                  </p>
-                </div>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] lg:flex-row lg:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search managed request types"
+                placeholder="Search by type, department, key, or description..."
+                className="h-10 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]"
+              />
+            </div>
+            <div className="inline-flex shrink-0 rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+              {STATUS_FILTERS.map((option) => (
                 <button
+                  key={option}
                   type="button"
-                  disabled={busy}
-                  onClick={() => { setEditing({ draft: toDraft(c), isNew: false }); setError(null) }}
-                  className="rounded-md px-2.5 py-1.5 text-xs font-semibold text-[#5B2D8E] hover:bg-[#F8EDFF] disabled:opacity-50"
+                  onClick={() => setStatus(option)}
+                  aria-pressed={status === option}
+                  className={cn(
+                    'rounded-md px-3 py-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A0DC]',
+                    status === option
+                      ? 'bg-white text-[#5B2D8E] shadow-sm'
+                      : 'text-gray-500 hover:text-gray-800',
+                  )}
                 >
-                  Edit
+                  {option}
                 </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => toggleActive(c)}
-                  className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50"
-                >
-                  {c.active ? <Trash2 className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}
-                  {c.active ? 'Retire' : 'Restore'}
-                </button>
-              </div>
-            )
-          })}
+              ))}
+            </div>
+          </div>
+
+          {visibleCategories.length === 0 ? (
+            <EmptyState
+              title={query ? `No request types match "${search.trim()}".` : 'No request types match this filter.'}
+              hint="Adjust the search or status filter to see more."
+            />
+          ) : (
+            <div className="space-y-5">
+              {groupedCategories.map(({ group, items }) => (
+                <section key={group.key} className="space-y-2">
+                  <div className="flex items-center gap-3 px-1">
+                    <span
+                      className="h-7 w-1.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: group.accent }}
+                      aria-hidden
+                    />
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-gray-900">{group.label}</h3>
+                      <p className="truncate text-xs text-gray-500">{group.blurb}</p>
+                    </div>
+                    <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">
+                      {items.length}
+                    </span>
+                  </div>
+
+                  <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+                    {items.map((c) => (
+                      <RequestTypeRow
+                        key={c.key}
+                        category={c}
+                        busy={busy}
+                        onEdit={() => { setEditing({ draft: toDraft(c), isNew: false }); setError(null) }}
+                        onToggle={() => toggleActive(c)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+function RequestTypeStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string
+  value: number
+  accent: string
+}) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50/70 px-3 py-2">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{label}</p>
+      <p className="mt-0.5 text-lg font-semibold leading-6" style={{ color: accent }}>
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function RequestTypeRow({
+  category,
+  busy,
+  onEdit,
+  onToggle,
+}: {
+  category: ApprovalCategory
+  busy: boolean
+  onEdit: () => void
+  onToggle: () => void
+}) {
+  const Icon = ICONS[category.iconKey]
+  const group = CATEGORY_GROUPS.find((g) => g.key === category.group)
+
+  return (
+    <div
+      className={cn(
+        'grid gap-3 border-b border-gray-100 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.55fr)_auto] md:items-center',
+        category.active ? 'bg-white' : 'bg-gray-50/70',
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <span
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ring-black/5"
+          style={{ backgroundColor: category.tint, color: category.accent }}
+        >
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p
+              className={cn(
+                'text-sm font-semibold leading-5',
+                category.active ? 'text-gray-950' : 'text-gray-500',
+              )}
+            >
+              {category.label}
+            </p>
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                category.active
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-gray-200 text-gray-600',
+              )}
+            >
+              {category.active ? 'Active' : 'Retired'}
+            </span>
+          </div>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">
+            {category.blurb || 'No description set.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex min-w-0 flex-wrap items-center gap-2 md:justify-end">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-semibold"
+          style={{
+            backgroundColor: group?.tint ?? '#F3F4F6',
+            color: group?.accent ?? '#4B5563',
+          }}
+        >
+          {group?.label ?? category.group}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600">
+          <ListChecks className="h-3 w-3" />
+          {category.fields.length} field{category.fields.length === 1 ? '' : 's'}
+        </span>
+        <code className="max-w-full truncate rounded-md bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-500">
+          {category.key}
+        </code>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1 md:justify-end">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onEdit}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-[#5B2D8E] transition hover:bg-[#F8EDFF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A0DC] disabled:opacity-50"
+        >
+          <FilePenLine className="h-3.5 w-3.5" />
+          Edit
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onToggle}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 disabled:opacity-50',
+            category.active
+              ? 'text-gray-500 hover:bg-rose-50 hover:text-rose-700 focus-visible:ring-rose-200'
+              : 'text-gray-500 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:ring-emerald-200',
+          )}
+        >
+          {category.active ? <Trash2 className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}
+          {category.active ? 'Retire' : 'Restore'}
+        </button>
+      </div>
     </div>
   )
 }
