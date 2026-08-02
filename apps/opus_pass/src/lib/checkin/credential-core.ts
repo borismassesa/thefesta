@@ -79,10 +79,13 @@ export function parseAdmissionCredential(input: unknown): ParsedAdmissionCredent
     return { kind: 'opaque_v1', raw, secret }
   }
 
-  // A future OP2 must not be silently treated as a legacy token. Any
-  // `OP<digits>:` shape is ours and unsupported, so it is refused here rather
-  // than falling through to the HMAC verifier.
-  if (/^OP\d+:/i.test(raw) || raw.toUpperCase().startsWith(`${CREDENTIAL_PREFIX}:`)) return null
+  // A legacy token is `base64url.base64url` and therefore contains no colon.
+  // Anything that does is some OTHER namespaced OpusPass value: a future OP2,
+  // a wallet management token, whatever comes next. Refusing the whole shape
+  // here keeps two properties: none of them can reach the HMAC verifier, and
+  // none of them can be filed in the audit as a legacy scan, which would
+  // quietly inflate the number the legacy branch is retired on.
+  if (raw.includes(':')) return null
 
   if (raw.length === 0 || raw.length > 4096) return null
   return { kind: 'legacy_hmac', raw }
