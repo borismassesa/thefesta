@@ -108,7 +108,12 @@ export default function LeaveClient({
         />
       )}
       {tab === 'attendance' && <AttendanceTable attendance={attendance} byId={byId} />}
-      {tab === 'balances' && <BalancesTable employees={employees.filter((e) => e.status !== 'Resigned')} />}
+      {tab === 'balances' && (
+        <BalancesTable
+          employees={employees.filter((e) => e.status !== 'Resigned')}
+          requests={requests}
+        />
+      )}
     </div>
   )
 }
@@ -776,27 +781,63 @@ function AttendanceTable({
   )
 }
 
-function BalancesTable({ employees }: { employees: EmployeeLeaveView[] }) {
+function BalancesTable({
+  employees,
+  requests,
+}: {
+  employees: EmployeeLeaveView[]
+  requests: LeaveRequest[]
+}) {
+  // Days actually taken, MEASURED from approved requests rather than inferred.
+  //
+  // The previous version hardcoded a 28-day entitlement and computed
+  // "used = 28 - balance". That was wrong in both directions. Someone whose
+  // balance was never allocated read as "0 / 28, 100% used" in alarming red
+  // despite never taking a day, and someone with months of approved Sick or
+  // Compassionate leave read as "0% used", because only Annual draws down the
+  // balance. The column reported the opposite of the truth in both cases.
+  //
+  // There is no entitlement column in the schema, so the honest figures are:
+  // the balance (a fact), and days approved (measurable). Annual entitlement
+  // is derived as balance + annual days already deducted, which follows from
+  // the deduction rule rather than from a guessed constant.
+  const taken = useMemo(() => {
+    const map = new Map<string, { annual: number; other: number }>()
+    for (const r of requests) {
+      if (r.status !== 'Approved') continue
+      const entry = map.get(r.employeeId) ?? { annual: 0, other: 0 }
+      if (r.type === 'Annual') entry.annual += r.days
+      else entry.other += r.days
+      map.set(r.employeeId, entry)
+    }
+    return map
+  }, [requests])
+
   return (
     <div className="overflow-x-auto no-scrollbar rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
       <div
         role="row"
-        className="grid min-w-[640px] grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_140px_minmax(0,160px)] items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-gray-500"
+        className="grid min-w-[720px] grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_150px_minmax(0,190px)] items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-gray-500"
       >
         <span>Employee</span>
         <span>Department</span>
-        <span>Annual balance</span>
-        <span>Usage</span>
+        <span>Annual left</span>
+        <span>Approved leave taken</span>
       </div>
       {employees.map((e) => {
-        const entitlement = 28
-        const used = entitlement - e.leaveBalanceDays
-        const pct = Math.min(100, Math.max(0, Math.round((used / entitlement) * 100)))
+        const t = taken.get(e.id) ?? { annual: 0, other: 0 }
+        // Entitlement follows from the deduction rule: whatever is left plus
+        // whatever Annual has already been deducted. Zero only when the
+        // employee has no balance AND has taken no annual leave, which means
+        // no entitlement is recorded — not that it is all used up.
+        const entitlement = e.leaveBalanceDays + t.annual
+        const pct = entitlement > 0 ? Math.round((t.annual / entitlement) * 100) : null
+        const totalTaken = t.annual + t.other
         return (
           <div
             key={e.id}
             role="row"
-            className="grid min-w-[640px] grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_140px_minmax(0,160px)] items-center gap-3 border-b border-gray-100 px-5 py-3 last:border-b-0"
+            className="grid min-w-[720px] grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_150px_minmax(0,190px)] items-center gap-3 border-b border-gray-100 px-5 py-3 last:border-b-0"
           >
             <div className="flex min-w-0 items-center gap-3">
               <Avatar name={e.name} color={e.avatarColor} src={e.avatarUrl} size="sm" />
@@ -807,20 +848,32 @@ function BalancesTable({ employees }: { employees: EmployeeLeaveView[] }) {
             </div>
             <div className="text-sm text-gray-600">{e.department}</div>
             <div className="text-sm tabular-nums text-gray-900">
-              <span className="font-semibold">{e.leaveBalanceDays}</span>
-              <span className="text-gray-400"> / {entitlement} days</span>
+              {entitlement > 0 ? (
+                <>
+                  <span className="font-semibold">{e.leaveBalanceDays}</span>
+                  <span className="text-gray-400"> / {entitlement} days</span>
+                </>
+              ) : (
+                <span className="text-gray-400">Not set</span>
+              )}
             </div>
             <div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-all',
-                    pct > 80 ? 'bg-rose-400' : pct > 50 ? 'bg-amber-400' : 'bg-[#7E5896]',
-                  )}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <p className="mt-1 text-[11px] font-medium text-gray-500">{pct}% used</p>
+              {totalTaken === 0 ? (
+                <p className="text-sm text-gray-400">None</p>
+              ) : (
+                <>
+                  <p className="text-sm tabular-nums text-gray-900">
+                    <span className="font-semibold">{totalTaken}</span>
+                    <span className="text-gray-400"> {totalTaken === 1 ? 'day' : 'days'}</span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    {t.annual > 0 && `${t.annual} annual`}
+                    {t.annual > 0 && t.other > 0 && ' · '}
+                    {t.other > 0 && `${t.other} other`}
+                    {pct !== null && t.annual > 0 && ` · ${pct}% of entitlement`}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )
