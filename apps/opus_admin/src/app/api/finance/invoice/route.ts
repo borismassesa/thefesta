@@ -30,7 +30,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Could not fetch the invoice.' }, { status })
   }
 
-  return new NextResponse(result.bytes, {
+  const body = result.bytes.buffer.slice(
+    result.bytes.byteOffset,
+    result.bytes.byteOffset + result.bytes.byteLength,
+  ) as ArrayBuffer
+
+  return new NextResponse(body, {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="OpusFesta-Invoice-${ref}.pdf"`,

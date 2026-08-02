@@ -116,7 +116,9 @@ export async function GET(request: NextRequest) {
 
   const pdf = await renderTrackerPdfBuffer({ weekLabel: formatWeekLabel(weekStart), weekStart, engines })
 
-  return new NextResponse(pdf, {
+  const body = pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.byteLength) as ArrayBuffer
+
+  return new NextResponse(body, {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="md-tracker-${weekStart}.pdf"`,
