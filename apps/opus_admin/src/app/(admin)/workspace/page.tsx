@@ -8,7 +8,6 @@ import {
   Plane,
 } from 'lucide-react'
 import { getCallerPermissions } from '@/lib/admin-auth'
-import { requireSelfEmployee } from '@/lib/workforce/identity'
 import { getSelfIdentity } from '@/lib/workforce/identity'
 import { workspaceNavFor } from '@/lib/workforce/scope'
 import {
@@ -57,9 +56,12 @@ function timeInTz(iso: string): string {
 // a placeholder number, because a dashboard that invents data is worse than a
 // smaller dashboard.
 export default async function WorkspaceHomePage() {
-  const employee = await requireSelfEmployee()
+  // See the note in leave/page.tsx: the layout guard runs in parallel, not
+  // before, so this must fail soft rather than throw.
   const identity = await getSelfIdentity()
-  const access = identity.ok ? identity.access : 'denied'
+  if (!identity.ok) return null
+  const employee = identity.employee
+  const access = identity.access
   const visible = new Set(workspaceNavFor(access))
 
   // documents_only (a resigned employee) gets the greeting and nothing that
@@ -140,7 +142,6 @@ export default async function WorkspaceHomePage() {
                 : 'days left'
             }
             href={WORKSPACE_ROUTES.leave}
-            comingSoon
           />
         )}
 

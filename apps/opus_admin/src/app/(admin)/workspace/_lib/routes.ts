@@ -43,7 +43,6 @@ export const WORKSPACE_LABELS: Record<WorkspaceNavItem, string> = {
 // Phase 6 documents. Listed so the sidebar can render them as visibly
 // "coming soon" rather than as links that 404.
 export const WORKSPACE_NOT_BUILT: readonly WorkspaceNavItem[] = [
-  'leave',
   'calendar',
   'documents',
 ]
