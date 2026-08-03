@@ -9,6 +9,13 @@ import { toTzs } from './currency'
 import { resolveEventCover, type PledgePageConfig, type PledgePaymentMethod } from './pledge-page'
 import { THANK_YOU_FREE_TIER_IDS, resolveThankYouCover, type ThankYouCardConfig } from './thank-you'
 import { parseTemplateCardItemId, resolveEventPackageTierId, type TemplateCardType } from './pledge-card-templates'
+import {
+  invitationDetailsReady,
+  invitationHostName,
+  invitationLocation,
+  invitationMapsUrl,
+  invitationPartner2Required,
+} from './invitation-event-details'
 import { getOrdersForUser, orderRowToStoredOrder } from '@/lib/payments/orders'
 import type { StoredOrder } from '@/lib/cart-storage'
 import type { SiteDoc } from '@/lib/builder/types'
@@ -1823,6 +1830,11 @@ export interface WhatsAppEntitlement {
   entranceCoupleName: string
   /** Swahili event category noun for the template body ({{3}}), e.g. "harusi". */
   eventCategory: string
+  /** Event-owned location used by the View Location webhook response. */
+  locationLabel: string
+  locationMapsUrl: string | null
+  /** False when the always-present View Location button would have no useful reply. */
+  invitationDetailsReady: boolean
   /** True once the couple has explicitly confirmed {{2}}/{{3}} — sends are
    *  blocked in the UI until then. */
   sendSettingsConfirmed: boolean
@@ -2057,40 +2069,39 @@ export async function getWhatsAppEntitlement(
 
   const { data: profile } = await supabase
     .from('couple_profiles')
-    .select('whatsapp_phone, partner1_name, partner2_name, invite_host_name, invite_event_category')
+    .select('whatsapp_phone, partner1_name, partner2_name, invite_host_name')
     .eq('user_id', user.id)
     .maybeSingle<{
       whatsapp_phone: string | null
       partner1_name: string | null
       partner2_name: string | null
       invite_host_name: string | null
-      invite_event_category: string | null
     }>()
-  const coupleNames = [profile?.partner1_name, profile?.partner2_name].filter(Boolean)
-  // The couple's explicitly confirmed template values win over derived guesses.
-  const hostOverride = profile?.invite_host_name?.trim() || null
-  const categoryOverride = profile?.invite_event_category?.trim() || null
-
   // The SELECTED event, used both for the event-category template variable
   // ({{3}}) and as a coupleName fallback below — not just "the couple's
   // earliest event," now that a couple can be sending for any of several.
   const { data: primaryEvent } = await supabase
     .from('wedding_events')
-    .select('name, event_type, partner1_name, partner2_name')
+    .select('name, event_type, partner1_name, partner2_name, venue_name, address, city')
     .eq('user_id', user.id)
     .eq('id', eventId)
-    .maybeSingle<{ name: string | null; event_type: string; partner1_name: string | null; partner2_name: string | null }>()
-  const eventCategory = categoryOverride ?? eventTypeLabelSw(primaryEvent?.event_type ?? 'other')
+    .maybeSingle<{
+      name: string | null
+      event_type: string
+      partner1_name: string | null
+      partner2_name: string | null
+      venue_name: string | null
+      address: string | null
+      city: string | null
+    }>()
+  const eventCategory = eventTypeLabelSw(primaryEvent?.event_type ?? 'other')
+  const coupleName = primaryEvent ? invitationHostName(primaryEvent) : 'The Couple'
+  const locationLabel = primaryEvent ? invitationLocation(primaryEvent) : ''
+  const locationMapsUrl = primaryEvent ? invitationMapsUrl(primaryEvent) : null
+  const detailsReady = primaryEvent ? invitationDetailsReady(primaryEvent) : false
 
-  // No partner names on the profile yet? Fall back to the event's own title
-  // (e.g. "Asha & Juma's Wedding") before the generic "The Couple" placeholder.
-  const coupleName =
-    hostOverride ??
-    (coupleNames.length ? coupleNames.join(' & ') : primaryEvent?.name?.trim() || 'The Couple')
-
-  // Entrance-pass contexts use first names with the event's own partner
-  // names winning — distinct from the invite-template coupleName above,
-  // which the couple confirms as free text in the send console.
+  // Entrance-pass contexts use first names. The selected event is also the
+  // source of truth here, with the profile retained only as a legacy fallback.
   const entranceNames = primaryEvent
     ? entranceCoupleName(
         { name: primaryEvent.name?.trim() || 'The Couple', partner1_name: primaryEvent.partner1_name, partner2_name: primaryEvent.partner2_name },
@@ -2219,7 +2230,10 @@ export async function getWhatsAppEntitlement(
     coupleName,
     entranceCoupleName: entranceNames,
     eventCategory,
-    sendSettingsConfirmed: Boolean(hostOverride && categoryOverride),
+    locationLabel,
+    locationMapsUrl,
+    invitationDetailsReady: detailsReady,
+    sendSettingsConfirmed: detailsReady,
     alreadySentIds,
     unassignedOrders,
     productionOrder,
@@ -2337,6 +2351,20 @@ export interface SendInvitesData {
     /** Celebrant first names for the entrance-pass preview's {{3}} — the
      *  same entranceCoupleName derivation the real send uses. */
     entranceCoupleName: string
+    /** Event-owned invitation identity and location. The Digital Cards editor
+     *  writes these exact wedding_events fields; the preview, send and webhook
+     *  all read the same row. */
+    invitationFields: {
+      partner1Name: string
+      partner2Name: string
+      venueName: string
+      address: string
+      city: string
+      locationLabel: string
+      mapsUrl: string | null
+      partner2Required: boolean
+      ready: boolean
+    } | null
     /** Raw event fields prefilling the Pass Ticket tab's Ticket Details
      *  editor (it edits the real wedding_events row, not overrides). */
     ticketFields: {
@@ -2463,6 +2491,7 @@ export async function getSendInvitesData(
         entranceTimeLabel: 'Muda utatangazwa hivi karibuni',
         entranceVenue: 'Mahali patatangazwa hivi karibuni',
         entranceCoupleName: coupleFirstNames(profile),
+        invitationFields: null,
         ticketFields: null,
         cardTier: null,
         cardName: null,
@@ -2611,8 +2640,8 @@ export async function getSendInvitesData(
   const eventTypeLbl = eventTypeLabel(selectedEvent.event_type)
   const venue = [selectedEvent.venue_name, selectedEvent.city].filter(Boolean).join(', ') || null
   const saveDateTemplate = profile?.pledge_page?.saveDateTemplates?.[selectedEventId] ?? null
-  // Category is already resolved (with any couple override) in entitlement.eventCategory —
-  // only the date/time/venue fields are needed from here, computed identically to the real send.
+  // Category is already resolved from the selected event. Only the
+  // date/time/venue fields are needed here, computed identically to the send.
   const entranceVars = computeEntrancePassVars(selectedEvent, null)
 
   return {
@@ -2627,6 +2656,17 @@ export async function getSendInvitesData(
       entranceTimeLabel: entranceVars.timeLabel,
       entranceVenue: entranceVars.venue,
       entranceCoupleName: entitlement.entranceCoupleName,
+      invitationFields: {
+        partner1Name: selectedEvent.partner1_name ?? '',
+        partner2Name: selectedEvent.partner2_name ?? '',
+        venueName: selectedEvent.venue_name ?? '',
+        address: selectedEvent.address ?? '',
+        city: selectedEvent.city ?? '',
+        locationLabel: entitlement.locationLabel,
+        mapsUrl: entitlement.locationMapsUrl,
+        partner2Required: invitationPartner2Required(selectedEvent),
+        ready: entitlement.invitationDetailsReady,
+      },
       ticketFields: {
         eventType: selectedEvent.event_type,
         partner1Name: selectedEvent.partner1_name ?? '',

@@ -45,6 +45,10 @@ const nextConfig: NextConfig = {
     // wasm-bindgen glue. Scoped to the one route: an app-wide glob would ship
     // 2.4 MB into every serverless function.
     '/api/internal/card-delivery-smoke': ['../../node_modules/@resvg/resvg-wasm/index_bg.wasm'],
+    // Real preview/test/bulk preparation runs through server actions imported
+    // by these dashboard pages, so their functions need the same WASM sibling.
+    '/my/dashboard/invitations': ['../../node_modules/@resvg/resvg-wasm/index_bg.wasm'],
+    '/my/dashboard/guests': ['../../node_modules/@resvg/resvg-wasm/index_bg.wasm'],
   },
   // opus_pass is served at the root of its own subdomain (opuspass.opusfesta.com).
   // The marketing site links straight to that subdomain; opusfesta.com/opuspass/*

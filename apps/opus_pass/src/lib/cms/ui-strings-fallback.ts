@@ -2274,7 +2274,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     results_close: 'Done',
     results_resend_tag: 're-send',
     settings_legend: 'Invitation details',
-    field_guest_label: 'Guest name (sample)',
+    field_guest_label: 'Preview as guest',
     field_host_label: 'From (host names)',
     field_category_label: 'Event type (Swahili)',
     field_category_other: 'Other: type it in',

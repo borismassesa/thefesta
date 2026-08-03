@@ -23,3 +23,17 @@ test('release card values add the placeholder when no guest value was stored', (
     guest_name: 'Jina la Mgeni',
   })
 })
+
+test('assigned event partner names override stale card-detail answers', () => {
+  assert.deepEqual(
+    releaseCardFieldValues(
+      { couple_name_1: 'Old One', couple_name_2: 'Old Two' },
+      { partner1Name: 'Moses Seta', partner2Name: 'Dayness Mwaranchi' },
+    ),
+    {
+      couple_name_1: 'Moses Seta',
+      couple_name_2: 'Dayness Mwaranchi',
+      guest_name: 'Jina la Mgeni',
+    },
+  )
+})

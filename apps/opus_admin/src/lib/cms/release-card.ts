@@ -1,4 +1,5 @@
 import 'server-only'
+import { createHash } from 'node:crypto'
 
 import {
   injectFontCss,
@@ -33,7 +34,7 @@ import { releaseCardFieldValues } from '@/lib/cms/release-card-values'
 const BUCKET = 'card-releases'
 
 export type ReleaseResult =
-  | { ok: true; path: string; bytes: number }
+  | { ok: true; path: string; bytes: number; sha256: string; artworkSvgUrl: string }
   | { ok: false; error: string; skipped?: RenderSkip[] }
 
 type ProductRow = {
@@ -90,9 +91,9 @@ export async function freezeCardRelease(
 ): Promise<ReleaseResult> {
   const { data: row } = await supabase
     .from('invitation_card_designs')
-    .select('product_id, field_values')
+    .select('product_id, order_id, field_values')
     .eq('id', design.id)
-    .maybeSingle<{ product_id: string; field_values: Record<string, string> | null }>()
+    .maybeSingle<{ product_id: string; order_id: string; field_values: Record<string, string> | null }>()
   if (!row) return { ok: false, error: 'Design job not found.' }
 
   const { data: product } = await supabase
@@ -109,11 +110,38 @@ export async function freezeCardRelease(
     return { ok: false, error: 'This card has no layer mapping, so nothing can be written into it.' }
   }
 
+  const { data: order } = await supabase
+    .from('invitation_orders')
+    .select('event_id')
+    .eq('id', row.order_id)
+    .maybeSingle<{ event_id: string | null }>()
+  if (!order?.event_id) {
+    return { ok: false, error: 'Assign this card order to an event before releasing it.' }
+  }
+
+  const { data: event } = await supabase
+    .from('wedding_events')
+    .select('partner1_name, partner2_name')
+    .eq('id', order.event_id)
+    .maybeSingle<{ partner1_name: string | null; partner2_name: string | null }>()
+  const partner1Name = event?.partner1_name?.trim() || ''
+  const partner2Name = event?.partner2_name?.trim() || null
+  if (!partner1Name) {
+    return { ok: false, error: 'Add Partner 1 to the assigned event before releasing this card.' }
+  }
+  if (bindings.some((binding) => binding.role === 'couple_name_2') && !partner2Name) {
+    return { ok: false, error: 'This design needs Partner 2 on the assigned event before it can be released.' }
+  }
+
   // The released artefact is the couple's master card, not a card for one
   // particular guest. Never preserve the artwork's sample invitee (or a stale
   // designer value) in the copy the couple sees. Per-guest rendering replaces
   // this neutral Swahili placeholder later in the delivery pipeline.
-  const rendered = renderCardSvg(artwork.svg, bindings, releaseCardFieldValues(row.field_values))
+  const rendered = renderCardSvg(
+    artwork.svg,
+    bindings,
+    releaseCardFieldValues(row.field_values, { partner1Name, partner2Name }),
+  )
   const fatal = rendered.skipped.filter(isFatalSkip)
   if (fatal.length > 0) {
     return {
@@ -145,7 +173,13 @@ export async function freezeCardRelease(
     return { ok: false, error: `Could not store the released card: ${uploadError.message}` }
   }
 
-  return { ok: true, path, bytes: bytes.byteLength }
+  return {
+    ok: true,
+    path,
+    bytes: bytes.byteLength,
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+    artworkSvgUrl: product?.artwork_svg_url ?? '',
+  }
 }
 
 /**
@@ -165,6 +199,29 @@ export async function releaseApprovedDesign(
   const frozen = await freezeCardRelease(supabase, design)
   if (!frozen.ok) return { ok: false, error: frozen.error }
 
+  const { data: current } = await supabase
+    .from('invitation_card_designs')
+    .select('current_release_id')
+    .eq('id', design.id)
+    .maybeSingle<{ current_release_id: string | null }>()
+
+  const { data: release, error: releaseError } = await supabase
+    .from('invitation_card_design_releases')
+    .insert({
+      design_id: design.id,
+      svg_storage_path: frozen.path,
+      svg_sha256: frozen.sha256,
+      artwork_svg_url: frozen.artworkSvgUrl,
+      released_at: now,
+      released_by: author,
+    })
+    .select('id')
+    .single<{ id: string }>()
+  if (releaseError || !release) {
+    await supabase.storage.from(BUCKET).remove([frozen.path]).catch(() => undefined)
+    return { ok: false, error: releaseError?.message ?? 'Could not record the card release.' }
+  }
+
   const { error } = await supabase
     .from('invitation_card_designs')
     .update({
@@ -172,6 +229,7 @@ export async function releaseApprovedDesign(
       ready_at: now,
       released_at: now,
       release_svg_path: frozen.path,
+      current_release_id: release.id,
       released_render_skipped: [],
       reviewed_by: author,
       reviewed_at: now,
@@ -185,7 +243,19 @@ export async function releaseApprovedDesign(
       .from(BUCKET)
       .remove([frozen.path])
       .catch(() => undefined)
+    await supabase.from('invitation_card_design_releases').delete().eq('id', release.id)
     return { ok: false, error: error.message }
+  }
+
+  if (current?.current_release_id && current.current_release_id !== release.id) {
+    const { error: supersedeError } = await supabase
+      .from('invitation_card_design_releases')
+      .update({ superseded_at: now })
+      .eq('id', current.current_release_id)
+      .is('superseded_at', null)
+    if (supersedeError) {
+      return { ok: true, warning: `Released, but the previous release was not marked superseded: ${supersedeError.message}` }
+    }
   }
 
   return { ok: true }
