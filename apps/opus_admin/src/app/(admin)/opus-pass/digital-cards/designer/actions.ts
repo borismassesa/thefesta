@@ -30,10 +30,11 @@ type Result = { ok: true; warning?: string } | { ok: false; error: string }
 /**
  * Who is performing this action, or a refusal.
  *
- * Every action below stamps its author onto something durable: `submitted_by`,
- * `reviewed_by`, and `released_by` on an invitation_card_design_releases row
- * that is never rewritten. These used to fall back to the literal string
- * 'unknown', which is worse than it looks in two separate ways.
+ * Every action below stamps its author onto a record: `submitted_by` and
+ * `reviewed_by` on the design job row, and `released_by` on an
+ * invitation_card_design_releases row that is never rewritten. These used to
+ * fall back to the literal string 'unknown', which is worse than it looks in
+ * two separate ways.
  *
  * It is not a person, so an immutable release could permanently record that
  * "unknown" published a card. And because the two-eyes gate reconciles the
