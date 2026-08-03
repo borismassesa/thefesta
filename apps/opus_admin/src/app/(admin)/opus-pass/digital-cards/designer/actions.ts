@@ -12,6 +12,7 @@ import {
 } from '@/lib/admin-auth'
 import { releaseApprovedDesign } from '@/lib/cms/release-card'
 import { mergeCardDesignerValues } from '@/lib/cms/card-designer-values'
+import { checkSelfReview } from '@/lib/cms/card-review-authorization'
 import { sendCardReviewRequest } from '@/lib/card-review-email'
 import { readOrderLine, type OrderLineItem } from '@/lib/cms/order-add-ons'
 import { requestableFields, type CardFieldBinding } from '@opusfesta/lib'
@@ -27,26 +28,32 @@ const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
 type Result = { ok: true; warning?: string } | { ok: false; error: string }
 
 /**
- * Whether the caller is the person assigned to this job.
+ * Who is performing this action, or a refusal.
  *
- * `assigned_to` is a workforce_employees id while the caller is identified by
- * email, so the two have to be reconciled rather than compared. An unresolvable
- * assignee returns false: blocking a review because a staff row was deleted
- * would strand the card.
+ * Every action below stamps its author onto something durable: `submitted_by`,
+ * `reviewed_by`, and `released_by` on an invitation_card_design_releases row
+ * that is never rewritten. These used to fall back to the literal string
+ * 'unknown', which is worse than it looks in two separate ways.
+ *
+ * It is not a person, so an immutable release could permanently record that
+ * "unknown" published a card. And because the two-eyes gate reconciles the
+ * caller against the assignee BY EMAIL, 'unknown' matches no assignee, so the
+ * one caller we could not name was also the one the self-review check waved
+ * through.
+ *
+ * Refusing is the safe direction. The action is retryable; an unattributable
+ * release is not.
  */
-async function isSelfReview(
-  supabase: ReturnType<typeof createSupabaseAdminClient>,
-  assignedTo: string | null,
-  callerEmail: string,
-): Promise<boolean> {
-  if (!assignedTo || !callerEmail) return false
-  const { data } = await supabase
-    .from('workforce_employees')
-    .select('email')
-    .eq('id', assignedTo)
-    .maybeSingle<{ email: string | null }>()
-  const assigneeEmail = (data?.email ?? '').trim().toLowerCase()
-  return Boolean(assigneeEmail) && assigneeEmail === callerEmail.trim().toLowerCase()
+async function resolveAuthor(): Promise<{ ok: true; author: string } | { ok: false; error: string }> {
+  const author = await getCallerEmail()
+  if (!author) {
+    return {
+      ok: false,
+      error:
+        'We could not confirm which account you are signed in as, so nothing was recorded. Sign in again and retry.',
+    }
+  }
+  return { ok: true, author }
 }
 
 /**
@@ -209,7 +216,9 @@ const DESIGN_SELECT = 'id, order_id, status, assigned_to, product_name'
 export async function submitForReview(designId: string): Promise<Result> {
   await requirePermission('cms.write')
   const supabase = createSupabaseAdminClient()
-  const author = (await getCallerEmail()) ?? 'unknown'
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
   const now = new Date().toISOString()
 
   const { data: design } = await supabase
@@ -274,7 +283,9 @@ export async function submitForReview(designId: string): Promise<Result> {
 export async function approveAndRelease(designId: string): Promise<Result> {
   await requirePermission('cms.publish')
   const supabase = createSupabaseAdminClient()
-  const author = (await getCallerEmail()) ?? 'unknown'
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
   const now = new Date().toISOString()
 
   const { data: design } = await supabase
@@ -288,7 +299,10 @@ export async function approveAndRelease(designId: string): Promise<Result> {
     return { ok: false, error: 'Only a job that is in review can be approved.' }
   }
 
-  if (await isSelfReview(supabase, design.assigned_to, author)) {
+  // A check that could not run is not a check that passed.
+  const selfReview = await checkSelfReview(supabase, design.assigned_to, author)
+  if (!selfReview.ok) return selfReview
+  if (selfReview.isSelf) {
     return {
       ok: false,
       error:
@@ -328,7 +342,9 @@ export async function requestChanges(designId: string, note: string): Promise<Re
   if (!trimmed) return { ok: false, error: 'Say what needs changing.' }
 
   const supabase = createSupabaseAdminClient()
-  const author = (await getCallerEmail()) ?? 'unknown'
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
   const now = new Date().toISOString()
 
   const { data: design } = await supabase
@@ -376,7 +392,9 @@ export async function requestChanges(designId: string, note: string): Promise<Re
 export async function markDelivered(designId: string): Promise<Result> {
   await requirePermission('cms.write')
   const supabase = createSupabaseAdminClient()
-  const author = (await getCallerEmail()) ?? 'unknown'
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
   const now = new Date().toISOString()
 
   const { data: design } = await supabase
@@ -559,7 +577,9 @@ export async function saveAndPublishReleasedDesign(
 ): Promise<Result> {
   await requirePermission('cms.publish')
   const supabase = createSupabaseAdminClient()
-  const author = (await getCallerEmail()) ?? 'unknown'
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
   const now = new Date().toISOString()
 
   const { data: design, error } = await supabase
@@ -577,7 +597,12 @@ export async function saveAndPublishReleasedDesign(
   if (design.status !== 'ready' && design.status !== 'delivered') {
     return { ok: false, error: 'Only an already-released card can be published as an update.' }
   }
-  if (await isSelfReview(supabase, design.assigned_to, author)) {
+  // Same fail-closed rule as approveAndRelease: republishing cuts a new
+  // immutable release and moves what the couple is served, so an unverifiable
+  // assignment must stop it rather than wave it past.
+  const selfReview = await checkSelfReview(supabase, design.assigned_to, author)
+  if (!selfReview.ok) return selfReview
+  if (selfReview.isSelf) {
     return {
       ok: false,
       error: 'You are assigned to this card, so another publisher must release the update.',
