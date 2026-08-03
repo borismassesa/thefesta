@@ -40,6 +40,9 @@ import {
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import type { LinkRequestKind } from '@/lib/whatsapp/types'
 import { getSmsProvider } from '@/lib/sms'
+import { deriveAssetToken } from '@/lib/cards/asset-tokens'
+import { prepareGuestCardAsset, type PrepareFailureCode } from '@/lib/cards/prepare-guest-asset'
+import { invitationPartner2Required, parseInvitationCoordinates } from './invitation-event-details'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
 import { pledgeRequestEmail } from './pledge-email'
 import { sendGiftClaimReceipts, type ReceiptGift, type ReceiptLang } from './gift-registry-receipt'
@@ -188,6 +191,75 @@ export async function updateEvent(id: string, input: EventInput): Promise<void> 
     revalidatePath(`/rsvp/event/${slug}`)
     revalidatePath(`/save-the-date/${slug}`)
   }
+  revalidateDashboard()
+}
+
+export interface InvitationEventDetailsInput {
+  partner1_name: string
+  partner2_name?: string | null
+  venue_name: string
+  address?: string | null
+  city: string
+  venue_latitude?: string | number | null
+  venue_longitude?: string | number | null
+}
+
+/** Save the fields used by the card, message identity, and View Location reply.
+ *  They live on wedding_events so every invitation surface reads one source. */
+export async function updateInvitationEventDetails(
+  eventId: string,
+  input: InvitationEventDetailsInput,
+): Promise<void> {
+  const user = await requireDashboardUser()
+  const supabase = createDashboardClient()
+  const cleanInput = (value: unknown, max: number) =>
+    (typeof value === 'string' ? value : '').replace(/\s+/g, ' ').trim().slice(0, max)
+  const partner1 = cleanInput(input?.partner1_name, 60)
+  const partner2 = cleanInput(input?.partner2_name, 60) || null
+  const venue = cleanInput(input?.venue_name, 120)
+  const address = cleanInput(input?.address, 240) || null
+  const city = cleanInput(input?.city, 80)
+  const coordinates = parseInvitationCoordinates(input?.venue_latitude, input?.venue_longitude)
+
+  if (!partner1) throw new Error('Add Partner 1 before sending invitations.')
+  if (!venue && !address && !city) throw new Error('Add the event location before sending invitations.')
+  if (!coordinates.ok) throw new Error(coordinates.error)
+
+  const { data: existing, error: readError } = await supabase
+    .from('wedding_events')
+    .select('name, event_type')
+    .eq('id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle<{ name: string; event_type: string }>()
+  if (readError) throw new Error(readError.message)
+  if (!existing) throw new Error('Event not found.')
+  if (invitationPartner2Required({
+    ...existing,
+    partner1_name: partner1,
+    partner2_name: partner2,
+    venue_name: venue,
+    address,
+    city,
+  }) && !partner2) {
+    throw new Error('Add Partner 2 for this event before sending invitations.')
+  }
+
+  const { data, error } = await supabase
+    .from('wedding_events')
+    .update({
+      partner1_name: partner1,
+      partner2_name: partner2,
+      venue_name: venue || null,
+      address,
+      city: city || null,
+      venue_latitude: coordinates.value?.latitude ?? null,
+      venue_longitude: coordinates.value?.longitude ?? null,
+    })
+    .eq('id', eventId)
+    .eq('user_id', user.id)
+    .select('id')
+  if (error) throw new Error(error.message)
+  if (!data?.length) throw new Error('Event not found.')
   revalidateDashboard()
 }
 
@@ -3167,6 +3239,81 @@ async function resolveDefaultEventId(explicit?: string): Promise<string | null> 
   return events[0]?.id ?? null
 }
 
+const INVITE_CARD_VARIANT = 'whatsapp_header_v1'
+
+type GuestCardHeaderResult =
+  | { ok: true; url: string }
+  | { ok: false; code: PrepareFailureCode | 'DESIGN_RELEASE_NOT_FOUND' | 'GUEST_NOT_OWNED' }
+
+async function currentCardReleaseId(
+  user: Awaited<ReturnType<typeof requireDashboardUser>>,
+  eventId: string,
+): Promise<string | null> {
+  const supabase = createDashboardClient()
+  const { data: profile } = await supabase
+    .from('couple_profiles')
+    .select('whatsapp_phone')
+    .eq('user_id', user.id)
+    .maybeSingle<{ whatsapp_phone: string | null }>()
+
+  const orders = (
+    await fetchPaidOrdersForCouple(supabase, user.id, user.email, profile?.whatsapp_phone ?? null)
+  ).filter((order) => order.event_id === eventId && isOrderReleasedForInvites(order))
+  if (!orders.length) return null
+
+  const { data: designs } = await supabase
+    .from('invitation_card_designs')
+    .select('order_id, current_release_id, released_at')
+    .in('order_id', orders.map((order) => order.id))
+    .in('status', ['ready', 'delivered'])
+    .not('current_release_id', 'is', null)
+    .order('released_at', { ascending: false })
+  return (designs?.[0]?.current_release_id as string | null | undefined) ?? null
+}
+
+/** Prepare and resolve the immutable public URL for one real guest's card. */
+async function guestCardHeaderUrl(
+  user: Awaited<ReturnType<typeof requireDashboardUser>>,
+  eventId: string,
+  guestId: string,
+  known?: { releaseId?: string; guestOwned?: boolean },
+): Promise<GuestCardHeaderResult> {
+  if (!known?.guestOwned) {
+    const { data: guest } = await createDashboardClient()
+      .from('guest_contacts')
+      .select('id')
+      .eq('id', guestId)
+      .eq('user_id', user.id)
+      .maybeSingle<{ id: string }>()
+    if (!guest) return { ok: false, code: 'GUEST_NOT_OWNED' }
+  }
+
+  const releaseId = known?.releaseId ?? await currentCardReleaseId(user, eventId)
+  if (!releaseId) return { ok: false, code: 'DESIGN_RELEASE_NOT_FOUND' }
+
+  const subject = { designReleaseId: releaseId, guestId, renderVariant: INVITE_CARD_VARIANT }
+  const prepared = await prepareGuestCardAsset(subject)
+  if (!prepared.ok) return prepared
+  const token = deriveAssetToken(subject)
+  if (!token) return { ok: false, code: 'TOKEN_SECRET_MISSING' }
+  return { ok: true, url: `${publicOrigin()}/invite-card/${token}.png` }
+}
+
+/** Couple-facing preview preparation. It is safe to call repeatedly: the
+ *  underlying asset is idempotent and reused after its first successful render. */
+export async function prepareInviteGuestPreview(
+  guestId: string,
+  eventId?: string,
+): Promise<{ ok: true; imageUrl: string } | { ok: false; error: string }> {
+  const user = await requireDashboardUser()
+  const resolvedEventId = await resolveDefaultEventId(eventId)
+  if (!resolvedEventId) return { ok: false, error: 'Set up an event first.' }
+  const result = await guestCardHeaderUrl(user, resolvedEventId, guestId)
+  return result.ok
+    ? { ok: true, imageUrl: result.url }
+    : { ok: false, error: `Could not prepare this guest card (${result.code}).` }
+}
+
 /**
  * Send the WhatsApp invitation to the given guests (or all confirmed guests
  * when no ids are passed). The header image is the card the COUPLE PAID FOR
@@ -3202,9 +3349,17 @@ export async function sendWhatsAppInvites(guestIds?: string[], eventId?: string)
   summary.purchased = ent.purchased
   summary.remaining = ent.remaining
 
-  // Nothing to send until the couple has paid for a card FOR THIS EVENT (gives
-  // both the header image and the credit quota).
-  if (!ent.cardImageUrl || ent.purchased <= 0) return summary
+  // The approved template always carries View Location, so sending without a
+  // useful event-owned location would produce a button that lies to the guest.
+  if (!ent.invitationDetailsReady) {
+    throw new Error('Complete Partner 1 and the event location before sending invitations.')
+  }
+
+  // Nothing to send until the couple has paid for a released card FOR THIS EVENT.
+  if (!ent.hasPaidOrder || ent.purchased <= 0) return summary
+
+  const releaseId = await currentCardReleaseId(user, resolvedEventId)
+  if (!releaseId) throw new Error('No released card is ready for personalised delivery on this event.')
 
   let q = supabase
     .from('guest_contacts')
@@ -3232,6 +3387,20 @@ export async function sendWhatsAppInvites(guestIds?: string[], eventId?: string)
       continue
     }
 
+    // Prepare before spending a credit or contacting Meta. Every recipient
+    // gets a URL bound to their own name and the current approved release.
+    const card = await guestCardHeaderUrl(user, resolvedEventId, g.id, { releaseId, guestOwned: true })
+    if (!card.ok) {
+      summary.failed += 1
+      summary.results.push({
+        id: g.id,
+        name: g.full_name,
+        outcome: 'failed',
+        error: `card preparation failed (${card.code})`,
+      })
+      continue
+    }
+
     const verdict = await consumeSendCredit(supabase, {
       userId: user.id,
       eventId: resolvedEventId,
@@ -3252,7 +3421,7 @@ export async function sendWhatsAppInvites(guestIds?: string[], eventId?: string)
       guestFirstName: firstNameOf(g.full_name),
       coupleName: ent.coupleName,
       eventCategory: ent.eventCategory,
-      headerImageUrl: ent.cardImageUrl,
+      headerImageUrl: card.url,
       token: g.public_token,
       eventId: resolvedEventId,
     })
@@ -3487,13 +3656,6 @@ export interface WhatsAppTestSendResult {
   error?: string
 }
 
-/** Editable preview values for a test send — the template's {{1}}/{{2}}/{{3}}. */
-export interface TestInviteOverrides {
-  guestName?: string
-  coupleName?: string
-  eventCategory?: string
-}
-
 /** Collapse whitespace (Meta rejects newlines/tabs in params) and cap length. */
 function templateParam(value: string | undefined, fallback: string, max = 60): string {
   const clean = (value ?? '').replace(/\s+/g, ' ').trim()
@@ -3511,7 +3673,7 @@ function templateParam(value: string | undefined, fallback: string, max = 60): s
  */
 export async function sendWhatsAppTestInvite(
   rawPhone: string,
-  overrides?: TestInviteOverrides,
+  guestId: string,
   eventId?: string,
 ): Promise<WhatsAppTestSendResult> {
   const user = await requireDashboardUser()
@@ -3523,14 +3685,31 @@ export async function sendWhatsAppTestInvite(
 
   const to = normalizePhone(rawPhone)
   if (!to || to.length < 9) return { ok: false, dryRun: !provider.live, error: 'invalid phone number' }
-  if (!ent.cardImageUrl) return { ok: false, dryRun: !provider.live, error: 'no paid card to preview' }
+  if (!ent.invitationDetailsReady) {
+    return { ok: false, dryRun: !provider.live, error: 'complete Partner 1 and the event location first' }
+  }
+
+  const { data: guest } = await supabase
+    .from('guest_contacts')
+    .select('id, full_name')
+    .eq('id', guestId)
+    .eq('user_id', user.id)
+    .maybeSingle<{ id: string; full_name: string }>()
+  if (!guest) return { ok: false, dryRun: !provider.live, error: 'select a guest to preview' }
+
+  const releaseId = await currentCardReleaseId(user, resolvedEventId)
+  if (!releaseId) return { ok: false, dryRun: !provider.live, error: 'no released card found for this event' }
+  const card = await guestCardHeaderUrl(user, resolvedEventId, guest.id, { releaseId, guestOwned: true })
+  if (!card.ok) {
+    return { ok: false, dryRun: !provider.live, error: `card preparation failed (${card.code})` }
+  }
 
   const result = await provider.sendInvite({
     to,
-    guestFirstName: templateParam(overrides?.guestName, 'Rafiki'),
-    coupleName: templateParam(overrides?.coupleName, ent.coupleName),
-    eventCategory: templateParam(overrides?.eventCategory, ent.eventCategory),
-    headerImageUrl: ent.cardImageUrl,
+    guestFirstName: templateParam(firstNameOf(guest.full_name), 'Rafiki'),
+    coupleName: templateParam(ent.coupleName, 'The Couple'),
+    eventCategory: templateParam(ent.eventCategory, 'sherehe'),
+    headerImageUrl: card.url,
     token: 'test',
     eventId: resolvedEventId,
   })

@@ -13,3 +13,5 @@ export * from './card-categories';
 export * from './card-layer-inference';
 export * from './card-field-roles';
 export * from './card-render';
+export * from './card-raster-fonts';
+export * from './card-raster-contract';

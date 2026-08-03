@@ -1002,7 +1002,7 @@ export const UI_STRINGS_FALLBACK: Record<UiArea, UiStringsContent> = {
     results_close: 'Done',
     results_resend_tag: 're-send',
     settings_legend: 'Invitation details',
-    field_guest_label: 'Guest name (sample)',
+    field_guest_label: 'Preview as guest',
     field_host_label: 'From (host names)',
     field_category_label: 'Event type (Swahili)',
     field_category_other: 'Other: type it in',
@@ -2570,7 +2570,7 @@ export const UI_STRINGS_SCHEMA: Record<UiArea, CopyFieldGroup[]> = {
       legend: 'Invitation details (template variables)',
       fields: [
         { key: 'settings_legend', label: 'Section legend', kind: 'text', max: 30 },
-        { key: 'field_guest_label', label: 'Guest sample field', kind: 'text', max: 30 },
+        { key: 'field_guest_label', label: 'Guest preview field', kind: 'text', max: 30 },
         { key: 'field_host_label', label: 'Host names field', kind: 'text', max: 30 },
         { key: 'field_category_label', label: 'Event type field', kind: 'text', max: 30 },
         { key: 'field_category_other', label: 'Event type: other option', kind: 'text', max: 30 },

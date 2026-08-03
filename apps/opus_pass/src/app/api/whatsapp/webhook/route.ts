@@ -1,6 +1,7 @@
 import { createDashboardClient } from '@/lib/dashboard/supabase'
 import { createNotification } from '@/lib/dashboard/notifications'
 import { formatLongDate } from '@/lib/dashboard/share'
+import { invitationLocation, invitationMapsUrl } from '@/lib/dashboard/invitation-event-details'
 import { BTN, getWhatsAppProvider, parseInboundButtons, parseStatusUpdates, verifyWebhookSignature, webhookVerifyToken } from '@/lib/whatsapp'
 
 export const dynamic = 'force-dynamic'
@@ -10,6 +11,8 @@ type EventVenue = {
   venue_name: string | null
   address: string | null
   city: string | null
+  venue_latitude: number | null
+  venue_longitude: number | null
   starts_at: string | null
 }
 
@@ -78,6 +81,50 @@ export async function POST(req: Request) {
       .from('whatsapp_messages')
       .insert({ direction: 'in', wamid: tap.wamid, kind: tap.kind, status: 'received' })
     if (dupeErr) continue // unique violation → already processed
+
+    // Test sends go to a number controlled by the couple, not to the guest
+    // whose name/card is being previewed. Keep RSVP buttons harmless, but let
+    // View Location exercise the real event-owned reply for the morning demo.
+    if (tap.token === 'test' && tap.eventId) {
+      const { data: testEvent } = await supabase
+        .from('wedding_events')
+        .select('id, user_id, name, venue_name, address, city, venue_latitude, venue_longitude, starts_at')
+        .eq('id', tap.eventId)
+        .maybeSingle<EventVenue & { id: string; user_id: string }>()
+      if (testEvent) {
+        await supabase
+          .from('whatsapp_messages')
+          .update({ user_id: testEvent.user_id, event_id: testEvent.id, status: 'processed' })
+          .eq('wamid', tap.wamid)
+
+        const locationSource = {
+          ...testEvent,
+          event_type: null,
+          partner1_name: null,
+          partner2_name: null,
+        }
+        const place = invitationLocation(locationSource)
+        const maps = invitationMapsUrl(locationSource) ?? ''
+        const when = formatLongDate(testEvent.starts_at)
+        const message = tap.kind === BTN.VIEW_LOCATION
+          ? `📍 ${testEvent.name}\n${place || 'Venue TBC'}` +
+            (when ? `\n🗓️ ${when}` : '') +
+            (maps ? `\n${maps}` : '')
+          : 'Huu ni ujumbe wa majaribio. Jibu lako halijabadilisha RSVP ya mgeni.'
+        const reply = await provider.sendText(tap.from, message)
+        await supabase.from('whatsapp_messages').insert({
+          user_id: testEvent.user_id,
+          guest_contact_id: null,
+          event_id: testEvent.id,
+          direction: 'out',
+          wamid: reply.wamid ?? null,
+          kind: tap.kind === BTN.VIEW_LOCATION ? 'location_reply_test' : 'rsvp_confirmation_test',
+          status: reply.ok ? 'sent' : 'failed',
+          error: reply.error ?? null,
+        })
+      }
+      continue
+    }
 
     // Resolve the guest: token from the button payload, else sender phone.
     const guestQuery = supabase.from('guest_contacts').select('id, user_id, full_name')
@@ -193,7 +240,7 @@ export async function POST(req: Request) {
       // couple's soonest public event only when it can't be determined.
       const eventQuery = supabase
         .from('wedding_events')
-        .select('name, venue_name, address, city, starts_at')
+        .select('name, venue_name, address, city, venue_latitude, venue_longitude, starts_at')
         .eq('user_id', guest.user_id)
       const { data: ev } = resolvedEventId
         ? await eventQuery.eq('id', resolvedEventId).maybeSingle<EventVenue>()
@@ -204,8 +251,14 @@ export async function POST(req: Request) {
             .maybeSingle<EventVenue>()
 
       if (ev) {
-        const place = [ev.venue_name, ev.address, ev.city].filter(Boolean).join(', ')
-        const maps = place ? `https://maps.google.com/?q=${encodeURIComponent(place)}` : ''
+        const locationSource = {
+          ...ev,
+          event_type: null,
+          partner1_name: null,
+          partner2_name: null,
+        }
+        const place = invitationLocation(locationSource)
+        const maps = invitationMapsUrl(locationSource) ?? ''
         const when = formatLongDate(ev.starts_at)
         const msg =
           `📍 ${ev.name}\n${place || 'Venue TBC'}` +

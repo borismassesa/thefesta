@@ -3,7 +3,7 @@
 Vertical-slice plan for making the card a couple paid for the thing their guests
 actually receive, personalised per guest.
 
-Status: plan. PR 1 in progress.
+Status: PR 1 landed (979302cc). PR 2 open as #260, validated against real Postgres.
 
 ## The gap today
 
@@ -104,11 +104,21 @@ artwork's original design text in that layer. On the reference card that means
 the released card a couple downloads today reads "Bi. Fabiola Thomas", the
 designer's sample guest.
 
-Decision needed. Either blank the guest layer in the couple-facing release, or
-render it with a neutral placeholder, or keep the sample and accept it. My
-recommendation is a neutral placeholder in the release plus the real name at
-guest-preparation time, because a blank layer makes the card look broken and the
-sample name looks like a mistake we shipped.
+DECIDED: a neutral placeholder in the frozen release, the real name per guest.
+
+```
+Frozen couple-facing release   guest_name = neutral placeholder
+Per-guest delivery asset       guest_name = exact guest display name
+```
+
+The Swahili default is `Jina la Mgeni`. Blank text reads as a broken card and the
+designer's sample name reads as a mistake we shipped, so neither is acceptable on
+an artefact the couple downloads. The placeholder should become locale-aware
+later; one safe default now beats either alternative.
+
+Note this also means the role's `example` in `CARD_FIELD_ROLES` must not be
+reused as the placeholder while it still reads `Bi. Fabiola Thomas`. An example
+is designer-facing guidance, not customer-facing copy.
 
 ## Delivery asset model
 
@@ -200,12 +210,40 @@ are invisible to the rasteriser. They must still be baked in, because the frozen
 SVG is also what the couple downloads and views in a browser, but the raster path
 has to be handed the font FILES separately.
 
-**2. Name resolution works, and the name-keying trap does not exist.** With two
-fonts loaded, all three forms resolve to the correct face: the real family
-(`Dancing Script`), the PostScript name alone (`DancingScript-Regular`), and
-Illustrator's list form (`DancingScript-Regular, Dancing Script`). No
-`font-family` rewriting is needed. This was the plan's main worry and it is not a
-problem.
+**2. resvg matches on FAMILY NAME plus weight, never on PostScript name, so the
+raster step must pin the face explicitly.**
+
+An earlier run of this spike concluded the opposite, that PostScript names
+resolve fine and no rewriting is needed. That was a false positive: it used two
+fonts of DIFFERENT families with one face each, so an unmatched name fell through
+to resvg's silent fallback, which happened to be the font the test expected.
+Finding 4 below is that same mechanism.
+
+Retested with a real regular+bold pair of ONE family, which is Royal Ivory's
+actual situation (`Bookman Old Style Regular` and `Bookman Old Style Bold`):
+
+```
+font-family="Arial"                             -> Regular   correct
+font-family="Arial" font-weight="700"           -> Bold      correct
+font-family="Arial-BoldMT, Arial" weight="700"  -> Bold      correct
+font-family="Arial-BoldMT, Arial"  (no weight)  -> Regular   WRONG
+font-family="ArialMT, Arial"                    -> Regular   correct
+```
+
+The PostScript-ish first entry Illustrator emits is ignored. Resolution runs off
+the second entry, the real family, combined with `font-weight`.
+
+Royal Ivory survives this only by luck: its one bold layer, `Bi._Fabiola_Thomas`,
+does carry `font-weight="700"`, and every `font-family` list happens to name the
+real family second. That layer is the GUEST NAME, the one field the delivery path
+substitutes, so a wrong weight there would be wrong on every guest card. An
+export that names a bold face without a weight attribute, or that omits the real
+family from the list, renders in the wrong face with no error.
+
+So the raster step does not trust the artwork's font naming. Before rasterising,
+it rewrites each text element's `font-family` to the matched face's canonical
+family and sets weight and style from that face. That rewrite is pure and belongs
+in `@opusfesta/lib`; only the wasm call belongs in the app.
 
 **3. WOFF is not supported. Renders blank.** The font library stores
 `ttf|otf|woff|woff2` (see `FONT_MEDIA` in `card-font-match.ts`), so any face
@@ -239,8 +277,9 @@ Consequences, now requirements rather than options:
 Raster step MUST
   read required fonts from the FROZEN svg   (readRequiredFonts)
   match them to library faces               (matchCardFonts)
-  download the bytes and write TTF/OTF to disk (resvg takes paths)
-  pass them via font.fontFiles with loadSystemFonts: false
+  PIN each text element to the matched face's canonical family + weight + style,
+    because resvg ignores the PostScript name Illustrator writes first
+  download the face bytes and pass them as fontBuffers (wasm build takes buffers)
   build that options object in ONE typed place, never inline
 
 Preparation MUST FAIL, not rasterise, when
@@ -395,3 +434,175 @@ One representative order:
 13. Editing couple data after release changes neither PNG.
 14. A new approved release creates a new asset identity, and previously sent
     URLs still resolve to what was sent.
+
+## Postgres validation, run 2026-08-02
+
+Run against a throwaway `postgres:16` with the referenced tables scaffolded from
+their real definitions. What it covers, and what it does not.
+
+**Migration.** Applies clean from an empty database and is safe to re-run: the
+second apply reports only "already exists" notices and leaves the release count
+unchanged. Backfill produced exactly one release per already-released design,
+linked `current_release_id` correctly, left the never-released design null, and
+carried `artwork_svg_url` through.
+
+**Access.** `anon` and `authenticated` are both denied on both tables
+("permission denied for table"). `service_role` reads normally. The
+`card-guest-assets` bucket is created private with its size limit.
+
+**Concurrency**, two simultaneous writers against one row:
+
+```
+predicate                                     winners
+status = 'pending'                            2   <- both would render
+status = 'pending' AND claimed_at < cutoff    1
+status = 'pending' AND claimed_at = observed  1   <- what the service does
+insert with the unique key                    1   (other gets 23505)
+```
+
+The status-only form is genuinely broken, which is why the lease predicate
+matters. The `<` form does hold, because READ COMMITTED re-evaluates a predicate
+after the row lock releases, but it depends on that subtlety and on both writers
+computing a compatible cutoff. The compare-and-swap on the observed value needs
+neither, so that is what the service uses.
+
+**Not covered by this pass.** PostgREST's own behaviour, storage bucket policies
+beyond the row, and the real object store. Those need a full local Supabase or
+staging, and are the remaining pre-merge item.
+
+### Partial failure: the rule chosen
+
+Upload precedes the status change, so a `ready` row always has an object behind
+it. The dangerous ordering is the other one, upload succeeds and the row update
+fails, which leaves an object with no `ready` row.
+
+The rule is retry-based reconciliation, which the deterministic storage path
+makes the simplest option: a failure whose recorded code is transient
+(`STORAGE_WRITE_FAILED`, `RASTER_FAILED`, `FONT_DOWNLOAD_FAILED`) is retaken by
+the next attempt, which overwrites the orphaned object at the same key and
+completes the row. Faults that are facts about the card, an unresolved font or an
+unmapped guest layer, are NOT retried: they would fail identically forever and
+retrying would spend a render per guest to learn nothing.
+
+The reverse case, a `ready` row whose object has gone missing, is deliberately
+left to PR 3. The public route has to handle a missing object anyway, and it is
+the only place that learns of it without adding a storage round trip to every
+reuse in a two hundred guest send.
+
+### Why the WASM runtime gate belongs to PR 3
+
+A preview deployment of PR 2 cannot prove that Vercel packages and locates the
+`.wasm`, because PR 2 has no caller. Measured on a real production build of
+opus_pass at this commit:
+
+```
+next build                       exit 0
+*.wasm anywhere in .next         none
+index_bg.wasm in any trace file  none
+prepare-guest-asset in a bundle  no, only in .tsbuildinfo
+```
+
+Nothing imports the preparation service yet, so Next never bundles it and the
+`.wasm` never enters the output. A green preview would be evidence about code
+that was not deployed.
+
+The gate is real and stays; it moves to PR 3, where the token route imports the
+service and the module actually enters a server bundle. PR 3 must prove at
+runtime, on a preview, that `initWasm` resolves the file, that font buffers reach
+resvg, and that the PNG passes signature, dimension and ink checks on a repeated
+invocation after memoisation.
+
+`ensureWasm` reads the file through `require.resolve('@resvg/resvg-wasm/index_bg.wasm')`.
+If tracing misses it once there is a caller, the fix is
+`outputFileTracingIncludes` in next.config for the route that pulls it in.
+
+## PR 3 hard gates
+
+These are not optional follow-ups. PR 2 can be merged without them only because
+nothing calls the service, the migration is additive, and no send behaviour
+changes. The moment a route exists, every one of these applies.
+
+**1. The rasterisation path builds and runs, not just the application.** Prove
+the module is actually in the deployed output before trusting a green build:
+
+```
+prepare-guest-asset appears in the route's trace
+index_bg.wasm appears in .next or that trace
+the deployed route runs initWasm successfully
+a repeat invocation succeeds after module-level memoisation
+font buffers reach resvg, and the PNG passes signature, dimension and ink checks
+```
+
+If tracing misses the asset, scope `outputFileTracingIncludes` to the single
+route that pulls it in. Never an app-wide glob. Also confirm the wasm package
+still initialises from the bytes we hand it once bundled: the standalone spike is
+not evidence about the Next server runtime.
+
+**2. The real Supabase client and Storage API, not only SQL.** The Postgres pass
+covered DDL, backfill, unique constraints, MVCC, the lease CAS and SQL-level RLS.
+It says nothing about PostgREST query translation for these exact filters,
+Storage upload and overwrite behaviour, bucket policy through the storage API,
+client result shapes, or how provider errors normalise. Exercise the whole
+sequence against an isolated staging project or an ephemeral local Supabase kept
+OUTSIDE this repository, since adding a `config.toml` here is an architectural
+change rather than test setup:
+
+```
+claim row → download frozen SVG → download font objects
+→ upload PNG at the deterministic key → mark ready
+→ retry and reuse → simulate a failed ready-update after a successful upload
+→ retry and reconcile
+```
+
+**3. Missing object never becomes a successful media response.** A `ready` row
+whose object has gone must produce a generic 404 outward, a sanitised diagnostic
+inward, and a downgrade of the row so send preflight stops treating it as usable.
+Detecting it only when Meta fetches would move the failure boundary back to after
+Send, which is the thing this design exists to prevent. Verification does not
+require a HEAD per guest: check on reuse during preparation, or reconcile
+periodically, or let the route downgrade and have the send retry preparation.
+
+**4. No casual diagnostic route.** Prefer proving the runtime through the real
+feature path with a non-customer fixture. If a temporary route is unavoidable it
+must be unavailable in production, behind an internal secret, excluded from
+analytics, incapable of accepting caller-supplied SVG or font input, and removed
+before merge. An endpoint that rasterises attacker-supplied input is a
+denial-of-service surface.
+
+## Rollout order
+
+Applying this migration early is safer than holding it, because it is additive
+and nothing reads the new tables yet. Deploying code that expects missing tables
+is the riskier direction.
+
+```
+1. merge PR 2
+2. apply the migration to staging
+3. verify tables, RLS and bucket there
+4. deploy the PR 3 preview
+5. run the full raster and token-route integration
+6. apply the migration to production
+7. deploy PR 3 to production dormant or feature-flagged
+8. enable only after smoke tests
+```
+
+## Token secret
+
+`CARD_ASSET_TOKEN_SECRET` does not block PR 2: nothing derives a token yet, and
+the service already fails closed when it is absent, which is the correct state
+for any environment where the feature must stay off. It must exist before PR 3
+runs in any environment, with a SEPARATE value per environment.
+
+Rotation has to be settled before PR 3 reaches production. Because the token is
+derived rather than stored, changing the secret invalidates every guest URL
+already sent, immediately. The minimum acceptable model is two secrets read
+together, current and previous, with the asset carrying or implying which version
+minted it:
+
+```
+CARD_ASSET_TOKEN_SECRET_CURRENT
+CARD_ASSET_TOKEN_SECRET_PREVIOUS
+```
+
+The token payload is already versioned (`opus-card-asset:v1:...`), so a format
+change is separable from a key change.
