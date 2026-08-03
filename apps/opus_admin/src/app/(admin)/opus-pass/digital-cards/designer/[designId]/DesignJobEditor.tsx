@@ -233,7 +233,10 @@ export default function DesignJobEditor({
   // Only fields the CURRENT artwork really bakes in are blocked.
   const blocked = fields.filter((f) => f.blockedReason === 'rasterised' && !staleRoles.has(f.key))
 
-  function run(fn: () => Promise<{ ok: true } | { ok: false; error: string }>, ok: string) {
+  function run(
+    fn: () => Promise<{ ok: true; warning?: string } | { ok: false; error: string }>,
+    ok: string,
+  ) {
     setError(null)
     setMessage(null)
     startTransition(async () => {
@@ -241,7 +244,9 @@ export default function DesignJobEditor({
         const result = await fn()
         if (!result.ok) setError(result.error)
         else {
-          setMessage(ok)
+          // A warning means the action worked but left something for a human to
+          // pick up. Showing the generic success line instead would bury it.
+          setMessage(result.warning ?? ok)
           router.refresh()
         }
       } catch (err) {

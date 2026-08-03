@@ -589,10 +589,19 @@ export async function saveAndPublishReleasedDesign(
     }
   }
 
+  // A card that had already been handed over comes back to Ready, and that is
+  // the honest state: what the couple is holding is now the SUPERSEDED release.
+  // Leaving the job at "delivered" would assert that the version now current
+  // had been delivered, which is exactly the kind of quiet lie this pipeline
+  // exists to prevent. Say it out loud instead of letting the stage slide back
+  // without explanation.
+  const wasDelivered = design.status === 'delivered'
   await recordDesignEvent(supabase, {
     designId,
     author,
-    body: 'Published updated card release',
+    body: wasDelivered
+      ? 'Published updated card release, superseding the version already delivered'
+      : 'Published updated card release',
     fromStatus: design.status,
     toStatus: 'ready',
   })
@@ -600,5 +609,10 @@ export async function saveAndPublishReleasedDesign(
 
   revalidatePath('/opus-pass/digital-cards/designer')
   revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
-  return released
+  if (!wasDelivered) return released
+  const supersedeWarning = released.warning ? `${released.warning} ` : ''
+  return {
+    ok: true,
+    warning: `${supersedeWarning}This card had already been delivered, so it is back at Ready. Send the couple the updated card, then mark it delivered again.`,
+  }
 }
