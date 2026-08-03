@@ -29,6 +29,8 @@ const SECRET_PATTERN = /^[A-Za-z0-9_-]+$/
 
 export type CredentialIssuanceSource =
   | 'entrance_pass_render'
+  /** Minted (or reused) when a guest adds their pass to a wallet. */
+  | 'wallet_pass'
   | 'rotation'
   | 'admin'
   | 'backfill'

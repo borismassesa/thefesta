@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { resolveWalletPass, type WalletPassView } from '@/lib/checkin/wallet-tokens'
+import { configuredProviders } from '@/lib/wallet/providers'
+import { SaveToWalletButtons } from './SaveToWalletButtons'
 import { formatLongDateSw, formatTicketDate } from '@/lib/dashboard/share'
 
 // Per-guest, capability-gated, and it must not be indexed or cached anywhere.
@@ -104,6 +106,14 @@ export default async function WalletPassPage({
           margin: '0 auto',
           boxShadow: '0 18px 50px rgba(74, 36, 116, 0.28)',
         }}
+      />
+
+      {/* Which providers are offered is decided here, on the server, by
+          whether their credentials exist. The client only orders them. */}
+      <SaveToWalletButtons
+        token={token}
+        providers={configuredProviders()}
+        language={sw ? 'sw' : 'en'}
       />
 
       <dl style={{ margin: '28px 0 0', display: 'grid', gap: 14 }}>
