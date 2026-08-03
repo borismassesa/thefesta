@@ -516,6 +516,28 @@ test('the token is domain-separated and versioned', () => {
   assert.equal(token, expected)
 })
 
+test('a legacy runtime failure at the old cap receives one recovery attempt', async () => {
+  // The production Vercel bootstrap fault consumed all three attempts without
+  // reaching resvg. The hotfix gives those exact rows one new lease so preview,
+  // single-send and bulk-send paths recover without a manual data repair.
+  const client = makeClient()
+  client.tables['invitation_card_delivery_assets'] = [
+    {
+      id: 'legacy-runtime-failure', design_release_id: RELEASE_ID, guest_id: GUEST_ID,
+      render_variant: VARIANT, token_hash: 'whatever', status: 'failed',
+      png_storage_path: null, render_error_code: 'RASTER_RUNTIME_FAILED',
+      claimed_at: new Date().toISOString(), attempt_count: 3,
+    },
+  ]
+
+  const result = await run(client)
+
+  assert.equal(result.ok, true)
+  assert.equal(client.asset()?.status, 'ready')
+  assert.equal(client.asset()?.attempt_count, 4)
+  assert.equal(client.uploadCount, 1)
+})
+
 test('a transient fault stops retrying at the attempt cap', async () => {
   // Without this, an artwork that kills the renderer every time would be retried
   // on every send for every guest, forever, to reach the same answer.
@@ -525,7 +547,7 @@ test('a transient fault stops retrying at the attempt cap', async () => {
       id: 'exhausted', design_release_id: RELEASE_ID, guest_id: GUEST_ID,
       render_variant: VARIANT, token_hash: 'whatever', status: 'failed',
       png_storage_path: null, render_error_code: 'RASTER_RUNTIME_FAILED',
-      claimed_at: new Date().toISOString(), attempt_count: 3,
+      claimed_at: new Date().toISOString(), attempt_count: 4,
     },
   ]
 
@@ -535,7 +557,7 @@ test('a transient fault stops retrying at the attempt cap', async () => {
   if (!result.ok) assert.equal(result.code, 'RASTER_RUNTIME_FAILED')
   // Reported, not retried.
   assert.equal(client.uploadCount, 0)
-  assert.equal(client.asset()?.attempt_count, 3)
+  assert.equal(client.asset()?.attempt_count, 4)
 })
 
 test('each retake increments the attempt counter', async () => {
@@ -586,12 +608,15 @@ test('the initial claim counts as attempt 1, so the cap is a total not a bonus',
   await run(client)
   assert.equal(client.asset()?.attempt_count, 3)
 
+  await run(client)
+  assert.equal(client.asset()?.attempt_count, 4)
+
   // Cap reached: no further lease is granted and no further render runs.
   const beyond = await run(client)
   assert.equal(beyond.ok, false)
   if (!beyond.ok) assert.equal(beyond.code, 'STORAGE_WRITE_FAILED')
-  assert.equal(client.asset()?.attempt_count, 3, 'no fourth acquisition')
-  assert.equal(client.uploadAttempts, 3, 'exactly three executions, matching the cap')
+  assert.equal(client.asset()?.attempt_count, 4, 'no fifth acquisition')
+  assert.equal(client.uploadAttempts, 4, 'exactly four executions, matching the cap')
 })
 
 test('every failure code the service can return round-trips through the row', () => {
