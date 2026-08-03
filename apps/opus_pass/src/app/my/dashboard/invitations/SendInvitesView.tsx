@@ -69,7 +69,7 @@ import {
   fullNameOf,
   saveDateUrl,
 } from '@/lib/dashboard/share'
-import { INVITE_TEMPLATE, ENTRANCE_PASS_TEMPLATE } from '@/lib/whatsapp/types'
+import { formatInviteGuestName, INVITE_TEMPLATE, ENTRANCE_PASS_TEMPLATE } from '@/lib/whatsapp/types'
 import { EVENT_TYPE_LABELS } from '@/lib/dashboard/types'
 import type { EventType, TicketLanguage } from '@/lib/dashboard/types'
 import type { SendInvitesData, SendGuestRow } from '@/lib/dashboard/queries'
@@ -260,7 +260,7 @@ export default function SendInvitesView({
   const [previewGuestChoice, setSelectedPreviewGuestId] = useState(guests[0]?.id ?? '')
   const selectedPreviewGuest = guests.find((guest) => guest.id === previewGuestChoice) ?? guests[0] ?? null
   const selectedPreviewGuestId = selectedPreviewGuest?.id ?? ''
-  const sampleGuest = firstNameOf(selectedPreviewGuest?.name ?? 'Amina')
+  const sampleGuest = formatInviteGuestName(selectedPreviewGuest?.name, 'Amina')
   const [previewCardUrl, setPreviewCardUrl] = useState<string | null>(null)
   const [previewCardError, setPreviewCardError] = useState<string | null>(null)
   const [previewCardLoading, setPreviewCardLoading] = useState(false)

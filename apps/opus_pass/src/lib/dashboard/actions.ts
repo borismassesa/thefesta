@@ -38,7 +38,7 @@ import {
   resolveOwnedEventId,
 } from './queries'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
-import type { LinkRequestKind } from '@/lib/whatsapp/types'
+import { formatInviteGuestName, type LinkRequestKind } from '@/lib/whatsapp/types'
 import { getSmsProvider } from '@/lib/sms'
 import { deriveAssetToken } from '@/lib/cards/asset-tokens'
 import { prepareGuestCardAsset, type PrepareFailureCode } from '@/lib/cards/prepare-guest-asset'
@@ -3418,7 +3418,7 @@ export async function sendWhatsAppInvites(guestIds?: string[], eventId?: string)
 
     const result = await provider.sendInvite({
       to,
-      guestFirstName: firstNameOf(g.full_name),
+      guestName: formatInviteGuestName(g.full_name),
       coupleName: ent.coupleName,
       eventCategory: ent.eventCategory,
       headerImageUrl: card.url,
@@ -3706,7 +3706,7 @@ export async function sendWhatsAppTestInvite(
 
   const result = await provider.sendInvite({
     to,
-    guestFirstName: templateParam(firstNameOf(guest.full_name), 'Rafiki'),
+    guestName: formatInviteGuestName(guest.full_name),
     coupleName: templateParam(ent.coupleName, 'The Couple'),
     eventCategory: templateParam(ent.eventCategory, 'sherehe'),
     headerImageUrl: card.url,
