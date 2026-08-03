@@ -11,13 +11,10 @@ import {
   type AdminAccessRole,
 } from '@/lib/admin-auth'
 import { releaseApprovedDesign } from '@/lib/cms/release-card'
+import { mergeCardDesignerValues } from '@/lib/cms/card-designer-values'
 import { sendCardReviewRequest } from '@/lib/card-review-email'
 import { readOrderLine, type OrderLineItem } from '@/lib/cms/order-add-ons'
-import {
-  CARD_FIELD_ROLE_KEYS,
-  requestableFields,
-  type CardFieldBinding,
-} from '@opusfesta/lib'
+import { requestableFields, type CardFieldBinding } from '@opusfesta/lib'
 
 const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
 
@@ -488,38 +485,44 @@ export async function saveDesignFieldValues(
 
   const { data: design, error } = await supabase
     .from('invitation_card_designs')
-    .select('id, field_values, requested_fields')
+    .select('id, status, field_values, requested_fields')
     .eq('id', designId)
     .maybeSingle<{
       id: string
+      status: string
       field_values: Record<string, string> | null
       requested_fields: string[] | null
     }>()
   if (error) return { ok: false, error: error.message }
   if (!design) return { ok: false, error: 'Design job not found.' }
 
-  const merged = { ...(design.field_values ?? {}) }
-  for (const [role, value] of Object.entries(values)) {
-    if (!CARD_FIELD_ROLE_KEYS.includes(role)) {
-      return { ok: false, error: `"${role}" is not a known card field.` }
-    }
-    const trimmed = String(value ?? '').trim()
-    // An emptied field is a removal, not a stored empty string — otherwise
-    // "answered" counts would include blanks.
-    if (trimmed) merged[role] = trimmed
-    else delete merged[role]
-  }
+  const mergedResult = mergeCardDesignerValues(design.field_values, values)
+  if (!mergedResult.ok) return mergedResult
+  const merged = mergedResult.values
 
   // Anything now answered is no longer outstanding.
   const stillOutstanding = (design.requested_fields ?? []).filter((role) => !merged[role])
+  const answeredTheLastRequest =
+    stillOutstanding.length === 0 && (design.requested_fields ?? []).length > 0
+
+  // A released card can still be carrying outstanding requests: submitForReview
+  // accepts an awaiting_info job, so approval can land while requested_fields is
+  // non-empty. Answering the last of them must NOT drag the job back to
+  // in_design, because OpusPass resolves guest cards with
+  // `.in('status', ['ready', 'delivered'])` and the card would stop resolving
+  // altogether, with the couple's order still claiming it was delivered.
+  const isReleased = design.status === 'ready' || design.status === 'delivered'
 
   const { error: updateError } = await supabase
     .from('invitation_card_designs')
     .update({
       field_values: merged,
       requested_fields: stillOutstanding,
-      ...(stillOutstanding.length === 0 && (design.requested_fields ?? []).length > 0
-        ? { info_received_at: new Date().toISOString(), status: 'in_design' }
+      ...(answeredTheLastRequest
+        ? {
+            info_received_at: new Date().toISOString(),
+            ...(isReleased ? {} : { status: 'in_design' }),
+          }
         : {}),
     })
     .eq('id', designId)
@@ -528,4 +531,129 @@ export async function saveDesignFieldValues(
   revalidatePath('/opus-pass/digital-cards/designer')
   revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
   return { ok: true }
+}
+
+/**
+ * Save corrections to an already-released card and publish them as a new,
+ * immutable release.
+ *
+ * What does NOT change: a guest URL already in a WhatsApp thread. Those are
+ * minted against a specific release id, the stored PNG sits under that id, and
+ * nothing here deletes old releases or their objects. A guest holding a link
+ * keeps seeing the card they were sent.
+ *
+ * What DOES change, and is easy to miss: everything couple-facing. The
+ * dashboard and the /api/my/card download read `release_svg_path`, which
+ * release-card.ts overwrites, so the couple's own copy becomes the corrected
+ * one. `current_release_id` moves too, and that is what future guest sends
+ * resolve through. So the couple and their already-invited guests are
+ * deliberately holding different versions after this runs.
+ *
+ * Note also that the new release is re-rendered from the product's CURRENT
+ * artwork and bindings, not from the old release's SVG. If the artwork was
+ * re-exported since, that lands in this release as well as the corrections.
+ */
+export async function saveAndPublishReleasedDesign(
+  designId: string,
+  values: Record<string, string>,
+): Promise<Result> {
+  await requirePermission('cms.publish')
+  const supabase = createSupabaseAdminClient()
+  const author = (await getCallerEmail()) ?? 'unknown'
+  const now = new Date().toISOString()
+
+  const { data: design, error } = await supabase
+    .from('invitation_card_designs')
+    .select('id, order_id, status, assigned_to, product_name, field_values, requested_fields')
+    .eq('id', designId)
+    .maybeSingle<
+      DesignRow & {
+        field_values: Record<string, string> | null
+        requested_fields: string[] | null
+      }
+    >()
+  if (error) return { ok: false, error: error.message }
+  if (!design) return { ok: false, error: 'Design job not found.' }
+  if (design.status !== 'ready' && design.status !== 'delivered') {
+    return { ok: false, error: 'Only an already-released card can be published as an update.' }
+  }
+  if (await isSelfReview(supabase, design.assigned_to, author)) {
+    return {
+      ok: false,
+      error: 'You are assigned to this card, so another publisher must release the update.',
+    }
+  }
+
+  const mergedResult = mergeCardDesignerValues(design.field_values, values)
+  if (!mergedResult.ok) return mergedResult
+  const merged = mergedResult.values
+  const stillOutstanding = (design.requested_fields ?? []).filter((role) => !merged[role])
+  const wasDelivered = design.status === 'delivered'
+
+  // Written BEFORE the release is cut, and that order is load-bearing:
+  // freezeCardRelease re-reads field_values from this row rather than taking
+  // them as an argument, so a release cut first would freeze the OLD values
+  // into a new file and report success. See the guard in
+  // card-release-ordering.test.ts.
+  const { data: savedDesign, error: updateError } = await supabase
+    .from('invitation_card_designs')
+    .update({
+      field_values: merged,
+      requested_fields: stillOutstanding,
+      // The handover being recorded was of the release we are about to
+      // supersede, so it stops being true of this row the moment we publish.
+      ...(wasDelivered ? { delivered_at: null } : {}),
+      ...(stillOutstanding.length === 0 && (design.requested_fields ?? []).length > 0
+        ? { info_received_at: now }
+        : {}),
+    })
+    .eq('id', designId)
+    .eq('status', design.status)
+    .select('id')
+    .maybeSingle<{ id: string }>()
+  if (updateError) return { ok: false, error: updateError.message }
+  if (!savedDesign) {
+    return { ok: false, error: 'The card stage changed while you were editing. Refresh and try again.' }
+  }
+
+  const released = await releaseApprovedDesign(supabase, design, author, now)
+  if (!released.ok) {
+    return {
+      ok: false,
+      error: `Your values were saved, but the updated card was not published: ${released.error}`,
+    }
+  }
+
+  // A card that had already been handed over comes back to Ready (the demotion
+  // itself is in releaseApprovedDesign, which always writes status: 'ready'),
+  // and that is the honest state: what the couple is holding is now the
+  // SUPERSEDED release. Leaving the job at "delivered" would assert that the
+  // version now current had been handed over, which is the kind of quiet lie
+  // this pipeline exists to prevent.
+  //
+  // It is not free, though. syncOrderStage below maps ready back to a 'ready'
+  // fulfilment stage, so the couple watches the Delivered tick come OFF their
+  // order tracker with no explanation aimed at them. That is why the warning
+  // tells the publisher to go and re-deliver rather than just noting the stage.
+  await recordDesignEvent(supabase, {
+    designId,
+    author,
+    body: wasDelivered
+      ? 'Published updated card release, superseding the version already delivered'
+      : 'Published updated card release',
+    fromStatus: design.status,
+    toStatus: 'ready',
+  })
+  await syncOrderStage(supabase, design.order_id, now)
+
+  revalidatePath('/opus-pass/digital-cards/designer')
+  revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
+  if (!wasDelivered) return released
+  // The delivered notice leads, because it is the half that always needs
+  // acting on. releaseApprovedDesign's supersede warning is rare and follows.
+  const supersedeWarning = released.warning ? ` ${released.warning}` : ''
+  return {
+    ok: true,
+    warning: `This card had already been delivered, so it is back at Ready and the couple's order tracker has moved back a stage. Send them the updated card, then mark it delivered again.${supersedeWarning}`,
+  }
 }
