@@ -12,9 +12,15 @@ import { requireDashboardUser } from './auth'
 // it and nothing else.
 //
 // What this reads is the FROZEN file written when a reviewer approved the card,
-// never a fresh render. That distinction is the whole point: a card the couple
-// may already have sent to two hundred guests must not change underneath them
-// because the artwork was later re-exported or a font licence lapsed.
+// never a fresh render. That distinction is the whole point: a card must not
+// change underneath the couple because the artwork was later re-exported or a
+// font licence lapsed.
+//
+// One deliberate exception, and only one: a publisher correcting an already
+// released card (saveAndPublishReleasedDesign in opus_admin) cuts a new release
+// and moves release_svg_path, so what this returns does change. That is the
+// point of the action. Guest URLs already sent are unaffected, because they
+// bind to a specific release id rather than to this column.
 
 /** A card that has been approved and published to its couple. */
 export type ReleasedCard = {

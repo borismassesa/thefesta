@@ -7,8 +7,14 @@ export type MergeCardDesignerValuesResult =
 /**
  * Merge a designer edit into the stored card values.
  *
- * Kept outside the server action so saving a draft and publishing an updated
- * release cannot drift into subtly different validation rules.
+ * Shared by the two admin write paths (saveDesignFieldValues and
+ * saveAndPublishReleasedDesign) so the role-key check and the
+ * blank-means-delete rule stay identical between saving and publishing.
+ *
+ * It does NOT make this column's rules uniform everywhere. The couple-side
+ * writers in opus_pass (lib/dashboard/card-details.ts) deliberately differ:
+ * they validate against requested_fields rather than every known role, and a
+ * blank submission there means "skip", not "delete".
  */
 export function mergeCardDesignerValues(
   current: Record<string, string> | null,

@@ -114,6 +114,15 @@ export default function DesignJobEditor({
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  /**
+   * Kept apart from `message`, which is a one-line "Saved." that shares a row
+   * with three buttons and therefore truncates. A warning means the action
+   * worked but handed a job back to the operator, and those run long: the
+   * delivered-card notice alone is over a hundred characters. Rendering it
+   * through the same truncating span would clip away the part that says what
+   * to do next.
+   */
+  const [warning, setWarning] = useState<string | null>(null)
 
   const [draft, setDraft] = useState<Record<string, string>>(values)
 
@@ -239,14 +248,17 @@ export default function DesignJobEditor({
   ) {
     setError(null)
     setMessage(null)
+    setWarning(null)
     startTransition(async () => {
       try {
         const result = await fn()
         if (!result.ok) setError(result.error)
         else {
           // A warning means the action worked but left something for a human to
-          // pick up. Showing the generic success line instead would bury it.
-          setMessage(result.warning ?? ok)
+          // pick up. It gets its own banner rather than the success line, which
+          // was discarding warnings entirely before this.
+          if (result.warning) setWarning(result.warning)
+          else setMessage(ok)
           router.refresh()
         }
       } catch (err) {
@@ -266,6 +278,16 @@ export default function DesignJobEditor({
   const canApproveThis = canPublish && !isAssignee
   const isReleased = status === 'ready' || status === 'delivered'
   const canPublishReleasedUpdate = isReleased && canApproveThis
+  /**
+   * Republishing is not free: it supersedes the release the couple is holding
+   * and, for a delivered card, walks their order tracker back a stage. The
+   * draft starts out equal to what is stored, so without this the ordinary
+   * "save my place" click would cut a whole new release for no change at all.
+   */
+  const hasEdits = useMemo(() => {
+    const roles = new Set([...Object.keys(values), ...Object.keys(draft)])
+    return [...roles].some((role) => (values[role] ?? '').trim() !== (draft[role] ?? '').trim())
+  }, [values, draft])
   const statusLabel =
     DESIGN_STATUS_LABELS[status as keyof typeof DESIGN_STATUS_LABELS] ?? status.replace(/_/g, ' ')
 
@@ -748,6 +770,12 @@ export default function DesignJobEditor({
 
         {canWrite && (
           <div className="sticky bottom-0 z-10 -mx-8 mt-6 border-t border-gray-200 bg-white/95 px-8 py-3 backdrop-blur">
+            {warning && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <p>{warning}</p>
+              </div>
+            )}
             <div className="flex items-center gap-3">
               <Link
                 href={LIST}
@@ -761,7 +789,11 @@ export default function DesignJobEditor({
                   {error}
                 </span>
               ) : (
-                message && <span className="min-w-0 truncate text-xs text-gray-500">{message}</span>
+                message && (
+                  <span className="min-w-0 truncate text-xs text-gray-500" title={message}>
+                    {message}
+                  </span>
+                )
               )}
               <button
                 type="button"
@@ -781,7 +813,12 @@ export default function DesignJobEditor({
               </button>
               <button
                 type="button"
-                disabled={pending}
+                disabled={pending || (canPublishReleasedUpdate && !hasEdits)}
+                title={
+                  canPublishReleasedUpdate && !hasEdits
+                    ? 'Change a value first. Republishing an unchanged card would supersede the copy the couple already has for nothing.'
+                    : undefined
+                }
                 onClick={() =>
                   canPublishReleasedUpdate
                     ? run(
