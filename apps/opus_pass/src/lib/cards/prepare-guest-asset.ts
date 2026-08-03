@@ -408,7 +408,10 @@ const RETRYABLE_FAILURES = new Set<string>([
  * a ceiling one broken design would burn a render per guest on every send,
  * forever, to arrive at the same answer.
  */
-const MAX_TRANSIENT_ATTEMPTS = 3
+// Four rather than three so assets that exhausted the old ceiling during the
+// Vercel WASM bootstrap incident receive one clean retry after the fixed bundle
+// is deployed. Permanent card faults are still excluded by RETRYABLE_FAILURES.
+const MAX_TRANSIENT_ATTEMPTS = 4
 
 /**
  * Take an asset over from whoever held it, atomically.

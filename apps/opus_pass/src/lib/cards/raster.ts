@@ -76,17 +76,41 @@ function ensureWasm(): Promise<void> {
   if (!wasmReady) {
     wasmReady = (async () => {
       const { readFile } = await import('node:fs/promises')
-      const { dirname, join } = await import('node:path')
-      // Resolve the package's JS entry and take the .wasm as a sibling FILE.
+      const { join, resolve } = await import('node:path')
+      // Read the traced binary from a stable filesystem location.
       //
-      // Never require.resolve the .wasm directly. Turbopack treats a static
-      // reference to a .wasm as a WebAssembly MODULE and tries to instantiate
-      // it, which fails on wasm-bindgen glue with "Can't resolve 'wbg'" and
-      // breaks the whole build. We want the bytes, not a module, so the path is
-      // assembled at runtime and the file is kept in the deployment by an
-      // explicit tracing include in next.config.ts.
-      const packageDir = dirname(require.resolve('@resvg/resvg-wasm'))
-      await initWasm(await readFile(join(packageDir, 'index_bg.wasm')))
+      // Do not use require.resolve here. Turbopack rewrites a statically-known
+      // package to its numeric module id inside the production bundle, turning
+      // dirname(require.resolve(...)) into dirname(288403) at runtime. That is
+      // why the source tests passed while every Vercel preview and real send
+      // failed with RASTER_RUNTIME_FAILED.
+      //
+      // Vercel functions expose traced node_modules from their working root.
+      // Local monorepo commands run from apps/opus_pass while dependencies are
+      // hoisted two levels up, so keep that second candidate for dev and tests.
+      // Both locations refer to the exact file retained by
+      // outputFileTracingIncludes in next.config.ts.
+      const relativeWasmPath = join('node_modules', '@resvg', 'resvg-wasm', 'index_bg.wasm')
+      const candidates = [
+        join(process.cwd(), relativeWasmPath),
+        resolve(process.cwd(), '..', '..', relativeWasmPath),
+      ]
+
+      let bytes: Buffer | null = null
+      let lastError: unknown = null
+      for (const candidate of new Set(candidates)) {
+        try {
+          bytes = await readFile(candidate)
+          break
+        } catch (err) {
+          lastError = err
+        }
+      }
+      if (!bytes) {
+        throw new Error('The traced resvg WebAssembly binary is unavailable.', { cause: lastError })
+      }
+
+      await initWasm(bytes)
       wasmInitialisations += 1
     })().catch((err) => {
       wasmReady = null
