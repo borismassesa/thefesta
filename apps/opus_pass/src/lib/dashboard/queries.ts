@@ -2082,7 +2082,7 @@ export async function getWhatsAppEntitlement(
   // earliest event," now that a couple can be sending for any of several.
   const { data: primaryEvent } = await supabase
     .from('wedding_events')
-    .select('name, event_type, partner1_name, partner2_name, venue_name, address, city')
+    .select('name, event_type, partner1_name, partner2_name, venue_name, address, city, venue_latitude, venue_longitude')
     .eq('user_id', user.id)
     .eq('id', eventId)
     .maybeSingle<{
@@ -2093,6 +2093,8 @@ export async function getWhatsAppEntitlement(
       venue_name: string | null
       address: string | null
       city: string | null
+      venue_latitude: number | null
+      venue_longitude: number | null
     }>()
   const eventCategory = eventTypeLabelSw(primaryEvent?.event_type ?? 'other')
   const coupleName = primaryEvent ? invitationHostName(primaryEvent) : 'The Couple'
@@ -2360,6 +2362,8 @@ export interface SendInvitesData {
       venueName: string
       address: string
       city: string
+      latitude: string
+      longitude: string
       locationLabel: string
       mapsUrl: string | null
       partner2Required: boolean
@@ -2662,6 +2666,8 @@ export async function getSendInvitesData(
         venueName: selectedEvent.venue_name ?? '',
         address: selectedEvent.address ?? '',
         city: selectedEvent.city ?? '',
+        latitude: selectedEvent.venue_latitude == null ? '' : String(selectedEvent.venue_latitude),
+        longitude: selectedEvent.venue_longitude == null ? '' : String(selectedEvent.venue_longitude),
         locationLabel: entitlement.locationLabel,
         mapsUrl: entitlement.locationMapsUrl,
         partner2Required: invitationPartner2Required(selectedEvent),

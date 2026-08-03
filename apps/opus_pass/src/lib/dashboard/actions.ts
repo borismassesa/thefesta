@@ -42,7 +42,7 @@ import type { LinkRequestKind } from '@/lib/whatsapp/types'
 import { getSmsProvider } from '@/lib/sms'
 import { deriveAssetToken } from '@/lib/cards/asset-tokens'
 import { prepareGuestCardAsset, type PrepareFailureCode } from '@/lib/cards/prepare-guest-asset'
-import { invitationPartner2Required } from './invitation-event-details'
+import { invitationPartner2Required, parseInvitationCoordinates } from './invitation-event-details'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
 import { pledgeRequestEmail } from './pledge-email'
 import { sendGiftClaimReceipts, type ReceiptGift, type ReceiptLang } from './gift-registry-receipt'
@@ -200,6 +200,8 @@ export interface InvitationEventDetailsInput {
   venue_name: string
   address?: string | null
   city: string
+  venue_latitude?: string | number | null
+  venue_longitude?: string | number | null
 }
 
 /** Save the fields used by the card, message identity, and View Location reply.
@@ -217,9 +219,11 @@ export async function updateInvitationEventDetails(
   const venue = cleanInput(input?.venue_name, 120)
   const address = cleanInput(input?.address, 240) || null
   const city = cleanInput(input?.city, 80)
+  const coordinates = parseInvitationCoordinates(input?.venue_latitude, input?.venue_longitude)
 
   if (!partner1) throw new Error('Add Partner 1 before sending invitations.')
   if (!venue && !address && !city) throw new Error('Add the event location before sending invitations.')
+  if (!coordinates.ok) throw new Error(coordinates.error)
 
   const { data: existing, error: readError } = await supabase
     .from('wedding_events')
@@ -248,6 +252,8 @@ export async function updateInvitationEventDetails(
       venue_name: venue || null,
       address,
       city: city || null,
+      venue_latitude: coordinates.value?.latitude ?? null,
+      venue_longitude: coordinates.value?.longitude ?? null,
     })
     .eq('id', eventId)
     .eq('user_id', user.id)

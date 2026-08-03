@@ -5,6 +5,7 @@ import {
   invitationHostName,
   invitationLocation,
   invitationMapsUrl,
+  parseInvitationCoordinates,
   type InvitationEventSource,
 } from './invitation-event-details'
 
@@ -46,4 +47,26 @@ test('single-celebrant event types do not invent a second partner', () => {
 
 test('falls back to the event title when celebrant names are not set', () => {
   assert.equal(invitationHostName({ ...event, partner1_name: null, partner2_name: null }), 'Moses Seta Wedding')
+})
+
+test('coordinates make the Maps pin exact without replacing the readable location', () => {
+  const exact = { ...event, venue_latitude: -6.713456, venue_longitude: 39.212345 }
+  assert.equal(invitationLocation(exact), 'KKKT Sala Sala, Wazo Hill Road, Dar es Salaam')
+  assert.equal(invitationMapsUrl(exact), 'https://maps.google.com/?q=-6.713456,39.212345')
+})
+
+test('coordinate inputs are optional but must be a valid complete pair', () => {
+  assert.deepEqual(parseInvitationCoordinates('', ''), { ok: true, value: null })
+  assert.deepEqual(parseInvitationCoordinates('-6.8', '39.2'), {
+    ok: true,
+    value: { latitude: -6.8, longitude: 39.2 },
+  })
+  assert.deepEqual(parseInvitationCoordinates('-6.8', ''), {
+    ok: false,
+    error: 'Add both latitude and longitude, or leave both blank.',
+  })
+  assert.deepEqual(parseInvitationCoordinates('91', '39.2'), {
+    ok: false,
+    error: 'Latitude must be a number between -90 and 90.',
+  })
 })

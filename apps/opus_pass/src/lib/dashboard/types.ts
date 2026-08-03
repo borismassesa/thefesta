@@ -47,6 +47,10 @@ export interface WeddingEvent {
   venue_name: string | null
   address: string | null
   city: string | null
+  /** Optional exact map pin; stored as a complete pair. The readable venue,
+   *  address and city remain the guest-facing location text. */
+  venue_latitude: number | null
+  venue_longitude: number | null
   starts_at: string | null
   ends_at: string | null
   dress_code: string | null

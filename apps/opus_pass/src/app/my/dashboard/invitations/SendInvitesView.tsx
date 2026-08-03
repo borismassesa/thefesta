@@ -275,10 +275,25 @@ export default function SendInvitesView({
     : invitationFields ? { ...invitationFields } : null
   const setInvitationForm = (value: InvitationForm | null) =>
     setInvitationFormState({ eventId: selectedEventId, value })
+  const latitudeValue = invitationForm?.latitude.trim() ?? ''
+  const longitudeValue = invitationForm?.longitude.trim() ?? ''
+  const latitudeNumber = Number(latitudeValue)
+  const longitudeNumber = Number(longitudeValue)
+  const coordinatesValid = (!latitudeValue && !longitudeValue) || Boolean(
+    latitudeValue &&
+      longitudeValue &&
+      Number.isFinite(latitudeNumber) &&
+      latitudeNumber >= -90 &&
+      latitudeNumber <= 90 &&
+      Number.isFinite(longitudeNumber) &&
+      longitudeNumber >= -180 &&
+      longitudeNumber <= 180,
+  )
   const settingsValid = Boolean(
     invitationForm?.partner1Name.trim() &&
       (!invitationForm.partner2Required || invitationForm.partner2Name.trim()) &&
-      (invitationForm.venueName.trim() || invitationForm.address.trim() || invitationForm.city.trim()),
+      (invitationForm.venueName.trim() || invitationForm.address.trim() || invitationForm.city.trim()) &&
+      coordinatesValid,
   )
   // The details card is a form only while unconfirmed or explicitly editing;
   // once saved it collapses into a confirmed summary.
@@ -1037,6 +1052,8 @@ export default function SendInvitesView({
           venue_name: invitationForm.venueName,
           address: invitationForm.address || null,
           city: invitationForm.city,
+          venue_latitude: invitationForm.latitude || null,
+          venue_longitude: invitationForm.longitude || null,
         })
         toast.success(strings.toast_settings_saved)
         setEditingSettings(false)
@@ -1816,9 +1833,35 @@ export default function SendInvitesView({
                     <span>Full address</span>
                     <input value={invitationForm.address} onChange={(e) => setInvitationForm({ ...invitationForm, address: e.target.value })} maxLength={240} />
                   </label>
+                  <label className="vfield">
+                    <span>Latitude (optional)</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      min={-90}
+                      max={90}
+                      value={invitationForm.latitude}
+                      onChange={(e) => setInvitationForm({ ...invitationForm, latitude: e.target.value })}
+                      placeholder="e.g. -6.713456"
+                    />
+                  </label>
+                  <label className="vfield">
+                    <span>Longitude (optional)</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      min={-180}
+                      max={180}
+                      value={invitationForm.longitude}
+                      onChange={(e) => setInvitationForm({ ...invitationForm, longitude: e.target.value })}
+                      placeholder="e.g. 39.212345"
+                    />
+                  </label>
                 </div>
                 <div className="vsave">
-                  <p className="mutedp">Partner names and the View Location reply come from this selected event.</p>
+                  <p className="mutedp">The venue/address stays visible to guests. Add both coordinates only when you want the Maps button to use an exact pin.</p>
                   <div className="vbtns">
                     {data.sendSettings.confirmed ? (
                       <button
@@ -2545,6 +2588,9 @@ export default function SendInvitesView({
                     <b>View Location reply</b>
                     <span>📍 {event.eventName ?? hostName}</span>
                     <span>{invitationFields?.locationLabel || 'Location required before sending'}</span>
+                    {invitationFields?.latitude && invitationFields.longitude ? (
+                      <span>Exact pin: {invitationFields.latitude}, {invitationFields.longitude}</span>
+                    ) : null}
                     {invitationFields?.mapsUrl ? <a href={invitationFields.mapsUrl} target="_blank" rel="noreferrer">{invitationFields.mapsUrl}</a> : null}
                   </div>
                 </div>

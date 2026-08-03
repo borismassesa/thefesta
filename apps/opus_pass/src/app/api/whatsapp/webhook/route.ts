@@ -11,6 +11,8 @@ type EventVenue = {
   venue_name: string | null
   address: string | null
   city: string | null
+  venue_latitude: number | null
+  venue_longitude: number | null
   starts_at: string | null
 }
 
@@ -86,7 +88,7 @@ export async function POST(req: Request) {
     if (tap.token === 'test' && tap.eventId) {
       const { data: testEvent } = await supabase
         .from('wedding_events')
-        .select('id, user_id, name, venue_name, address, city, starts_at')
+        .select('id, user_id, name, venue_name, address, city, venue_latitude, venue_longitude, starts_at')
         .eq('id', tap.eventId)
         .maybeSingle<EventVenue & { id: string; user_id: string }>()
       if (testEvent) {
@@ -238,7 +240,7 @@ export async function POST(req: Request) {
       // couple's soonest public event only when it can't be determined.
       const eventQuery = supabase
         .from('wedding_events')
-        .select('name, venue_name, address, city, starts_at')
+        .select('name, venue_name, address, city, venue_latitude, venue_longitude, starts_at')
         .eq('user_id', guest.user_id)
       const { data: ev } = resolvedEventId
         ? await eventQuery.eq('id', resolvedEventId).maybeSingle<EventVenue>()
