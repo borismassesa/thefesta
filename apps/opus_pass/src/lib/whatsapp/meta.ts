@@ -129,7 +129,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
           {
             type: 'body',
             parameters: [
-              { type: 'text', text: send.guestFirstName }, // {{1}}
+              { type: 'text', text: send.guestName }, // {{1}}
               { type: 'text', text: send.coupleName }, // {{2}}
               { type: 'text', text: send.eventCategory }, // {{3}}
             ],

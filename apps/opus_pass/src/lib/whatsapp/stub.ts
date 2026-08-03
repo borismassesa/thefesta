@@ -26,7 +26,7 @@ export class StubWhatsAppProvider implements WhatsAppProvider {
   async sendInvite(send: InviteSend): Promise<SendResult> {
     console.warn('[whatsapp:stub] would send invite', {
       to: send.to,
-      guest: send.guestFirstName,
+      guest: send.guestName,
       category: send.eventCategory,
       header: send.headerImageUrl,
       token: send.token,
