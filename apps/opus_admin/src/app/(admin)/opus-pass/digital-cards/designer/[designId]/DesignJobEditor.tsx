@@ -281,8 +281,14 @@ export default function DesignJobEditor({
   /**
    * Republishing is not free: it supersedes the release the couple is holding
    * and, for a delivered card, walks their order tracker back a stage. The
-   * draft starts out equal to what is stored, so without this the ordinary
-   * "save my place" click would cut a whole new release for no change at all.
+   * draft starts out equal to what is stored, so the ordinary "save my place"
+   * click would otherwise cut a whole new release for no change at all.
+   *
+   * This asks for confirmation rather than disabling the button, because a
+   * no-change republish is sometimes exactly what is wanted: to pick up
+   * re-exported artwork, or to retry after a publish that failed AFTER the
+   * values were committed, which leaves the draft matching the row with the
+   * release still stale. Disabling would strand both.
    */
   const hasEdits = useMemo(() => {
     const roles = new Set([...Object.keys(values), ...Object.keys(draft)])
@@ -813,25 +819,30 @@ export default function DesignJobEditor({
               </button>
               <button
                 type="button"
-                disabled={pending || (canPublishReleasedUpdate && !hasEdits)}
-                title={
-                  canPublishReleasedUpdate && !hasEdits
-                    ? 'Change a value first. Republishing an unchanged card would supersede the copy the couple already has for nothing.'
-                    : undefined
-                }
-                onClick={() =>
-                  canPublishReleasedUpdate
-                    ? run(
-                        () => saveAndPublishReleasedDesign(designId, draft),
-                        'Published. OpusPass now uses this updated card.',
-                      )
-                    : run(
-                        () => saveDesignFieldValues(designId, draft),
-                        isReleased
-                          ? 'Saved internally. A publisher still needs to publish this card update.'
-                          : 'Saved.',
-                      )
-                }
+                disabled={pending}
+                onClick={() => {
+                  if (!canPublishReleasedUpdate) {
+                    run(
+                      () => saveDesignFieldValues(designId, draft),
+                      isReleased
+                        ? 'Saved internally. A publisher still needs to publish this card update.'
+                        : 'Saved.',
+                    )
+                    return
+                  }
+                  if (
+                    !hasEdits &&
+                    !confirm(
+                      'No values have changed. Publishing anyway cuts a new release from the current artwork and supersedes the copy the couple already has. Continue?',
+                    )
+                  ) {
+                    return
+                  }
+                  run(
+                    () => saveAndPublishReleasedDesign(designId, draft),
+                    'Published. OpusPass now uses this updated card.',
+                  )
+                }}
                 className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#7E5896] px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#6b4a80] disabled:opacity-50"
               >
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

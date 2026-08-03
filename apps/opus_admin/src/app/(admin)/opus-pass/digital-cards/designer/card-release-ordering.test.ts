@@ -46,9 +46,17 @@ describe('a published update freezes the corrected values', () => {
     // Skipping the write when merged deep-equals the stored values looks like a
     // harmless optimisation and is not: freezeCardRelease reads the row, so the
     // release still has to be cut from a row this action has committed.
+    //
+    // Anchored on indentation rather than by scanning for an enclosing `if`.
+    // The statement destructures, so any brace-counting regex trips over the
+    // pattern's own `}` and silently matches nothing. Two spaces means top
+    // level of the function; nesting it in any block indents it further.
     const body = saveAndPublishBody()
-    const guarded = /if\s*\([^)]*\)\s*\{[^}]*field_values: merged/s.test(body)
-    assert.equal(guarded, false, 'the field_values write has become conditional')
+    assert.match(
+      body,
+      /\n {2}const \{ data: savedDesign, error: updateError \} = await supabase/,
+      'the field_values write is no longer an unconditional top-level statement',
+    )
   })
 
   it('freezeCardRelease still re-reads the values it freezes', () => {
