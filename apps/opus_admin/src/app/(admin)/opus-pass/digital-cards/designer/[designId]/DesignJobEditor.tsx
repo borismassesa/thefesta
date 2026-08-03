@@ -13,6 +13,7 @@ import {
   markDelivered,
   requestChanges,
   requestDesignInfo,
+  saveAndPublishReleasedDesign,
   saveDesignFieldValues,
   submitForReview,
 } from '../actions'
@@ -258,6 +259,8 @@ export default function DesignJobEditor({
    * and the server refuses anything else regardless of what the UI shows.
    */
   const canApproveThis = canPublish && !isAssignee
+  const isReleased = status === 'ready' || status === 'delivered'
+  const canPublishReleasedUpdate = isReleased && canApproveThis
   const statusLabel =
     DESIGN_STATUS_LABELS[status as keyof typeof DESIGN_STATUS_LABELS] ?? status.replace(/_/g, ' ')
 
@@ -774,11 +777,23 @@ export default function DesignJobEditor({
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => run(() => saveDesignFieldValues(designId, draft), 'Saved.')}
+                onClick={() =>
+                  canPublishReleasedUpdate
+                    ? run(
+                        () => saveAndPublishReleasedDesign(designId, draft),
+                        'Published. OpusPass now uses this updated card.',
+                      )
+                    : run(
+                        () => saveDesignFieldValues(designId, draft),
+                        isReleased
+                          ? 'Saved internally. A publisher still needs to publish this card update.'
+                          : 'Saved.',
+                      )
+                }
                 className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#7E5896] px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#6b4a80] disabled:opacity-50"
               >
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Save values
+                {canPublishReleasedUpdate ? 'Save & publish update' : 'Save values'}
               </button>
             </div>
           </div>

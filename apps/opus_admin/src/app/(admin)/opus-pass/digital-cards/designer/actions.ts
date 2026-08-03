@@ -11,13 +11,10 @@ import {
   type AdminAccessRole,
 } from '@/lib/admin-auth'
 import { releaseApprovedDesign } from '@/lib/cms/release-card'
+import { mergeCardDesignerValues } from '@/lib/cms/card-designer-values'
 import { sendCardReviewRequest } from '@/lib/card-review-email'
 import { readOrderLine, type OrderLineItem } from '@/lib/cms/order-add-ons'
-import {
-  CARD_FIELD_ROLE_KEYS,
-  requestableFields,
-  type CardFieldBinding,
-} from '@opusfesta/lib'
+import { requestableFields, type CardFieldBinding } from '@opusfesta/lib'
 
 const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
 
@@ -498,17 +495,9 @@ export async function saveDesignFieldValues(
   if (error) return { ok: false, error: error.message }
   if (!design) return { ok: false, error: 'Design job not found.' }
 
-  const merged = { ...(design.field_values ?? {}) }
-  for (const [role, value] of Object.entries(values)) {
-    if (!CARD_FIELD_ROLE_KEYS.includes(role)) {
-      return { ok: false, error: `"${role}" is not a known card field.` }
-    }
-    const trimmed = String(value ?? '').trim()
-    // An emptied field is a removal, not a stored empty string — otherwise
-    // "answered" counts would include blanks.
-    if (trimmed) merged[role] = trimmed
-    else delete merged[role]
-  }
+  const mergedResult = mergeCardDesignerValues(design.field_values, values)
+  if (!mergedResult.ok) return mergedResult
+  const merged = mergedResult.values
 
   // Anything now answered is no longer outstanding.
   const stillOutstanding = (design.requested_fields ?? []).filter((role) => !merged[role])
@@ -528,4 +517,88 @@ export async function saveDesignFieldValues(
   revalidatePath('/opus-pass/digital-cards/designer')
   revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
   return { ok: true }
+}
+
+/**
+ * Save corrections to an already-released card and publish them as a new,
+ * immutable release.
+ *
+ * The existing release is never overwritten: invitations already sent keep
+ * resolving to the version they received, while OpusPass previews and future
+ * guest assets follow the design's new current_release_id.
+ */
+export async function saveAndPublishReleasedDesign(
+  designId: string,
+  values: Record<string, string>,
+): Promise<Result> {
+  await requirePermission('cms.publish')
+  const supabase = createSupabaseAdminClient()
+  const author = (await getCallerEmail()) ?? 'unknown'
+  const now = new Date().toISOString()
+
+  const { data: design, error } = await supabase
+    .from('invitation_card_designs')
+    .select('id, order_id, status, assigned_to, product_name, field_values, requested_fields')
+    .eq('id', designId)
+    .maybeSingle<
+      DesignRow & {
+        field_values: Record<string, string> | null
+        requested_fields: string[] | null
+      }
+    >()
+  if (error) return { ok: false, error: error.message }
+  if (!design) return { ok: false, error: 'Design job not found.' }
+  if (design.status !== 'ready' && design.status !== 'delivered') {
+    return { ok: false, error: 'Only an already-released card can be published as an update.' }
+  }
+  if (await isSelfReview(supabase, design.assigned_to, author)) {
+    return {
+      ok: false,
+      error: 'You are assigned to this card, so another publisher must release the update.',
+    }
+  }
+
+  const mergedResult = mergeCardDesignerValues(design.field_values, values)
+  if (!mergedResult.ok) return mergedResult
+  const merged = mergedResult.values
+  const stillOutstanding = (design.requested_fields ?? []).filter((role) => !merged[role])
+
+  const { data: savedDesign, error: updateError } = await supabase
+    .from('invitation_card_designs')
+    .update({
+      field_values: merged,
+      requested_fields: stillOutstanding,
+      ...(stillOutstanding.length === 0 && (design.requested_fields ?? []).length > 0
+        ? { info_received_at: now }
+        : {}),
+    })
+    .eq('id', designId)
+    .eq('status', design.status)
+    .select('id')
+    .maybeSingle<{ id: string }>()
+  if (updateError) return { ok: false, error: updateError.message }
+  if (!savedDesign) {
+    return { ok: false, error: 'The card stage changed while you were editing. Refresh and try again.' }
+  }
+
+  const released = await releaseApprovedDesign(supabase, design, author, now)
+  if (!released.ok) {
+    return {
+      ok: false,
+      error: `Your values were saved, but the updated card was not published: ${released.error}`,
+    }
+  }
+
+  await recordDesignEvent(supabase, {
+    designId,
+    author,
+    body: 'Published updated card release',
+    fromStatus: design.status,
+    toStatus: 'ready',
+  })
+  await syncOrderStage(supabase, design.order_id, now)
+
+  revalidatePath('/opus-pass/digital-cards/designer')
+  revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
+  return released
 }
