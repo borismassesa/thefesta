@@ -42,7 +42,7 @@ jobs:
         name: Work out which apps the change can affect
         env:
           # Read through env, never interpolated into the script body: these
-          # are the only two event-controlled values this step touches.
+          # three are the only event-controlled values this step touches.
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.sha }}
           EVENT_NAME: ${{ github.event_name }}
@@ -60,7 +60,8 @@ jobs:
             exit 0
           fi
 
-          git fetch --no-tags --depth=1 origin "$BASE_SHA" 2>/dev/null || true
+          # fetch-depth: 0 above already brought down full history, so both
+          # SHAs are present and no extra fetch is needed here.
           CHANGED="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
           echo "Changed files:"
           echo "$CHANGED" | sed 's/^/  /'
@@ -73,17 +74,21 @@ jobs:
             exit 0
           fi
 
-          # grep exits 1 on no match, which pipefail would turn into a failed
-          # detect job, so every filter here is written to tolerate an empty
-          # result and fall through to an empty matrix.
+          # `sed -n ...p` is used rather than grep on purpose: grep exits 1 on
+          # no match, which pipefail would turn into a failed detect job,
+          # whereas sed exits 0 and yields an empty list -> empty matrix.
+          # Read line by line: a directory name may legally contain spaces,
+          # and an unquoted `for app in $TOUCHED` would split one such name
+          # into two words and match an unrelated app against ALL_APPS.
           TOUCHED="$(echo "$CHANGED" | sed -n 's#^apps/\([^/]*\)/.*#\1#p' | sort -u)"
           APPS='[]'
-          for app in $TOUCHED; do
+          while IFS= read -r app; do
+            [ -n "$app" ] || continue
             case "$ALL_APPS" in
               *"\"$app\""*) APPS="$(echo "$APPS" | jq -c --arg a "$app" '. + [$a]')" ;;
               *) echo "Ignoring apps/$app (not a buildable workspace)." ;;
             esac
-          done
+          done <<< "$TOUCHED"
           echo "Building: $APPS"
           echo "apps=$APPS" >> "$GITHUB_OUTPUT"
 
@@ -99,10 +104,12 @@ jobs:
         app: ${{ fromJSON(needs.detect.outputs.apps) }}
 
     env:
-      # Placeholders only. Every one of these is read at build time by some
-      # app's module graph; none of them is contacted during `next build`, so
-      # dummy values are enough to compile and prerender. Do NOT put real
-      # secrets here - pull_request builds must stay safe on forks.
+      # Placeholders only. The service/URL values below are read at build time
+      # by some app's module graph, but none of them is contacted during
+      # `next build`, so dummy values are enough to compile and prerender.
+      # (NEXT_TELEMETRY_DISABLED and NODE_OPTIONS are build-tooling flags, not
+      # app config.) Do NOT put real secrets here - pull_request builds must
+      # stay safe on forks.
       NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
       NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_placeholder
@@ -122,7 +129,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Matches the Node version the Vercel projects build with.
+          # Matches the Node version the four Vercel projects build with,
+          # which is a dashboard setting (all four report 24.x) and so is not
+          # checkable from this repo - root engines.node only says ">=18".
           node-version: 24
           cache: npm
 
@@ -139,9 +148,10 @@ jobs:
         run: npm run build --workspace=apps/${{ matrix.app }}
 
       - name: Lint (informational)
-        # Not a gate yet: several apps carry pre-existing eslint errors on
-        # main (58 in opus_pass alone), so failing here would only teach
-        # people to ignore a red check. Promote to a gate once those are down.
+        # Not a gate yet: several apps carry a substantial number of
+        # pre-existing eslint errors on main, so failing here would only teach
+        # people to ignore a red check. No count is quoted on purpose - it
+        # would rot. Promote this to a gate once the backlog is cleared.
         continue-on-error: true
         run: npm run lint --if-present --workspace=apps/${{ matrix.app }}
 
