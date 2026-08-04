@@ -35,11 +35,20 @@ const SAVE_URL_PREFIX = 'https://pay.google.com/gp/v/save/'
  * value's luminance, and a light card gives dark text, which is what a steward
  * is squinting at in poor light at a gate.
  *
- * The other approved options, should this change: #E1E8F0 powder blue,
- * #F4E3EC blush, #F5E7BF champagne. Champagne needs a darker mark than the
- * current one to stay legible.
+ * Oyster. Chosen over ivory and cream because both sit close enough to white
+ * to read as unfinished on a bright screen, while oyster has enough body to
+ * look deliberate.
+ *
+ * Alternatives already considered: #F9F5EC ivory, #F2EADA cream, #F2C230 gold,
+ * #2A1240 midnight plum. Any dark card needs a pale mark instead of the
+ * current purple one.
+ *
+ * This will become a per-event value: the pass should match each wedding's
+ * palette rather than OpusPass's, so a garden ceremony and a black-tie
+ * reception do not get the same card. Reading it from the event is a later
+ * PR; the constant is the default.
  */
-const PASS_BACKGROUND = '#ecddf7'
+const PASS_BACKGROUND = '#e4ded0'
 
 /**
  * The OpusPass mark, transparent PNG, so it sits directly on the card colour
