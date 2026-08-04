@@ -1,6 +1,7 @@
 /**
  * Browser-only helpers that turn an uploaded guest spreadsheet into the
- * line-based `Name, email, phone` format that `bulkImportGuests` expects.
+ * line-based `Name, email, phone, ticket type` format that
+ * `bulkImportGuests` expects.
  *
  * Supports two formats:
  *  - `.csv` (and pasted text), parsed in-place.
@@ -16,13 +17,40 @@
 /** Friendly error surfaced to the user when a file can't be read. */
 export class SpreadsheetError extends Error {}
 
+export interface SpreadsheetImportResult {
+  lines: string
+  guestCount: number
+  importedSheets: string[]
+  skippedSheets: string[]
+}
+
+type ParsedSheet = { name: string; rows: string[][] }
+
+function importResult(
+  sheets: { name: string; lines: string }[],
+): SpreadsheetImportResult {
+  const imported = sheets.filter((sheet) => sheet.lines.length > 0)
+  const lines = imported.map((sheet) => sheet.lines).join('\n')
+  return {
+    lines,
+    guestCount: lines ? lines.split('\n').filter(Boolean).length : 0,
+    importedSheets: imported.map((sheet) => sheet.name),
+    skippedSheets: sheets.filter((sheet) => sheet.lines.length === 0).map((sheet) => sheet.name),
+  }
+}
+
 /**
  * Read an uploaded file (`.csv` or `.xlsx`) and return the rows in the
- * `Name, email, phone` per-line format. Dispatches on the file's extension /
+ * `Name, email, phone, ticket type` per-line format. Dispatches on the file's extension /
  * MIME type. Throws {@link SpreadsheetError} with a user-facing message on
  * unsupported or unreadable files.
  */
 export async function fileToImportLines(file: File): Promise<string> {
+  return (await fileToImportResult(file)).lines
+}
+
+/** Read a file and report exactly which worksheets contributed guest rows. */
+export async function fileToImportResult(file: File): Promise<SpreadsheetImportResult> {
   const name = file.name.toLowerCase()
   const isXlsx =
     name.endsWith('.xlsx') ||
@@ -43,38 +71,29 @@ export async function fileToImportLines(file: File): Promise<string> {
     // guest names. Only merge sheets that declare themselves via a real
     // header row once there's more than one to choose from.
     const requireHeader = sheets.length > 1
-    return sheets
-      .map((rows) => rowsToImportLines(rows, requireHeader))
-      .filter((lines) => lines.length > 0)
-      .join('\n')
+    return importResult(
+      sheets.map((sheet) => ({
+        name: sheet.name,
+        lines: rowsToImportLines(sheet.rows, requireHeader),
+      })),
+    )
   }
 
   const text = (await file.text()).replace(/\r\n?/g, '\n').trim()
-  return rowsToImportLines(parseCsv(text))
+  return importResult([{ name: file.name, lines: rowsToImportLines(parseCsv(text)) }])
 }
 
-/** Column labels that identify a header row on their own. */
-const NAME_HEADERS = [/(^|\b)name\b/, /full ?name/, /(^|\b)jina\b/]
-const EMAIL_HEADERS = [/email/, /barua ?pepe/]
-const PHONE_HEADERS = [/phone|mobile|whatsapp/, /(^|\b)(simu|namba)\b/]
-/**
- * Swahili column labels, matched whole rather than as substrings. Jina, namba
- * and simu are everyday words that also turn up mid-sentence in note columns,
- * so a loose match would read a review or summary tab's prose as a header.
- */
-const LOCALIZED_HEADERS = new Set([
-  'jina',
-  'jina kamili',
-  'majina',
-  'namba',
-  'namba ya simu',
-  'simu',
-  'namba ya whatsapp',
-  'whatsapp',
-  'ana whatsapp',
-  'barua pepe',
-  'anwani ya barua pepe',
-])
+type HeaderRole = 'name' | 'email' | 'phone' | 'ticket'
+
+/** Accepted labels are deliberately exact after normalization. Prose such as
+ * "Duplicate Name" and "With a phone number" belongs to review/summary
+ * sheets and must never promote those sheets into guest lists. */
+const HEADER_LABELS: Record<HeaderRole, ReadonlySet<string>> = {
+  name: new Set(['name', 'full name', 'guest name', 'guest full name', 'jina', 'jina kamili', 'majina']),
+  email: new Set(['email', 'email address', 'barua pepe', 'anwani ya barua pepe']),
+  phone: new Set(['phone', 'phone number', 'mobile', 'mobile number', 'whatsapp', 'whatsapp number', 'simu', 'namba', 'namba ya simu', 'namba ya whatsapp']),
+  ticket: new Set(['ticket', 'ticket type', 'invitation type', 'aina ya tiketi']),
+}
 
 /** Footer labels that close a guest list rather than name a guest. */
 const TOTALS_LABEL = /^(jumla|total|totals|grand total|sum)\b/
@@ -89,31 +108,29 @@ function normalizeLabel(cell: string): string {
     .trim()
 }
 
+function headerRole(cell: string): HeaderRole | null {
+  const label = normalizeLabel(cell)
+  for (const role of Object.keys(HEADER_LABELS) as HeaderRole[]) {
+    if (HEADER_LABELS[role].has(label)) return role
+  }
+  return null
+}
+
 /**
- * A row is a header if any cell mentions name/email/phone in English, or if at
- * least two cells are Swahili column labels (Jina, Namba ya Simu, WhatsApp…).
- * Two are required because a single Swahili label is weak evidence: a review
- * tab's "Jina / Kipengele" column would otherwise pass as a guest list.
+ * A guest header must contain a recognized Name/Jina column. Phone, email and
+ * ticket type are optional, but cannot identify a guest sheet on their own.
  */
 function isHeaderRow(cells: string[]): boolean {
-  const lc = cells.map((c) => c.toLowerCase())
-  if (
-    lc.some((c) => /(^|\b)(name|full ?name)\b/.test(c)) ||
-    lc.some((c) => c.includes('email')) ||
-    lc.some((c) => c.includes('phone'))
-  ) {
-    return true
-  }
-  return cells.filter((c) => LOCALIZED_HEADERS.has(normalizeLabel(c))).length >= 2
+  return cells.some((cell) => headerRole(cell) === 'name')
 }
 
 /**
  * Convert a table of cells into the line-based format `bulkImportGuests`
  * expects. Locates the header row — which may sit below title/description
  * preamble rows that real-world workbooks often carry — and maps the Name,
- * Email and Phone columns by their header text, ignoring any other columns
+ * Email, Phone and Ticket Type columns by their header text, ignoring other columns
  * (Guest ID, Title, RSVP Status, …). Without a header it falls back to the
- * documented paste order: `Name, email, phone`.
+ * documented paste order: `Name, email, phone, ticket type`.
  */
 export function rowsToImportLines(rows: string[][], requireHeader = false): string {
   if (rows.length === 0) return ''
@@ -137,17 +154,18 @@ export function rowsToImportLines(rows: string[][], requireHeader = false): stri
   let nameIdx = 0
   let emailIdx = 1
   let phoneIdx = 2
+  let ticketIdx = -1
   let dataRows = rows
   if (headerIdx >= 0) {
-    const header = rows[headerIdx].map((c) => c.toLowerCase())
-    const colIndex = (matchers: RegExp[]) =>
-      header.findIndex((c) => matchers.some((re) => re.test(c)))
-    const n = colIndex(NAME_HEADERS)
+    const header = rows[headerIdx]
+    const colIndex = (role: HeaderRole) => header.findIndex((cell) => headerRole(cell) === role)
+    const n = colIndex('name')
     // Only use columns we actually matched; -1 leaves the field blank rather
     // than grabbing an unrelated column (e.g. "Title" when there's no phone).
     nameIdx = n >= 0 ? n : 0
-    emailIdx = colIndex(EMAIL_HEADERS)
-    phoneIdx = colIndex(PHONE_HEADERS)
+    emailIdx = colIndex('email')
+    phoneIdx = colIndex('phone')
+    ticketIdx = colIndex('ticket')
     dataRows = rows.slice(headerIdx + 1)
   }
 
@@ -156,15 +174,16 @@ export function rowsToImportLines(rows: string[][], requireHeader = false): stri
       const name = (cols[nameIdx] ?? '').trim()
       const email = (cols[emailIdx] ?? '').trim()
       const phone = (cols[phoneIdx] ?? '').trim()
+      const ticket = (cols[ticketIdx] ?? '').trim()
       if (!name) return null
       // Guest lists usually close with a totals row ("JUMLA", "Total") whose
       // only other cell is a count — it would import as a guest named JUMLA.
       if (!email && !phone && TOTALS_LABEL.test(normalizeLabel(name))) return null
       // Keep positions intact — `bulkImportGuests` splits on comma into
-      // [name, email, phone], so an empty email must stay an empty slot rather
+      // [name, email, phone, ticket type], so an empty email must stay an empty slot rather
       // than collapsing the phone into the email field. Only trailing empty
       // fields are trimmed off.
-      const fields = [name, email, phone]
+      const fields = [name, email, phone, ticket]
       while (fields.length > 1 && fields[fields.length - 1] === '') fields.pop()
       return fields.join(', ')
     })
@@ -218,7 +237,7 @@ export function parseCsv(text: string): string[][] {
  * inflates entries with the browser's `DecompressionStream`, then reads the
  * shared-string table and each worksheet referenced by the workbook.
  */
-async function parseXlsx(file: File): Promise<string[][][]> {
+async function parseXlsx(file: File): Promise<ParsedSheet[]> {
   if (typeof DecompressionStream === 'undefined') {
     throw new SpreadsheetError(
       'Your browser can’t read .xlsx files — please use a CSV, or paste the names instead.'
@@ -242,13 +261,13 @@ async function parseXlsx(file: File): Promise<string[][][]> {
 
   // Resolve every worksheet via the workbook → rels chain, falling back to
   // the conventional `xl/worksheets/sheet1.xml` path.
-  const sheetPaths = await allSheetPaths(xml)
+  const sheetRefs = await allSheetRefs(xml)
   const sharedStrings = await readSharedStrings(await xml('xl/sharedStrings.xml'))
 
-  const sheets: string[][][] = []
-  for (const sheetPath of sheetPaths) {
-    const sheetDoc = await xml(sheetPath)
-    if (sheetDoc) sheets.push(worksheetToRows(sheetDoc, sharedStrings))
+  const sheets: ParsedSheet[] = []
+  for (const sheetRef of sheetRefs) {
+    const sheetDoc = await xml(sheetRef.path)
+    if (sheetDoc) sheets.push({ name: sheetRef.name, rows: worksheetToRows(sheetDoc, sharedStrings) })
   }
   if (sheets.length === 0) {
     throw new SpreadsheetError('Couldn’t find a worksheet in that .xlsx file.')
@@ -257,9 +276,9 @@ async function parseXlsx(file: File): Promise<string[][][]> {
 }
 
 /** Find the paths of every worksheet in the workbook, in workbook order. */
-async function allSheetPaths(
+async function allSheetRefs(
   xml: (path: string) => Promise<Document | null>
-): Promise<string[]> {
+): Promise<{ name: string; path: string }[]> {
   const relationshipsNs = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
   const workbook = await xml('xl/workbook.xml')
   const rels = await xml('xl/_rels/workbook.xml.rels')
@@ -270,20 +289,23 @@ async function allSheetPaths(
         r.getAttribute('Target'),
       ])
     )
-    const paths = Array.from(workbook.getElementsByTagName('sheet'))
-      .map((sheet) => {
+    const refs = Array.from(workbook.getElementsByTagName('sheet'))
+      .map((sheet, index) => {
         const rid =
           sheet.getAttribute('r:id') ??
           sheet.getAttributeNS(relationshipsNs, 'id') ??
           sheet.getAttribute('id')
         const target = rid ? relByRid.get(rid) : null
         if (!target) return null
-        return resolveWorkbookTarget(target)
+        return {
+          name: sheet.getAttribute('name')?.trim() || `Sheet ${index + 1}`,
+          path: resolveWorkbookTarget(target),
+        }
       })
-      .filter((p): p is string => p !== null)
-    if (paths.length > 0) return paths
+      .filter((ref): ref is { name: string; path: string } => ref !== null)
+    if (refs.length > 0) return refs
   }
-  return ['xl/worksheets/sheet1.xml']
+  return [{ name: 'Sheet 1', path: 'xl/worksheets/sheet1.xml' }]
 }
 
 function resolveWorkbookTarget(target: string): string {

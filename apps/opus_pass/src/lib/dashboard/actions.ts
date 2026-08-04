@@ -45,6 +45,7 @@ import { pledgeRequestEmail } from './pledge-email'
 import { sendGiftClaimReceipts, type ReceiptGift, type ReceiptLang } from './gift-registry-receipt'
 import { GIFT_CATALOG } from './gift-catalog'
 import { MAX_TICKET_PARTY } from './types'
+import { parseGuestImportRows } from './guest-import-rows'
 import type {
   AttendanceAnswer,
   CardStatus,
@@ -616,15 +617,7 @@ export async function bulkImportGuests(text: string, eventIds: string[] = []): P
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
 
-  const rows = text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [full_name, email, phone] = line.split(',').map((p) => p.trim())
-      return { full_name, email: email || null, phone: phone || null }
-    })
-    .filter((r) => r.full_name)
+  const rows = parseGuestImportRows(text)
 
   if (rows.length === 0) return 0
 
