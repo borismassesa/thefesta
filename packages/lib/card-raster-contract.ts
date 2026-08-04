@@ -15,6 +15,7 @@
 // admit whatever format is added to the column next.
 
 import { normaliseFontKey } from './card-svg-fonts'
+import { escapeXmlText } from './card-render'
 import type { PinnableFace } from './card-raster-fonts'
 
 export type RasterErrorCode =
@@ -198,7 +199,13 @@ export function assertGuestSubstituted(
   }
   const trimmed = guestName.trim()
   if (!trimmed) return { ok: false, reason: 'guest name is empty' }
-  if (!svg.includes(trimmed)) {
+  // Search for the ESCAPED name, because that is what the renderer wrote. A
+  // guest called "Mr & Mrs Ngando" reaches the markup as "Mr &amp; Mrs Ngando",
+  // so looking for the raw string reported a correctly rendered card as an
+  // unmapped guest layer. The raw form is still accepted: this function is also
+  // handed markup from callers that did no escaping of their own, and for a name
+  // without &, < or > the two forms are the same string anyway.
+  if (!svg.includes(escapeXmlText(trimmed)) && !svg.includes(trimmed)) {
     return { ok: false, reason: `guest name "${trimmed}" is not present in the rendered card` }
   }
   // The placeholder surviving means a second guest layer was left unwritten.
