@@ -63,6 +63,7 @@ import { useClerk } from "@clerk/nextjs";
 import { cn } from "../lib/utils";
 import Logo from "./ui/Logo";
 import { adminSignOut } from "./sidebar-actions";
+import { useSetSidebarFocus, useSidebarFocus } from "./SidebarFocus";
 import type { CallerProfile } from "@/lib/admin-auth";
 
 type NavItem = {
@@ -445,7 +446,13 @@ export function Sidebar({
     cmsGroupRender.length === 0 &&
     otherRender.length === 0 &&
     !workspaceVisible;
-  const [collapsed, setCollapsed] = useState(false);
+  // Two independent reasons to show the icon rail: the user collapsed it, or
+  // the current page asked for focus mode. Only the first is remembered, so a
+  // focused page never rewrites the user's preference.
+  const [userCollapsed, setUserCollapsed] = useState(false);
+  const focusCollapsed = useSidebarFocus();
+  const setFocus = useSetSidebarFocus();
+  const collapsed = userCollapsed || focusCollapsed;
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [resizing, setResizing] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
@@ -453,15 +460,15 @@ export function Sidebar({
   // Hydrate collapsed + width state from localStorage on mount
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (window.localStorage.getItem(COLLAPSED_KEY) === '1') setCollapsed(true)
+    if (window.localStorage.getItem(COLLAPSED_KEY) === '1') setUserCollapsed(true)
     const savedWidth = Number(window.localStorage.getItem(WIDTH_KEY))
     if (Number.isFinite(savedWidth) && savedWidth > 0) setWidth(clampWidth(savedWidth))
   }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    window.localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0')
-  }, [collapsed])
+    window.localStorage.setItem(COLLAPSED_KEY, userCollapsed ? '1' : '0')
+  }, [userCollapsed])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -490,8 +497,13 @@ export function Sidebar({
     }
   }, [resizing])
 
-  const expand = () => setCollapsed(false)
-  const toggle = () => setCollapsed((c) => !c)
+  // Expanding by hand also leaves focus mode. A page that asked for the rail
+  // does not get to argue with the person who just asked for it back.
+  const expand = () => {
+    setUserCollapsed(false)
+    setFocus(false)
+  }
+  const toggle = () => (collapsed ? expand() : setUserCollapsed(true))
 
   const GroupIcon = CMS_GROUP.icon
   const cmsGroupActive = cmsGroupSections.some((s) => isSectionActive(pathname, s))
@@ -524,7 +536,7 @@ export function Sidebar({
         key={section.id}
         type="button"
         onClick={() => {
-          setCollapsed(false)
+          expand()
           setOpenSection(section.id)
         }}
         aria-label={section.label}
@@ -815,7 +827,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={() => {
-                  setCollapsed(false)
+                  expand()
                   setWorkspaceOpen(true)
                 }}
                 aria-label="Workspace"
@@ -834,7 +846,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={() => {
-                  setCollapsed(false)
+                  expand()
                   setOpenGroup(true)
                 }}
                 aria-label={CMS_GROUP.label}
