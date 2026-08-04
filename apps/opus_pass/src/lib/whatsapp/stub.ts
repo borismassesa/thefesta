@@ -1,4 +1,5 @@
 import 'server-only'
+import { redactPassLinks } from './redact'
 import type {
   EntrancePassSend,
   InviteSend,
@@ -66,7 +67,14 @@ export class StubWhatsAppProvider implements WhatsAppProvider {
   }
 
   async sendText(to: string, body: string): Promise<SendResult> {
-    console.warn('[whatsapp:stub] would send text', { to, body })
+    // The body is redacted, not printed. Session texts now carry the guest's
+    // /p/<token> pass link, which is a capability: anyone holding it can open
+    // that guest's pass and mint a wallet object with their admission
+    // credential. This provider is selected whenever Meta credentials are
+    // absent, which is exactly the staging shape where wallet tokens ARE
+    // configured but WhatsApp is not live yet — so the unredacted version wrote
+    // live capabilities to stdout.
+    console.warn('[whatsapp:stub] would send text', { to, body: redactPassLinks(body) })
     return { ok: true, wamid: this.fakeWamid(), dryRun: true }
   }
 }
