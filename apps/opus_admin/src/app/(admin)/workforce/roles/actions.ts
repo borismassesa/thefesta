@@ -1,11 +1,24 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import {
-  requireAdminRole,
+  getAdminAccessRole,
+  getCallerEmployeeId,
+  getCallerPermissions,
   requirePermission,
 } from '@/lib/admin-auth'
+import { recordAuditEvent } from '@/lib/audit-log'
+import {
+  canAssignRole,
+  canDeleteRole,
+  canGrantPermissionKeys,
+  canWriteRoleDefinition,
+  type AuthzCaller,
+  type Decision,
+  type RoleSummary,
+} from '@/lib/roles-authz'
 import { revokeInvitation as revokeWorkforceInvitation } from '@/lib/workforce-invitations'
 import {
   grantDashboardAccess as grantDashboardAccessAction,
@@ -13,6 +26,87 @@ import {
 import { PERMISSIONS } from '../_lib/types'
 
 const PERMISSION_KEYS = new Set(PERMISSIONS.map((p) => p.key))
+
+// ---------------------------------------------------------------------------
+// Authorisation plumbing
+// ---------------------------------------------------------------------------
+// Every gate below resolves the caller ONCE and then defers to the pure policy
+// in lib/roles-authz.ts. Nothing here authorises off legacyRoleBucket /
+// requireAdminRole any more: that bucket promotes every seeded role to 'admin'
+// (content-editor via cms.write, finance and people-ops via workforce.payroll,
+// vendor-success via vendor.moderate), so it authorised nothing useful while
+// appearing to. Server actions are POST endpoints, so the /workforce layout's
+// workforce.read redirect never protected them.
+
+async function resolveCaller(): Promise<AuthzCaller> {
+  // employeeId comes from getCallerEmployeeId, which resolves by
+  // clerk_user_id. An earlier revision re-queried workforce_employees by email
+  // here, which was wrong twice over: email is mutable and nothing syncs
+  // Clerk's address back into the row, and the column is only
+  // case-sensitively UNIQUE, so two case-variant rows both match an ILIKE and
+  // make maybeSingle error. Either way the id came back null and the
+  // self-assignment guard in canAssignRole silently stopped applying.
+  const [role, permissions, employeeId] = await Promise.all([
+    getAdminAccessRole(),
+    getCallerPermissions(),
+    getCallerEmployeeId(),
+  ])
+  return { isOwner: role === 'owner', permissions, employeeId }
+}
+
+/**
+ * Enforce a policy decision. On denial: audit it, then throw a message that
+ * says what is missing without leaking role internals or the caller's own
+ * permission set.
+ */
+async function enforce(
+  decision: Decision,
+  context: { action: string; roleId?: string; roleSlug?: string },
+): Promise<void> {
+  if (decision.allowed) return
+  void recordAuditEvent({
+    eventType: 'workforce.role_authorization_rejected',
+    severity: 'critical',
+    message: `Denied ${context.action}: ${decision.reason}`,
+    targetResource: context.roleId ? `workforce_roles:${context.roleId}` : undefined,
+    metadata: { action: context.action, roleSlug: context.roleSlug ?? null },
+  })
+  throw new Error(decision.reason)
+}
+
+async function loadRole(id: string): Promise<RoleSummary> {
+  const supabase = createSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from('workforce_roles')
+    .select('id, slug, is_system, permission_keys')
+    .eq('id', id)
+    .single<{ id: string; slug: string; is_system: boolean; permission_keys: string[] }>()
+  if (error) throw new Error(error.message || 'Could not load this role.')
+  return {
+    id: data.id,
+    slug: data.slug,
+    isSystem: data.is_system,
+    permissionKeys: data.permission_keys ?? [],
+  }
+}
+
+async function auditRole(
+  eventType: string,
+  message: string,
+  role: { id: string; slug: string },
+  metadata: Record<string, unknown> = {},
+  severity: 'info' | 'warn' | 'critical' = 'warn',
+): Promise<void> {
+  const { userId } = await auth()
+  void recordAuditEvent({
+    eventType,
+    severity,
+    message,
+    actorClerkId: userId ?? null,
+    targetResource: `workforce_roles:${role.id}`,
+    metadata: { roleSlug: role.slug, ...metadata },
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Workforce roles — custom RBAC catalog over workforce_roles + role_members
@@ -40,13 +134,19 @@ export async function createRole(input: {
   description?: string
   permissionKeys: string[]
 }): Promise<{ id: string }> {
-  await requireAdminRole(['owner', 'admin'])
+  const caller = await resolveCaller()
+  await enforce(canWriteRoleDefinition(caller), { action: 'createRole' })
 
   const name = input.name.trim()
   if (name.length < 2) throw new Error('Role name is required.')
   const slug = sanitizeSlug(name)
   if (!slug) throw new Error('Role name must contain letters or digits.')
   const perms = validatePermissionKeys(input.permissionKeys)
+  // Containment: a non-owner cannot mint a role granting more than they hold.
+  await enforce(canGrantPermissionKeys(caller, perms), {
+    action: 'createRole',
+    roleSlug: slug,
+  })
 
   const supabase = createSupabaseAdminClient()
   const { data, error } = await supabase
@@ -66,31 +166,69 @@ export async function createRole(input: {
     }
     throw new Error(error.message || 'Could not create this role.')
   }
+  await auditRole(
+    'workforce.role_created',
+    `Role "${name}" created`,
+    { id: data.id, slug },
+    { permissionsAfter: perms },
+  )
   revalidatePath('/workforce/roles')
   return { id: data.id }
 }
 
 export async function updateRolePermissions(id: string, permissionKeys: string[]): Promise<void> {
-  await requireAdminRole(['owner', 'admin'])
+  const caller = await resolveCaller()
   const perms = validatePermissionKeys(permissionKeys)
+  // System roles stay locked for everyone, including owners — the pre-existing
+  // "clone to customise" behaviour, now enforced through the policy module.
+  const role = await loadRole(id)
+  await enforce(canWriteRoleDefinition(caller, role), {
+    action: 'updateRolePermissions',
+    roleId: id,
+    roleSlug: role.slug,
+  })
+  // Containment: block escalation-by-editing. Without this, roles.write alone
+  // would let someone compose a role holding platform.admin.
+  await enforce(canGrantPermissionKeys(caller, perms), {
+    action: 'updateRolePermissions',
+    roleId: id,
+    roleSlug: role.slug,
+  })
+
+  const before = new Set(role.permissionKeys)
+  const after = new Set(perms)
+  const added = perms.filter((k) => !before.has(k))
+  const removed = role.permissionKeys.filter((k) => !after.has(k))
 
   const supabase = createSupabaseAdminClient()
-  // System roles are locked — protect against accidental edits via the UI.
-  const { data: existing, error: fetchError } = await supabase
-    .from('workforce_roles')
-    .select('is_system, slug')
-    .eq('id', id)
-    .single<{ is_system: boolean; slug: string }>()
-  if (fetchError) throw new Error(fetchError.message || 'Could not load this role.')
-  if (existing.is_system) {
-    throw new Error('System roles cannot be edited. Clone the role to customise.')
-  }
-
   const { error } = await supabase
     .from('workforce_roles')
     .update({ permission_keys: perms })
     .eq('id', id)
   if (error) throw new Error(error.message || 'Could not save permissions.')
+
+  await auditRole(
+    'workforce.role_updated',
+    `Role "${role.slug}" permissions updated`,
+    role,
+    { permissionsBefore: role.permissionKeys, permissionsAfter: perms },
+  )
+  if (added.length > 0) {
+    await auditRole(
+      'workforce.role_permission_added',
+      `Added ${added.length} permission(s) to "${role.slug}"`,
+      role,
+      { added },
+    )
+  }
+  if (removed.length > 0) {
+    await auditRole(
+      'workforce.role_permission_removed',
+      `Removed ${removed.length} permission(s) from "${role.slug}"`,
+      role,
+      { removed },
+    )
+  }
   revalidatePath('/workforce/roles')
 }
 
@@ -98,7 +236,11 @@ export async function duplicateRole(id: string): Promise<{ id: string }> {
   // Clone an existing role (typically a system role) into a brand-new
   // custom role. Lets admins start from a sensible baseline ("copy Admin,
   // remove Finance write") instead of building from scratch.
-  await requireAdminRole(['owner', 'admin'])
+  const caller = await resolveCaller()
+  // No `role` argument: duplicating a system role is allowed (that is the
+  // point), but the CLONE is what gets created, and it must not carry
+  // permissions the caller does not hold.
+  await enforce(canWriteRoleDefinition(caller), { action: 'duplicateRole', roleId: id })
 
   const supabase = createSupabaseAdminClient()
   const { data: source, error: fetchError } = await supabase
@@ -107,6 +249,10 @@ export async function duplicateRole(id: string): Promise<{ id: string }> {
     .eq('id', id)
     .single<{ name: string; description: string; permission_keys: string[] }>()
   if (fetchError) throw new Error(fetchError.message || 'Could not load the source role.')
+  await enforce(canGrantPermissionKeys(caller, source.permission_keys ?? []), {
+    action: 'duplicateRole',
+    roleId: id,
+  })
 
   // Append " (copy)" — bump to "(copy 2)" / "(copy 3)" if there's a name
   // collision so duplicating twice doesn't fail.
@@ -137,24 +283,44 @@ export async function duplicateRole(id: string): Promise<{ id: string }> {
     .single<{ id: string }>()
   if (error) throw new Error(error.message || 'Could not duplicate this role.')
 
+  await auditRole(
+    'workforce.role_created',
+    `Role "${name}" created by duplicating role ${id}`,
+    { id: data.id, slug },
+    { duplicatedFrom: id, permissionsAfter: source.permission_keys ?? [] },
+  )
   revalidatePath('/workforce/roles')
   return { id: data.id }
 }
 
 export async function deleteRole(id: string): Promise<void> {
-  await requireAdminRole(['owner'])
+  const caller = await resolveCaller()
+  const role = await loadRole(id)
+  // Destructive: needs the write permission AND owner, per the hotfix brief.
+  // canDeleteRole carries the owner requirement; the write gate is layered on
+  // top so the two authorities are both explicit.
+  await enforce(canWriteRoleDefinition(caller), {
+    action: 'deleteRole',
+    roleId: id,
+    roleSlug: role.slug,
+  })
+  await enforce(canDeleteRole(caller, role), {
+    action: 'deleteRole',
+    roleId: id,
+    roleSlug: role.slug,
+  })
+
   const supabase = createSupabaseAdminClient()
-  const { data: existing, error: fetchError } = await supabase
-    .from('workforce_roles')
-    .select('is_system')
-    .eq('id', id)
-    .single<{ is_system: boolean }>()
-  if (fetchError) throw new Error(fetchError.message || 'Could not load this role.')
-  if (existing.is_system) {
-    throw new Error('System roles cannot be deleted.')
-  }
   const { error } = await supabase.from('workforce_roles').delete().eq('id', id)
   if (error) throw new Error(error.message || 'Could not delete this role.')
+
+  await auditRole(
+    'workforce.owner_destructive_role_action',
+    `Role "${role.slug}" deleted`,
+    role,
+    { operation: 'deleteRole', permissionsBefore: role.permissionKeys },
+    'critical',
+  )
   revalidatePath('/workforce/roles')
 }
 
@@ -162,7 +328,17 @@ export async function setRoleMembers(
   roleId: string,
   employeeIds: string[],
 ): Promise<void> {
-  await requireAdminRole(['owner', 'admin'])
+  const caller = await resolveCaller()
+  const role = await loadRole(roleId)
+  // The direct self-elevation vector: this action writes
+  // workforce_employees.dashboard_role_id, so an unguarded call could put the
+  // caller straight into Owner. canAssignRole blocks owner/admin targets,
+  // critical-permission roles, and any set containing the caller themselves.
+  await enforce(canAssignRole(caller, role, employeeIds), {
+    action: 'setRoleMembers',
+    roleId,
+    roleSlug: role.slug,
+  })
 
   const supabase = createSupabaseAdminClient()
   const desired = new Set(employeeIds)
@@ -239,6 +415,23 @@ export async function setRoleMembers(
       .update({ dashboard_role_id: roleId })
       .in('id', toAddAsPrimary)
     if (error) throw new Error(error.message || 'Could not assign this role.')
+  }
+
+  if (toAddAsPrimary.length > 0 || toAddAsSecondary.length > 0) {
+    await auditRole(
+      'workforce.role_member_assigned',
+      `${toAddAsPrimary.length + toAddAsSecondary.length} member(s) assigned to "${role.slug}"`,
+      role,
+      { asPrimary: toAddAsPrimary, asSecondary: toAddAsSecondary },
+    )
+  }
+  if (toRemoveSecondary.length > 0) {
+    await auditRole(
+      'workforce.role_member_removed',
+      `${toRemoveSecondary.length} member(s) removed from "${role.slug}"`,
+      role,
+      { removed: toRemoveSecondary },
+    )
   }
 
   if (toRemovePrimary.length > 0) {

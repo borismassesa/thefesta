@@ -26,28 +26,37 @@ function todayInTz(): string {
 
 export default async function TasksPage() {
   const scope = await getCallerScope()
-  const restrictedDepartment: Department | null =
-    scope && !scope.canAssignAll ? scope.department : null
+  // Team tier is direct reports only. A manager can no longer reach every
+  // colleague who happens to share their department.
+  const reportIds = scope && !scope.canAssignAll ? new Set(scope.reportIds) : null
 
   const [assignments, allEmployees] = await Promise.all([
-    getTaskAssignments({ department: restrictedDepartment }),
+    getTaskAssignments(),
     getEmployees(),
   ])
 
   const employeeOptions = allEmployees
-    .filter((e) => (restrictedDepartment ? e.department === restrictedDepartment : true))
+    .filter((e) => (reportIds ? reportIds.has(e.id) : true))
     .map((e) => ({ id: e.id, name: e.name, department: e.department }))
 
-  const departmentOptions: Department[] = scope?.canAssignAll
-    ? DEPARTMENTS
-    : restrictedDepartment
-      ? [restrictedDepartment]
-      : []
+  // Department targeting is an ORG capability: it assigns to everyone in a
+  // department, which by definition exceeds a manager's direct reports. Team
+  // tier gets no department options at all, rather than a single option that
+  // would over-assign.
+  const departmentOptions: Department[] = scope?.canAssignAll ? DEPARTMENTS : []
+
+  // Presentation only. The list is filtered here so a manager is not shown
+  // assignments they cannot act on, but actions.ts re-checks every target.
+  const visibleAssignments = reportIds
+    ? assignments.filter(
+        (a) => a.targetEmployeeId !== null && reportIds.has(a.targetEmployeeId),
+      )
+    : assignments
 
   const subtitle = scope
     ? scope.canAssignAll
       ? 'Assign one-off or recurring tasks to anyone or any department.'
-      : `Assign tasks within ${restrictedDepartment}.`
+      : `Assign tasks to your ${scope.reportIds.length} direct report${scope.reportIds.length === 1 ? '' : 's'}.`
     : 'You have view-only access to task assignments.'
 
   return (
@@ -55,7 +64,7 @@ export default async function TasksPage() {
       <WorkforceHeading title="Tasks" subtitle={subtitle} />
       <div className="pt-6">
         <TasksClient
-          assignments={assignments}
+          assignments={visibleAssignments}
           employees={employeeOptions}
           departments={departmentOptions}
           canAssign={Boolean(scope)}

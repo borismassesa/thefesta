@@ -45,8 +45,9 @@ import {
   removeSaveDateTemplate,
   sendWhatsAppInvites,
   sendWhatsAppTestInvite,
+  prepareInviteGuestPreview,
   sendEntrancePasses,
-  saveInviteSendSettings,
+  updateInvitationEventDetails,
   updateEventTicketDetails,
   assignOrderToEvent,
   updateGuestPhone,
@@ -68,8 +69,8 @@ import {
   fullNameOf,
   saveDateUrl,
 } from '@/lib/dashboard/share'
-import { INVITE_TEMPLATE, ENTRANCE_PASS_TEMPLATE } from '@/lib/whatsapp/types'
-import { EVENT_TYPE_LABELS, EVENT_TYPE_LABELS_SW } from '@/lib/dashboard/types'
+import { formatInviteGuestName, INVITE_TEMPLATE, ENTRANCE_PASS_TEMPLATE } from '@/lib/whatsapp/types'
+import { EVENT_TYPE_LABELS } from '@/lib/dashboard/types'
 import type { EventType, TicketLanguage } from '@/lib/dashboard/types'
 import type { SendInvitesData, SendGuestRow } from '@/lib/dashboard/queries'
 import type { RsvpsDashboardCopy } from '@/lib/cms/dashboard-copy'
@@ -121,56 +122,9 @@ function waText(text: string) {
   ))
 }
 
-/** The known Swahili event categories, in template-friendly form. */
-const CATEGORY_OPTIONS = [...new Set(Object.values(EVENT_TYPE_LABELS_SW))]
-
 /** Display form of a category: menu shows "Harusi", the message keeps the
  *  grammatically-correct lowercase noun mid-sentence ("kuhudhuria harusi ya"). */
 const capitalize = (v: string) => (v ? v.charAt(0).toUpperCase() + v.slice(1) : v)
-
-/** Event-category picker: preset Swahili nouns plus an "other, type it" mode.
- *  The select can never render blank: an empty value shows a placeholder row
- *  and a saved custom value opens directly in other-mode. */
-function CategoryField({
-  value,
-  onChange,
-  label,
-  otherLabel,
-}: {
-  value: string
-  onChange: (v: string) => void
-  label: string
-  otherLabel: string
-}) {
-  const isPreset = CATEGORY_OPTIONS.includes(value)
-  const [otherPicked, setOtherPicked] = useState(() => Boolean(value) && !isPreset)
-  const otherMode = otherPicked || (Boolean(value) && !isPreset)
-  return (
-    <label className="vfield">
-      <span>{label}</span>
-      <select
-        value={otherMode ? '__other' : value}
-        onChange={(e) => {
-          if (e.target.value === '__other') {
-            setOtherPicked(true)
-          } else {
-            setOtherPicked(false)
-            onChange(e.target.value)
-          }
-        }}
-      >
-        {!value && !otherMode ? <option value="" disabled>{label}</option> : null}
-        {CATEGORY_OPTIONS.map((o) => (
-          <option key={o} value={o}>{capitalize(o)}</option>
-        ))}
-        <option value="__other">{otherLabel}</option>
-      </select>
-      {otherMode ? (
-        <input value={value} onChange={(e) => onChange(e.target.value)} maxLength={40} placeholder={otherLabel} autoFocus />
-      ) : null}
-    </label>
-  )
-}
 
 /** Short wall-clock for an arrival timestamp (e.g. "18:42"). */
 function formatClock(iso: string): string {
@@ -299,16 +253,90 @@ export default function SendInvitesView({
   // Any full-screen overlay open — freeze the page behind it so scrolling
   // over the (fixed-position) dim backdrop doesn't also scroll the page.
   useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete))
-  // The template's {{2}}/{{3}}, editable everywhere they're shown and REQUIRED
-  // before any send. {{1}} (guest name) is per-guest from the roster; the
-  // sample here only drives the preview bubble and the test message.
-  const [hostName, setHostName] = useState(data.sendSettings.hostName)
-  const [eventCat, setEventCat] = useState(data.sendSettings.eventCategory)
-  const [sampleGuest, setSampleGuest] = useState(firstNameOf(guests[0]?.name ?? 'Amina'))
-  const settingsValid = hostName.trim().length > 0 && eventCat.trim().length > 0
+  // The selected event owns partner names, category and location. The preview
+  // chooses a REAL guest so its message and image can never drift apart.
+  const hostName = data.sendSettings.hostName
+  const eventCat = data.sendSettings.eventCategory
+  const [previewGuestChoice, setSelectedPreviewGuestId] = useState(guests[0]?.id ?? '')
+  const selectedPreviewGuest = guests.find((guest) => guest.id === previewGuestChoice) ?? guests[0] ?? null
+  const selectedPreviewGuestId = selectedPreviewGuest?.id ?? ''
+  const sampleGuest = formatInviteGuestName(selectedPreviewGuest?.name, 'Amina')
+  const [previewCardUrl, setPreviewCardUrl] = useState<string | null>(null)
+  const [previewCardError, setPreviewCardError] = useState<string | null>(null)
+  const [previewCardLoading, setPreviewCardLoading] = useState(false)
+  const invitationFields = data.event.invitationFields
+  type InvitationForm = NonNullable<SendInvitesData['event']['invitationFields']>
+  const [invitationFormState, setInvitationFormState] = useState<{
+    eventId: string | null
+    value: InvitationForm | null
+  }>(() => ({ eventId: selectedEventId, value: invitationFields ? { ...invitationFields } : null }))
+  const invitationForm = invitationFormState.eventId === selectedEventId
+    ? invitationFormState.value
+    : invitationFields ? { ...invitationFields } : null
+  const setInvitationForm = (value: InvitationForm | null) =>
+    setInvitationFormState({ eventId: selectedEventId, value })
+  const latitudeValue = invitationForm?.latitude.trim() ?? ''
+  const longitudeValue = invitationForm?.longitude.trim() ?? ''
+  const latitudeNumber = Number(latitudeValue)
+  const longitudeNumber = Number(longitudeValue)
+  const coordinatesValid = (!latitudeValue && !longitudeValue) || Boolean(
+    latitudeValue &&
+      longitudeValue &&
+      Number.isFinite(latitudeNumber) &&
+      latitudeNumber >= -90 &&
+      latitudeNumber <= 90 &&
+      Number.isFinite(longitudeNumber) &&
+      longitudeNumber >= -180 &&
+      longitudeNumber <= 180,
+  )
+  const settingsValid = Boolean(
+    invitationForm?.partner1Name.trim() &&
+      (!invitationForm.partner2Required || invitationForm.partner2Name.trim()) &&
+      (invitationForm.venueName.trim() || invitationForm.address.trim() || invitationForm.city.trim()) &&
+      coordinatesValid,
+  )
   // The details card is a form only while unconfirmed or explicitly editing;
   // once saved it collapses into a confirmed summary.
-  const [editingSettings, setEditingSettings] = useState(!data.sendSettings.confirmed)
+  const [editingSettingsState, setEditingSettingsState] = useState({
+    eventId: selectedEventId,
+    value: !data.sendSettings.confirmed,
+  })
+  const editingSettings = editingSettingsState.eventId === selectedEventId
+    ? editingSettingsState.value
+    : !data.sendSettings.confirmed
+  const setEditingSettings = (value: boolean) =>
+    setEditingSettingsState({ eventId: selectedEventId, value })
+
+  useEffect(() => {
+    if (!previewOpen || !selectedPreviewGuestId || !eventId) return
+    let cancelled = false
+    void (async () => {
+      // Yield once so opening the modal paints immediately, then synchronise
+      // with the external preparation service without a cascading effect render.
+      await Promise.resolve()
+      if (cancelled) return
+      setPreviewCardLoading(true)
+      setPreviewCardUrl(null)
+      setPreviewCardError(null)
+      try {
+        const result = await prepareInviteGuestPreview(selectedPreviewGuestId, eventId)
+        if (cancelled) return
+        if (result.ok) setPreviewCardUrl(result.imageUrl)
+        else {
+          setPreviewCardUrl(null)
+          setPreviewCardError(result.error)
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          setPreviewCardUrl(null)
+          setPreviewCardError(error instanceof Error ? error.message : strings.test_failed)
+        }
+      } finally {
+        if (!cancelled) setPreviewCardLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [eventId, previewOpen, selectedPreviewGuestId, strings.test_failed])
   const isCardSendTab = sendTab === 'saveDates' || sendTab === 'cards'
   const cardDesignHref = '/digital-cards/catalog'
   const [saveDateSelection, setSaveDateSelection] = useState<SaveDateTemplate | null>(() =>
@@ -567,7 +595,10 @@ export default function SendInvitesView({
   const productionStatusLabel = isDesigningNow
     ? strings.card_status_designing
     : strings.card_status_confirmed
-  const displayCardImageUrl = showCardProductionLock ? (productionOrder?.cardImageUrl ?? null) : event.cardImageUrl
+  const displayCardImageUrl = showCardProductionLock
+    ? (productionOrder?.cardImageUrl ?? null)
+    : (event.releasedCardPreviewUrl ?? event.cardImageUrl)
+  const displayCardIsReleased = !showCardProductionLock && Boolean(event.releasedCardPreviewUrl)
   const displayCardTreatment = showCardProductionLock ? (productionOrder?.cardTreatment ?? null) : event.cardTreatment
 
   const previewBody = INVITE_TEMPLATE.body
@@ -797,41 +828,37 @@ export default function SendInvitesView({
   function runBulkSend(ids?: string[], reminder = false) {
     setConfirmSend(null)
     startTransition(async () => {
-      // The confirmed {{2}}/{{3}} values are part of every send — persist them
-      // first so the server action reads what the couple just approved.
       try {
-        await saveInviteSendSettings(hostName, eventCat)
+        const res = await sendWhatsAppInvites(ids, eventId)
+        if (!res.hasPaidOrder) {
+          toast.error(strings.toast_no_package)
+          return
+        }
+        // Every guest fell through (unconfirmed, or the account has no card
+        // image) — a "0 sent" success toast would hide the real problem.
+        if (res.sent === 0 && res.failed === 0 && res.blocked === 0 && res.skipped === 0) {
+          toast.error(strings.toast_nothing_sent)
+          setSelected(new Set())
+          return
+        }
+        const verb = res.dryRun
+          ? strings.send_verb_dryrun
+          : reminder
+            ? strings.send_verb_reminded
+            : strings.send_verb_sent
+        const parts = [`${res.sent} ${verb}`]
+        if (res.failed > 0) parts.push(fmt(strings.send_failed_n, { n: res.failed }))
+        if (res.blocked > 0) parts.push(fmt(strings.send_over_quota, { n: res.blocked }))
+        if (res.skipped > 0) parts.push(fmt(strings.send_no_phone, { n: res.skipped }))
+        const summaryLine = parts.join(' · ')
+        if (res.sent > 0) toast.success(summaryLine)
+        else toast.error(summaryLine)
+        setReport(res)
+        setSelected(new Set())
+        router.refresh()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : strings.toast_nothing_sent)
-        return
       }
-      const res = await sendWhatsAppInvites(ids, eventId)
-      if (!res.hasPaidOrder) {
-        toast.error(strings.toast_no_package)
-        return
-      }
-      // Every guest fell through (unconfirmed, or the account has no card
-      // image) — a "0 sent" success toast would hide the real problem.
-      if (res.sent === 0 && res.failed === 0 && res.blocked === 0 && res.skipped === 0) {
-        toast.error(strings.toast_nothing_sent)
-        setSelected(new Set())
-        return
-      }
-      const verb = res.dryRun
-        ? strings.send_verb_dryrun
-        : reminder
-          ? strings.send_verb_reminded
-          : strings.send_verb_sent
-      const parts = [`${res.sent} ${verb}`]
-      if (res.failed > 0) parts.push(fmt(strings.send_failed_n, { n: res.failed }))
-      if (res.blocked > 0) parts.push(fmt(strings.send_over_quota, { n: res.blocked }))
-      if (res.skipped > 0) parts.push(fmt(strings.send_no_phone, { n: res.skipped }))
-      const summaryLine = parts.join(' · ')
-      if (res.sent > 0) toast.success(summaryLine)
-      else toast.error(summaryLine)
-      setReport(res)
-      setSelected(new Set())
-      router.refresh()
     })
   }
 
@@ -997,13 +1024,13 @@ export default function SendInvitesView({
   }
 
   function sendTest() {
-    if (!testPhone.trim() || testSending) return
+    if (!testPhone.trim() || testSending || !selectedPreviewGuest) return
     setTestSending(true)
     startTransition(async () => {
       try {
         const res = await sendWhatsAppTestInvite(
           testPhone,
-          { guestName: sampleGuest, coupleName: hostName, eventCategory: eventCat },
+          selectedPreviewGuest.id,
           eventId,
         )
         if (res.ok && res.dryRun) toast.success(`1 ${strings.send_verb_dryrun}`)
@@ -1016,10 +1043,18 @@ export default function SendInvitesView({
   }
 
   function saveSettings() {
-    if (!settingsValid) return
+    if (!settingsValid || !invitationForm || !eventId) return
     startTransition(async () => {
       try {
-        await saveInviteSendSettings(hostName, eventCat)
+        await updateInvitationEventDetails(eventId, {
+          partner1_name: invitationForm.partner1Name,
+          partner2_name: invitationForm.partner2Name || null,
+          venue_name: invitationForm.venueName,
+          address: invitationForm.address || null,
+          city: invitationForm.city,
+          venue_latitude: invitationForm.latitude || null,
+          venue_longitude: invitationForm.longitude || null,
+        })
         toast.success(strings.toast_settings_saved)
         setEditingSettings(false)
         router.refresh()
@@ -1491,6 +1526,7 @@ export default function SendInvitesView({
                     sizes="92px"
                     quality={90}
                     className="object-cover"
+                    unoptimized={displayCardIsReleased}
                   />
                   {/* Before release this is the CATALOGUE shot, carrying the
                       sample couple's names and date. Unlabelled it sits where
@@ -1524,7 +1560,7 @@ export default function SendInvitesView({
                   <button className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
                     <Pencil size={13} /> {strings.settings_edit}
                   </button>
-                  <button className="btn ghost" onClick={() => setPreviewOpen(true)}>
+                  <button className="btn ghost" disabled={guests.length === 0} onClick={() => setPreviewOpen(true)}>
                     <Eye size={15} /> {strings.preview_button}
                   </button>
                 </div>
@@ -1773,23 +1809,59 @@ export default function SendInvitesView({
 
         {isCardSendTab && event.hasPaidOrder ? (
           <div className="ctxsend">
-            {editingSettings ? (
+            {editingSettings && invitationForm ? (
               <div className="vars">
                 <div className="vlegend">{strings.settings_legend}</div>
                 <div className="vgrid two">
                   <label className="vfield">
-                    <span>{strings.field_host_label}</span>
-                    <input value={hostName} onChange={(e) => setHostName(e.target.value)} maxLength={60} />
+                    <span>Partner 1</span>
+                    <input value={invitationForm.partner1Name} onChange={(e) => setInvitationForm({ ...invitationForm, partner1Name: e.target.value })} maxLength={60} />
                   </label>
-                  <CategoryField
-                    value={eventCat}
-                    onChange={setEventCat}
-                    label={strings.field_category_label}
-                    otherLabel={strings.field_category_other}
-                  />
+                  <label className="vfield">
+                    <span>Partner 2</span>
+                    <input value={invitationForm.partner2Name} onChange={(e) => setInvitationForm({ ...invitationForm, partner2Name: e.target.value })} maxLength={60} />
+                  </label>
+                  <label className="vfield">
+                    <span>Venue name</span>
+                    <input value={invitationForm.venueName} onChange={(e) => setInvitationForm({ ...invitationForm, venueName: e.target.value })} maxLength={120} />
+                  </label>
+                  <label className="vfield">
+                    <span>City</span>
+                    <input value={invitationForm.city} onChange={(e) => setInvitationForm({ ...invitationForm, city: e.target.value })} maxLength={80} />
+                  </label>
+                  <label className="vfield full">
+                    <span>Full address</span>
+                    <input value={invitationForm.address} onChange={(e) => setInvitationForm({ ...invitationForm, address: e.target.value })} maxLength={240} />
+                  </label>
+                  <label className="vfield">
+                    <span>Latitude (optional)</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      min={-90}
+                      max={90}
+                      value={invitationForm.latitude}
+                      onChange={(e) => setInvitationForm({ ...invitationForm, latitude: e.target.value })}
+                      placeholder="e.g. -6.713456"
+                    />
+                  </label>
+                  <label className="vfield">
+                    <span>Longitude (optional)</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      min={-180}
+                      max={180}
+                      value={invitationForm.longitude}
+                      onChange={(e) => setInvitationForm({ ...invitationForm, longitude: e.target.value })}
+                      placeholder="e.g. 39.212345"
+                    />
+                  </label>
                 </div>
                 <div className="vsave">
-                  <p className="mutedp">{strings.settings_required_note}</p>
+                  <p className="mutedp">The venue/address stays visible to guests. Add both coordinates only when you want the Maps button to use an exact pin.</p>
                   <div className="vbtns">
                     {data.sendSettings.confirmed ? (
                       <button
@@ -1797,8 +1869,7 @@ export default function SendInvitesView({
                         disabled={pending}
                         title={strings.preview_close}
                         onClick={() => {
-                          setHostName(data.sendSettings.hostName)
-                          setEventCat(data.sendSettings.eventCategory)
+                          setInvitationForm(data.event.invitationFields ? { ...data.event.invitationFields } : null)
                           setEditingSettings(false)
                         }}
                       ><X size={14} /></button>
@@ -2397,17 +2468,10 @@ export default function SendInvitesView({
             ) : null}
             <div className="vars">
               <div className="vlegend">{strings.settings_legend}</div>
-              <label className="vfield">
-                <span>{strings.field_host_label}</span>
-                <input value={hostName} onChange={(e) => setHostName(e.target.value)} maxLength={60} />
-              </label>
-              <CategoryField
-                value={eventCat}
-                onChange={setEventCat}
-                label={strings.field_category_label}
-                otherLabel={strings.field_category_other}
-              />
-              <p className="mutedp">{strings.settings_required_note}</p>
+              <div className="confirmdetail"><span>{strings.field_host_label}</span><b>{hostName}</b></div>
+              <div className="confirmdetail"><span>{strings.field_category_label}</span><b>{capitalize(eventCat)}</b></div>
+              <div className="confirmdetail"><span>View Location</span><b>{invitationFields?.locationLabel || 'Location required'}</b></div>
+              <p className="mutedp">These details come from the selected event.</p>
             </div>
             <div className="mrow">
               <button className="btn ghost" onClick={() => setConfirmSend(null)}>{strings.confirm_cancel}</button>
@@ -2506,20 +2570,29 @@ export default function SendInvitesView({
                   <div className="vgrid">
                     <label className="vfield">
                       <span>{strings.field_guest_label}</span>
-                      <input value={sampleGuest} onChange={(e) => setSampleGuest(e.target.value)} maxLength={40} />
+                      <select value={selectedPreviewGuest?.id ?? ''} onChange={(e) => setSelectedPreviewGuestId(e.target.value)}>
+                        {guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name}</option>)}
+                      </select>
                     </label>
                     <label className="vfield">
                       <span>{strings.field_host_label}</span>
-                      <input value={hostName} onChange={(e) => setHostName(e.target.value)} maxLength={60} />
+                      <input value={hostName} readOnly />
                     </label>
-                    <CategoryField
-                      value={eventCat}
-                      onChange={setEventCat}
-                      label={strings.field_category_label}
-                      otherLabel={strings.field_category_other}
-                    />
+                    <label className="vfield">
+                      <span>{strings.field_category_label}</span>
+                      <input value={capitalize(eventCat)} readOnly />
+                    </label>
                   </div>
-                  <p className="mutedp">{strings.settings_required_note}</p>
+                  <p className="mutedp">The guest and partner names shown here are the same records used for the real send.</p>
+                  <div className="locreply">
+                    <b>View Location reply</b>
+                    <span>📍 {event.eventName ?? hostName}</span>
+                    <span>{invitationFields?.locationLabel || 'Location required before sending'}</span>
+                    {invitationFields?.latitude && invitationFields.longitude ? (
+                      <span>Exact pin: {invitationFields.latitude}, {invitationFields.longitude}</span>
+                    ) : null}
+                    {invitationFields?.mapsUrl ? <a href={invitationFields.mapsUrl} target="_blank" rel="noreferrer">{invitationFields.mapsUrl}</a> : null}
+                  </div>
                 </div>
                 <div className="testrow">
                   <label htmlFor="si-test-phone">{strings.test_label}</label>
@@ -2531,7 +2604,7 @@ export default function SendInvitesView({
                       placeholder={strings.test_placeholder}
                       inputMode="tel"
                     />
-                    <button className="btn solid" disabled={testSending || !testPhone.trim() || !event.hasPaidOrder} onClick={sendTest}>
+                    <button className="btn solid" disabled={testSending || previewCardLoading || !testPhone.trim() || !event.hasPaidOrder || !selectedPreviewGuest || !settingsValid} onClick={sendTest}>
                       {testSending ? <Loader2 size={14} className="spin" /> : <MessageCircle size={14} />} {strings.test_send}
                     </button>
                   </div>
@@ -2539,18 +2612,20 @@ export default function SendInvitesView({
               </div>
               <div className="wawrap">
                 <div className="wabubble">
-                  {event.cardImageUrl ? (
+                  {previewCardUrl ? (
                     <Image
-                      src={event.cardImageUrl}
+                      src={previewCardUrl}
                       alt=""
                       width={760}
                       height={1064}
                       className="waimgfull"
                       unoptimized
                     />
+                  ) : previewCardLoading ? (
+                    <div className="waimg"><div className="waimg-ph"><Loader2 size={20} className="spin" /><b>Preparing {selectedPreviewGuest?.name}</b></div></div>
                   ) : (
                     <div className="waimg">
-                      <div className="waimg-ph"><b>{event.coupleName}</b></div>
+                      <div className="waimg-ph"><b>{previewCardError ?? event.coupleName}</b></div>
                     </div>
                   )}
                   <div className="wabody">{waText(previewBody)}</div>
@@ -2971,6 +3046,7 @@ const css = `
 .si .vlegend{ font-size:10.5px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--purple); margin-bottom:10px; }
 .si .vgrid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
 .si .vgrid.two{ grid-template-columns:1fr 1fr; }
+.si .vgrid .vfield.full{ grid-column:1/-1; }
 .si .vsave{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:4px; }
 .si .vsave .mutedp{ margin-top:0; }
 .si .vbtns{ display:flex; gap:8px; flex:none; }
@@ -2980,6 +3056,13 @@ const css = `
 .si .vfield span{ font-size:11px; font-weight:600; color:var(--muted); }
 .si .vfield input, .si .vfield select{ width:100%; border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-size:13px; background:#fff; color:var(--ink); }
 .si .vfield input:focus, .si .vfield select:focus{ outline:none; border-color:var(--lav); }
+.si .confirmdetail{ display:flex; flex-direction:column; gap:3px; padding:9px 0; border-bottom:1px solid var(--line); }
+.si .confirmdetail span{ font-size:11px; color:var(--muted); }
+.si .confirmdetail b{ font-size:13px; }
+.si .locreply{ display:flex; flex-direction:column; gap:4px; margin-top:12px; padding:12px; border-radius:10px; background:#fff; border:1px solid var(--line); font-size:12px; }
+.si .locreply b{ font-size:12px; }
+.si .locreply span{ color:var(--ink); }
+.si .locreply a{ color:#258cc7; overflow-wrap:anywhere; }
 @media(max-width:640px){ .si .vgrid{ grid-template-columns:1fr; } }
 .si .testrow{ margin-top:18px; }
 .si .testrow label{ font-size:12px; font-weight:600; color:var(--muted); }

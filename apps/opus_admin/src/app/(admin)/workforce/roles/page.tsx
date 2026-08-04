@@ -12,27 +12,31 @@ import {
   getRoles,
   getWorkforceInvitations,
 } from '../_lib/queries'
-import { PERMISSIONS } from '../_lib/types'
+import { PERMISSIONS, toEmployeeDirectoryView } from '../_lib/types'
 
 export const dynamic = 'force-dynamic'
 
 export default async function RolesPage() {
-  // The (admin) layout already gates on dashboard role, but redirect
-  // editors/viewers here too so they don't see the page chrome before
-  // the server actions throw. Owners + admins past this point.
-  const role = await getAdminAccessRole()
-  if (role !== 'owner' && role !== 'admin') {
+  // Gate on the explicit permission, not the legacy role bucket. The bucket
+  // promoted every seeded role to 'admin', so the previous
+  // `role !== 'owner' && role !== 'admin'` check let everyone through. The
+  // server actions are authoritative regardless of what this page renders.
+  const [role, permissions] = await Promise.all([
+    getAdminAccessRole(),
+    getCallerPermissions(),
+  ])
+  const isOwner = role === 'owner'
+  if (!isOwner && !permissions.has('workforce.roles.read')) {
     redirect('/')
   }
 
-  const [roles, employees, memberMap, callerEmail, invitations, permissions] =
+  const [roles, employees, memberMap, callerEmail, invitations] =
     await Promise.all([
       getRoles(),
       getEmployees(),
       getAllRoleMembers(),
       getCallerEmail(),
       getWorkforceInvitations('pending'),
-      getCallerPermissions(),
     ])
 
   // Mirrors the server-action gates: grant / change-role / revoke access and
@@ -40,6 +44,11 @@ export default async function RolesPage() {
   // UI hides those controls for anyone without it so non-owners never click a
   // button that would throw "You don't have permission".
   const canManageAccess = permissions.has('platform.admin')
+
+  // Operation-level UI capabilities. These only hide controls; the server
+  // actions re-check the same policy, so bypassing the UI changes nothing.
+  const canWriteRoles = isOwner || permissions.has('workforce.roles.write')
+  const canAssignRoles = isOwner || permissions.has('workforce.roles.assign')
 
   // Plain object so it crosses the server→client boundary cleanly.
   const memberIdsByRole: Record<string, string[]> = {}
@@ -51,11 +60,18 @@ export default async function RolesPage() {
       <RolesClient
         roles={roles}
         permissions={PERMISSIONS}
-        employees={employees}
+        // Projected, NOT the raw Employee[]. Props on a client component are
+        // serialised into the RSC payload and readable in devtools, so passing
+        // the full row would ship salary_tzs, phone, notes and clerk_user_id to
+        // anyone who can open this page — which now includes roles.read
+        // holders such as `viewer`, who hold no workforce.payroll.
+        employees={employees.map(toEmployeeDirectoryView)}
         memberIdsByRole={memberIdsByRole}
         invitations={invitations}
         callerEmail={callerEmail}
         canManageAccess={canManageAccess}
+        canWriteRoles={canWriteRoles}
+        canAssignRoles={canAssignRoles}
       />
     </>
   )

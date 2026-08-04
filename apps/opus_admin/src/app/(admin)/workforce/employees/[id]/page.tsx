@@ -7,6 +7,7 @@ import {
   getEmployees,
   getRoles,
 } from '../../_lib/queries'
+import { getAnnualLeaveEntitlementDays, getLeavePolicies } from '../../_lib/leave-policy'
 import {
   getCertifications,
   getEmployeeBadges,
@@ -29,7 +30,7 @@ export default async function EmployeeDetailPage({
   if (!result) notFound()
   const { employee, managerId } = result
 
-  // Single Promise.all so the seven child fetches share latency.
+  // Single Promise.all so the child fetches share latency.
   // Server actions revalidate `/workforce/employees/[id]`, so this
   // server component re-renders on every successful mutation.
   const [
@@ -42,6 +43,7 @@ export default async function EmployeeDetailPage({
     certifications,
     badges,
     documents,
+    leavePolicies,
   ] = await Promise.all([
     getEmployeeOrgContext(employee.id, managerId),
     getRoles(),
@@ -52,7 +54,9 @@ export default async function EmployeeDetailPage({
     getCertifications(employee.id),
     getEmployeeBadges(employee.id),
     getEmployeeDocuments(employee.id),
+    getLeavePolicies(),
   ])
+  const annualLeaveEntitlementDays = getAnnualLeaveEntitlementDays(leavePolicies)
 
   return (
     <EmployeeDetailClient
@@ -67,6 +71,7 @@ export default async function EmployeeDetailPage({
         jobTitle: e.jobTitle,
       }))}
       canManageAccess={permissions.has('platform.admin')}
+      annualLeaveEntitlementDays={annualLeaveEntitlementDays}
       resumeEntries={resumeEntries}
       skills={skills}
       certifications={certifications}

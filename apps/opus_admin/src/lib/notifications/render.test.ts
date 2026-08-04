@@ -79,11 +79,19 @@ describe('renderNotificationEmail', () => {
       'approval.info_requested',
     ] as const) {
       const email = renderNotificationEmail(t, PAYLOAD, RECIPIENT)
+      assert.ok(email, `${t} must have a template`)
       assert.ok(email.subject.length > 0, `${t} subject`)
       assert.ok(email.html.length > 0, `${t} html`)
       assert.ok(email.text.length > 0, `${t} text`)
       assert.ok(email.html.includes(PAYLOAD.approvalSubject), `${t} names the request`)
     }
+  })
+
+  it('returns null for a bell-only event rather than inventing an email', () => {
+    // attendance.gap_detected is raised by the nightly sweep for the bell only.
+    // A stub email nobody wrote would be worse than none: the retry worker would
+    // send it, to everyone, every night.
+    assert.equal(renderNotificationEmail('attendance.gap_detected', PAYLOAD, RECIPIENT), null)
   })
 
   it('renders identically for the same inputs, so a retry matches the original', () => {
@@ -119,6 +127,7 @@ describe('renderNotificationEmail', () => {
       note: '<img src=x onerror="alert(2)">',
     }
     const email = renderNotificationEmail('approval.refused', hostile, RECIPIENT)
+    assert.ok(email)
 
     // Assert the hostile input never appears verbatim, rather than banning
     // substrings. `onerror=` survives harmlessly inside

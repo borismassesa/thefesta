@@ -5,6 +5,7 @@ import { loadPublishedAdviceIdeasPosts } from '@/lib/advice-ideas-db'
 import { BRIDAL_CATEGORIES } from '@/lib/bridal-categories'
 import { REGISTRY_CATEGORIES } from '@/lib/registry-categories'
 import { getShopVendors, shopBasePath } from '@/lib/products-db'
+import { loadOpenJobs } from '@/lib/careers-db'
 
 const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://opusfesta.com'
 
@@ -21,16 +22,18 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
   { url: `${BASE}/registry`, priority: 0.8, changeFrequency: 'daily' },
   { url: `${BASE}/registry/shops`, priority: 0.7, changeFrequency: 'daily' },
   { url: `${BASE}/planning-tools`, priority: 0.7, changeFrequency: 'monthly' },
+  { url: `${BASE}/careers`, priority: 0.5, changeFrequency: 'weekly' },
   { url: `${BASE}/privacy-policy`, priority: 0.3, changeFrequency: 'yearly' },
   { url: `${BASE}/terms-of-use`, priority: 0.3, changeFrequency: 'yearly' },
 ]
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [dbVendors, posts, giftShops, attireShops] = await Promise.all([
+  const [dbVendors, posts, giftShops, attireShops, careerJobs] = await Promise.all([
     getActiveMarketplaceVendors().catch(() => []),
     loadPublishedAdviceIdeasPosts().catch(() => []),
     getShopVendors('gift_shop').catch(() => []),
     getShopVendors('attire_rings').catch(() => []),
+    loadOpenJobs().catch(() => []),
   ])
 
   const allVendorSlugs = new Set<string>([
@@ -71,6 +74,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }))
 
+  const careerRoutes: MetadataRoute.Sitemap = careerJobs.map((job) => ({
+    url: `${BASE}/careers/jobs/${job.slug}`,
+    changeFrequency: 'daily',
+    priority: 0.7,
+  }))
+
   return [
     ...STATIC_ROUTES,
     ...vendorRoutes,
@@ -78,5 +87,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...bridalCategoryRoutes,
     ...registryCategoryRoutes,
     ...shopRoutes,
+    ...careerRoutes,
   ]
 }

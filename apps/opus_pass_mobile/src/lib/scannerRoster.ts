@@ -49,6 +49,19 @@ export function avatarColorFor(key: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+/**
+ * Clamp a confirmed arrival count to what the server will actually record.
+ *
+ * Mirrors the 1..party_size clamp in checkin_guest_invitation() and the amend
+ * route. Every control that lets an attendant pick a headcount must offer
+ * exactly this range — if the client accepted a number the server re-clamps,
+ * the attendant would confirm one figure and the couple be billed another.
+ */
+export function clampArrived(count: number, partySize: number): number {
+  const cap = Math.max(partySize, 1);
+  return Math.min(Math.max(Math.trunc(count), 1), cap);
+}
+
 /** Heads expected: what everyone RSVP'd for. */
 export function expectedHeads(guests: RosterEntry[]): number {
   return guests.reduce((sum, g) => sum + g.partySize, 0);

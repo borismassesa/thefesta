@@ -149,13 +149,20 @@ export async function POST(request: NextRequest) {
       continue
     }
 
+    // Same registry the inline send uses, so a retried message is
+    // byte-identical to the one that would have gone out originally. An event
+    // type with no email template can never be sent, so retrying it forever
+    // would be a queue that never drains — abandon it once, explicitly.
+    const email = renderNotificationEmail(event.event_type, payload, {
+      name: employee.full_name,
+      email: employee.email,
+    })
+    if (!email) {
+      await abandon('NO_EMAIL_TEMPLATE')
+      continue
+    }
+
     try {
-      // Same registry the inline send uses, so a retried message is
-      // byte-identical to the one that would have gone out originally.
-      const email = renderNotificationEmail(event.event_type, payload, {
-        name: employee.full_name,
-        email: employee.email,
-      })
       const result = await sendEmail({
         to: employee.email,
         subject: email.subject,

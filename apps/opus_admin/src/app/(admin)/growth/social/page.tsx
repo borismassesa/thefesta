@@ -1,5 +1,6 @@
 import { hasAnyPermission, hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import { logGrowthDbError } from '../_lib/action-utils'
 import { getGrowthEmployeeOptions, getKpiActuals, getKpiTargets } from '../_lib/queries'
 import SocialClient, { type ChallengeRow, type ContentLogEntry } from './SocialClient'
 
@@ -73,8 +74,14 @@ export default async function SocialMediaGrowthPage() {
       getGrowthEmployeeOptions(),
     ])
 
-  if (contentError) throw new Error(`[growth] social content log: ${contentError.message}`)
-  if (challengeError) throw new Error(`[growth] social challenges: ${challengeError.message}`)
+  if (contentError) {
+    logGrowthDbError('growth.social_content_log.select', contentError)
+    throw new Error('Could not load Growth social content log.')
+  }
+  if (challengeError) {
+    logGrowthDbError('growth.social_challenges.select', challengeError)
+    throw new Error('Could not load Growth social challenges.')
+  }
 
   const contentLog: ContentLogEntry[] = (contentRows ?? []).map((r) => ({
     id: r.id,

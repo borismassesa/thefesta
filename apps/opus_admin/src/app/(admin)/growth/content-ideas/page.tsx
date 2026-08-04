@@ -1,5 +1,6 @@
 import { hasAnyPermission, hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import { logGrowthDbError } from '../_lib/action-utils'
 import ContentIdeasClient, { type ContentIdea, type ContentIdeaKind } from './ContentIdeasClient'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +26,10 @@ export default async function ContentIdeasPage() {
     .order('kind', { ascending: true })
     .order('sort_order', { ascending: true })
     .returns<IdeaRow[]>()
-  if (error) throw new Error(`[growth] content-ideas query failed: ${error.message}`)
+  if (error) {
+    logGrowthDbError('growth.content_ideas.select', error)
+    throw new Error('Could not load Growth Tracker content ideas.')
+  }
 
   const ideas: ContentIdea[] = (data ?? []).map((r) => ({
     id: r.id,

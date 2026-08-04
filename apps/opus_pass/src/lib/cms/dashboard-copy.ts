@@ -83,6 +83,12 @@ export interface GuestsDashboardCopy {
   collector_setup: string
   filter_label: string
   import_title: string
+  import_upload_title: string
+  import_upload_hint: string
+  import_rules_title: string
+  /** One rule per line; rendered as a bulleted list. */
+  import_rules_items: string
+  import_rules_note: string
   toast_added: string
   toast_updated: string
   toast_removed: string
@@ -233,6 +239,22 @@ export const DASHBOARD_COPY_FALLBACKS: DashboardCopyBySlug = {
     collector_setup: 'Set up',
     filter_label: 'Filter',
     import_title: 'Upload spreadsheet',
+    import_upload_title: 'Upload a .csv or .xlsx file',
+    import_upload_hint:
+      'Columns we recognize: Name / Jina, Phone / Namba ya Simu, Email / Barua Pepe. We import guest rows from every sheet and use the first row as a header if it looks like one.',
+    import_rules_title: 'What your file needs',
+    import_rules_items: [
+      'One guest per row. A couple invited together is one row, not two.',
+      'A header row naming the columns: Name / Jina, Phone / Namba ya Simu, Email / Barua Pepe. Extra columns are ignored.',
+      'A name on every row. Rows without one are skipped.',
+      'The phone column formatted as Text, so the leading 0 survives.',
+      'One number per row, never repeated. A number already on the list is skipped.',
+      'An empty cell where there is no number. Do not type N/A or Hakuna namba.',
+      'A full country code for guests abroad, like +254712345678.',
+      'Test and draft tabs deleted. Every tab with a header row is imported.',
+    ].join('\n'),
+    import_rules_note:
+      'Everyone imports as a Single ticket. Mark the Double tickets here once the upload is done.',
     toast_added: 'Guest added',
     toast_updated: 'Guest updated',
     toast_removed: 'Guest removed',

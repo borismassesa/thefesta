@@ -9,6 +9,13 @@ import { toTzs } from './currency'
 import { resolveEventCover, type PledgePageConfig, type PledgePaymentMethod } from './pledge-page'
 import { THANK_YOU_FREE_TIER_IDS, resolveThankYouCover, type ThankYouCardConfig } from './thank-you'
 import { parseTemplateCardItemId, resolveEventPackageTierId, type TemplateCardType } from './pledge-card-templates'
+import {
+  invitationDetailsReady,
+  invitationHostName,
+  invitationLocation,
+  invitationMapsUrl,
+  invitationPartner2Required,
+} from './invitation-event-details'
 import { getOrdersForUser, orderRowToStoredOrder } from '@/lib/payments/orders'
 import type { StoredOrder } from '@/lib/cart-storage'
 import type { SiteDoc } from '@/lib/builder/types'
@@ -1804,6 +1811,10 @@ export interface WhatsAppEntitlement {
   hasPaidOrder: boolean
   /** The paid invitation card's hero image — used as the WhatsApp header. */
   cardImageUrl: string | null
+  /** Authenticated URL for the couple's frozen released card. Page-preview
+   *  only: real WhatsApp sends intentionally continue using `cardImageUrl`
+   *  until the per-guest delivery switch lands. */
+  releasedCardPreviewUrl: string | null
   /** Visual treatment — fallback thumbnail when the card has no hero image. */
   cardTreatment: Treatment | null
   /** The paid card's tier (e.g. "Signature"), for the "card purchased" badge. */
@@ -1819,6 +1830,11 @@ export interface WhatsAppEntitlement {
   entranceCoupleName: string
   /** Swahili event category noun for the template body ({{3}}), e.g. "harusi". */
   eventCategory: string
+  /** Event-owned location used by the View Location webhook response. */
+  locationLabel: string
+  locationMapsUrl: string | null
+  /** False when the always-present View Location button would have no useful reply. */
+  invitationDetailsReady: boolean
   /** True once the couple has explicitly confirmed {{2}}/{{3}} — sends are
    *  blocked in the UI until then. */
   sendSettingsConfirmed: boolean
@@ -2044,46 +2060,50 @@ export async function getEventPackageTierId(eventId: string): Promise<string | n
   return resolveEventPackageTierId(orders, eventId)
 }
 
-export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppEntitlement> {
+export async function getWhatsAppEntitlement(
+  eventId: string,
+  options: { includeReleasedCardPreview?: boolean } = {},
+): Promise<WhatsAppEntitlement> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
 
   const { data: profile } = await supabase
     .from('couple_profiles')
-    .select('whatsapp_phone, partner1_name, partner2_name, invite_host_name, invite_event_category')
+    .select('whatsapp_phone, partner1_name, partner2_name, invite_host_name')
     .eq('user_id', user.id)
     .maybeSingle<{
       whatsapp_phone: string | null
       partner1_name: string | null
       partner2_name: string | null
       invite_host_name: string | null
-      invite_event_category: string | null
     }>()
-  const coupleNames = [profile?.partner1_name, profile?.partner2_name].filter(Boolean)
-  // The couple's explicitly confirmed template values win over derived guesses.
-  const hostOverride = profile?.invite_host_name?.trim() || null
-  const categoryOverride = profile?.invite_event_category?.trim() || null
-
   // The SELECTED event, used both for the event-category template variable
   // ({{3}}) and as a coupleName fallback below — not just "the couple's
   // earliest event," now that a couple can be sending for any of several.
   const { data: primaryEvent } = await supabase
     .from('wedding_events')
-    .select('name, event_type, partner1_name, partner2_name')
+    .select('name, event_type, partner1_name, partner2_name, venue_name, address, city, venue_latitude, venue_longitude')
     .eq('user_id', user.id)
     .eq('id', eventId)
-    .maybeSingle<{ name: string | null; event_type: string; partner1_name: string | null; partner2_name: string | null }>()
-  const eventCategory = categoryOverride ?? eventTypeLabelSw(primaryEvent?.event_type ?? 'other')
+    .maybeSingle<{
+      name: string | null
+      event_type: string
+      partner1_name: string | null
+      partner2_name: string | null
+      venue_name: string | null
+      address: string | null
+      city: string | null
+      venue_latitude: number | null
+      venue_longitude: number | null
+    }>()
+  const eventCategory = eventTypeLabelSw(primaryEvent?.event_type ?? 'other')
+  const coupleName = primaryEvent ? invitationHostName(primaryEvent) : 'The Couple'
+  const locationLabel = primaryEvent ? invitationLocation(primaryEvent) : ''
+  const locationMapsUrl = primaryEvent ? invitationMapsUrl(primaryEvent) : null
+  const detailsReady = primaryEvent ? invitationDetailsReady(primaryEvent) : false
 
-  // No partner names on the profile yet? Fall back to the event's own title
-  // (e.g. "Asha & Juma's Wedding") before the generic "The Couple" placeholder.
-  const coupleName =
-    hostOverride ??
-    (coupleNames.length ? coupleNames.join(' & ') : primaryEvent?.name?.trim() || 'The Couple')
-
-  // Entrance-pass contexts use first names with the event's own partner
-  // names winning — distinct from the invite-template coupleName above,
-  // which the couple confirms as free text in the send console.
+  // Entrance-pass contexts use first names. The selected event is also the
+  // source of truth here, with the profile retained only as a legacy fallback.
   const entranceNames = primaryEvent
     ? entranceCoupleName(
         { name: primaryEvent.name?.trim() || 'The Couple', partner1_name: primaryEvent.partner1_name, partner2_name: primaryEvent.partner2_name },
@@ -2097,9 +2117,7 @@ export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppE
     .filter((o) => o.event_id === eventId && !isOrderReleasedForInvites(o))
     .map(orderSummaryFrom)[0] ?? null
 
-  const orders = releasedOrders.filter((o) => o.event_id === eventId) as {
-    items: PaidOrderItem[] | null
-  }[]
+  const orders = releasedOrders.filter((o) => o.event_id === eventId)
 
   let purchased = 0
   let cardImageUrl: string | null = null
@@ -2122,6 +2140,35 @@ export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppE
     }
   }
   const addOns = [...addOnSet]
+
+  // The Send Invites identity card should show what the couple actually
+  // approved, not the catalogue hero stored on the order line. Keep this URL
+  // separate from cardImageUrl: send/test-send actions call this entitlement
+  // too, and switching that field here would prematurely change real outgoing
+  // WhatsApp media before the per-guest delivery path is ready.
+  let releasedCardPreviewUrl: string | null = null
+  if (options.includeReleasedCardPreview && orders.length > 0) {
+    const { data: releasedDesigns } = await supabase
+      .from('invitation_card_designs')
+      .select('id, order_id, released_at')
+      .in('order_id', orders.map((order) => order.id))
+      .in('status', ['ready', 'delivered'])
+      .not('release_svg_path', 'is', null)
+      .order('released_at', { ascending: false })
+
+    // Orders are newest-first. Prefer the newest released design belonging to
+    // the same order that supplies the displayed package/name metadata.
+    const newestDesignByOrder = new Map<string, string>()
+    for (const design of (releasedDesigns ?? []) as { id: string; order_id: string }[]) {
+      if (!newestDesignByOrder.has(design.order_id)) {
+        newestDesignByOrder.set(design.order_id, design.id)
+      }
+    }
+    const designId = orders
+      .map((order) => newestDesignByOrder.get(order.id))
+      .find((id): id is string => Boolean(id))
+    if (designId) releasedCardPreviewUrl = `/api/my/card/${encodeURIComponent(designId)}`
+  }
 
   // Paid orders that exist but aren't attached to ANY event yet — surfaced so
   // the couple can assign them instead of them silently counting for nothing.
@@ -2177,6 +2224,7 @@ export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppE
     entrancePassSentIds,
     hasPaidOrder: orders.length > 0,
     cardImageUrl,
+    releasedCardPreviewUrl,
     cardTreatment,
     cardTier,
     cardName,
@@ -2184,7 +2232,10 @@ export async function getWhatsAppEntitlement(eventId: string): Promise<WhatsAppE
     coupleName,
     entranceCoupleName: entranceNames,
     eventCategory,
-    sendSettingsConfirmed: Boolean(hostOverride && categoryOverride),
+    locationLabel,
+    locationMapsUrl,
+    invitationDetailsReady: detailsReady,
+    sendSettingsConfirmed: detailsReady,
     alreadySentIds,
     unassignedOrders,
     productionOrder,
@@ -2302,6 +2353,22 @@ export interface SendInvitesData {
     /** Celebrant first names for the entrance-pass preview's {{3}} — the
      *  same entranceCoupleName derivation the real send uses. */
     entranceCoupleName: string
+    /** Event-owned invitation identity and location. The Digital Cards editor
+     *  writes these exact wedding_events fields; the preview, send and webhook
+     *  all read the same row. */
+    invitationFields: {
+      partner1Name: string
+      partner2Name: string
+      venueName: string
+      address: string
+      city: string
+      latitude: string
+      longitude: string
+      locationLabel: string
+      mapsUrl: string | null
+      partner2Required: boolean
+      ready: boolean
+    } | null
     /** Raw event fields prefilling the Pass Ticket tab's Ticket Details
      *  editor (it edits the real wedding_events row, not overrides). */
     ticketFields: {
@@ -2319,6 +2386,9 @@ export interface SendInvitesData {
     cardName: string | null
     /** The paid card's hero artwork — rendered in the event-context preview. */
     cardImageUrl: string | null
+    /** The couple's frozen released artwork for the visible card in the Send
+     *  Invites header. Kept distinct from outgoing WhatsApp media. */
+    releasedCardPreviewUrl: string | null
     /** Visual treatment — fallback thumbnail when the card has no hero image. */
     cardTreatment: Treatment | null
     /** Save the Date template selected for this event. Separate from the
@@ -2425,10 +2495,12 @@ export async function getSendInvitesData(
         entranceTimeLabel: 'Muda utatangazwa hivi karibuni',
         entranceVenue: 'Mahali patatangazwa hivi karibuni',
         entranceCoupleName: coupleFirstNames(profile),
+        invitationFields: null,
         ticketFields: null,
         cardTier: null,
         cardName: null,
         cardImageUrl: null,
+        releasedCardPreviewUrl: null,
         cardTreatment: null,
         saveDateTemplateId: null,
         saveDateTemplateName: null,
@@ -2458,7 +2530,7 @@ export async function getSendInvitesData(
   }
 
   const [entitlement, publicInvite, responseLastSend, responseQuestions, responseSummaries, responseAnswerSummaries] = await Promise.all([
-    getWhatsAppEntitlement(selectedEventId),
+    getWhatsAppEntitlement(selectedEventId, { includeReleasedCardPreview: true }),
     getInviteShareInfo(selectedEventId),
     getLastSendByGuest(),
     getRsvpQuestions(),
@@ -2572,8 +2644,8 @@ export async function getSendInvitesData(
   const eventTypeLbl = eventTypeLabel(selectedEvent.event_type)
   const venue = [selectedEvent.venue_name, selectedEvent.city].filter(Boolean).join(', ') || null
   const saveDateTemplate = profile?.pledge_page?.saveDateTemplates?.[selectedEventId] ?? null
-  // Category is already resolved (with any couple override) in entitlement.eventCategory —
-  // only the date/time/venue fields are needed from here, computed identically to the real send.
+  // Category is already resolved from the selected event. Only the
+  // date/time/venue fields are needed here, computed identically to the send.
   const entranceVars = computeEntrancePassVars(selectedEvent, null)
 
   return {
@@ -2588,6 +2660,19 @@ export async function getSendInvitesData(
       entranceTimeLabel: entranceVars.timeLabel,
       entranceVenue: entranceVars.venue,
       entranceCoupleName: entitlement.entranceCoupleName,
+      invitationFields: {
+        partner1Name: selectedEvent.partner1_name ?? '',
+        partner2Name: selectedEvent.partner2_name ?? '',
+        venueName: selectedEvent.venue_name ?? '',
+        address: selectedEvent.address ?? '',
+        city: selectedEvent.city ?? '',
+        latitude: selectedEvent.venue_latitude == null ? '' : String(selectedEvent.venue_latitude),
+        longitude: selectedEvent.venue_longitude == null ? '' : String(selectedEvent.venue_longitude),
+        locationLabel: entitlement.locationLabel,
+        mapsUrl: entitlement.locationMapsUrl,
+        partner2Required: invitationPartner2Required(selectedEvent),
+        ready: entitlement.invitationDetailsReady,
+      },
       ticketFields: {
         eventType: selectedEvent.event_type,
         partner1Name: selectedEvent.partner1_name ?? '',
@@ -2600,6 +2685,7 @@ export async function getSendInvitesData(
       cardTier: entitlement.cardTier,
       cardName: entitlement.cardName,
       cardImageUrl: entitlement.cardImageUrl,
+      releasedCardPreviewUrl: entitlement.releasedCardPreviewUrl,
       cardTreatment: entitlement.cardTreatment,
       saveDateTemplateId: saveDateTemplate?.id ?? null,
       saveDateTemplateName: saveDateTemplate?.name ?? null,

@@ -1,6 +1,31 @@
 -- Add full palette objects and back-card image to invitation products.
 -- Also seeds the ticket products (p23, p24) which were bundled-only until now.
 
+-- The product-table migration was captured later (20260712000005) even though
+-- production already had the table when this palette migration ran. Declare
+-- that canonical base shape idempotently so a zero-state replay has the same
+-- prerequisite. The later migration adds its indexes, trigger, RLS policy and
+-- bundled catalog seed.
+create table if not exists website_invitations_products (
+  id text primary key,
+  slug text unique not null,
+  name text not null,
+  designer text not null default '',
+  category text not null default '',
+  price_was int,
+  price_now int not null default 0,
+  digital_unit_price int not null default 0,
+  free_sample boolean not null default false,
+  swatches jsonb not null default '[]'::jsonb,
+  treatment text not null default 'classic-serif',
+  image_url text not null default '',
+  gallery jsonb not null default '[]'::jsonb,
+  published boolean not null default true,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table website_invitations_products
   add column if not exists palettes jsonb not null default '[]'::jsonb,
   add column if not exists back_image_url text not null default '';

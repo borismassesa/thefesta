@@ -410,6 +410,10 @@ export default function Navbar() {
   const { isSignedIn, isLoaded } = useUser()
   const pathname = usePathname()
   const onRegistry = pathname?.startsWith('/registry') ?? false
+  // Careers runs on the cream editorial surface, so the bar blends into the
+  // page instead of sitting on a white strip above it.
+  const onCareers = pathname?.startsWith('/careers') ?? false
+  const barBg = onCareers ? 'bg-[#F4F4F0]' : 'bg-white'
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null)
@@ -424,7 +428,7 @@ export default function Navbar() {
 
   return (
     <div
-      className="relative border-b border-gray-100 bg-white"
+      className={`relative border-b ${onCareers ? 'border-black/10' : 'border-gray-100'} ${barBg}`}
       onMouseLeave={() => setActiveMenu(null)}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
@@ -434,7 +438,7 @@ export default function Navbar() {
       }}
     >
       {/* ── Top bar ── */}
-      <nav className="relative z-50 mx-auto flex max-w-[1536px] items-center justify-between bg-white px-4 py-3.5 sm:px-6 sm:py-4 lg:px-8">
+      <nav className={`relative z-50 mx-auto flex max-w-[1536px] items-center justify-between ${barBg} px-4 py-3.5 sm:px-6 sm:py-4 lg:px-8`}>
         {/* Left: logo + desktop nav */}
         <div className="flex min-w-0 items-center gap-3 sm:gap-6 lg:gap-5">
           <Link href="/" aria-label="OpusFesta home" className="shrink-0">

@@ -17,6 +17,14 @@ export type WorkflowEventType =
   | 'approval.approved'
   | 'approval.refused'
   | 'approval.info_requested'
+  // Raised by the nightly attendance job when a scheduled day has no session,
+  // or when a session had to be closed automatically. Actionable: the employee
+  // has to raise a correction, and a gap nobody notices becomes a payroll
+  // dispute weeks later.
+  | 'attendance.gap_detected'
+  // Raised by the reports maintenance job when something is due or overdue.
+  // Actionable: an unfiled report becomes somebody's chase later.
+  | 'report.due'
 
 // How each event presents in the bell. Priority drives colour and, for
 // 'critical', whether the recipient is allowed to have muted it.
@@ -33,6 +41,10 @@ export const EVENT_PRESENTATION: Record<
   // styled like a rejection, so it gets its own event type rather than
   // being folded into 'refused'.
   'approval.info_requested': { category: 'requests', priority: 'high' },
+  // 'system' rather than 'requests': this is the platform telling you about
+  // your own record, not another person waiting on you.
+  'attendance.gap_detected': { category: 'system', priority: 'high' },
+  'report.due': { category: 'requests', priority: 'normal' },
 }
 
 export type StaffNotification = {

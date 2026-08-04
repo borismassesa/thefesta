@@ -28,6 +28,7 @@ import {
   adminDeletePunch,
   exportTimesheetCsv,
 } from './actions'
+import { isCurrentEmployee } from '../_lib/types'
 
 type EmployeeRow = {
   id: string
@@ -276,7 +277,7 @@ export default function TimesheetsClient({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {employees
-              .filter((e) => e.status !== 'Resigned')
+              .filter((e) => isCurrentEmployee(e.status))
               .map((e) => {
                 const summary = summariesByEmp.get(e.id) ?? new Map<string, number>()
                 const total = dayKeys.reduce((sum, k) => sum + (summary.get(k) ?? 0), 0)

@@ -13,17 +13,18 @@ import {
 import { cn } from '@/lib/utils'
 import Avatar from '../_components/Avatar'
 import StatusPill from '../_components/StatusPill'
-import type { Employee, WorkforceRole } from '../_lib/types'
+import type { EmployeeDirectoryView, WorkforceRole } from '../_lib/types'
 import {
   grantDashboardAccess,
   revokeDashboardAccess,
   setDashboardRole,
 } from '../employees/actions'
+import { isCurrentEmployee } from '../_lib/types'
 
 // One row in the People table — an employee who currently has dashboard
 // access OR a candidate the admin wants to grant access to via the dialog.
 type MemberRow = {
-  employee: Employee
+  employee: EmployeeDirectoryView
   roleId: string | null
   roleName: string
   roleSlug: string | null
@@ -54,7 +55,7 @@ export default function AdminTeamSection({
   callerEmail,
   canManageAccess,
 }: {
-  employees: Employee[]
+  employees: EmployeeDirectoryView[]
   roles: WorkforceRole[]
   callerEmail: string | null
   canManageAccess: boolean
@@ -523,7 +524,7 @@ function GrantAccessDialog({
   roles,
   onClose,
 }: {
-  employees: Employee[]
+  employees: EmployeeDirectoryView[]
   roles: WorkforceRole[]
   onClose: () => void
 }) {
@@ -541,7 +542,7 @@ function GrantAccessDialog({
   // certainly a mistake.
   const candidates = useMemo(() => {
     const list = employees.filter(
-      (e) => !e.dashboardAccess && e.status !== 'Resigned',
+      (e) => !e.dashboardAccess && isCurrentEmployee(e.status),
     )
     const q = search.trim().toLowerCase()
     if (!q) return list

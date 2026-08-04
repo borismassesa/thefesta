@@ -6,12 +6,15 @@ export type {
   Candidate,
   Department,
   Employee,
+  EmployeeDirectoryView,
+  EmployeeLeaveView,
   EmployeeStatus,
   EmploymentType,
   Job,
   JobStage,
   JobStatus,
   LeaveRequest,
+  LeavePolicy,
   LeaveStatus,
   LeaveType,
   Location,
@@ -24,8 +27,16 @@ export type {
   WorkforceShift,
   WorkforceRole,
 } from './types'
+export type { AnnualLeaveBalance, LeaveYear } from './leave-balances'
 
-export { PERMISSIONS as permissions, JOB_STAGES, DEPARTMENTS as departments } from './types'
+export {
+  PERMISSIONS as permissions,
+  JOB_STAGES,
+  DEPARTMENTS as departments,
+  EMPLOYEE_STATUSES,
+  ENDED_EMPLOYEE_STATUSES,
+  isCurrentEmployee,
+} from './types'
 
 // Backwards-compatible aliases kept so existing client components don't
 // need to update their type imports.

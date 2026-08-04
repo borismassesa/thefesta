@@ -472,7 +472,11 @@ function TabBar({
   badges: Partial<Record<ApprovalTab, number>>
 }) {
   return (
-    <div className="flex gap-1 overflow-x-auto border-b border-gray-200">
+    <div
+      role="tablist"
+      aria-label="Approvals sections"
+      className="flex gap-1 overflow-x-auto rounded-2xl border border-gray-100 bg-white p-1 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"
+    >
       {tabs.map((t) => {
         const { label, icon: Icon } = TAB_META[t]
         const badge = badges[t]
@@ -481,12 +485,14 @@ function TabBar({
           <button
             key={t}
             type="button"
+            role="tab"
+            aria-selected={isActive}
             onClick={() => onSelect(t)}
             className={cn(
-              '-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors',
+              'inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A0DC]',
               isActive
-                ? 'border-[#7E5896] text-[#5B2D8E]'
-                : 'border-transparent text-gray-500 hover:text-gray-800',
+                ? 'bg-[#F8EDFF] text-[#5B2D8E] shadow-sm'
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800',
             )}
           >
             <Icon className="h-4 w-4" />

@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState, useTransition } from 'react'
 import {
   CalendarOff,
   CheckCircle2,
+  ChevronDown,
   Clock4,
+  ListFilter,
   LogIn,
   LogOut,
   Plane,
@@ -20,11 +22,13 @@ import Kpi, { KpiRow } from '../_components/Kpi'
 import { formatDate } from '../_lib/format'
 import type {
   AttendancePoint,
-  Employee,
+  EmployeeLeaveView,
   LeaveRequest,
   LeaveStatus,
   LeaveType,
 } from '../_lib/data'
+import { ANNUAL_ENTITLEMENT_DAYS } from '../../workspace/leave/_lib/leave-calculation'
+import { isInLeaveYear, leaveYearFor } from '../../workspace/leave/_lib/leave-year'
 import { cancelLeaveRequest, decideLeaveRequest, submitLeaveRequest, upsertAttendance } from './actions'
 
 const LEAVE_TYPES: LeaveType[] = ['Annual', 'Sick', 'Maternity', 'Paternity', 'Compassionate', 'Unpaid']
@@ -55,14 +59,20 @@ const ATTENDANCE_TONE: Record<AttendancePoint['status'], 'green' | 'amber' | 'ro
   Leave: 'gray',
 }
 
+const STATUS_FILTERS = ['All', 'Pending', 'Approved', 'Rejected', 'Cancelled'] as const
+
 export default function LeaveClient({
   employees,
   requests,
   attendance,
+  today,
 }: {
-  employees: Employee[]
+  employees: EmployeeLeaveView[]
   requests: LeaveRequest[]
   attendance: AttendancePoint[]
+  today: string
+  isOrgScope?: boolean
+  isEmptyTeam?: boolean
 }) {
   const [tab, setTab] = useState<Tab>('requests')
 
@@ -102,7 +112,13 @@ export default function LeaveClient({
         />
       )}
       {tab === 'attendance' && <AttendanceTable attendance={attendance} byId={byId} />}
-      {tab === 'balances' && <BalancesTable employees={employees.filter((e) => e.status !== 'Resigned')} />}
+      {tab === 'balances' && (
+        <BalancesTable
+          employees={employees.filter((e) => e.status !== 'Resigned')}
+          requests={requests}
+          today={today}
+        />
+      )}
     </div>
   )
 }
@@ -149,10 +165,25 @@ function RequestsTable({
   employees,
 }: {
   requests: LeaveRequest[]
-  byId: Map<string, Employee>
-  employees: Employee[]
+  byId: Map<string, EmployeeLeaveView>
+  employees: EmployeeLeaveView[]
 }) {
   const [filter, setFilter] = useState<LeaveStatus | 'All'>('All')
+
+  // Counts shown in the dropdown labels. Derived from the SCOPED requests the
+  // server sent, so a manager sees counts for their own team rather than the
+  // whole company.
+  const statusCounts = useMemo(() => {
+    const counts: Record<LeaveStatus | 'All', number> = {
+      All: requests.length,
+      Pending: 0,
+      Approved: 0,
+      Rejected: 0,
+      Cancelled: 0,
+    }
+    for (const r of requests) counts[r.status] += 1
+    return counts
+  }, [requests])
   const [search, setSearch] = useState('')
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -160,12 +191,17 @@ function RequestsTable({
   const [submitting, setSubmitting] = useState(false)
   const [viewing, setViewing] = useState<LeaveRequest | null>(null)
 
-  function decide(id: string, decision: 'Approved' | 'Rejected') {
+  function decide(id: string, decision: 'Approved' | 'Rejected', note?: string) {
     setError(null)
     setBusyId(id)
     startTransition(async () => {
       try {
-        await decideLeaveRequest(id, decision)
+        // The action returns expected failures instead of throwing, because
+        // Next redacts thrown Server Action messages in production. Only the
+        // controlled message is shown; an unexpected throw falls to the catch
+        // and renders a generic string.
+        const result = await decideLeaveRequest(id, decision, note)
+        if (!result.ok) setError(result.error)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not update the request.')
       } finally {
@@ -206,20 +242,34 @@ function RequestsTable({
             className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]"
           />
         </div>
-        <div className="flex gap-1.5">
-          {(['All', 'Pending', 'Approved', 'Rejected', 'Cancelled'] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setFilter(s)}
-              className={cn(
-                'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-                filter === s ? 'bg-[#F0DFF6] text-[#5B2D8E]' : 'text-gray-500 hover:bg-gray-50',
-              )}
-            >
-              {s}
-            </button>
-          ))}
+        {/* Status filter. A native select rather than a custom menu so it
+            keeps keyboard and screen-reader behaviour for free and uses the
+            platform picker on mobile. Counts sit in the labels so you can see
+            there are pending requests without opening it. */}
+        <div className="relative">
+          <ListFilter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <select
+            aria-label="Filter by status"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as LeaveStatus | 'All')}
+            className={cn(
+              'appearance-none rounded-lg border py-2 pl-9 pr-9 text-sm font-medium outline-none transition-colors',
+              'focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]',
+              // Tinted while a filter is active, so it is obvious the list is
+              // not showing everything.
+              filter === 'All'
+                ? 'border-gray-200 bg-white text-gray-700'
+                : 'border-[#C9A0DC] bg-[#F0DFF6] text-[#5B2D8E]',
+            )}
+          >
+            {STATUS_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {s === 'All' ? 'All statuses' : s}
+                {statusCounts[s] > 0 ? ` (${statusCounts[s]})` : ''}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         </div>
 
         <button
@@ -279,37 +329,13 @@ function RequestsTable({
                 <div>
                   <StatusPill tone={STATUS_TONE[r.status]} label={r.status} />
                 </div>
-                <div className="flex justify-end gap-1.5">
-                  {r.status === 'Pending' ? (
-                    <>
-                      <button
-                        type="button"
-                        title="Approve"
-                        disabled={pending && busyId === r.id}
-                        onClick={() => decide(r.id, 'Approved')}
-                        className="rounded-md p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Reject"
-                        disabled={pending && busyId === r.id}
-                        onClick={() => decide(r.id, 'Rejected')}
-                        className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-                      >
-                        <XCircle className="h-4 w-4" />
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setViewing(r)}
-                      className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                    >
-                      View
-                    </button>
-                  )}
+                <div className="flex justify-end">
+                  <DecisionActions
+                    request={r}
+                    busy={pending && busyId === r.id}
+                    onDecide={decide}
+                    onView={() => setViewing(r)}
+                  />
                 </div>
               </div>
             )
@@ -340,7 +366,7 @@ function LeaveRequestDialog({
   onClose,
 }: {
   request: LeaveRequest
-  employee: Employee | undefined
+  employee: EmployeeLeaveView | undefined
   onClose: () => void
 }) {
   const [pending, startTransition] = useTransition()
@@ -471,7 +497,7 @@ function SubmitLeaveDialog({
   employees,
   onClose,
 }: {
-  employees: Employee[]
+  employees: EmployeeLeaveView[]
   onClose: () => void
 }) {
   const [employeeId, setEmployeeId] = useState(employees[0]?.id ?? '')
@@ -638,7 +664,7 @@ function AttendanceTable({
   byId,
 }: {
   attendance: AttendancePoint[]
-  byId: Map<string, Employee>
+  byId: Map<string, EmployeeLeaveView>
 }) {
   const [pending, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -736,27 +762,207 @@ function AttendanceTable({
   )
 }
 
-function BalancesTable({ employees }: { employees: Employee[] }) {
+/**
+ * Row actions for a leave request.
+ *
+ * Replaces two unlabelled icon buttons. Four things were wrong with those:
+ *
+ *  1. Bare check / cross icons sat adjacent at the same size and weight, so
+ *     approve and reject were a pixel apart and told apart only by colour.
+ *  2. A single click decided immediately. Approving now deducts the annual
+ *     balance atomically, so a misclick is a real correction job, and the
+ *     employee sees the wrong outcome in their Workspace straight away.
+ *  3. Pending rows had NO View button, and the reason cell is line-clamped to
+ *     two lines. You could not read the full justification before deciding.
+ *  4. Decided rows showed only "View", with no indication of what happened
+ *     beyond the status pill.
+ *
+ * So: labelled buttons, a deliberate confirm step, and View available on every
+ * row including pending ones.
+ */
+function DecisionActions({
+  request,
+  busy,
+  onDecide,
+  onView,
+}: {
+  request: LeaveRequest
+  busy: boolean
+  onDecide: (id: string, decision: 'Approved' | 'Rejected', note?: string) => void
+  onView: () => void
+}) {
+  const [arming, setArming] = useState<'Approved' | 'Rejected' | null>(null)
+  const [note, setNote] = useState('')
+
+  // Disarm on its own so a half-pressed decision cannot sit waiting on screen
+  // to be completed by a later, unrelated click.
+  useEffect(() => {
+    if (!arming) return
+    // Longer than a plain confirm because there is now a note to type. Only
+    // disarms while the field is untouched, so a half-written note is never
+    // discarded from under the approver.
+    if (note) return
+    const t = setTimeout(() => setArming(null), 8000)
+    return () => clearTimeout(t)
+  }, [arming, note])
+
+  if (request.status !== 'Pending') {
+    return (
+      <button
+        type="button"
+        onClick={onView}
+        className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+      >
+        View
+      </button>
+    )
+  }
+
+  if (arming) {
+    const approving = arming === 'Approved'
+    return (
+      <div className="flex min-w-[260px] flex-col items-end gap-1.5">
+        <span className="text-xs font-medium text-gray-500">
+          {approving ? 'Approve' : 'Reject'} {request.days}{' '}
+          {request.days === 1 ? 'day' : 'days'}?
+        </span>
+        <input
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={1000}
+          autoFocus
+          placeholder={approving ? 'Note (optional)' : 'Why? (recommended)'}
+          className="w-full rounded-md border border-gray-200 px-2 py-1 text-xs outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]"
+        />
+        <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            onDecide(request.id, arming, note)
+            setArming(null)
+            setNote('')
+          }}
+          className={cn(
+            'rounded-md px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50',
+            approving ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700',
+          )}
+        >
+          {busy ? 'Saving…' : 'Confirm'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setArming(null)
+            setNote('')
+          }}
+          className="rounded-md px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <button
+        type="button"
+        onClick={onView}
+        title="Read the full reason"
+        className="rounded-md px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+      >
+        View
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setArming('Rejected')}
+        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:border-rose-200 hover:bg-rose-50 disabled:opacity-50"
+      >
+        <XCircle className="h-3.5 w-3.5" />
+        Reject
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setArming('Approved')}
+        className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+      >
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Approve
+      </button>
+    </div>
+  )
+}
+
+function BalancesTable({
+  employees,
+  requests,
+  today,
+}: {
+  employees: EmployeeLeaveView[]
+  requests: LeaveRequest[]
+  today: string
+}) {
+  // Days actually taken, MEASURED from approved requests rather than inferred.
+  //
+  // The previous version hardcoded a 28-day entitlement and computed
+  // "used = 28 - balance". That was wrong in both directions. Someone whose
+  // balance was never allocated read as "0 / 28, 100% used" in alarming red
+  // despite never taking a day, and someone with months of approved Sick or
+  // Compassionate leave read as "0% used", because only Annual draws down the
+  // balance. The column reported the opposite of the truth in both cases.
+  //
+  // There is no entitlement column in the schema, so the honest figures are:
+  // the balance (a fact), and days approved (measurable). Annual entitlement
+  // is derived as balance + annual days already deducted, which follows from
+  // the deduction rule rather than from a guessed constant.
+  const year = useMemo(() => leaveYearFor(today), [today])
+  const taken = useMemo(() => {
+    const map = new Map<string, { annual: number; other: number }>()
+    for (const r of requests) {
+      if (r.status !== 'Approved') continue
+      // Only THIS leave year. The 28 days renew annually, so last year's
+      // leave must not show against this year's allowance.
+      if (!isInLeaveYear(r.startDate, year)) continue
+      // EVERY type counts against the same pool, so the split is by type for
+      // information only — all of it is deducted.
+      const entry = map.get(r.employeeId) ?? { annual: 0, other: 0 }
+      if (r.type === 'Annual') entry.annual += r.days
+      else entry.other += r.days
+      map.set(r.employeeId, entry)
+    }
+    return map
+  }, [requests, year])
+
   return (
     <div className="overflow-x-auto no-scrollbar rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
       <div
         role="row"
-        className="grid min-w-[640px] grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_140px_minmax(0,160px)] items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-gray-500"
+        className="grid min-w-[720px] grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_150px_minmax(0,190px)] items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-gray-500"
       >
         <span>Employee</span>
         <span>Department</span>
-        <span>Annual balance</span>
-        <span>Usage</span>
+        <span>Left in {year.label}</span>
+        <span>Taken in {year.label}</span>
       </div>
       {employees.map((e) => {
-        const entitlement = 28
-        const used = entitlement - e.leaveBalanceDays
-        const pct = Math.min(100, Math.max(0, Math.round((used / entitlement) * 100)))
+        const t = taken.get(e.id) ?? { annual: 0, other: 0 }
+        const totalTaken = t.annual + t.other
+        // One company-wide pool, per leave year. leave_balance_days is no
+        // longer read: it was a running counter that never reset annually and
+        // drifted whenever the deduction rule changed.
+        const entitlement = ANNUAL_ENTITLEMENT_DAYS
+        const pct = Math.min(100, Math.round((totalTaken / entitlement) * 100))
+        const remaining = Math.max(0, entitlement - totalTaken)
         return (
           <div
             key={e.id}
             role="row"
-            className="grid min-w-[640px] grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_140px_minmax(0,160px)] items-center gap-3 border-b border-gray-100 px-5 py-3 last:border-b-0"
+            className="grid min-w-[720px] grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_150px_minmax(0,190px)] items-center gap-3 border-b border-gray-100 px-5 py-3 last:border-b-0"
           >
             <div className="flex min-w-0 items-center gap-3">
               <Avatar name={e.name} color={e.avatarColor} src={e.avatarUrl} size="sm" />
@@ -767,20 +973,33 @@ function BalancesTable({ employees }: { employees: Employee[] }) {
             </div>
             <div className="text-sm text-gray-600">{e.department}</div>
             <div className="text-sm tabular-nums text-gray-900">
-              <span className="font-semibold">{e.leaveBalanceDays}</span>
+              <span className="font-semibold">{remaining}</span>
               <span className="text-gray-400"> / {entitlement} days</span>
             </div>
             <div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-all',
-                    pct > 80 ? 'bg-rose-400' : pct > 50 ? 'bg-amber-400' : 'bg-[#7E5896]',
-                  )}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <p className="mt-1 text-[11px] font-medium text-gray-500">{pct}% used</p>
+              {totalTaken === 0 ? (
+                <p className="text-sm text-gray-400">None</p>
+              ) : (
+                <>
+                  <p className="text-sm tabular-nums text-gray-900">
+                    <span className="font-semibold">{totalTaken}</span>
+                    <span className="text-gray-400"> {totalTaken === 1 ? 'day' : 'days'}</span>
+                  </p>
+                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className={cn(
+                        'h-full rounded-full',
+                        pct >= 100 ? 'bg-rose-400' : pct > 75 ? 'bg-amber-400' : 'bg-[#7E5896]',
+                      )}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    {pct}% of {entitlement} days
+                    {t.annual > 0 && t.other > 0 && ` · ${t.annual} annual, ${t.other} other`}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )

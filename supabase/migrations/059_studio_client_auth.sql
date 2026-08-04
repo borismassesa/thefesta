@@ -3,6 +3,25 @@
 -- Magic link + OTP auth for studio clients, session management
 -- ============================================================================
 
+-- This auth migration originally landed before the repository captured the
+-- booking-lifecycle migration that creates studio_client_profiles. Production
+-- already had the table; a zero-state replay does not. Declare the same base
+-- shape idempotently here so the foreign key below is valid. The later schema
+-- migration uses CREATE TABLE IF NOT EXISTS with this identical definition.
+CREATE TABLE IF NOT EXISTS studio_client_profiles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email text NOT NULL UNIQUE,
+  name text NOT NULL,
+  phone text,
+  whatsapp text,
+  company text,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE studio_client_profiles ENABLE ROW LEVEL SECURITY;
+
 -- 1. Client sessions (httpOnly cookie-based)
 CREATE TABLE IF NOT EXISTS studio_client_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

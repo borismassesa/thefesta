@@ -1,5 +1,6 @@
 import { hasAnyPermission, hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import { logGrowthDbError } from '../_lib/action-utils'
 import { getGrowthEmployeeOptions, getKpiActuals, getKpiTargets } from '../_lib/queries'
 import StudioClient, { type StudioBooking } from './StudioClient'
 
@@ -41,7 +42,10 @@ export default async function StudioPerformancePage() {
       .returns<BookingRow[]>(),
     getGrowthEmployeeOptions(),
   ])
-  if (error) throw new Error(`[growth/studio] bookings: ${error.message}`)
+  if (error) {
+    logGrowthDbError('growth.studio_bookings.select', error)
+    throw new Error('Could not load Growth Tracker studio bookings.')
+  }
 
   const bookings: StudioBooking[] = (bookingRows ?? []).map((r) => {
     const revenue = Number(r.revenue_tzs)

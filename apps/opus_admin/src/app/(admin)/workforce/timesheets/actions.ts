@@ -4,6 +4,12 @@ import { auth } from '@clerk/nextjs/server'
 import { revalidatePath } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { requirePermission } from '@/lib/admin-auth'
+// Punch corrections rewrite the record of when somebody worked, so they are
+// gated on an explicit attendance-administration key rather than on the broad
+// workforce.write. Team scope grants READ only and never reaches here; legacy
+// workforce.write expands into this key, so existing correctors are
+// unaffected.
+import { ATTENDANCE_ADMIN_KEY } from './_lib/attendance-scope'
 import { getPunchesForRange } from '../_lib/queries'
 import { summarizePunchesByDay } from '../_lib/time-summary'
 
@@ -29,7 +35,7 @@ export type AdminPunchInput = {
 }
 
 export async function adminInsertPunch(input: AdminPunchInput): Promise<{ id: string }> {
-  await requirePermission('workforce.write')
+  await requirePermission(ATTENDANCE_ADMIN_KEY)
   const { userId } = await auth()
   const supabase = createSupabaseAdminClient()
   const { data, error } = await supabase
@@ -46,7 +52,7 @@ export async function adminInsertPunch(input: AdminPunchInput): Promise<{ id: st
     .single<{ id: string }>()
   if (error) throw new Error(friendlyAlternationError(error.message, input.type))
   revalidatePath('/workforce/timesheets')
-  revalidatePath('/me/timeclock')
+  revalidatePath('/workspace/time-clock')
   return { id: data.id }
 }
 
@@ -58,7 +64,7 @@ export type AdminPunchUpdate = {
 }
 
 export async function adminUpdatePunch(input: AdminPunchUpdate): Promise<void> {
-  await requirePermission('workforce.write')
+  await requirePermission(ATTENDANCE_ADMIN_KEY)
   const supabase = createSupabaseAdminClient()
   const { error } = await supabase
     .from('workforce_time_punches')
@@ -70,11 +76,11 @@ export async function adminUpdatePunch(input: AdminPunchUpdate): Promise<void> {
     .eq('id', input.id)
   if (error) throw new Error(friendlyAlternationError(error.message, input.type))
   revalidatePath('/workforce/timesheets')
-  revalidatePath('/me/timeclock')
+  revalidatePath('/workspace/time-clock')
 }
 
 export async function adminDeletePunch(id: string): Promise<void> {
-  await requirePermission('workforce.write')
+  await requirePermission(ATTENDANCE_ADMIN_KEY)
   const supabase = createSupabaseAdminClient()
   const { error } = await supabase
     .from('workforce_time_punches')
@@ -82,7 +88,7 @@ export async function adminDeletePunch(id: string): Promise<void> {
     .eq('id', id)
   if (error) throw error
   revalidatePath('/workforce/timesheets')
-  revalidatePath('/me/timeclock')
+  revalidatePath('/workspace/time-clock')
 }
 
 // Build a CSV of worked-minutes per employee × day for the given week.
@@ -92,7 +98,7 @@ export async function exportTimesheetCsv(
   weekStartIso: string,
   weekEndIsoExclusive: string,
 ): Promise<{ filename: string; csv: string }> {
-  await requirePermission('workforce.write')
+  await requirePermission(ATTENDANCE_ADMIN_KEY)
 
   const supabase = createSupabaseAdminClient()
   const [{ data: emps, error: empErr }, punches] = await Promise.all([

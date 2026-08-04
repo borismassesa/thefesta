@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   arrivedHeads,
   avatarColorFor,
+  clampArrived,
   countLabel,
   expectedHeads,
   groupRoster,
@@ -86,6 +87,22 @@ test('the head count is dropped when it says nothing beyond the row count', () =
   assert.equal(countLabel(1, 1), '1 guest');
   assert.equal(countLabel(5, 5), '5 guests');
   assert.equal(countLabel(5, 12), '5 guests · 12 people');
+});
+
+test('clampArrived offers exactly the range the server records: 1..party_size', () => {
+  // In range passes through untouched — a Double with one arrival.
+  assert.equal(clampArrived(1, 2), 1);
+  assert.equal(clampArrived(2, 2), 2);
+  // Never below one: an admitted guest is at least one person in the room.
+  assert.equal(clampArrived(0, 4), 1);
+  assert.equal(clampArrived(-3, 4), 1);
+  // Never above the invitation — the couple can't be billed past the RSVP.
+  assert.equal(clampArrived(9, 6), 6);
+  // Fractions truncate rather than round up a head.
+  assert.equal(clampArrived(2.9, 6), 2);
+  // Degenerate party sizes still yield a recordable count of one.
+  assert.equal(clampArrived(3, 0), 1);
+  assert.equal(clampArrived(3, -2), 1);
 });
 
 test('party badges speak the language the tickets are sold in', () => {

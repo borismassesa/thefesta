@@ -47,7 +47,8 @@ interface ManualCheckinSheetProps {
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
-  onAdmit: (guest: RosterEntry) => Promise<CheckinScanResult>;
+  /** Admit with the headcount the attendant confirmed on the card. */
+  onAdmit: (guest: RosterEntry, arrived: number) => Promise<CheckinScanResult>;
   onAdmitByCode: (code: string) => Promise<CheckinScanResult>;
   onAdmitted: (result: CheckinScanResult) => void;
 }
@@ -166,11 +167,11 @@ export function ManualCheckinSheet({
     if (cleaned.length === CODE_LENGTH) void submitCode(cleaned);
   };
 
-  const admitGuest = async (guest: RosterEntry) => {
+  const admitGuest = async (guest: RosterEntry, arrived: number) => {
     if (admitting) return;
     setAdmitting(guest.invitationId);
     try {
-      const result = await onAdmit(guest);
+      const result = await onAdmit(guest, arrived);
       setConfirming(null);
       finish(result);
     } finally {
@@ -470,7 +471,7 @@ export function ManualCheckinSheet({
           guest={confirming}
           busy={Boolean(admitting)}
           onCancel={() => setConfirming(null)}
-          onConfirm={(guest) => void admitGuest(guest)}
+          onConfirm={(guest, arrived) => void admitGuest(guest, arrived)}
         />
       </SafeAreaView>
     </Modal>

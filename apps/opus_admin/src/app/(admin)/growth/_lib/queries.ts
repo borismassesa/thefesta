@@ -1,4 +1,6 @@
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import { ENDED_EMPLOYEE_STATUSES_SQL } from '../../workforce/_lib/types'
+import { logGrowthDbError } from './action-utils'
 
 // Shared query helpers for the Growth Tracker module. Pure data-fetching —
 // no permission checks here (those live in each route's page.tsx/actions.ts).
@@ -47,7 +49,10 @@ export async function getKpiTargets(category: GrowthCategory): Promise<KpiTarget
     .eq('category', category)
     .order('sort_order', { ascending: true })
     .returns<KpiTargetRow[]>()
-  if (error) throw new Error(`[growth] getKpiTargets: ${error.message}`)
+  if (error) {
+    logGrowthDbError('growth.kpi_targets.select', error, { category })
+    throw new Error('Could not load Growth Tracker KPI targets.')
+  }
   return (data ?? []).map((r) => ({
     id: r.id,
     category: r.category,
@@ -67,7 +72,10 @@ export async function getKpiActuals(kpiTargetIds: string[]): Promise<KpiActual[]
     .select('kpi_target_id, month, actual, notes')
     .in('kpi_target_id', kpiTargetIds)
     .returns<KpiActualRow[]>()
-  if (error) throw new Error(`[growth] getKpiActuals: ${error.message}`)
+  if (error) {
+    logGrowthDbError('growth.kpi_actuals.select', error)
+    throw new Error('Could not load Growth Tracker KPI actuals.')
+  }
   return (data ?? []).map((r) => ({
     kpiTargetId: r.kpi_target_id,
     month: r.month,
@@ -83,9 +91,12 @@ export async function getGrowthEmployeeOptions(): Promise<GrowthEmployeeOption[]
   const { data, error } = await supabase
     .from('workforce_employees')
     .select('id, full_name, job_title, status')
-    .neq('status', 'Resigned')
+    .not('status', 'in', ENDED_EMPLOYEE_STATUSES_SQL)
     .order('full_name', { ascending: true })
     .returns<Array<{ id: string; full_name: string; job_title: string; status: string }>>()
-  if (error) throw new Error(`[growth] getGrowthEmployeeOptions: ${error.message}`)
+  if (error) {
+    logGrowthDbError('growth.employee_options.select', error)
+    throw new Error('Could not load Growth Tracker employee options.')
+  }
   return (data ?? []).map((r) => ({ id: r.id, name: r.full_name, jobTitle: r.job_title }))
 }

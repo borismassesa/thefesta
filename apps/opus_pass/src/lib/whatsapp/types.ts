@@ -12,6 +12,19 @@ export const BTN = {
 export type ButtonKind = (typeof BTN)[keyof typeof BTN]
 
 /**
+ * Prepare the existing invitation-template greeting value without reducing it
+ * to a first name. The complete guest-list name is intentionally preserved;
+ * only whitespace that Meta rejects in template parameters is normalized.
+ */
+export function formatInviteGuestName(
+  value: string | null | undefined,
+  fallback = 'Rafiki',
+): string {
+  const clean = (value ?? '').replace(/[\r\n\t]+/g, ' ').trim()
+  return clean || fallback
+}
+
+/**
  * Canonical WhatsApp invitation template spec — the single source of truth for
  * what must be submitted to Meta for approval. Quick-reply button TEXT is fixed
  * in the approved template (not sent per-message); the dynamic payload carries
@@ -20,7 +33,7 @@ export type ButtonKind = (typeof BTN)[keyof typeof BTN]
 export const INVITE_TEMPLATE = {
   /** Header is an IMAGE: the card the couple paid for. */
   header: 'IMAGE' as const,
-  /** Body placeholders, in order: {{1}} guest first name, {{2}} couple name,
+  /** Body placeholders, in order: {{1}} full guest name, {{2}} couple name,
    *  {{3}} event category (Swahili noun, e.g. "harusi"). This is the EXACT
    *  approved body of `opuspass_send_invites` (fetched from Meta 2026-07-04) —
    *  the in-app preview renders it verbatim, so keep it in sync with Meta. */
@@ -178,8 +191,8 @@ export interface LinkSend {
 export interface InviteSend {
   /** Recipient in E.164-ish digits (e.g. 255712345678). */
   to: string
-  /** First name interpolated into the template body ({{1}}). */
-  guestFirstName: string
+  /** Full guest-list name interpolated into the template body ({{1}}). */
+  guestName: string
   /** Couple/honoree name interpolated into the template body ({{2}}). */
   coupleName: string
   /** Event category (Swahili noun, e.g. "harusi") interpolated into the template body ({{3}}). */

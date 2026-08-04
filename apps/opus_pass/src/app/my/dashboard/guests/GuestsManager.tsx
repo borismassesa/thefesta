@@ -17,6 +17,7 @@ import {
   ClipboardSignature,
   ArrowUp,
   CalendarHeart,
+  ChevronDown,
 } from 'lucide-react'
 import { Card, EmptyState, StatusPill } from '@/components/dashboard/primitives'
 import { Button, ConfirmDialog, Slideover, Tabs, Field, inputClass } from '@/components/dashboard/controls'
@@ -273,6 +274,16 @@ export default function GuestsManager({
     const doubles = filtered.filter((g) => g.max_party_size >= 2).length
     return { missingContact, invited, replied, totalInvites, doubles }
   }, [filtered, eventFilter, sentEventIds])
+
+  // One rule per line in the CMS field, same shape as the website benefits list.
+  const importRules = useMemo(
+    () =>
+      copy.import_rules_items
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean),
+    [copy.import_rules_items]
+  )
 
   const allSelected = filtered.length > 0 && filtered.every((g) => selected.has(g.id))
   const someSelected = !allSelected && filtered.some((g) => selected.has(g.id))
@@ -1001,11 +1012,8 @@ export default function GuestsManager({
       >
         <div className="space-y-4">
           <div className="rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] p-4">
-            <p className="text-sm font-medium text-[#1A1A1A]">Upload a .csv or .xlsx file</p>
-            <p className="mt-1 text-xs text-[#1A1A1A]/55">
-              Columns we recognize: <span className="font-medium">Name, Email, Phone</span>. We import
-              guest rows from every sheet and use the first row as a header if it looks like one.
-            </p>
+            <p className="text-sm font-medium text-[#1A1A1A]">{copy.import_upload_title}</p>
+            <p className="mt-1 text-xs text-[#1A1A1A]/55">{copy.import_upload_hint}</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button variant="secondary" onClick={pickImportFile}>
                 <Upload className="h-4 w-4" /> Choose file
@@ -1028,6 +1036,26 @@ export default function GuestsManager({
               onChange={onImportFile}
             />
           </div>
+
+          <details className="group rounded-xl border border-black/[0.1] bg-white/60 p-4 open:bg-white">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-[#1A1A1A]">
+              {copy.import_rules_title}
+              <ChevronDown className="h-4 w-4 shrink-0 text-[#1A1A1A]/40 transition-transform group-open:rotate-180" />
+            </summary>
+            <ul className="mt-3 space-y-2">
+              {importRules.map((rule) => (
+                <li key={rule} className="flex gap-2 text-xs leading-relaxed text-[#1A1A1A]/70">
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#9FE870]" />
+                  {rule}
+                </li>
+              ))}
+            </ul>
+            {copy.import_rules_note ? (
+              <p className="mt-3 border-t border-black/[0.06] pt-3 text-xs text-[#1A1A1A]/55">
+                {copy.import_rules_note}
+              </p>
+            ) : null}
+          </details>
 
           <Field label="Or paste names" hint="One per line. Optionally: Name, email, phone">
             <textarea

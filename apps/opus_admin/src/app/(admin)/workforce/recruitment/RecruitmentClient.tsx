@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
+import Link from 'next/link'
 import {
   ArrowRight,
   Briefcase,
@@ -41,6 +42,7 @@ import {
 
 const LOCATIONS: Location[] = ['Dar es Salaam', 'Arusha', 'Zanzibar', 'Remote']
 const EMPLOYMENT_TYPES: EmploymentType[] = ['Permanent', 'Contract', 'Probation', 'Intern']
+
 const STATUSES: JobStatus[] = ['Open', 'On hold', 'Closed']
 const SOURCES: Candidate['source'][] = ['LinkedIn', 'Referral', 'Careers Page', 'Direct', 'Brighter Monday']
 
@@ -87,7 +89,6 @@ function candidateColor(id: string): string {
 export default function RecruitmentClient({ jobs }: { jobs: Job[] }) {
   const [selectedId, setSelectedId] = useState<string>(jobs[0]?.id ?? '')
   const selected = jobs.find((j) => j.id === selectedId) ?? jobs[0]
-  const [creating, setCreating] = useState(false)
   const [addingFor, setAddingFor] = useState<Job | null>(null)
 
   const open = jobs.filter((j) => j.status === 'Open').length
@@ -105,7 +106,7 @@ export default function RecruitmentClient({ jobs }: { jobs: Job[] }) {
   const closingCandidates = jobs.flatMap((j) =>
     j.candidates.filter((c) => c.stage === 'Offer' || c.stage === 'Hired'),
   )
-  const now = Date.now()
+  const [now] = useState(() => Date.now())
   const avgPipelineDays = closingCandidates.length
     ? Math.round(
         closingCandidates.reduce(
@@ -121,14 +122,13 @@ export default function RecruitmentClient({ jobs }: { jobs: Job[] }) {
           recruitment toolbar stays focused on filtering/selecting jobs.
           Mirrors the pattern used on Employees (Export / Add employee). */}
       <HeaderActionsSlot>
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
+        <Link
+          href="/workforce/recruitment/requisitions/new"
           className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
         >
           <Plus className="h-4 w-4" />
-          New job
-        </button>
+          New requisition
+        </Link>
       </HeaderActionsSlot>
 
       <KpiRow>
@@ -161,7 +161,6 @@ export default function RecruitmentClient({ jobs }: { jobs: Job[] }) {
         )}
       </div>
 
-      {creating && <NewJobDialog onClose={() => setCreating(false)} />}
       {addingFor && (
         <AddCandidateDialog
           job={addingFor}
@@ -450,6 +449,12 @@ function NewJobDialog({ onClose }: { onClose: () => void }) {
   const [minSalary, setMinSalary] = useState('')
   const [maxSalary, setMaxSalary] = useState('')
   const [description, setDescription] = useState('')
+  const [workplaceType, setWorkplaceType] = useState<'On-site' | 'Hybrid' | 'Remote' | 'Field-based'>('On-site')
+  const [experienceLevel, setExperienceLevel] = useState('Professional')
+  const [closingDate, setClosingDate] = useState('')
+  const [showSalary, setShowSalary] = useState(false)
+  const [responsibilities, setResponsibilities] = useState('')
+  const [requirements, setRequirements] = useState('')
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -476,6 +481,12 @@ function NewJobDialog({ onClose }: { onClose: () => void }) {
           postedSalaryMinTzs: min,
           postedSalaryMaxTzs: max,
           description: description || undefined,
+          workplaceType,
+          experienceLevel,
+          closingDate: closingDate || undefined,
+          showSalary,
+          responsibilities: responsibilities.split('\n').map((line) => line.trim()).filter(Boolean),
+          requirements: requirements.split('\n').map((line) => line.trim()).filter(Boolean),
         })
         onClose()
       } catch (err) {
@@ -537,6 +548,22 @@ function NewJobDialog({ onClose }: { onClose: () => void }) {
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Workplace</span>
+              <select value={workplaceType} onChange={(e) => setWorkplaceType(e.target.value as typeof workplaceType)} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]">
+                {['On-site', 'Hybrid', 'Remote', 'Field-based'].map((value) => <option key={value}>{value}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Experience level</span>
+              <select value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]">
+                {['Early career', 'Professional', 'Senior', 'Leadership'].map((value) => <option key={value}>{value}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Closing date</span>
+              <input type="date" value={closingDate} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setClosingDate(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]" />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Location</span>
@@ -609,6 +636,22 @@ function NewJobDialog({ onClose }: { onClose: () => void }) {
               placeholder="Role summary for the careers page."
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]"
             />
+          </label>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Responsibilities</span>
+              <textarea value={responsibilities} onChange={(e) => setResponsibilities(e.target.value)} rows={4} placeholder="One responsibility per line" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]" />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Requirements</span>
+              <textarea value={requirements} onChange={(e) => setRequirements(e.target.value)} rows={4} placeholder="One requirement per line" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]" />
+            </label>
+          </div>
+
+          <label className="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700">
+            <input type="checkbox" checked={showSalary} onChange={(e) => setShowSalary(e.target.checked)} className="h-4 w-4 accent-emerald-600" />
+            Show the salary range publicly on the role page
           </label>
         </div>
 

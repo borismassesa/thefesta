@@ -5,6 +5,7 @@ import SetGrowthHeading from './_components/SetGrowthHeading'
 import StatusPill from './_components/StatusPill'
 import { computeStatus, formatUnit } from './_lib/status'
 import { getKpiActuals, getKpiTargets, type GrowthCategory } from './_lib/queries'
+import { currentMonthKey, monthBounds } from './_lib/period'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,12 +21,6 @@ const CATEGORY_HREF: Record<GrowthCategory, string> = {
   studio: '/growth/studio',
 }
 
-function currentMonthKey(): string {
-  // eslint-disable-next-line react-hooks/purity -- server component, reflects request time
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-}
-
 function monthLabel(monthKey: string): string {
   const d = new Date(`${monthKey}T00:00:00Z`)
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -36,6 +31,7 @@ export default async function GrowthDashboardPage() {
   if (!canView) throw new Error("You don't have permission to view the Growth Tracker.")
 
   const month = currentMonthKey()
+  const bounds = monthBounds(month)
   const supabase = createSupabaseAdminClient()
 
   const [marketingTargets, socialTargets, studioTargets] = await Promise.all([
@@ -55,7 +51,8 @@ export default async function GrowthDashboardPage() {
     supabase
       .from('growth_vendor_outreach_log')
       .select('stage, outcome, log_date')
-      .gte('log_date', month)
+      .gte('log_date', bounds.start)
+      .lt('log_date', bounds.next)
       .returns<{ stage: string; outcome: string; log_date: string }[]>(),
   ])
 

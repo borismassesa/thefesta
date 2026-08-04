@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { requirePermission } from '@/lib/admin-auth'
-import type { PayrollStatus } from '../../workforce/_lib/types'
+import { ENDED_EMPLOYEE_STATUSES_SQL, type PayrollStatus } from '../../workforce/_lib/types'
 
 // PAYE/NSSF rates — illustrative; the real engine will live in
 // `lib/payroll`. Keeping the rates here as a single source so the
@@ -24,7 +24,7 @@ async function computeMatrixFromActiveEmployees(): Promise<PayrollMatrix> {
   const { data, error } = await supabase
     .from('workforce_employees')
     .select('salary_tzs, status')
-    .neq('status', 'Resigned')
+    .not('status', 'in', ENDED_EMPLOYEE_STATUSES_SQL)
     .returns<Array<{ salary_tzs: number; status: string }>>()
   if (error) throw error
 

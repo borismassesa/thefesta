@@ -15,6 +15,13 @@ import {
   isAdminDashboardRole,
   recordDashboardLogin,
 } from '@/lib/admin-auth'
+import { getSelfIdentity } from '@/lib/workforce/identity'
+import { workspaceNavFor } from '@/lib/workforce/scope'
+import {
+  WORKSPACE_LABELS,
+  WORKSPACE_ROUTES,
+  isWorkspaceRouteLive,
+} from './workspace/_lib/routes'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,11 +33,31 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   // pass them into the Sidebar. Independent of each other, so run in parallel.
   // Each NavItem can declare a required permission (items the caller can't see
   // drop out of the menu); the profile drives the sidebar account footer.
-  const [permissionSet, profile] = await Promise.all([
+  const [permissionSet, profile, identity] = await Promise.all([
     getCallerPermissions(),
     getCallerProfile(),
+    getSelfIdentity(),
   ])
   const permissions = Array.from(permissionSet)
+
+  // Workspace nav is built from the caller's ACCESS STATE, on the server, and
+  // handed to the Sidebar as a finished list. It is not a permission filter
+  // applied in the client: Workspace carries no permission at all, and a
+  // resigned employee's reduced menu (spec 2.6) is a policy decision that
+  // belongs next to the policy, not in a rendering component.
+  //
+  // An Org-only administrator with no employee row gets an empty list and no
+  // Workspace section, which is correct — there is no "my" anything for them.
+  const workspace = identity.ok
+    ? workspaceNavFor(identity.access)
+        .filter((item) => item !== 'home')
+        .map((item) => ({
+          item,
+          label: WORKSPACE_LABELS[item],
+          href: WORKSPACE_ROUTES[item],
+          live: isWorkspaceRouteLive(item),
+        }))
+    : []
 
   // Stamp this visit as the caller's last dashboard sign-in (throttled in SQL,
   // fully non-throwing). Deferred via after() so the DB round-trip runs off the
@@ -56,7 +83,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               below the lg breakpoint rather than serving a broken one. */}
           <DesktopOnlyNotice />
           <div className="flex h-screen bg-[#FDFDFD] font-sans antialiased text-gray-900">
-            <Sidebar permissions={permissions} profile={profile} />
+            <Sidebar permissions={permissions} profile={profile} workspace={workspace} />
             {/* Full-height secondary-sidebar column. Empty (0-width) on pages
                 without a secondary nav; pages portal their sidebar in via
                 SecondarySidebarSlot so the Header stays only above the content. */}

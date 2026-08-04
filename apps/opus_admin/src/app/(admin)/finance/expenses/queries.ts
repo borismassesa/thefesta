@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import { ENDED_EMPLOYEE_STATUSES_SQL } from '../../workforce/_lib/types'
 
 // Lifecycle states mirrored from the CHECK constraint on finance_expenses.
 // Five primary buckets the UI uses + 'posted'/'refused' terminal states.
@@ -184,7 +185,7 @@ export async function getExpenseEmployeeOptions(): Promise<ExpenseEmployeeOption
   const { data, error } = await supabase
     .from('workforce_employees')
     .select('id, full_name, email, job_title, avatar_color, avatar_url, status')
-    .neq('status', 'Resigned')
+    .not('status', 'in', ENDED_EMPLOYEE_STATUSES_SQL)
     .order('full_name', { ascending: true })
     .returns<
       Array<{

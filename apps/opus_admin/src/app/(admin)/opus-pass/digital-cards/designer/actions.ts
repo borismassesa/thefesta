@@ -11,13 +11,13 @@ import {
   type AdminAccessRole,
 } from '@/lib/admin-auth'
 import { releaseApprovedDesign } from '@/lib/cms/release-card'
+import { logReleaseFailure } from '@/lib/cms/release-log'
+import { orderStageFor, type DesignStatus } from '@/lib/cms/order-stage'
+import { mergeCardDesignerValues } from '@/lib/cms/card-designer-values'
+import { checkSelfReview } from '@/lib/cms/card-review-authorization'
 import { sendCardReviewRequest } from '@/lib/card-review-email'
 import { readOrderLine, type OrderLineItem } from '@/lib/cms/order-add-ons'
-import {
-  CARD_FIELD_ROLE_KEYS,
-  requestableFields,
-  type CardFieldBinding,
-} from '@opusfesta/lib'
+import { requestableFields, type CardFieldBinding } from '@opusfesta/lib'
 
 const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
 
@@ -30,26 +30,33 @@ const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
 type Result = { ok: true; warning?: string } | { ok: false; error: string }
 
 /**
- * Whether the caller is the person assigned to this job.
+ * Who is performing this action, or a refusal.
  *
- * `assigned_to` is a workforce_employees id while the caller is identified by
- * email, so the two have to be reconciled rather than compared. An unresolvable
- * assignee returns false: blocking a review because a staff row was deleted
- * would strand the card.
+ * Every action below stamps its author onto a record: `submitted_by` and
+ * `reviewed_by` on the design job row, and `released_by` on an
+ * invitation_card_design_releases row that is never rewritten. These used to
+ * fall back to the literal string 'unknown', which is worse than it looks in
+ * two separate ways.
+ *
+ * It is not a person, so an immutable release could permanently record that
+ * "unknown" published a card. And because the two-eyes gate reconciles the
+ * caller against the assignee BY EMAIL, 'unknown' matches no assignee, so the
+ * one caller we could not name was also the one the self-review check waved
+ * through.
+ *
+ * Refusing is the safe direction. The action is retryable; an unattributable
+ * release is not.
  */
-async function isSelfReview(
-  supabase: ReturnType<typeof createSupabaseAdminClient>,
-  assignedTo: string | null,
-  callerEmail: string,
-): Promise<boolean> {
-  if (!assignedTo || !callerEmail) return false
-  const { data } = await supabase
-    .from('workforce_employees')
-    .select('email')
-    .eq('id', assignedTo)
-    .maybeSingle<{ email: string | null }>()
-  const assigneeEmail = (data?.email ?? '').trim().toLowerCase()
-  return Boolean(assigneeEmail) && assigneeEmail === callerEmail.trim().toLowerCase()
+async function resolveAuthor(): Promise<{ ok: true; author: string } | { ok: false; error: string }> {
+  const author = await getCallerEmail()
+  if (!author) {
+    return {
+      ok: false,
+      error:
+        'We could not confirm which account you are signed in as, so nothing was recorded. Sign in again and retry.',
+    }
+  }
+  return { ok: true, author }
 }
 
 /**
@@ -120,50 +127,73 @@ export async function startDesignJob(orderId: string, lineIndex: number): Promis
 }
 
 /**
- * Order-level fulfilment stage each design status implies, and the source of
- * the status type. One map rather than a parallel list, so a new status cannot
- * be added without deciding what it means for the order the couple is watching.
- */
-const ORDER_STAGE = {
-  awaiting_info: 'in_progress',
-  in_design: 'in_progress',
-  in_review: 'in_progress',
-  ready: 'ready',
-  delivered: 'delivered',
-} as const
-
-type DesignStatus = keyof typeof ORDER_STAGE
-
-/**
  * Roll the ORDER forward to the stage every one of its cards has reached.
  *
- * An order can hold six cards. Advancing it the moment one is ready would show
- * the couple "Design ready" while three of theirs are still being drawn.
+ * Fails closed. The read used to be taken as `(siblings ?? [])`, which turned a
+ * failed query into an empty list, and an empty list satisfies neither the
+ * 'in_progress' nor the 'ready' test, so it fell through to 'delivered'. One
+ * transient read error marked a couple's entire order Delivered, silently, with
+ * no card having been handed over. orderStageFor returns null instead of
+ * guessing; see the note there.
+ *
+ * The failure is reported to the caller as a warning rather than an error. The
+ * card transition it accompanies has already committed, so calling it a failure
+ * would be a lie, and saying nothing is how this went unnoticed.
  */
 async function syncOrderStage(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   orderId: string,
   now: string,
-): Promise<void> {
-  const { data: siblings } = await supabase
+): Promise<{ ok: true } | { ok: false; warning: string }> {
+  const stale = {
+    ok: false as const,
+    warning:
+      'The card moved, but the order tracker the couple sees was not updated, so it is still showing the previous stage. Refresh the order and check it.',
+  }
+
+  const { data: siblings, error: readError } = await supabase
     .from('invitation_card_designs')
     .select('status')
     .eq('order_id', orderId)
+  if (readError || !siblings) {
+    logReleaseFailure('order_stage_read', { orderId }, readError)
+    return stale
+  }
 
-  const stages = (siblings ?? []).map((s) => ORDER_STAGE[s.status as DesignStatus] ?? 'in_progress')
-  const orderStage = stages.includes('in_progress')
-    ? 'in_progress'
-    : stages.includes('ready')
-      ? 'ready'
-      : 'delivered'
+  const orderStage = orderStageFor(siblings.map((sibling) => String(sibling.status)))
+  if (!orderStage) {
+    // The caller just transitioned a card belonging to this order, so the order
+    // has at least one. Zero rows means the read did not see what is there.
+    logReleaseFailure('order_stage_empty', { orderId })
+    return stale
+  }
 
-  await supabase
+  const { error: writeError } = await supabase
     .from('invitation_orders')
     .update({ fulfillment_status: orderStage, fulfillment_updated_at: now })
     .eq('id', orderId)
+  if (writeError) {
+    logReleaseFailure('order_stage_write', { orderId }, writeError)
+    return stale
+  }
+
+  return { ok: true }
 }
 
-/** Append to the job's history. Never throws: a lost log entry must not fail a transition. */
+/**
+ * Append to the job's history. Reports whether it landed.
+ *
+ * Still never throws and still never fails a transition: the transition has
+ * already committed by the time this runs, and refusing it afterwards is not
+ * something this function can do.
+ *
+ * What it no longer does is throw the outcome away. The old body ended in
+ * `.then(() => undefined, () => undefined)`, and the rejection arm there was
+ * dead code: postgrest-js resolves with `{ error }` instead of rejecting, so
+ * every real insert failure went down the FULFILLED arm and was discarded
+ * unread. The try/catch stays for the genuinely thrown case (a fetch that never
+ * reached PostgREST at all).
+ */
 async function recordDesignEvent(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   event: {
@@ -174,10 +204,9 @@ async function recordDesignEvent(
     toStatus?: string | null
     kind?: 'system' | 'note'
   },
-): Promise<void> {
-  await supabase
-    .from('invitation_card_design_events')
-    .insert({
+): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('invitation_card_design_events').insert({
       design_id: event.designId,
       kind: event.kind ?? 'system',
       author: event.author,
@@ -185,10 +214,29 @@ async function recordDesignEvent(
       from_status: event.fromStatus ?? null,
       to_status: event.toStatus ?? null,
     })
-    .then(
-      () => undefined,
-      () => undefined,
-    )
+    if (error) {
+      logReleaseFailure('design_event_write', { designId: event.designId }, error)
+      return false
+    }
+    return true
+  } catch (thrown) {
+    logReleaseFailure('design_event_write', { designId: event.designId }, {
+      message: thrown instanceof Error ? thrown.message : 'insert threw',
+    })
+    return false
+  }
+}
+
+/**
+ * A transition that committed, carrying whatever side effects did not.
+ *
+ * Side effects here are plural and independent (the order tracker, the history
+ * row, the reviewer email), so they are joined rather than one shadowing the
+ * others.
+ */
+function succeeded(...warnings: (string | undefined | false)[]): Result {
+  const kept = warnings.filter((warning): warning is string => Boolean(warning))
+  return kept.length > 0 ? { ok: true, warning: kept.join(' ') } : { ok: true }
 }
 
 type DesignRow = {
@@ -212,7 +260,9 @@ const DESIGN_SELECT = 'id, order_id, status, assigned_to, product_name'
 export async function submitForReview(designId: string): Promise<Result> {
   await requirePermission('cms.write')
   const supabase = createSupabaseAdminClient()
-  const author = (await getCallerEmail()) ?? 'unknown'
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
   const now = new Date().toISOString()
 
   const { data: design } = await supabase
@@ -248,7 +298,7 @@ export async function submitForReview(designId: string): Promise<Result> {
     fromStatus: design.status,
     toStatus: 'in_review',
   })
-  await syncOrderStage(supabase, design.order_id, now)
+  const staged = await syncOrderStage(supabase, design.order_id, now)
 
   // Email is best-effort: a mail outage must not leave the job in limbo.
   const notified = await sendCardReviewRequest(designId).catch(() => ({
@@ -259,9 +309,12 @@ export async function submitForReview(designId: string): Promise<Result> {
 
   revalidatePath('/opus-pass/digital-cards/designer')
   revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
-  return notified.sent || notified.recipients.length > 0
-    ? { ok: true }
-    : { ok: true, warning: 'Submitted, but no reviewer could be emailed. Tell someone directly.' }
+  return succeeded(
+    !notified.sent &&
+      notified.recipients.length === 0 &&
+      'Submitted, but no reviewer could be emailed. Tell someone directly.',
+    !staged.ok && staged.warning,
+  )
 }
 
 /**
@@ -277,7 +330,9 @@ export async function submitForReview(designId: string): Promise<Result> {
 export async function approveAndRelease(designId: string): Promise<Result> {
   await requirePermission('cms.publish')
   const supabase = createSupabaseAdminClient()
-  const author = (await getCallerEmail()) ?? 'unknown'
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
   const now = new Date().toISOString()
 
   const { data: design } = await supabase
@@ -291,7 +346,10 @@ export async function approveAndRelease(designId: string): Promise<Result> {
     return { ok: false, error: 'Only a job that is in review can be approved.' }
   }
 
-  if (await isSelfReview(supabase, design.assigned_to, author)) {
+  // A check that could not run is not a check that passed.
+  const selfReview = await checkSelfReview(supabase, design.assigned_to, author)
+  if (!selfReview.ok) return selfReview
+  if (selfReview.isSelf) {
     return {
       ok: false,
       error:
@@ -311,11 +369,11 @@ export async function approveAndRelease(designId: string): Promise<Result> {
     fromStatus: 'in_review',
     toStatus: 'ready',
   })
-  await syncOrderStage(supabase, design.order_id, now)
+  const staged = await syncOrderStage(supabase, design.order_id, now)
 
   revalidatePath('/opus-pass/digital-cards/designer')
   revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
-  return released
+  return succeeded(released.warning, !staged.ok && staged.warning)
 }
 
 /**
@@ -331,7 +389,9 @@ export async function requestChanges(designId: string, note: string): Promise<Re
   if (!trimmed) return { ok: false, error: 'Say what needs changing.' }
 
   const supabase = createSupabaseAdminClient()
-  const author = (await getCallerEmail()) ?? 'unknown'
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
   const now = new Date().toISOString()
 
   const { data: design } = await supabase
@@ -363,11 +423,11 @@ export async function requestChanges(designId: string, note: string): Promise<Re
     toStatus: 'in_design',
     kind: 'note',
   })
-  await syncOrderStage(supabase, design.order_id, now)
+  const staged = await syncOrderStage(supabase, design.order_id, now)
 
   revalidatePath('/opus-pass/digital-cards/designer')
   revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
-  return { ok: true }
+  return succeeded(!staged.ok && staged.warning)
 }
 
 /**
@@ -379,7 +439,9 @@ export async function requestChanges(designId: string, note: string): Promise<Re
 export async function markDelivered(designId: string): Promise<Result> {
   await requirePermission('cms.write')
   const supabase = createSupabaseAdminClient()
-  const author = (await getCallerEmail()) ?? 'unknown'
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
   const now = new Date().toISOString()
 
   const { data: design } = await supabase
@@ -406,11 +468,11 @@ export async function markDelivered(designId: string): Promise<Result> {
     fromStatus: 'ready',
     toStatus: 'delivered',
   })
-  await syncOrderStage(supabase, design.order_id, now)
+  const staged = await syncOrderStage(supabase, design.order_id, now)
 
   revalidatePath('/opus-pass/digital-cards/designer')
   revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
-  return { ok: true }
+  return succeeded(!staged.ok && staged.warning)
 }
 
 /**
@@ -488,38 +550,44 @@ export async function saveDesignFieldValues(
 
   const { data: design, error } = await supabase
     .from('invitation_card_designs')
-    .select('id, field_values, requested_fields')
+    .select('id, status, field_values, requested_fields')
     .eq('id', designId)
     .maybeSingle<{
       id: string
+      status: string
       field_values: Record<string, string> | null
       requested_fields: string[] | null
     }>()
   if (error) return { ok: false, error: error.message }
   if (!design) return { ok: false, error: 'Design job not found.' }
 
-  const merged = { ...(design.field_values ?? {}) }
-  for (const [role, value] of Object.entries(values)) {
-    if (!CARD_FIELD_ROLE_KEYS.includes(role)) {
-      return { ok: false, error: `"${role}" is not a known card field.` }
-    }
-    const trimmed = String(value ?? '').trim()
-    // An emptied field is a removal, not a stored empty string — otherwise
-    // "answered" counts would include blanks.
-    if (trimmed) merged[role] = trimmed
-    else delete merged[role]
-  }
+  const mergedResult = mergeCardDesignerValues(design.field_values, values)
+  if (!mergedResult.ok) return mergedResult
+  const merged = mergedResult.values
 
   // Anything now answered is no longer outstanding.
   const stillOutstanding = (design.requested_fields ?? []).filter((role) => !merged[role])
+  const answeredTheLastRequest =
+    stillOutstanding.length === 0 && (design.requested_fields ?? []).length > 0
+
+  // A released card can still be carrying outstanding requests: submitForReview
+  // accepts an awaiting_info job, so approval can land while requested_fields is
+  // non-empty. Answering the last of them must NOT drag the job back to
+  // in_design, because OpusPass resolves guest cards with
+  // `.in('status', ['ready', 'delivered'])` and the card would stop resolving
+  // altogether, with the couple's order still claiming it was delivered.
+  const isReleased = design.status === 'ready' || design.status === 'delivered'
 
   const { error: updateError } = await supabase
     .from('invitation_card_designs')
     .update({
       field_values: merged,
       requested_fields: stillOutstanding,
-      ...(stillOutstanding.length === 0 && (design.requested_fields ?? []).length > 0
-        ? { info_received_at: new Date().toISOString(), status: 'in_design' }
+      ...(answeredTheLastRequest
+        ? {
+            info_received_at: new Date().toISOString(),
+            ...(isReleased ? {} : { status: 'in_design' }),
+          }
         : {}),
     })
     .eq('id', designId)
@@ -528,4 +596,145 @@ export async function saveDesignFieldValues(
   revalidatePath('/opus-pass/digital-cards/designer')
   revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
   return { ok: true }
+}
+
+/**
+ * Save corrections to an already-released card and publish them as a new,
+ * immutable release.
+ *
+ * What does NOT change: a guest URL already in a WhatsApp thread. Those are
+ * minted against a specific release id, the stored PNG sits under that id, and
+ * nothing here deletes old releases or their objects. A guest holding a link
+ * keeps seeing the card they were sent.
+ *
+ * What DOES change, and is easy to miss: everything couple-facing. The
+ * dashboard and the /api/my/card download read `release_svg_path`, which
+ * release-card.ts overwrites, so the couple's own copy becomes the corrected
+ * one. `current_release_id` moves too, and that is what future guest sends
+ * resolve through. So the couple and their already-invited guests are
+ * deliberately holding different versions after this runs.
+ *
+ * Note also that the new release is re-rendered from the product's CURRENT
+ * artwork and bindings, not from the old release's SVG. If the artwork was
+ * re-exported since, that lands in this release as well as the corrections.
+ */
+export async function saveAndPublishReleasedDesign(
+  designId: string,
+  values: Record<string, string>,
+): Promise<Result> {
+  await requirePermission('cms.publish')
+  const supabase = createSupabaseAdminClient()
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
+  const now = new Date().toISOString()
+
+  const { data: design, error } = await supabase
+    .from('invitation_card_designs')
+    .select('id, order_id, status, assigned_to, product_name, field_values, requested_fields')
+    .eq('id', designId)
+    .maybeSingle<
+      DesignRow & {
+        field_values: Record<string, string> | null
+        requested_fields: string[] | null
+      }
+    >()
+  if (error) return { ok: false, error: error.message }
+  if (!design) return { ok: false, error: 'Design job not found.' }
+  if (design.status !== 'ready' && design.status !== 'delivered') {
+    return { ok: false, error: 'Only an already-released card can be published as an update.' }
+  }
+  // Same fail-closed rule as approveAndRelease: republishing cuts a new
+  // immutable release and moves what the couple is served, so an unverifiable
+  // assignment must stop it rather than wave it past.
+  const selfReview = await checkSelfReview(supabase, design.assigned_to, author)
+  if (!selfReview.ok) return selfReview
+  if (selfReview.isSelf) {
+    return {
+      ok: false,
+      error: 'You are assigned to this card, so another publisher must release the update.',
+    }
+  }
+
+  const mergedResult = mergeCardDesignerValues(design.field_values, values)
+  if (!mergedResult.ok) return mergedResult
+  const merged = mergedResult.values
+  const stillOutstanding = (design.requested_fields ?? []).filter((role) => !merged[role])
+  const wasDelivered = design.status === 'delivered'
+
+  // Written BEFORE the release is cut, and that order is load-bearing:
+  // freezeCardRelease re-reads field_values from this row rather than taking
+  // them as an argument, so a release cut first would freeze the OLD values
+  // into a new file and report success. See the guard in
+  // card-release-ordering.test.ts.
+  const { data: savedDesign, error: updateError } = await supabase
+    .from('invitation_card_designs')
+    .update({
+      field_values: merged,
+      requested_fields: stillOutstanding,
+      // The handover being recorded was of the release we are about to
+      // supersede, so it stops being true of this row the moment we publish.
+      ...(wasDelivered ? { delivered_at: null } : {}),
+      ...(stillOutstanding.length === 0 && (design.requested_fields ?? []).length > 0
+        ? { info_received_at: now }
+        : {}),
+    })
+    .eq('id', designId)
+    .eq('status', design.status)
+    .select('id')
+    .maybeSingle<{ id: string }>()
+  if (updateError) return { ok: false, error: updateError.message }
+  if (!savedDesign) {
+    return { ok: false, error: 'The card stage changed while you were editing. Refresh and try again.' }
+  }
+
+  const released = await releaseApprovedDesign(supabase, design, author, now)
+  if (!released.ok) {
+    return {
+      ok: false,
+      error: `Your values were saved, but the updated card was not published: ${released.error}`,
+    }
+  }
+
+  // A card that had already been handed over comes back to Ready (the demotion
+  // itself is in releaseApprovedDesign, which always writes status: 'ready'),
+  // and that is the honest state: what the couple is holding is now the
+  // SUPERSEDED release. Leaving the job at "delivered" would assert that the
+  // version now current had been handed over, which is the kind of quiet lie
+  // this pipeline exists to prevent.
+  //
+  // It is not free, though. syncOrderStage below maps ready back to a 'ready'
+  // fulfilment stage, so the couple watches the Delivered tick come OFF their
+  // order tracker with no explanation aimed at them. That is why the warning
+  // tells the publisher to go and re-deliver rather than just noting the stage.
+  const recorded = await recordDesignEvent(supabase, {
+    designId,
+    author,
+    body: wasDelivered
+      ? 'Published updated card release, superseding the version already delivered'
+      : 'Published updated card release',
+    fromStatus: design.status,
+    toStatus: 'ready',
+  })
+  const staged = await syncOrderStage(supabase, design.order_id, now)
+
+  revalidatePath('/opus-pass/digital-cards/designer')
+  revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
+  // The delivered notice leads, because it is the half that always needs acting
+  // on. The rest are rare and follow.
+  //
+  // A lost history row is surfaced here and nowhere else it is written, because
+  // here the event is the only durable record that a version the couple was
+  // already holding has been superseded. delivered_at was just cleared and the
+  // status is back at 'ready', so without the row nothing anywhere says a
+  // handover happened and was undone.
+  return succeeded(
+    wasDelivered &&
+      "This card had already been delivered, so it is back at Ready and the couple's order tracker has moved back a stage. Send them the updated card, then mark it delivered again.",
+    wasDelivered &&
+      !recorded &&
+      'Its history could not be written either, so the record that the delivered version was superseded exists only in this message.',
+    released.warning,
+    !staged.ok && staged.warning,
+  )
 }

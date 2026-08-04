@@ -38,11 +38,25 @@ export type PersistedEmailPayload = {
   note?: string | null
 }
 
-const BUILDERS: Record<WorkflowEventType, (input: ApprovalEmailInput) => RenderedEmail> = {
+// Partial on purpose. Not every workflow event is emailable: the attendance
+// module's nightly sweep raises 'attendance.gap_detected' for the bell only,
+// because an automated job should not put a message in everyone's inbox.
+//
+// A missing builder is a state the callers already handle — emit records the
+// obligation and traces 'template_missing', and the retry worker abandons the
+// row — not something to paper over with a stub email nobody wrote.
+const BUILDERS: Partial<
+  Record<WorkflowEventType, (input: ApprovalEmailInput) => RenderedEmail>
+> = {
   'approval.submitted': buildSubmittedEmail,
   'approval.approved': buildApprovedEmail,
   'approval.refused': buildRefusedEmail,
   'approval.info_requested': buildInfoRequestedEmail,
+}
+
+/** True when this event type has an email template at all. */
+export function hasEmailTemplate(eventType: WorkflowEventType): boolean {
+  return BUILDERS[eventType] !== undefined
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -96,10 +110,11 @@ export function renderNotificationEmail(
   eventType: WorkflowEventType,
   payload: PersistedEmailPayload,
   recipient: { name: string; email: string },
-): RenderedEmail {
+): RenderedEmail | null {
   const input: ApprovalEmailInput =
     eventType === 'approval.submitted'
       ? { ...payload, actor: { name: recipient.name, email: recipient.email, role: null } }
       : payload
-  return BUILDERS[eventType](input)
+  const build = BUILDERS[eventType]
+  return build ? build(input) : null
 }

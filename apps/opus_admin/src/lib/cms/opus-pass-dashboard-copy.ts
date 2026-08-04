@@ -105,6 +105,22 @@ export const DASHBOARD_COPY_FALLBACK: Record<DashboardCopySlug, DashboardCopyCon
     collector_setup: 'Set up',
     filter_label: 'Filter',
     import_title: 'Upload spreadsheet',
+    import_upload_title: 'Upload a .csv or .xlsx file',
+    import_upload_hint:
+      'Columns we recognize: Name / Jina, Phone / Namba ya Simu, Email / Barua Pepe. We import guest rows from every sheet and use the first row as a header if it looks like one.',
+    import_rules_title: 'What your file needs',
+    import_rules_items: [
+      'One guest per row. A couple invited together is one row, not two.',
+      'A header row naming the columns: Name / Jina, Phone / Namba ya Simu, Email / Barua Pepe. Extra columns are ignored.',
+      'A name on every row. Rows without one are skipped.',
+      'The phone column formatted as Text, so the leading 0 survives.',
+      'One number per row, never repeated. A number already on the list is skipped.',
+      'An empty cell where there is no number. Do not type N/A or Hakuna namba.',
+      'A full country code for guests abroad, like +254712345678.',
+      'Test and draft tabs deleted. Every tab with a header row is imported.',
+    ].join('\n'),
+    import_rules_note:
+      'Everyone imports as a Single ticket. Mark the Double tickets here once the upload is done.',
     toast_added: 'Guest added',
     toast_updated: 'Guest updated',
     toast_removed: 'Guest removed',
@@ -350,6 +366,21 @@ export const COPY_FIELD_SCHEMA: Record<DashboardCopySlug, CopyFieldGroup[]> = {
         { key: 'search_placeholder', label: 'Search placeholder', kind: 'text', max: 60 },
         { key: 'no_match_title', label: 'No-match message', kind: 'text', max: 60 },
         { key: 'import_title', label: 'Import modal title', kind: 'text', max: 40 },
+      ],
+    },
+    {
+      legend: 'Spreadsheet upload',
+      fields: [
+        { key: 'import_upload_title', label: 'Upload box title', kind: 'text', max: 60 },
+        { key: 'import_upload_hint', label: 'Upload box hint', kind: 'textarea', max: 260 },
+        { key: 'import_rules_title', label: 'Requirements heading', kind: 'text', max: 60 },
+        {
+          key: 'import_rules_items',
+          label: 'Requirements',
+          kind: 'list',
+          hint: 'One requirement per line',
+        },
+        { key: 'import_rules_note', label: 'Requirements footnote', kind: 'textarea', max: 200 },
       ],
     },
     {

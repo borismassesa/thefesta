@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start -p 3003",
     "lint": "eslint .",
+    "test": "../../node_modules/.bin/tsx --test 'src/app/(portal)/storefront/services/mapping.test.ts'",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf .next"
   },

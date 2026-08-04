@@ -3,17 +3,18 @@
 import { useTransition, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import {
-  Compass,
   Eye,
   ExternalLink,
   Grid3X3,
   HelpCircle,
   Heart,
-  LayoutPanelTop,
+  Mail,
   Megaphone,
   PanelTop,
   Save,
   Send,
+  Sparkles,
+  Ticket,
   Trash2,
   Wallet,
   ListChecks,
@@ -24,10 +25,28 @@ import { CmsSecondarySidebar, type CmsSection } from '@/components/cms/CmsSecond
 import { EditorActionsProvider, useEditorActions } from './EditorActionsContext'
 import { getOpusPassDigitalCardsPreviewUrl } from './preview-action'
 
-// The card catalogue itself lives outside the CMS, under
-// OpusPass › Digital Cards — it's product data, not page copy. Everything
-// below edits the storefront's marketing sections.
+// Product data and storefront copy share this section navigation so editors
+// can move between card inventory, ticket designs, and marketing content.
 const sections: CmsSection[] = [
+  {
+    key: 'products',
+    label: 'Cards',
+    icon: Mail,
+    href: '/cms/opus-pass/digital-cards/products',
+    status: 'live',
+    description: 'Digital card catalog — designs, prices, designer and details per card.',
+  },
+  {
+    key: 'ticket',
+    label: 'Ticket',
+    icon: Ticket,
+    // Sibling surface outside /digital-cards — it reuses this layout via
+    // cms/opus-pass/ticket/layout.tsx, so it needs an entry here to get its
+    // own heading (and to be reachable from this sidebar at all).
+    href: '/cms/opus-pass/ticket',
+    status: 'live',
+    description: 'Entrance-pass ticket designs: the QR and barcode ticket SVGs, palettes and designer.',
+  },
   {
     key: 'packages',
     label: 'Packages',
@@ -61,12 +80,12 @@ const sections: CmsSection[] = [
     description: 'Editorial product grid — row titles and alignment direction.',
   },
   {
-    key: 'featured-suite',
-    label: 'Featured Suite',
-    icon: LayoutPanelTop,
-    href: '/cms/opus-pass/digital-cards/featured-suite',
+    key: 'features',
+    label: 'Feature Row',
+    icon: Sparkles,
+    href: '/cms/opus-pass/digital-cards/features',
     status: 'live',
-    description: 'Featured product suite showcase block.',
+    description: 'Benefit cards below the picks grid: section heading, subheading and each card.',
   },
   {
     key: 'promo-banner',
@@ -75,14 +94,6 @@ const sections: CmsSection[] = [
     href: '/cms/opus-pass/digital-cards/promo-banner',
     status: 'live',
     description: 'Sitewide catalog promo strip — discount text + promo code.',
-  },
-  {
-    key: 'explore-styles',
-    label: 'Explore Other Styles',
-    icon: Compass,
-    href: '/cms/opus-pass/digital-cards/explore-styles',
-    status: 'live',
-    description: 'Catalog footer link columns — group heading + link list per column.',
   },
   {
     key: 'faqs',
@@ -102,6 +113,16 @@ const sections: CmsSection[] = [
   },
 ]
 
+// Public page each section edits, used by "View live site" and "Preview
+// draft". Most sections live on the /digital-cards landing page; only the
+// exceptions are listed here. `null` means the section has no public page,
+// so both buttons are hidden: the ticket editor's products (p23/p24) do not
+// exist until someone saves them, so any link would land on a 404.
+const DEFAULT_PUBLIC_PATH = '/digital-cards'
+const SECTION_PUBLIC_PATH: Record<string, string | null> = {
+  ticket: null,
+}
+
 export default function OpusPassDigitalCardsCmsLayout({ children }: { children: ReactNode }) {
   return (
     <EditorActionsProvider>
@@ -115,6 +136,11 @@ function OpusPassDigitalCardsCmsShell({ children }: { children: ReactNode }) {
   // opus_pass is mounted under basePath '/opuspass'.
   const opusPassUrl = `${process.env.NEXT_PUBLIC_OPUS_PASS_URL ?? 'http://localhost:3008'}`
   const activeSection = sections.find((s) => s.href && pathname.startsWith(s.href)) ?? sections[0]
+  // `??` would swallow an explicit null, so check for the key instead.
+  const publicPath =
+    activeSection.key in SECTION_PUBLIC_PATH
+      ? SECTION_PUBLIC_PATH[activeSection.key]
+      : DEFAULT_PUBLIC_PATH
 
   useSetPageHeading({
     title: activeSection.label,
@@ -128,16 +154,20 @@ function OpusPassDigitalCardsCmsShell({ children }: { children: ReactNode }) {
       </HeaderBadgeSlot>
       <HeaderActionsSlot>
         <EditorActionButtons />
-        <PreviewDraftButton />
-        <a
-          href={`${opusPassUrl}/digital-cards`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-        >
-          View live site
-          <ExternalLink className="w-3.5 h-3.5" />
-        </a>
+        {publicPath && (
+          <>
+            <PreviewDraftButton path={publicPath} />
+            <a
+              href={`${opusPassUrl}${publicPath}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              View live site
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </>
+        )}
       </HeaderActionsSlot>
 
       <CmsSecondarySidebar title="Digital Cards" sections={sections} pathname={pathname} />
@@ -205,11 +235,11 @@ function EditorActionButtons() {
   )
 }
 
-function PreviewDraftButton() {
+function PreviewDraftButton({ path }: { path: string }) {
   const [pending, startTransition] = useTransition()
   const openPreview = () =>
     startTransition(async () => {
-      const url = await getOpusPassDigitalCardsPreviewUrl('/digital-cards')
+      const url = await getOpusPassDigitalCardsPreviewUrl(path)
       if (!url) {
         console.warn('OPUS_PASS_PREVIEW_TOKEN env var missing — preview disabled.')
         window.alert('Preview unavailable: OPUS_PASS_PREVIEW_TOKEN is not configured on this environment.')

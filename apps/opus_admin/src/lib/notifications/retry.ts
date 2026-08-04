@@ -60,3 +60,6 @@ export type PermanentFailure =
   | 'EVENT_MISSING_OR_UNKNOWN_TYPE'
   | 'PAYLOAD_UNRENDERABLE'
   | 'RECIPIENT_UNRESOLVED'
+  // The event type is valid but has no email template — a bell-only event such
+  // as attendance.gap_detected. No number of retries produces a message.
+  | 'NO_EMAIL_TEMPLATE'

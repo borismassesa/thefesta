@@ -38,11 +38,27 @@ export const VendorSocialLinksSchema = z.object({
 });
 export type VendorSocialLinks = z.infer<typeof VendorSocialLinksSchema>;
 
-export const VendorServiceSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-});
+export const VendorServiceSchema = z.string().trim().min(1).max(60);
 export type VendorService = z.infer<typeof VendorServiceSchema>;
+
+export const VendorServicesOfferedSchema = z
+  .array(VendorServiceSchema)
+  .max(100)
+  .superRefine((titles, context) => {
+    const seen = new Set<string>();
+
+    titles.forEach((title, index) => {
+      const identity = title.toLowerCase();
+      if (seen.has(identity)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Service titles must be unique (case-insensitive)",
+          path: [index],
+        });
+      }
+      seen.add(identity);
+    });
+  });
 
 export const VendorRecordSchema = z
   .object({
@@ -65,7 +81,7 @@ export const VendorRecordSchema = z
     social_links: VendorSocialLinksSchema,
     years_in_business: z.number().nullable(),
     team_size: z.number().nullable(),
-    services_offered: z.array(VendorServiceSchema),
+    services_offered: VendorServicesOfferedSchema.nullable(),
     onboarding_status: z
       .enum(["invited", "in_progress", "pending_review", "active", "suspended"])
       .optional(),

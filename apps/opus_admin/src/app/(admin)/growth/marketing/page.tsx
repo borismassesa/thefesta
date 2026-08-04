@@ -1,5 +1,6 @@
 import { hasAnyPermission, hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import { logGrowthDbError } from '../_lib/action-utils'
 import { getGrowthEmployeeOptions, getKpiActuals, getKpiTargets } from '../_lib/queries'
 import MarketingClient from './MarketingClient'
 import type { Campaign } from './MarketingClient'
@@ -42,7 +43,10 @@ export default async function MarketingPage() {
       .returns<CampaignRow[]>(),
     getGrowthEmployeeOptions(),
   ])
-  if (error) throw new Error(`[growth/marketing] campaigns: ${error.message}`)
+  if (error) {
+    logGrowthDbError('growth.marketing_campaigns.select', error)
+    throw new Error('Could not load Growth Tracker campaigns.')
+  }
 
   const campaigns: Campaign[] = (campaignRows ?? []).map((r) => ({
     id: r.id,

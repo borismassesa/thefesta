@@ -1,15 +1,21 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { escapeLike, getCallerEmail, hasPermission } from '@/lib/admin-auth'
+import { escapeLike, getCallerEmail } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import {
+  GROWTH_ERROR,
+  growthDbErrorMessage,
+  logGrowthDbError,
+  missingGrowthRecord,
+  requireGrowthPermission,
+  type ActionResult,
+} from '../_lib/action-utils'
 
 // Server actions for the Vendor Outreach section of the Growth Tracker.
 // Roster target edits require growth.admin; outreach log entries only
 // require growth.write. Mirrors the { ok } result shape used by
 // workforce/daily-tracker/actions.ts.
-
-export type ActionResult = { ok: true } | { ok: false; error: string }
 
 function revalidateAll() {
   revalidatePath('/growth/vendor-outreach')
@@ -32,9 +38,8 @@ export async function saveOutreachTarget(
   id: string,
   patch: { targetOutreach: number; targetMeetings: number; targetSigned: number },
 ): Promise<ActionResult> {
-  if (!(await hasPermission('growth.admin'))) {
-    return { ok: false, error: "You don't have permission to edit outreach targets." }
-  }
+  const denied = await requireGrowthPermission('growth.admin')
+  if (denied) return denied
   if (
     !Number.isFinite(patch.targetOutreach) ||
     !Number.isFinite(patch.targetMeetings) ||
@@ -47,7 +52,7 @@ export async function saveOutreachTarget(
   }
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('growth_vendor_outreach_targets')
     .update({
       target_outreach: Math.round(patch.targetOutreach),
@@ -55,10 +60,13 @@ export async function saveOutreachTarget(
       target_signed: Math.round(patch.targetSigned),
     })
     .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (error) {
-    console.error('[growth] saveOutreachTarget failed', error)
-    return { ok: false, error: error.message || 'Could not save.' }
+    logGrowthDbError('growth.vendor_outreach_target.update', error, { targetId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
   }
+  if (!data) return missingGrowthRecord()
 
   revalidateAll()
   return { ok: true }
@@ -92,9 +100,8 @@ function validateLogInput(input: OutreachLogInput): string | null {
 }
 
 export async function addOutreachLogEntry(input: OutreachLogInput): Promise<ActionResult> {
-  if (!(await hasPermission('growth.write'))) {
-    return { ok: false, error: "You don't have permission to log outreach contacts." }
-  }
+  const denied = await requireGrowthPermission('growth.write')
+  if (denied) return denied
   const validationError = validateLogInput(input)
   if (validationError) return { ok: false, error: validationError }
 
@@ -115,8 +122,8 @@ export async function addOutreachLogEntry(input: OutreachLogInput): Promise<Acti
     created_by_employee_id: employeeId,
   })
   if (error) {
-    console.error('[growth] addOutreachLogEntry failed', error)
-    return { ok: false, error: error.message || 'Could not save.' }
+    logGrowthDbError('growth.vendor_outreach_log.insert', error, { employeeId })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
   }
 
   revalidateAll()
@@ -126,9 +133,8 @@ export async function addOutreachLogEntry(input: OutreachLogInput): Promise<Acti
 export type OutreachLogPatch = Partial<OutreachLogInput>
 
 export async function updateOutreachLogEntry(id: string, patch: OutreachLogPatch): Promise<ActionResult> {
-  if (!(await hasPermission('growth.write'))) {
-    return { ok: false, error: "You don't have permission to edit outreach contacts." }
-  }
+  const denied = await requireGrowthPermission('growth.write')
+  if (denied) return denied
 
   const dbPatch: Record<string, unknown> = {}
   if (patch.logDate !== undefined) {
@@ -163,27 +169,38 @@ export async function updateOutreachLogEntry(id: string, patch: OutreachLogPatch
   if (patch.notes !== undefined) dbPatch.notes = patch.notes.trim()
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('growth_vendor_outreach_log').update(dbPatch).eq('id', id)
+  const { data, error } = await supabase
+    .from('growth_vendor_outreach_log')
+    .update(dbPatch)
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (error) {
-    console.error('[growth] updateOutreachLogEntry failed', error)
-    return { ok: false, error: error.message || 'Could not save.' }
+    logGrowthDbError('growth.vendor_outreach_log.update', error, { logId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.save) }
   }
+  if (!data) return missingGrowthRecord()
 
   revalidateAll()
   return { ok: true }
 }
 
 export async function deleteOutreachLogEntry(id: string): Promise<ActionResult> {
-  if (!(await hasPermission('growth.write'))) {
-    return { ok: false, error: "You don't have permission to delete outreach contacts." }
-  }
+  const denied = await requireGrowthPermission('growth.write')
+  if (denied) return denied
 
   const supabase = createSupabaseAdminClient()
-  const { error } = await supabase.from('growth_vendor_outreach_log').delete().eq('id', id)
+  const { data, error } = await supabase
+    .from('growth_vendor_outreach_log')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (error) {
-    console.error('[growth] deleteOutreachLogEntry failed', error)
-    return { ok: false, error: error.message || 'Could not delete.' }
+    logGrowthDbError('growth.vendor_outreach_log.delete', error, { logId: id })
+    return { ok: false, error: growthDbErrorMessage(error, GROWTH_ERROR.delete) }
   }
+  if (!data) return missingGrowthRecord()
 
   revalidateAll()
   return { ok: true }

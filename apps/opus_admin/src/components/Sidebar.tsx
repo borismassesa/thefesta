@@ -111,16 +111,13 @@ const topItems: NavItem[] = [
 ];
 
 const sections: NavSection[] = [
-  {
-    id: "workspace",
-    label: "Work Space",
-    icon: Clock,
-    items: [
-      { icon: Clock, label: "Time Clock", href: "/me/timeclock" },
-      { icon: FileText, label: "Reports", href: "/me/reports" },
-      { icon: ClipboardCheck, label: "Tracker", href: "/workforce/daily-tracker", requiredPermission: "workforce.read" },
-    ],
-  },
+  // NOTE: the Workspace section is NOT declared here. It is built on the
+  // server from the caller's access state and passed in as the `workspace`
+  // prop — see the comment in (admin)/layout.tsx. Declaring it here would put
+  // a personal surface back behind a permission filter, which is the bug the
+  // Workspace/Workforce split exists to fix: "Tracker" used to carry
+  // requiredPermission: "workforce.read", so a Designer or Studio operator
+  // could not reach their own tracker at all.
   {
     id: "website-cms",
     label: "Website CMS",
@@ -266,9 +263,11 @@ const sections: NavSection[] = [
       { icon: TrendingUp, label: "Performance", href: "/workforce/performance", requiredPermission: "workforce.read" },
       { icon: FileText, label: "Report Templates", href: "/workforce/report-templates", requiredPermission: "workforce.write" },
       { icon: Plane, label: "Leave & Attendance", href: "/workforce/leave", requiredPermission: "workforce.read" },
-      { icon: Clock, label: "Timesheets", href: "/workforce/timesheets", requiredPermission: "workforce.read" },
+      { icon: Clock, label: "Attendance", href: "/workforce/timesheets", requiredPermission: "workforce.read" },
+      { icon: ClipboardCheck, label: "MD Tracker", href: "/workforce/daily-tracker", requiredPermission: "workforce.read" },
       { icon: Shield, label: "Roles", href: "/workforce/roles", requiredPermission: "workforce.write" },
-      { icon: UserPlus, label: "Recruitment", href: "/workforce/recruitment", requiredPermission: "workforce.write" },
+      { icon: UserPlus, label: "Recruitment", href: "/workforce/recruitment", requiredPermission: "workforce.recruitment.read" },
+      { icon: ClipboardList, label: "My requisitions", href: "/workforce/recruitment/my-requisitions", requiredPermission: "workforce.requisitions.read" },
     ],
   },
   {
@@ -277,11 +276,14 @@ const sections: NavSection[] = [
     icon: BarChart3,
     items: [
       { icon: LayoutDashboard, label: "Dashboard", href: "/growth", exact: true, requiredAnyPermission: ["growth.write", "growth.admin"] },
+      { icon: BarChart3, label: "Goals & KPIs", href: "/growth/kpis", requiredAnyPermission: ["growth.kpi.read", "growth.read", "growth.write", "growth.admin"] },
       { icon: Building2, label: "Vendor Outreach", href: "/growth/vendor-outreach", requiredAnyPermission: ["growth.write", "growth.admin"] },
       { icon: TrendingUp, label: "Sales & Marketing", href: "/growth/marketing", requiredAnyPermission: ["growth.write", "growth.admin"] },
       { icon: Star, label: "Social Media", href: "/growth/social", requiredAnyPermission: ["growth.write", "growth.admin"] },
       { icon: CalendarCheck, label: "Studio Performance", href: "/growth/studio", requiredAnyPermission: ["growth.write", "growth.admin"] },
       { icon: Lightbulb, label: "Content Ideas", href: "/growth/content-ideas", requiredAnyPermission: ["growth.write", "growth.admin"] },
+      { icon: Building2, label: "Business Units", href: "/growth/settings/business-units", requiredAnyPermission: ["growth.settings.manage", "growth.admin"] },
+      { icon: Clock, label: "Periods", href: "/growth/settings/periods", requiredAnyPermission: ["growth.period.manage", "growth.admin"] },
     ],
   },
   {
@@ -331,12 +333,35 @@ function isSectionActive(pathname: string, section: NavSection) {
   return section.items.some((i) => isItemActive(pathname, i))
 }
 
+// One Workspace entry, already resolved on the server from the caller's
+// access state. `live` is false for surfaces not built yet (Leave in Phase 3,
+// Calendar in Phase 5, Documents in Phase 6) — those render as disabled rows
+// rather than links that 404.
+export type WorkspaceNavEntry = {
+  item: string
+  label: string
+  href: string
+  live: boolean
+}
+
+const WORKSPACE_ICONS: Record<string, LucideIcon> = {
+  'time-clock': Clock,
+  leave: Plane,
+  tasks: ListTodo,
+  reports: FileText,
+  tracker: ClipboardCheck,
+  calendar: CalendarCheck,
+  documents: FileText,
+}
+
 export function Sidebar({
   permissions,
   profile,
+  workspace,
 }: {
   permissions: string[]
   profile: CallerProfile
+  workspace: WorkspaceNavEntry[]
 }) {
   const pathname = usePathname();
   // Filter sections + items by permission. An item without a
@@ -375,6 +400,12 @@ export function Sidebar({
   // to sit first in the list.
   const initialSection = visibleSections.find((s) => isSectionActive(pathname, s))?.id ?? "";
   const [openSection, setOpenSection] = useState<string>(initialSection);
+  // Workspace sits outside the `sections` array (it is server-built), so it
+  // owns its own open state. Auto-opens when the active route is one of its
+  // entries.
+  const [workspaceOpen, setWorkspaceOpen] = useState<boolean>(() =>
+    workspace.some((w) => pathname === w.href || pathname.startsWith(w.href + '/')),
+  );
   // The CMS parent group auto-opens when the active route lives inside it.
   const [openGroup, setOpenGroup] = useState<boolean>(
     cmsGroupSections.some((s) => isSectionActive(pathname, s))
@@ -401,8 +432,19 @@ export function Sidebar({
   const otherRender = query
     ? otherSections.map(filterSectionItems).filter((s) => s.items.length > 0 || matchesQuery(s.label))
     : otherSections;
+  const workspaceMatches = query
+    ? workspace.filter((w) => matchesQuery(w.label))
+    : workspace;
+  // The section label itself, and its Home entry, are searchable too.
+  const workspaceVisible =
+    workspaceMatches.length > 0 ||
+    (query !== '' && (matchesQuery('Workspace') || matchesQuery('Home')));
   const noMatches =
-    query !== '' && filteredTopItems.length === 0 && cmsGroupRender.length === 0 && otherRender.length === 0;
+    query !== '' &&
+    filteredTopItems.length === 0 &&
+    cmsGroupRender.length === 0 &&
+    otherRender.length === 0 &&
+    !workspaceVisible;
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [resizing, setResizing] = useState(false);
@@ -571,6 +613,86 @@ export function Sidebar({
     )
   }
 
+  const workspaceActive = workspace.some(
+    (w) => pathname === w.href || pathname.startsWith(w.href + '/'),
+  );
+  const workspaceHomeActive = pathname === '/workspace';
+
+  const renderWorkspace = () => {
+    const isOpen = query !== '' || workspaceOpen;
+    return (
+      <div>
+        <button
+          onClick={() => setWorkspaceOpen((o) => !o)}
+          className={cn(
+            'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors',
+            isOpen ? 'text-gray-900' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <Briefcase className="w-5 h-5 stroke-[1.5]" />
+            Workspace
+          </div>
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+          )}
+        </button>
+
+        {isOpen && (
+          <nav className="mt-1 mb-2 space-y-0.5 pl-2 border-l border-gray-100 ml-5">
+            <Link
+              href="/workspace"
+              className={cn(
+                'w-full flex items-center gap-3 pl-3 pr-3 py-2 rounded-lg text-sm font-medium transition-colors text-left',
+                workspaceHomeActive
+                  ? 'bg-[#F0DFF6] text-[#7E5896]'
+                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+              )}
+            >
+              <Home className="w-4 h-4 stroke-[1.5] shrink-0" />
+              <span className="truncate">Home</span>
+            </Link>
+            {workspaceMatches.map((w) => {
+              const Icon = WORKSPACE_ICONS[w.item] ?? FileText;
+              const active = pathname === w.href || pathname.startsWith(w.href + '/');
+              // Not-yet-built surfaces render as a disabled row. Showing a
+              // link that 404s is worse than showing the destination exists.
+              if (!w.live) {
+                return (
+                  <span
+                    key={w.item}
+                    title="Coming soon"
+                    className="w-full flex items-center gap-3 pl-3 pr-3 py-2 rounded-lg text-sm font-medium text-gray-300 cursor-default"
+                  >
+                    <Icon className="w-4 h-4 stroke-[1.5] shrink-0" />
+                    <span className="truncate">{w.label}</span>
+                  </span>
+                );
+              }
+              return (
+                <Link
+                  key={w.item}
+                  href={w.href}
+                  className={cn(
+                    'w-full flex items-center gap-3 pl-3 pr-3 py-2 rounded-lg text-sm font-medium transition-colors text-left',
+                    active
+                      ? 'bg-[#F0DFF6] text-[#7E5896]'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                  )}
+                >
+                  <Icon className="w-4 h-4 stroke-[1.5] shrink-0" />
+                  <span className="truncate">{w.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        )}
+      </div>
+    );
+  };
+
   return (
     <aside
       ref={asideRef}
@@ -689,6 +811,25 @@ export function Sidebar({
         {/* Sections */}
         {collapsed ? (
           <>
+            {workspace.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCollapsed(false)
+                  setWorkspaceOpen(true)
+                }}
+                aria-label="Workspace"
+                title="Workspace"
+                className={cn(
+                  'flex items-center justify-center w-12 h-12 mx-auto rounded-xl transition-colors',
+                  workspaceActive || workspaceHomeActive
+                    ? 'text-[#7E5896] bg-[#F0DFF6]'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                )}
+              >
+                <Briefcase className="w-5 h-5 stroke-[1.5]" />
+              </button>
+            )}
             {cmsGroupSections.length > 0 && (
               <button
                 type="button"
@@ -712,6 +853,7 @@ export function Sidebar({
           </>
         ) : (
           <>
+            {workspaceVisible && renderWorkspace()}
             {cmsGroupRender.length > 0 && (
               <div>
                 <button

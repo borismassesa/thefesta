@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   // Shared product/vendor contracts (Zod schemas, formatTzs) consumed as
   // source, same as opus_website and vendors_portal.
   transpilePackages: ['@opusfesta/lib'],
+
   experimental: {
     // Next's server-action body limit defaults to 1MB. The guestbook's
     // no-auth submitGuestbookEntry action uploads photos/audio/video straight
@@ -38,6 +39,16 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/entrance-pass/[token]': ['./public/entrance-pass/**', './public/fonts/**'],
     '/entrance-pass/preview': ['./public/entrance-pass/**', './public/fonts/**'],
+    // The resvg WebAssembly binary, for the route that rasterises a card. Read
+    // at runtime rather than imported, because a static reference makes
+    // Turbopack try to instantiate it as a module and the build fails on
+    // wasm-bindgen glue. Scoped to the one route: an app-wide glob would ship
+    // 2.4 MB into every serverless function.
+    '/api/internal/card-delivery-smoke': ['../../node_modules/@resvg/resvg-wasm/index_bg.wasm'],
+    // Real preview/test/bulk preparation runs through server actions imported
+    // by these dashboard pages, so their functions need the same WASM sibling.
+    '/my/dashboard/invitations': ['../../node_modules/@resvg/resvg-wasm/index_bg.wasm'],
+    '/my/dashboard/guests': ['../../node_modules/@resvg/resvg-wasm/index_bg.wasm'],
     // The guest's own pass surface draws the same artwork through the same
     // dynamic path.join, so it needs the same entry. Without it this route
     // works in dev and 500s in production, which is the worst shape a bug of
