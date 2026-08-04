@@ -45,6 +45,33 @@ test('does not mistake Summary sheet phrases for a guest header', () => {
   assert.equal(rowsToImportLines(summaryRows, true), '')
 })
 
+test('quotes a cell containing a comma so the line reads back intact', () => {
+  const rows = [
+    ['Name', 'Phone', 'Ticket Type'],
+    ['Ngando, Jr.', '0762269228', 'Double'],
+  ]
+
+  assert.equal(rowsToImportLines(rows, true), '"Ngando, Jr.", , 0762269228, Double')
+})
+
+test('falls back to the documented paste order when there is no header', () => {
+  assert.equal(
+    rowsToImportLines([['Asha', 'asha@example.com', '0755000850', 'Double']]),
+    'Asha, asha@example.com, 0755000850, Double',
+  )
+  // With requireHeader a headerless sheet is skipped rather than guessed at.
+  assert.equal(rowsToImportLines([['NoHeaderName']], true), '')
+})
+
+test('trims a trailing empty ticket column', () => {
+  const rows = [
+    ['Name', 'Phone'],
+    ['Juma', '0712345678'],
+  ]
+
+  assert.equal(rowsToImportLines(rows, true), 'Juma, , 0712345678')
+})
+
 test('imports every genuine sheet that uses a recognized Jina header', () => {
   assert.equal(
     rowsToImportLines([

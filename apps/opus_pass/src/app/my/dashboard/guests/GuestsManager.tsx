@@ -37,6 +37,7 @@ import {
   SpreadsheetError,
   type SpreadsheetImportResult,
 } from '@/lib/dashboard/import-spreadsheet'
+import { parseGuestImportRows } from '@/lib/dashboard/guest-import-rows'
 import type { DashboardHeroContent } from '@/lib/cms/dashboard-hero'
 import type { GuestsDashboardCopy } from '@/lib/cms/dashboard-copy'
 import type { DashboardEventScopeStrings } from '@/lib/cms/ui-strings-fallback'
@@ -532,10 +533,23 @@ export default function GuestsManager({
       toast.error('Paste at least one name')
       return
     }
+    // Read the editable text as CSV here so a name containing a comma stays
+    // one field, then send structured rows rather than a delimited string.
+    const { rows, unrecognizedTickets } = parseGuestImportRows(importText)
+    if (rows.length === 0) {
+      toast.error('Paste at least one name')
+      return
+    }
     startTransition(async () => {
       try {
-        const n = await bulkImportGuests(importText, importEventIds)
+        const n = await bulkImportGuests(rows, importEventIds)
         toast.success(`${n} guest${n === 1 ? '' : 's'} added`)
+        if (unrecognizedTickets.length > 0) {
+          // Don't let an unreadable ticket value quietly become a Single.
+          toast.warning(
+            `Imported as Single: unrecognized ticket ${unrecognizedTickets.length === 1 ? 'type' : 'types'} ${unrecognizedTickets.join(', ')}. Use Single or Double.`,
+          )
+        }
         setImportOpen(false)
         setImportText('')
         setImportSummary(null)

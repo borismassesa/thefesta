@@ -12,7 +12,13 @@
  *
  * These functions rely on browser APIs (`DOMParser`, `DecompressionStream`,
  * `File`), so this module must only ever be imported by client components.
+ * The pure row/CSV helpers live in `./guest-import-rows` so the server action
+ * can share them without pulling this module's browser dependencies in.
  */
+
+import { formatImportLine, parseCsv } from './guest-import-rows'
+
+export { parseCsv }
 
 /** Friendly error surfaced to the user when a file can't be read. */
 export class SpreadsheetError extends Error {}
@@ -151,10 +157,14 @@ export function rowsToImportLines(rows: string[][], requireHeader = false): stri
   // genuine headerless guest list, so skip it rather than guessing.
   if (headerIdx === -1 && requireHeader) return ''
 
+  // Headerless defaults follow the documented paste order
+  // `Name, email, phone, ticket type` — position 3 must stay the ticket so a
+  // headerless sheet round-trips through `parseGuestImportRows`, which reads
+  // the same slot.
   let nameIdx = 0
   let emailIdx = 1
   let phoneIdx = 2
-  let ticketIdx = -1
+  let ticketIdx = 3
   let dataRows = rows
   if (headerIdx >= 0) {
     const header = rows[headerIdx]
@@ -179,54 +189,15 @@ export function rowsToImportLines(rows: string[][], requireHeader = false): stri
       // Guest lists usually close with a totals row ("JUMLA", "Total") whose
       // only other cell is a count — it would import as a guest named JUMLA.
       if (!email && !phone && TOTALS_LABEL.test(normalizeLabel(name))) return null
-      // Keep positions intact — `bulkImportGuests` splits on comma into
-      // [name, email, phone, ticket type], so an empty email must stay an empty slot rather
-      // than collapsing the phone into the email field. Only trailing empty
-      // fields are trimmed off.
-      const fields = [name, email, phone, ticket]
-      while (fields.length > 1 && fields[fields.length - 1] === '') fields.pop()
-      return fields.join(', ')
+      // Keep positions intact — the line is read back as
+      // [name, email, phone, ticket type], so an empty email must stay an empty
+      // slot rather than collapsing the phone into the email field.
+      // `formatImportLine` quotes any field containing a comma so a name like
+      // "Ngando, Jr." survives the round-trip, and trims trailing empties.
+      return formatImportLine([name, email, phone, ticket])
     })
     .filter((line): line is string => line !== null)
     .join('\n')
-}
-
-/** Parse RFC-4180-ish CSV. Tolerates quoted fields and `""` escapes. */
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = []
-  let row: string[] = []
-  let cell = ''
-  let inQuotes = false
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]
-    if (inQuotes) {
-      if (ch === '"' && text[i + 1] === '"') {
-        cell += '"'
-        i++
-      } else if (ch === '"') {
-        inQuotes = false
-      } else {
-        cell += ch
-      }
-    } else if (ch === '"') {
-      inQuotes = true
-    } else if (ch === ',') {
-      row.push(cell)
-      cell = ''
-    } else if (ch === '\n') {
-      row.push(cell)
-      rows.push(row)
-      row = []
-      cell = ''
-    } else {
-      cell += ch
-    }
-  }
-  if (cell.length > 0 || row.length > 0) {
-    row.push(cell)
-    rows.push(row)
-  }
-  return rows.filter((r) => r.some((c) => c.trim().length > 0))
 }
 
 // ---------------------------------------------------------------- XLSX

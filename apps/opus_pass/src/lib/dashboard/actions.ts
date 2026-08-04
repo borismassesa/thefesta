@@ -45,7 +45,7 @@ import { pledgeRequestEmail } from './pledge-email'
 import { sendGiftClaimReceipts, type ReceiptGift, type ReceiptLang } from './gift-registry-receipt'
 import { GIFT_CATALOG } from './gift-catalog'
 import { MAX_TICKET_PARTY } from './types'
-import { parseGuestImportRows } from './guest-import-rows'
+import type { GuestImportRow } from './guest-import-rows'
 import type {
   AttendanceAnswer,
   CardStatus,
@@ -612,12 +612,33 @@ export async function deleteGuests(guestIds: string[]): Promise<number> {
   return data?.length ?? 0
 }
 
-/** Paste names (one per line, optional "Name, email, phone") to bulk-add. */
-export async function bulkImportGuests(text: string, eventIds: string[] = []): Promise<number> {
+/**
+ * Bulk-add guests from the importer.
+ *
+ * Takes already-parsed rows rather than a delimited string: the client reads
+ * the editable text as CSV (so a name containing a comma stays intact) and
+ * sends structured rows. Every field is still re-validated here — the browser
+ * is never trusted for the name or the party size.
+ */
+export async function bulkImportGuests(
+  input: GuestImportRow[],
+  eventIds: string[] = [],
+): Promise<number> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
 
-  const rows = parseGuestImportRows(text)
+  const rows = (Array.isArray(input) ? input : []).flatMap((row) => {
+    const full_name = String(row?.full_name ?? '').trim()
+    if (!full_name) return []
+    const email = String(row?.email ?? '').trim()
+    const phone = String(row?.phone ?? '').trim()
+    return [{
+      full_name,
+      email: email || null,
+      phone: phone || null,
+      max_party_size: ticketPartySize(row?.max_party_size),
+    }]
+  })
 
   if (rows.length === 0) return 0
 
