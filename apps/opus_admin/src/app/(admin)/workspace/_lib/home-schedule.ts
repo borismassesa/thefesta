@@ -9,6 +9,8 @@
 // Date objects are only used at the edges, because "is this report overdue"
 // must be answered in the employee's day, not the server's.
 
+import { COMPANY_WORKING_WEEKDAYS } from '@/lib/leave/days'
+
 export type ReportCadence = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 
 /** 'YYYY-MM-DD' for `now` as seen in `timeZone`. */
@@ -108,27 +110,36 @@ export function taskUrgency(dueDate: string | null, today: string): TaskUrgency 
 }
 
 /**
- * Count weekdays (Mon–Fri) in [start, end], clipped to [clipStart, clipEnd].
- * Leave is counted in working days, so a Friday-to-Monday absence is 2 days,
- * not 4. Mirrors workforce/_lib/leave-days.ts, restated here because Home must
- * not import a server-only module.
+ * Count working days in [start, end], clipped to [clipStart, clipEnd].
+ *
+ * Leave is counted in working days, so a Saturday-to-Monday absence is 2 days,
+ * not 3. The working week is a parameter rather than a literal: this used to
+ * hardcode Mon-Fri, which made every Saturday of leave free once Saturday
+ * became a working day. `COMPANY_WORKING_WEEKDAYS` is imported from
+ * lib/leave/days, which is pure, so Home still avoids a server-only import.
+ *
+ * The database (leave_expand_days) remains authoritative and also skips public
+ * holidays; this is the display-side approximation on the Home card.
  */
 export function countWeekdaysOverlapping(
   start: string,
   end: string,
   clipStart: string,
   clipEnd: string,
+  workingWeekdays: readonly number[] = COMPANY_WORKING_WEEKDAYS,
 ): number {
   const from = start > clipStart ? start : clipStart
   const to = end < clipEnd ? end : clipEnd
   if (from > to) return 0
 
   let count = 0
+  let guard = 0
   for (let cursor = from; cursor <= to; cursor = addDays(cursor, 1)) {
-    const weekday = isoWeekday(cursor)
-    if (weekday <= 5) count += 1
-    // Guard against a malformed range spinning forever.
-    if (count > 400) break
+    if (workingWeekdays.includes(isoWeekday(cursor))) count += 1
+    // Guard against a malformed range spinning forever. Counts iterations, not
+    // matches: a range of only non-working days would never trip a match-based
+    // guard.
+    if ((guard += 1) > 400) break
   }
   return count
 }
