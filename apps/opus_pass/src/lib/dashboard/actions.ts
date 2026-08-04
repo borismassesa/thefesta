@@ -613,6 +613,19 @@ export async function deleteGuests(guestIds: string[]): Promise<number> {
 }
 
 /**
+ * What a bulk import actually did. The counts reconcile with the file:
+ * `imported + skippedDuplicates + skippedNoName` equals the rows submitted,
+ * so a guest list that comes up short always has a stated reason.
+ */
+export interface GuestImportOutcome {
+  imported: number
+  /** Phone digits already on the roster, or repeated earlier in this file. */
+  skippedDuplicates: number
+  /** Rows with no name in the name column. */
+  skippedNoName: number
+}
+
+/**
  * Bulk-add guests from the importer.
  *
  * Takes already-parsed rows rather than a delimited string: the client reads
@@ -623,10 +636,11 @@ export async function deleteGuests(guestIds: string[]): Promise<number> {
 export async function bulkImportGuests(
   input: GuestImportRow[],
   eventIds: string[] = [],
-): Promise<number> {
+): Promise<GuestImportOutcome> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
 
+  const received = Array.isArray(input) ? input.length : 0
   const rows = (Array.isArray(input) ? input : []).flatMap((row) => {
     const full_name = String(row?.full_name ?? '').trim()
     if (!full_name) return []
@@ -639,15 +653,19 @@ export async function bulkImportGuests(
       max_party_size: ticketPartySize(row?.max_party_size),
     }]
   })
+  const skippedNoName = received - rows.length
 
-  if (rows.length === 0) return 0
+  if (rows.length === 0) return { imported: 0, skippedDuplicates: 0, skippedNoName }
 
   // One person, one row — mirror createGuest's duplicate guard: skip lines
   // whose phone digits already exist on the roster or earlier in this batch.
-  const { data: existing } = await supabase
+  // The error must not be swallowed: an empty `existing` on failure would
+  // silently disable the guard and re-insert everyone already on the roster.
+  const { data: existing, error: existingErr } = await supabase
     .from('guest_contacts')
     .select('phone, whatsapp_phone')
     .eq('user_id', user.id)
+  if (existingErr) throw new Error(existingErr.message)
   const seen = new Set(
     (existing ?? [])
       .flatMap((c) => [c.phone, c.whatsapp_phone])
@@ -661,7 +679,8 @@ export async function bulkImportGuests(
     seen.add(digits)
     return true
   })
-  if (fresh.length === 0) return 0
+  const skippedDuplicates = rows.length - fresh.length
+  if (fresh.length === 0) return { imported: 0, skippedDuplicates, skippedNoName }
 
   const { data, error } = await supabase
     .from('guest_contacts')
@@ -686,7 +705,7 @@ export async function bulkImportGuests(
     if (invErr) throw new Error(invErr.message)
   }
   revalidateDashboard()
-  return fresh.length
+  return { imported: fresh.length, skippedDuplicates, skippedNoName }
 }
 
 // ---------------------------------------------------------------- RSVPs (owner edit)

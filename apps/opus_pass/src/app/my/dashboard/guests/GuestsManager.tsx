@@ -542,8 +542,13 @@ export default function GuestsManager({
     }
     startTransition(async () => {
       try {
-        const n = await bulkImportGuests(rows, importEventIds)
-        toast.success(`${n} guest${n === 1 ? '' : 's'} added`)
+        const { imported, skippedDuplicates } = await bulkImportGuests(rows, importEventIds)
+        // Say why the count fell short of the rows found, so the summary above
+        // and this toast never disagree without an explanation.
+        const skipped = skippedDuplicates > 0
+          ? `, ${skippedDuplicates} skipped as ${skippedDuplicates === 1 ? 'a duplicate' : 'duplicates'}`
+          : ''
+        toast.success(`${imported} guest${imported === 1 ? '' : 's'} added${skipped}`)
         if (unrecognizedTickets.length > 0) {
           // Don't let an unreadable ticket value quietly become a Single.
           toast.warning(
