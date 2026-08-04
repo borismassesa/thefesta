@@ -1118,6 +1118,16 @@ export interface DashboardSendStrings {
   toast_nothing_sent: string
   toast_entrance_excluded_notattending: string // {n}
   send_failed_n: string // {n}
+  // Bulk-send progress. A big send is minutes of work, so it reports itself
+  // as it goes instead of leaving the couple on a spinner.
+  progress_title_invites: string
+  progress_title_passes: string
+  progress_count: string // {n} {m}
+  progress_note: string
+  progress_stop: string
+  progress_stopping: string
+  progress_stopped: string // {n}
+  progress_results: string
   // Invite preview + test send
   preview_button: string
   preview_title: string
@@ -2246,6 +2256,14 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     toast_nothing_sent: 'Nothing was sent. Only confirmed guests with a phone number can receive invites.',
     toast_entrance_excluded_notattending: '{n} selected guests were skipped — only guests who confirmed attending can receive an Entrance Pass.',
     send_failed_n: '{n} failed',
+    progress_title_invites: 'Sending invitations',
+    progress_title_passes: 'Sending entrance passes',
+    progress_count: '{n} of {m}',
+    progress_note: 'Keep this page open. Guests are messaged a few at a time, so you can watch it happen.',
+    progress_stop: 'Stop',
+    progress_stopping: 'Stopping after this batch',
+    progress_stopped: 'Stopped. {n} already went out and cannot be recalled.',
+    progress_results: 'See results',
     preview_button: 'Preview invite',
     preview_title: 'What your guests receive',
     preview_note: 'The exact WhatsApp message, built from your card and event details. Buttons work right inside WhatsApp.',
