@@ -22,7 +22,7 @@ PASS_STUBS="$REPO/supabase/tests/03_wallet_passes_stubs.sql"
 COUNTERS="$REPO/supabase/migrations/20260802210000_opuspass_admission_counters.sql"
 CREDENTIALS="$REPO/supabase/migrations/20260802220000_opuspass_admission_credentials.sql"
 WALLET="$REPO/supabase/migrations/20260802230000_opuspass_wallet_management_tokens.sql"
-PASSES="$REPO/supabase/migrations/20260802240000_opuspass_wallet_passes.sql"
+PASSES="$REPO/supabase/migrations/20260803030000_opuspass_wallet_passes.sql"
 ASSERTIONS="$REPO/supabase/tests/40_wallet_passes_test.sql"
 
 PGBIN="${PGBIN:-/opt/homebrew/opt/postgresql@15/bin}"

@@ -1,4 +1,4 @@
--- Behavioural suite for wallet_passes (migration 20260802240000).
+-- Behavioural suite for wallet_passes (migration 20260803030000).
 -- Run via supabase/tests/run-wallet-passes-tests.sh.
 --
 -- This table is bookkeeping, never authority. The assertions below are mostly
