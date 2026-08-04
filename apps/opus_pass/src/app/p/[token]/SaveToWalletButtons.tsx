@@ -40,12 +40,24 @@ export function SaveToWalletButtons({
     setError(null)
     try {
       const res = await fetch(`/p/${encodeURIComponent(token)}/${provider}`, { method: 'POST' })
-      const body = (await res.json().catch(() => ({}))) as { saveUrl?: string }
-      if (!res.ok || !body.saveUrl) {
+      const body = (await res.json().catch(() => null)) as { saveUrl?: string } | null
+
+      if (!res.ok || !body?.saveUrl) {
+        // Three of these are permanent, and telling a guest to "try again" for
+        // a permanent failure sends them tapping instead of doing the one
+        // thing that works: the scannable code is already on screen above.
         setError(
-          language === 'sw'
-            ? 'Imeshindikana kuhifadhi tiketi. Jaribu tena.'
-            : "Couldn't add the pass just now. Please try again."
+          res.status === 503
+            ? language === 'sw'
+              ? 'Kuhifadhi kwenye Wallet hakupatikani kwa tukio hili. Onyesha msimbo ulio hapo juu mlangoni.'
+              : 'Wallet saving is unavailable for this event. Show the code above at the door.'
+            : res.status === 404
+              ? language === 'sw'
+                ? 'Kiungo hiki hakitumiki tena. Waombe wenyeji wakutumie kipya.'
+                : 'This pass link is no longer active. Ask the couple to send you a new one.'
+              : language === 'sw'
+                ? 'Imeshindikana kuhifadhi. Onyesha msimbo ulio hapo juu mlangoni, au jaribu tena.'
+                : "Couldn't add the pass. Show the code above at the door, or try again."
         )
         return
       }

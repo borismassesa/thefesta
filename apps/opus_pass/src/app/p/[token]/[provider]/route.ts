@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { createSupabaseServerClient } from '@/lib/supabase'
+import { clientIp, RATE_LIMITED_RESPONSE, withinRateLimit } from '@/lib/checkin/rate-limit'
 import { issueWalletPassForToken } from '@/lib/wallet/issue'
 import type { WalletProviderId } from '@/lib/wallet/types'
 
@@ -19,7 +21,7 @@ const NO_REFERRER = { 'referrer-policy': 'no-referrer', 'cache-control': 'privat
  * generate a pass nobody asked for and put the link in a history entry.
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ token: string; provider: string }> }
 ) {
   const { token, provider } = await params
@@ -28,7 +30,34 @@ export async function POST(
     return NextResponse.json({ error: 'unknown_provider' }, { status: 404, headers: NO_REFERRER })
   }
 
-  const outcome = await issueWalletPassForToken(token, provider as WalletProviderId)
+  // Unauthenticated, and every accepted request costs a database lookup, a
+  // credential write and an RSA signature. Every other credential-adjacent
+  // route in this app is rate limited; this one is public and mutating, so it
+  // gets both a per-IP budget and a much tighter per-token one — a forwarded
+  // link should not be able to inflate pass_version without bound.
+  const supabase = createSupabaseServerClient()
+  if (!(await withinRateLimit(supabase, `wallet-issue-ip:${clientIp(req)}`, 30, 60))) {
+    return NextResponse.json(RATE_LIMITED_RESPONSE, { status: 429, headers: NO_REFERRER })
+  }
+  if (!(await withinRateLimit(supabase, `wallet-issue:${token.slice(0, 40)}`, 10, 60))) {
+    return NextResponse.json(RATE_LIMITED_RESPONSE, { status: 429, headers: NO_REFERRER })
+  }
+
+  // Issuance reaches code that THROWS rather than degrades: the credential
+  // keyring and the Supabase client both do on missing configuration. Without
+  // this the route answers with a non-JSON 500 page, and the client's parse
+  // failure erases even that.
+  let outcome
+  try {
+    outcome = await issueWalletPassForToken(token, provider as WalletProviderId)
+  } catch (err) {
+    console.error('[wallet] issuance threw', {
+      provider,
+      kind: (err as Error)?.name,
+      message: (err as Error)?.message,
+    })
+    return NextResponse.json({ error: 'issue_failed' }, { status: 500, headers: NO_REFERRER })
+  }
 
   switch (outcome.status) {
     case 'ok':

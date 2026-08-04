@@ -25,12 +25,20 @@ CREATE TABLE IF NOT EXISTS wallet_passes (
   status TEXT NOT NULL DEFAULT 'issued'
     CHECK (status IN ('issued', 'failed', 'revoked')),
 
-  pass_version INTEGER NOT NULL DEFAULT 1,
+  -- 0, not 1: a first attempt that FAILED must not be indistinguishable from a
+  -- pass the guest actually saved. Set explicitly on insert below.
+  pass_version INTEGER NOT NULL DEFAULT 0,
   last_issued_at TIMESTAMPTZ,
 
   -- A short code only. Provider error payloads echo the request, which for
-  -- Google includes the signed JWT, so the body is never stored.
-  last_error_code TEXT,
+  -- Google includes the signed JWT, and the credential base64url-decodes
+  -- straight out of that. The length bound is what keeps that discipline in
+  -- the schema rather than only in the one caller that currently respects it.
+  last_error_code TEXT CHECK (last_error_code IS NULL OR length(last_error_code) <= 64),
+
+  -- Why the provider records were stood down. revoke_wallet_passes() demands a
+  -- reason; discarding it would make the requirement pointless.
+  revocation_reason TEXT,
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -90,14 +98,21 @@ BEGIN
 
   INSERT INTO wallet_passes (
     guest_invitation_id, provider, status, provider_class_id, provider_object_id,
-    last_error_code, last_issued_at
+    last_error_code, last_issued_at, pass_version
   ) VALUES (
     p_guest_invitation_id, p_provider, p_status, p_class_id, p_object_id,
-    p_error_code,
-    CASE WHEN p_status = 'issued' THEN now() ELSE NULL END
+    left(p_error_code, 64),
+    CASE WHEN p_status = 'issued' THEN now() ELSE NULL END,
+    CASE WHEN p_status = 'issued' THEN 1 ELSE 0 END
   )
   ON CONFLICT (guest_invitation_id, provider) DO UPDATE
-  SET status = EXCLUDED.status,
+  -- Revocation is sticky. Without this a later issuance attempt flips a
+  -- revoked row back to 'issued', and the table starts over-reporting live
+  -- passes for admissions that were deliberately withdrawn.
+  SET status = CASE
+        WHEN wallet_passes.status = 'revoked' THEN 'revoked'
+        ELSE EXCLUDED.status
+      END,
       -- COALESCE so a failed retry does not erase the identifiers of a pass
       -- the guest already holds.
       provider_class_id = COALESCE(EXCLUDED.provider_class_id, wallet_passes.provider_class_id),
@@ -145,7 +160,9 @@ BEGIN
 
   WITH revoked AS (
     UPDATE wallet_passes
-       SET status = 'revoked', last_error_code = NULL
+       -- last_error_code is left alone: it is the diagnostic for a pass that
+       -- failed before being withdrawn, and erasing it loses that.
+       SET status = 'revoked', revocation_reason = left(p_reason, 200)
      WHERE guest_invitation_id = p_guest_invitation_id
        AND status <> 'revoked'
     RETURNING 1

@@ -4,6 +4,7 @@ import {
   type GoogleWalletConfig,
   loadGoogleWalletConfig,
 } from './google-core'
+import { credentialIssuanceConfigured } from '@/lib/checkin/credentials'
 import type { WalletIssueResult, WalletPassModel, WalletProvider, WalletProviderId } from './types'
 
 /**
@@ -35,12 +36,23 @@ const googleProvider: WalletProvider = {
       const message = err instanceof Error ? err.message : 'unknown'
       if (message.startsWith('invalid_model')) {
         // Safe to log: validatePassModel never quotes the credential.
-        console.error('[wallet:google] refused to issue an invalid pass', { message })
+        console.error('[wallet:google] refused to issue an invalid pass', {
+          invitationId: model.invitationId,
+          message,
+        })
         return { ok: false, reason: 'invalid_model' }
       }
-      // Signing failures usually mean a malformed private key. The error can
-      // echo key material, so only its constructor name is recorded.
-      console.error('[wallet:google] signing failed', { kind: (err as Error)?.name })
+      // Signing failures almost always mean a malformed private key. The
+      // message can echo key material, so it is not logged; OpenSSL's code,
+      // library and reason cannot and are exactly what names the fault.
+      const e = err as NodeJS.ErrnoException & { library?: string; reason?: string }
+      console.error('[wallet:google] signing failed, check GOOGLE_WALLET_PRIVATE_KEY', {
+        invitationId: model.invitationId,
+        kind: e?.name,
+        code: e?.code,
+        library: e?.library,
+        reason: e?.reason,
+      })
       return { ok: false, reason: 'provider_error', code: 'sign_failed' }
     }
   },
@@ -76,6 +88,19 @@ export function configuredProviders(): WalletProviderId[] {
   return (Object.keys(PROVIDERS) as WalletProviderId[]).filter((id) =>
     PROVIDERS[id].isConfigured()
   )
+}
+
+/**
+ * Whether a pass can actually be issued, not merely whether a provider has
+ * credentials.
+ *
+ * Issuance also needs the admission keyring and the wallet-token keyring, and
+ * those throw rather than degrade. Without this check a deployment with Google
+ * configured but no ADMISSION_CREDENTIAL_KEYS shows the button to every guest
+ * and 500s on every tap.
+ */
+export function walletIssuanceReady(): boolean {
+  return credentialIssuanceConfigured() && configuredProviders().length > 0
 }
 
 /** Test seam: clears the memoised config so env changes are picked up. */

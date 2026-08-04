@@ -1,4 +1,4 @@
-import { createSign } from 'node:crypto'
+import { createPrivateKey, createSign } from 'node:crypto'
 import { type WalletPassModel, validatePassModel } from './types'
 
 /**
@@ -16,6 +16,16 @@ import { type WalletPassModel, validatePassModel } from './types'
  * this way; updating requires the REST API and is Phase 2. Until then a changed
  * venue or a used admission is reflected by the door and by /p/<token>, not by
  * a live-updating pass.
+ *
+ * TWO CONSEQUENCES OF THAT CHOICE, both accepted deliberately:
+ *
+ * 1. The save URL contains the credential. The JWT's payload is base64url, not
+ *    encryption, so `https://pay.google.com/gp/v/save/<jwt>` carries the OP1
+ *    credential in plain sight, and browsers keep URLs in history and sync
+ *    them across a signed-in profile. The REST path (pre-create the object,
+ *    reference it by id) removes this entirely and is the reason to do it.
+ * 2. Object ids are permanent at Google, so the id must encode the credential
+ *    — see googleObjectId.
  */
 
 const SAVE_URL_PREFIX = 'https://pay.google.com/gp/v/save/'
@@ -42,11 +52,29 @@ export interface GoogleWalletConfig {
 export function loadGoogleWalletConfig(
   env: Record<string, string | undefined>
 ): GoogleWalletConfig | null {
+  // Silence is correct ONLY here: a deployment that has not turned Google on
+  // is not misconfigured. Every branch below means an operator said "enabled"
+  // and then got something wrong, and those must not fail silently — the
+  // symptom is a button that simply never appears, with the env var they are
+  // staring at reading `true`.
   if (env.GOOGLE_WALLET_ENABLED !== 'true') return null
 
   const issuerId = env.GOOGLE_WALLET_ISSUER_ID
   const serviceAccountEmail = env.GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL
   const rawKey = env.GOOGLE_WALLET_PRIVATE_KEY
+
+  const missing = [
+    ['GOOGLE_WALLET_ISSUER_ID', issuerId],
+    ['GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL', serviceAccountEmail],
+    ['GOOGLE_WALLET_PRIVATE_KEY', rawKey],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name)
+
+  if (missing.length > 0) {
+    console.error('[wallet:google] enabled but not configured, button withheld', { missing })
+    return null
+  }
   if (!issuerId || !serviceAccountEmail || !rawKey) return null
 
   // Vercel stores the key with literal \n escapes because its value box is a
@@ -54,7 +82,32 @@ export function loadGoogleWalletConfig(
   // newlines, so expand here rather than asking every operator to get the
   // encoding right by hand.
   const privateKey = rawKey.includes('\\n') ? rawKey.replace(/\\n/g, '\n') : rawKey
-  if (!privateKey.includes('BEGIN') || !privateKey.includes('PRIVATE KEY')) return null
+
+  // Actually parse it rather than testing for substrings. A truncated key, the
+  // wrong PKCS encoding, or a value pasted with its surrounding JSON quotes
+  // intact all contain "BEGIN" and "PRIVATE KEY" and all fail to sign — which
+  // would render the button and then 500 for every guest who taps it. Parsing
+  // here is what makes isConfigured() mean what it says.
+  try {
+    createPrivateKey(privateKey)
+  } catch {
+    // Never log the value; the failure to parse is the whole diagnosis.
+    console.error(
+      '[wallet:google] GOOGLE_WALLET_PRIVATE_KEY could not be parsed as a private key, button withheld'
+    )
+    return null
+  }
+
+  // The origins claim must match the host actually serving the page, or Google
+  // rejects the save on the guest's phone while the JWT signs perfectly here.
+  // A wrong host is therefore invisible to us, which is why the fallback is
+  // announced rather than applied quietly.
+  if (!env.NEXT_PUBLIC_OPUS_PASS_URL) {
+    console.error(
+      '[wallet:google] NEXT_PUBLIC_OPUS_PASS_URL is unset; falling back to the production origin. ' +
+        'If this deployment serves a different host, Google will reject every save.'
+    )
+  }
 
   return {
     issuerId,
@@ -73,8 +126,20 @@ export function googleClassId(issuerId: string, eventId: string): string {
   return `${issuerId}.event_${sanitiseSuffix(eventId)}`
 }
 
-export function googleObjectId(issuerId: string, invitationId: string): string {
-  return `${issuerId}.adm_${sanitiseSuffix(invitationId)}`
+/**
+ * Object ids are permanent at Google: a save link whose object already exists
+ * adds THAT object and ignores the definition inline in the JWT. So the id has
+ * to change whenever the pass's contents must change, and the only content
+ * that matters for entry is the credential. Including it means a rotation
+ * mints a fresh object the guest can save, instead of leaving them holding a
+ * QR the door has already stopped accepting.
+ */
+export function googleObjectId(
+  issuerId: string,
+  invitationId: string,
+  credentialId: string
+): string {
+  return `${issuerId}.adm_${sanitiseSuffix(invitationId)}_${sanitiseSuffix(credentialId).slice(0, 8)}`
 }
 
 function base64url(input: Buffer | string): string {
@@ -122,7 +187,7 @@ export function buildEventTicketClass(config: GoogleWalletConfig, model: WalletP
  */
 export function buildEventTicketObject(config: GoogleWalletConfig, model: WalletPassModel) {
   return {
-    id: googleObjectId(config.issuerId, model.invitationId),
+    id: googleObjectId(config.issuerId, model.invitationId, model.credentialId),
     classId: googleClassId(config.issuerId, model.eventId),
     state: 'ACTIVE',
     ticketHolderName: model.guestName,
@@ -135,15 +200,10 @@ export function buildEventTicketObject(config: GoogleWalletConfig, model: Wallet
       // would hand it to anyone glancing at the screen.
       alternateText: model.ticketType,
     },
-    linksModuleData: {
-      uris: [
-        {
-          uri: `${config.origin}/p`,
-          description: 'View your pass',
-          id: 'opuspass_pass',
-        },
-      ],
-    },
+    // No linksModuleData. The obvious link back is the guest's own
+    // /p/<token> page, and putting that URL inside the pass would hand the
+    // wallet-management capability to Google to store indefinitely. A link to
+    // anything else is either a dead end or useless, so the pass carries none.
   }
 }
 
@@ -194,6 +254,6 @@ export function buildGoogleSaveLink(
   return {
     saveUrl: `${SAVE_URL_PREFIX}${buildGoogleSaveJwt(config, model, now)}`,
     classId: googleClassId(config.issuerId, model.eventId),
-    objectId: googleObjectId(config.issuerId, model.invitationId),
+    objectId: googleObjectId(config.issuerId, model.invitationId, model.credentialId),
   }
 }

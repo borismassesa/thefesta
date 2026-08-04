@@ -44,7 +44,10 @@ const MODEL: WalletPassModel = {
   endsAt: null,
   ticketType: 'Single',
   entryAllowance: 1,
-  credential: 'OP1:Vnb7K0m3Yw9lN6AzR8FzJ4Gq1pEabcdefghijkl',
+  // 4 + 43 characters, exactly what generateRawCredential() produces: base64url
+  // of 32 bytes. A shorter stand-in would understate the save URL's length.
+  credential: `OP1:${'Vnb7K0m3Yw9lN6AzR8FzJ4Gq1pE'}${'abcdefghijklmnop'}`,
+  credentialId: '11111111-2222-3333-4444-555555555555',
 }
 
 function decodeSegment(segment: string): Record<string, unknown> {
@@ -123,8 +126,8 @@ test('provider ids are derived and namespaced by issuer', () => {
     '3388000000023183279.event_22222222-2222-2222-2222-222222222222'
   )
   assert.equal(
-    googleObjectId(CONFIG.issuerId, MODEL.invitationId),
-    '3388000000023183279.adm_44444444-0000-0000-0000-000000000001'
+    googleObjectId(CONFIG.issuerId, MODEL.invitationId, MODEL.credentialId),
+    '3388000000023183279.adm_44444444-0000-0000-0000-000000000001_11111111'
   )
 })
 
@@ -139,8 +142,8 @@ test('two guests at one event share a class but never an object', () => {
     googleClassId(CONFIG.issuerId, other.eventId)
   )
   assert.notEqual(
-    googleObjectId(CONFIG.issuerId, MODEL.invitationId),
-    googleObjectId(CONFIG.issuerId, other.invitationId)
+    googleObjectId(CONFIG.issuerId, MODEL.invitationId, MODEL.credentialId),
+    googleObjectId(CONFIG.issuerId, other.invitationId, other.credentialId)
   )
 })
 
@@ -162,8 +165,64 @@ test('an undated event omits dateTime rather than inventing one', () => {
   assert.equal('dateTime' in claims.payload.eventTicketClasses[0], false)
 })
 
+test('a rotated credential produces a new object the guest can save', () => {
+  // Object ids are permanent at Google: a save link for an id that already
+  // exists adds THAT object and ignores the inline definition. If the id did
+  // not move with the credential, a rotation would leave the guest holding a
+  // QR the door has stopped accepting, unrepairable by re-saving.
+  const rotated: WalletPassModel = {
+    ...MODEL,
+    credential: `OP1:${'Zz9'.padEnd(43, 'x')}`,
+    credentialId: '99999999-8888-7777-6666-555555555555',
+  }
+  assert.notEqual(
+    googleObjectId(CONFIG.issuerId, MODEL.invitationId, MODEL.credentialId),
+    googleObjectId(CONFIG.issuerId, rotated.invitationId, rotated.credentialId)
+  )
+})
+
+test('the class Google needs to accept an inline definition is present', () => {
+  // Without reviewStatus a non-test issuer rejects the inline class, and every
+  // pass breaks for every real guest while the rest of this suite still passes.
+  const { saveUrl } = buildGoogleSaveLink(CONFIG, MODEL)
+  const claims = decodeSegment(jwtFrom(saveUrl).split('.')[1]) as {
+    payload: { eventTicketClasses: { reviewStatus?: string; issuerName?: string }[] }
+  }
+  assert.equal(claims.payload.eventTicketClasses[0].reviewStatus, 'UNDER_REVIEW')
+  assert.equal(claims.payload.eventTicketClasses[0].issuerName, 'OpusPass')
+})
+
+test('the credential appears once in the whole JWT, and never on the class', () => {
+  // The class is shared by every guest at the event. A credential landing
+  // there would ship one guest's admission to all of them.
+  const { saveUrl } = buildGoogleSaveLink(CONFIG, MODEL)
+  const claims = decodeSegment(jwtFrom(saveUrl).split('.')[1]) as {
+    payload: { eventTicketClasses: unknown[]; eventTicketObjects: unknown[] }
+  }
+  assert.equal(JSON.stringify(claims.payload.eventTicketClasses).includes(MODEL.credential), false)
+
+  const whole = JSON.stringify(claims)
+  assert.equal(whole.split(MODEL.credential).length - 1, 1, 'credential appears more than once')
+})
+
+test('the pass carries no link back, so no capability is stored at Google', () => {
+  // The only useful link would be the guest's own /p/<token> page, and putting
+  // it in the pass hands that capability to Google to keep indefinitely.
+  const object = buildEventTicketObject(CONFIG, MODEL) as Record<string, unknown>
+  assert.equal('linksModuleData' in object, false)
+})
+
 test('a pass without a real admission credential is refused', () => {
-  for (const credential of ['', 'not-a-credential', 'eyJhIjoxfQ.c2ln']) {
+  for (const credential of [
+    '',
+    'not-a-credential',
+    'eyJhIjoxfQ.c2ln',
+    // These pass a naive prefix test and are refused by the door as malformed,
+    // which is the exact "valid in a wallet, fails at the gate" case.
+    'OP1:',
+    'OP1:short',
+    'OP1:has+invalid/chars+aaaaaaaaaaaaaaaaaaaa',
+  ]) {
     assert.throws(
       () => buildGoogleSaveLink(CONFIG, { ...MODEL, credential }),
       /invalid_model/,
@@ -178,6 +237,7 @@ test('validation rejects models that would produce a misleading pass', () => {
   assert.match(validatePassModel({ ...MODEL, entryAllowance: 0 })!, /allowance/)
   assert.match(validatePassModel({ ...MODEL, entryAllowance: 1.5 })!, /allowance/)
   assert.match(validatePassModel({ ...MODEL, invitationId: '' })!, /identifiers/)
+  assert.match(validatePassModel({ ...MODEL, credentialId: '' })!, /identifiers/)
   assert.equal(validatePassModel(MODEL), null)
 })
 

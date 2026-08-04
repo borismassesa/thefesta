@@ -78,6 +78,24 @@ BEGIN
                     'AC1 and so does the original issuance time');
 END $$;
 
+-- A first attempt that FAILS must not look like a pass the guest saved.
+DO $$
+DECLARE res RECORD;
+BEGIN
+  INSERT INTO guest_contacts (id, user_id, full_name) VALUES
+    ('33333333-0000-0000-0000-000000000301', '11111111-1111-1111-1111-111111111111', 'Never Issued');
+  INSERT INTO guest_invitations (id, user_id, guest_contact_id, event_id, rsvp_status, party_size) VALUES
+    ('44444444-0000-0000-0000-000000000301', '11111111-1111-1111-1111-111111111111',
+     '33333333-0000-0000-0000-000000000301', '22222222-2222-2222-2222-222222222222', 'attending', 1);
+
+  SELECT * INTO res FROM record_wallet_pass(
+    '44444444-0000-0000-0000-000000000301', 'google', 'failed', NULL, NULL, 'sign_failed');
+  PERFORM assert_eq(res.pass_version, 0, 'AC2 a first attempt that failed is version 0');
+  PERFORM assert_eq((SELECT last_issued_at FROM wallet_passes
+                     WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000301'),
+                    NULL::TIMESTAMPTZ, 'AC2 and was never issued');
+END $$;
+
 -- ===========================================================================
 -- AD. Constraints
 -- ===========================================================================
@@ -108,6 +126,14 @@ DECLARE n INT;
 BEGIN
   n := revoke_wallet_passes('44444444-0000-0000-0000-000000000300', 'Guest cancelled');
   PERFORM assert_eq(n, 2, 'AE1 both providers revoked');
+  PERFORM assert_eq((SELECT revocation_reason FROM wallet_passes
+                     WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000300'
+                       AND provider = 'google'),
+                    'Guest cancelled', 'AE1 and the reason is kept, not just demanded');
+  PERFORM assert_eq((SELECT last_error_code FROM wallet_passes
+                     WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000300'
+                       AND provider = 'google'),
+                    'sign_failed', 'AE1 the pre-revocation diagnostic survives');
   PERFORM assert_eq((SELECT count(*)::INT FROM wallet_passes
                      WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000300'
                        AND status = 'revoked'),
@@ -135,6 +161,39 @@ BEGIN
   PERFORM assert_eq((SELECT entry_allowance FROM guest_invitations
                      WHERE id = '44444444-0000-0000-0000-000000000300'),
                     2, 'AE4 and leaves the allowance alone');
+END $$;
+
+-- A later issuance attempt must not resurrect a withdrawn pass.
+DO $$
+DECLARE res RECORD;
+BEGIN
+  SELECT * INTO res FROM record_wallet_pass(
+    '44444444-0000-0000-0000-000000000300', 'google', 'issued', 'c', 'o');
+  PERFORM assert_eq(res.result, 'recorded', 'AE5 the call still succeeds');
+  PERFORM assert_eq((SELECT status FROM wallet_passes
+                     WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000300'
+                       AND provider = 'google'),
+                    'revoked', 'AE5 but revocation is sticky');
+END $$;
+
+-- An oversized error code cannot smuggle a signed JWT into the table.
+DO $$
+BEGIN
+  BEGIN
+    UPDATE wallet_passes SET last_error_code = repeat('x', 200)
+     WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000300';
+    RAISE EXCEPTION 'FAIL: AE6 an oversized error code was accepted';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'pass: AE6 last_error_code is length-bounded';
+  END;
+
+  -- The RPC truncates rather than failing, so a chatty adapter degrades the
+  -- diagnostic instead of taking issuance down.
+  PERFORM record_wallet_pass('44444444-0000-0000-0000-000000000301', 'google', 'failed',
+                             NULL, NULL, repeat('y', 300));
+  PERFORM assert_eq(length((SELECT last_error_code FROM wallet_passes
+                            WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000301')),
+                    64, 'AE6 and the RPC truncates rather than throwing');
 END $$;
 
 -- ===========================================================================

@@ -184,7 +184,34 @@ export async function revokeAdmissionCredential(
     console.error('[credentials] revoke failed', { credentialId, code: error.code })
     return false
   }
-  return (data as RevokeCredentialRow[] | null)?.[0]?.result === 'revoked'
+  const revoked = (data as RevokeCredentialRow[] | null)?.[0]?.result === 'revoked'
+
+  // Stand down the wallet bookkeeping too, so wallet_passes stops reporting a
+  // live pass for an admission that has been withdrawn. Deliberately after the
+  // credential: the credential is what actually stops entry, and this is only
+  // the record of what each provider was handed.
+  if (revoked) {
+    const { data: cred } = await supabase
+      .from('admission_credentials')
+      .select('guest_invitation_id')
+      .eq('id', credentialId)
+      .maybeSingle<{ guest_invitation_id: string }>()
+
+    if (cred?.guest_invitation_id) {
+      const { error: walletError } = await supabase.rpc('revoke_wallet_passes', {
+        p_guest_invitation_id: cred.guest_invitation_id,
+        p_reason: reason,
+      })
+      if (walletError) {
+        console.error('[credentials] could not stand down wallet passes', {
+          credentialId,
+          code: walletError.code,
+        })
+      }
+    }
+  }
+
+  return revoked
 }
 
 /* -------------------------------------------------------------------------- */

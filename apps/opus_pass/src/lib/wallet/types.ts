@@ -1,3 +1,5 @@
+import { parseAdmissionCredential } from '@/lib/checkin/credential-core'
+
 /**
  * The boundary between OpusPass and the wallet providers.
  *
@@ -47,6 +49,15 @@ export interface WalletPassModel {
    * to interpret it.
    */
   credential: string
+  /**
+   * Identifies WHICH credential the pass was built from.
+   *
+   * Part of the provider object id, so a rotated credential produces a new
+   * object. Without it the object id is derived from the invitation alone,
+   * which is permanent, and a saved pass would keep presenting the superseded
+   * credential forever — failing at the door with no way to repair it.
+   */
+  credentialId: string
 }
 
 export type WalletIssueResult =
@@ -65,11 +76,17 @@ export interface WalletProvider {
  * Reject a model that would produce a misleading pass.
  *
  * A pass with no credential is worse than no pass: it looks valid in a wallet
- * and fails at the door, in front of a queue.
+ * and fails at the door, in front of a queue. So the credential is checked
+ * with the DOOR's own parser rather than a prefix test — otherwise 'OP1:' and
+ * 'OP1:short' both pass here and are refused as malformed at the gate, which
+ * is precisely the failure this function exists to prevent.
  */
 export function validatePassModel(model: WalletPassModel): string | null {
   if (!model.invitationId || !model.eventId) return 'missing identifiers'
-  if (!model.credential.startsWith('OP1:')) return 'credential is not an OP1 admission credential'
+  if (!model.credentialId) return 'missing identifiers'
+  if (parseAdmissionCredential(model.credential)?.kind !== 'opaque_v1') {
+    return 'credential is not a valid OP1 admission credential'
+  }
   if (!model.eventName.trim()) return 'missing event name'
   if (!model.guestName.trim()) return 'missing guest name'
   if (!Number.isInteger(model.entryAllowance) || model.entryAllowance < 1) {

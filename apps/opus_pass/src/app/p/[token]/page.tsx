@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { resolveWalletPass, type WalletPassView } from '@/lib/checkin/wallet-tokens'
-import { configuredProviders } from '@/lib/wallet/providers'
+import { configuredProviders, walletIssuanceReady } from '@/lib/wallet/providers'
 import { SaveToWalletButtons } from './SaveToWalletButtons'
 import { formatLongDateSw, formatTicketDate } from '@/lib/dashboard/share'
 
@@ -112,7 +112,7 @@ export default async function WalletPassPage({
           whether their credentials exist. The client only orders them. */}
       <SaveToWalletButtons
         token={token}
-        providers={configuredProviders()}
+        providers={walletIssuanceReady() ? configuredProviders() : []}
         language={sw ? 'sw' : 'en'}
       />
 

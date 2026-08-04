@@ -1,7 +1,6 @@
 import 'server-only'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { ensureAdmissionCredential } from '@/lib/checkin/credentials'
-import { partySizeLabel } from '@/app/entrance-pass/[token]/ticket'
 import { resolveWalletPass } from '@/lib/checkin/wallet-tokens'
 import { walletProvider } from './providers'
 import type { WalletPassModel, WalletProviderId } from './types'
@@ -35,7 +34,14 @@ export async function issueWalletPassForToken(
   // Everything that is not a live, eligible pass collapses to one answer, for
   // the same reason the image route does: an unknown token and a revoked one
   // must be indistinguishable or the URL space becomes enumerable.
-  if (resolved.state !== 'available') return { status: 'unavailable' }
+  if (resolved.state !== 'available') {
+    // Logged because the question "how many guests failed to save a pass
+    // tonight, and why" is otherwise unanswerable: everything below this line
+    // records to wallet_passes, and everything above it used to record
+    // nothing at all.
+    console.warn('[wallet] pass not issuable', { provider, state: resolved.state })
+    return { status: 'unavailable' }
+  }
 
   const pass = resolved.pass
 
@@ -43,8 +49,20 @@ export async function issueWalletPassForToken(
   // admission must not produce a wallet pass either. ensureAdmissionCredential
   // refuses to mint after a revocation, which is what makes this safe.
   const credential = await ensureAdmissionCredential(pass.invitationId, 'wallet_pass', supabase)
-  if (credential.status === 'revoked') return { status: 'unavailable' }
-  if (credential.status !== 'ok') return { status: 'failed' }
+  if (credential.status === 'revoked') {
+    console.warn('[wallet] admission withdrawn, refusing to issue', {
+      provider,
+      invitationId: pass.invitationId,
+    })
+    return { status: 'unavailable' }
+  }
+  if (credential.status !== 'ok') {
+    console.error('[wallet] could not resolve an admission credential', {
+      provider,
+      invitationId: pass.invitationId,
+    })
+    return { status: 'failed' }
+  }
 
   const model: WalletPassModel = {
     invitationId: pass.invitationId,
@@ -55,9 +73,10 @@ export async function issueWalletPassForToken(
     venueAddress: pass.city,
     startsAt: pass.startsAt,
     endsAt: pass.endsAt,
-    ticketType: partySizeLabel(pass.entryAllowance),
+    ticketType: admissionLabel(pass.entryAllowance),
     entryAllowance: pass.entryAllowance,
     credential: credential.credential.rawCredential,
+    credentialId: credential.credential.credentialId,
   }
 
   const issued = await adapter.issue(model)
@@ -65,7 +84,7 @@ export async function issueWalletPassForToken(
   // Bookkeeping is best-effort and deliberately after the fact: a guest who
   // has a working save link must not be denied it because a logging write
   // failed.
-  const { error } = await supabase.rpc('record_wallet_pass', {
+  const { data, error } = await supabase.rpc('record_wallet_pass', {
     p_guest_invitation_id: pass.invitationId,
     p_provider: provider,
     p_status: issued.ok ? 'issued' : 'failed',
@@ -73,12 +92,40 @@ export async function issueWalletPassForToken(
     p_object_id: issued.ok ? issued.objectId : null,
     p_error_code: issued.ok ? null : (issued.code ?? issued.reason),
   })
-  if (error) console.error('[wallet] could not record pass issuance', { code: error.code })
+
+  // The RPC reports a missing invitation as a RESULT, not an error, so
+  // checking `error` alone would let a silent non-write look like a success.
+  // Every field needed to correlate this back to a guest goes in the line.
+  const recorded = (data as { result?: string }[] | null)?.[0]?.result
+  if (error || recorded !== 'recorded') {
+    console.error('[wallet] pass issuance was not recorded', {
+      provider,
+      invitationId: pass.invitationId,
+      issued: issued.ok,
+      result: recorded ?? 'none',
+      code: error?.code,
+    })
+  }
 
   if (!issued.ok) {
     return issued.reason === 'not_configured' ? { status: 'not_configured' } : { status: 'failed' }
   }
   return { status: 'ok', saveUrl: issued.saveUrl }
+}
+
+/**
+ * What the pass calls this admission.
+ *
+ * Deliberately NOT the ticket artwork's partySizeLabel, which is a two-word
+ * pill vocabulary where "anything above one is a Double". That is a fine
+ * choice on a printed ticket and a bad one here: this string is also the
+ * readable text under the barcode, so a party of four reading "DOUBLE" tells a
+ * door steward the wrong number.
+ */
+function admissionLabel(entryAllowance: number): string {
+  if (entryAllowance <= 1) return 'Single'
+  if (entryAllowance === 2) return 'Double'
+  return `Admits ${entryAllowance}`
 }
 
 /** The couple as printed on the ticket, falling back through what exists. */
