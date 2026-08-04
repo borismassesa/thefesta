@@ -14,6 +14,7 @@ import { releaseApprovedDesign } from '@/lib/cms/release-card'
 import { logReleaseFailure } from '@/lib/cms/release-log'
 import { orderStageFor, type DesignStatus } from '@/lib/cms/order-stage'
 import { mergeCardDesignerValues } from '@/lib/cms/card-designer-values'
+import { decideStageAfterSave, isReleasedDesign } from '@/lib/cms/design-save-stage'
 import { checkSelfReview } from '@/lib/cms/card-review-authorization'
 import { sendCardReviewRequest } from '@/lib/card-review-email'
 import { readOrderLine, type OrderLineItem } from '@/lib/cms/order-add-ons'
@@ -491,9 +492,14 @@ export async function requestDesignInfo(
 
   const { data: design, error } = await supabase
     .from('invitation_card_designs')
-    .select('id, product_id, share_token')
+    .select('id, product_id, share_token, status')
     .eq('id', designId)
-    .maybeSingle<{ id: string; product_id: string; share_token: string | null }>()
+    .maybeSingle<{
+      id: string
+      product_id: string
+      share_token: string | null
+      status: string
+    }>()
   if (error) return { ok: false, error: error.message }
   if (!design) return { ok: false, error: 'Design job not found.' }
 
@@ -524,7 +530,14 @@ export async function requestDesignInfo(
       // Clearing the timestamp when nothing is asked keeps "has an outstanding
       // request" a single, honest check rather than two fields that can disagree.
       info_requested_at: clean.length > 0 ? new Date().toISOString() : null,
-      status: clean.length > 0 ? 'awaiting_info' : 'in_design',
+      // A released card keeps its stage. Asking the couple for a late correction,
+      // or clearing a request that outlived the release, is bookkeeping: neither
+      // is a reason to pull the card out of the two statuses OpusPass resolves
+      // guest cards from, which would break it for guests while the couple's
+      // order still claims it was delivered.
+      ...(isReleasedDesign(design.status)
+        ? {}
+        : { status: clean.length > 0 ? 'awaiting_info' : 'in_design' }),
     })
     .eq('id', designId)
   if (updateError) return { ok: false, error: updateError.message }
@@ -550,10 +563,11 @@ export async function saveDesignFieldValues(
 
   const { data: design, error } = await supabase
     .from('invitation_card_designs')
-    .select('id, status, field_values, requested_fields')
+    .select('id, product_id, status, field_values, requested_fields')
     .eq('id', designId)
     .maybeSingle<{
       id: string
+      product_id: string
       status: string
       field_values: Record<string, string> | null
       requested_fields: string[] | null
@@ -565,30 +579,35 @@ export async function saveDesignFieldValues(
   if (!mergedResult.ok) return mergedResult
   const merged = mergedResult.values
 
-  // Anything now answered is no longer outstanding.
-  const stillOutstanding = (design.requested_fields ?? []).filter((role) => !merged[role])
-  const answeredTheLastRequest =
-    stillOutstanding.length === 0 && (design.requested_fields ?? []).length > 0
+  // The requestable set is only consulted for the "nothing left to collect"
+  // rule, which can only fire on an awaiting_info job. Skipping the read
+  // otherwise keeps the common save at one round-trip.
+  let requestableKeys: string[] = []
+  if (design.status === 'awaiting_info') {
+    const { data: product } = await supabase
+      .from('website_invitations_products')
+      .select('field_bindings, category')
+      .eq('id', design.product_id)
+      .maybeSingle<{ field_bindings: CardFieldBinding[] | null; category: string | null }>()
+    requestableKeys = requestableFields(product?.field_bindings ?? [], product?.category).map(
+      (f) => f.role.key,
+    )
+  }
 
-  // A released card can still be carrying outstanding requests: submitForReview
-  // accepts an awaiting_info job, so approval can land while requested_fields is
-  // non-empty. Answering the last of them must NOT drag the job back to
-  // in_design, because OpusPass resolves guest cards with
-  // `.in('status', ['ready', 'delivered'])` and the card would stop resolving
-  // altogether, with the couple's order still claiming it was delivered.
-  const isReleased = design.status === 'ready' || design.status === 'delivered'
+  const decision = decideStageAfterSave({
+    status: design.status,
+    requestedFields: design.requested_fields ?? [],
+    merged,
+    requestableKeys,
+  })
 
   const { error: updateError } = await supabase
     .from('invitation_card_designs')
     .update({
       field_values: merged,
-      requested_fields: stillOutstanding,
-      ...(answeredTheLastRequest
-        ? {
-            info_received_at: new Date().toISOString(),
-            ...(isReleased ? {} : { status: 'in_design' }),
-          }
-        : {}),
+      requested_fields: decision.requestedFields,
+      ...(decision.stampInfoReceived ? { info_received_at: new Date().toISOString() } : {}),
+      ...(decision.status ? { status: decision.status } : {}),
     })
     .eq('id', designId)
   if (updateError) return { ok: false, error: updateError.message }
