@@ -181,6 +181,19 @@ test('a rotated credential produces a new object the guest can save', () => {
   )
 })
 
+test('every pass carries branding', () => {
+  // A class with no logo is rejected by Google, and a pass that renders
+  // unbranded is worse than one that fails loudly.
+  const { saveUrl } = buildGoogleSaveLink(CONFIG, MODEL)
+  const claims = decodeSegment(jwtFrom(saveUrl).split('.')[1]) as {
+    payload: { eventTicketClasses: { logo?: { sourceUri?: { uri?: string } }; hexBackgroundColor?: string }[] }
+  }
+  const klass = claims.payload.eventTicketClasses[0]
+
+  assert.equal(klass.logo?.sourceUri?.uri, 'https://opuspass.opusfesta.com/icon-512.png')
+  assert.match(klass.hexBackgroundColor ?? '', /^#[0-9a-f]{6}$/)
+})
+
 test('the class Google needs to accept an inline definition is present', () => {
   // Without reviewStatus a non-test issuer rejects the inline class, and every
   // pass breaks for every real guest while the rest of this suite still passes.

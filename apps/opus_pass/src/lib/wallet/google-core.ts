@@ -30,8 +30,26 @@ import { type WalletPassModel, validatePassModel } from './types'
 
 const SAVE_URL_PREFIX = 'https://pay.google.com/gp/v/save/'
 
-/** Google's own brand colour requirement is only that it be a valid hex. */
-const OPUSPASS_PURPLE = '#4a2472'
+/**
+ * The card colour. Pale on purpose: Google derives its text colour from this
+ * value's luminance, and a light card gives dark text, which is what a steward
+ * is squinting at in poor light at a gate.
+ *
+ * The other approved options, should this change: #E1E8F0 powder blue,
+ * #F4E3EC blush, #F5E7BF champagne. Champagne needs a darker mark than the
+ * current one to stay legible.
+ */
+const PASS_BACKGROUND = '#ecddf7'
+
+/**
+ * The OpusPass mark, transparent PNG, so it sits directly on the card colour
+ * with no white plate behind it. Deliberately the mark alone: Google renders
+ * this at roughly 18px, where the wordmark and tagline are illegible.
+ *
+ * No hero image. The strip renders about 40px tall, which holds one bold shape
+ * or nothing, and nothing beats a shape chosen only to fill the slot.
+ */
+const LOGO_PATH = '/icon-512.png'
 
 export interface GoogleWalletConfig {
   issuerId: string
@@ -156,7 +174,11 @@ export function buildEventTicketClass(config: GoogleWalletConfig, model: WalletP
     issuerName: 'OpusPass',
     reviewStatus: 'UNDER_REVIEW',
     eventName: { defaultValue: { language: 'en-US', value: model.eventName } },
-    hexBackgroundColor: OPUSPASS_PURPLE,
+    hexBackgroundColor: PASS_BACKGROUND,
+    logo: {
+      sourceUri: { uri: `${config.origin}${LOGO_PATH}` },
+      contentDescription: { defaultValue: { language: 'en-US', value: 'OpusPass' } },
+    },
     // Google requires venue name AND address together, or neither.
     ...(model.venueName && model.venueAddress
       ? {
