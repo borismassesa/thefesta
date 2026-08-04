@@ -4,8 +4,15 @@ import {
   type GoogleWalletConfig,
   loadGoogleWalletConfig,
 } from './google-core'
+import { type FetchLike, provisionGooglePass, resetAccessTokenCache } from './google-rest'
 import { credentialIssuanceConfigured } from '@/lib/checkin/credentials'
-import type { WalletIssueResult, WalletPassModel, WalletProvider, WalletProviderId } from './types'
+import {
+  type WalletIssueResult,
+  type WalletPassModel,
+  type WalletProvider,
+  type WalletProviderId,
+  validatePassModel,
+} from './types'
 
 /**
  * The provider registry.
@@ -30,6 +37,29 @@ const googleProvider: WalletProvider = {
     if (!config) return { ok: false, reason: 'not_configured' }
 
     try {
+      // Validate BEFORE provisioning. buildGoogleSaveLink runs the same check,
+      // but reaching it second would mean a malformed model had already created
+      // a permanent object at Google that no later correction can replace: the
+      // id is derived from the invitation and credential, and Google's object
+      // ids cannot be reused.
+      const invalid = validatePassModel(model)
+      if (invalid) throw new Error(`invalid_model: ${invalid}`)
+
+      // Provision first, link second. The link is only an instruction to add an
+      // object that already exists, so minting it before the object is there
+      // would hand the guest a link that fails inside Google Wallet with
+      // nothing on our side recording why.
+      const provisioned = await provisionGooglePass(config, model, fetch as FetchLike)
+      if (!provisioned.ok) {
+        // Codes only, never response bodies: Google echoes the request in its
+        // error payloads and this request body contains the OP1 credential.
+        console.error('[wallet:google] provisioning failed', {
+          invitationId: model.invitationId,
+          code: provisioned.code,
+        })
+        return { ok: false, reason: 'provider_error', code: provisioned.code }
+      }
+
       const link = buildGoogleSaveLink(config, model)
       return { ok: true, saveUrl: link.saveUrl, classId: link.classId, objectId: link.objectId }
     } catch (err) {
@@ -103,7 +133,14 @@ export function walletIssuanceReady(): boolean {
   return credentialIssuanceConfigured() && configuredProviders().length > 0
 }
 
-/** Test seam: clears the memoised config so env changes are picked up. */
+/**
+ * Test seam: clears the memoised config so env changes are picked up.
+ *
+ * Clears the access-token cache too. That cache is keyed by service-account
+ * email, so a test swapping in a different key under the same email would
+ * otherwise reuse the previous token and assert against the wrong request.
+ */
 export function resetWalletProviderCache(): void {
   cachedGoogleConfig = undefined
+  resetAccessTokenCache()
 }

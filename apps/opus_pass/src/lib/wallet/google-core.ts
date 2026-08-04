@@ -8,24 +8,15 @@ import { type WalletPassModel, validatePassModel } from './types'
  * produces can be verified against a public key in a unit test rather than
  * being taken on trust.
  *
- * WHY NO REST API: a save link may carry the class and object definitions
- * inline, and Google creates them when the guest taps Save. That removes the
- * OAuth token exchange, the class-management calls and every failure mode
- * between us and Google at issue time — issuing becomes a pure function of the
- * admission plus a private key. The tradeoff is that a pass cannot be *updated*
- * this way; updating requires the REST API and is Phase 2. Until then a changed
- * venue or a used admission is reflected by the door and by /p/<token>, not by
- * a live-updating pass.
+ * The class and object are built here and SENT over the REST API (google-rest.ts);
+ * the save link then references the object by id. An earlier version defined
+ * both inline inside the save JWT, which needed no OAuth and no API calls, but
+ * had to be abandoned: the JWT is base64url, so a realistic pass reached 2,111
+ * characters against Google's ~1,800 guidance, and the OP1 credential travelled
+ * in the URL in plain sight. buildGoogleSaveJwt carries the full reasoning.
  *
- * TWO CONSEQUENCES OF THAT CHOICE, both accepted deliberately:
- *
- * 1. The save URL contains the credential. The JWT's payload is base64url, not
- *    encryption, so `https://pay.google.com/gp/v/save/<jwt>` carries the OP1
- *    credential in plain sight, and browsers keep URLs in history and sync
- *    them across a signed-in profile. The REST path (pre-create the object,
- *    reference it by id) removes this entirely and is the reason to do it.
- * 2. Object ids are permanent at Google, so the id must encode the credential
- *    — see googleObjectId.
+ * Object ids are permanent at Google, so the id must encode the credential —
+ * see googleObjectId.
  */
 
 const SAVE_URL_PREFIX = 'https://pay.google.com/gp/v/save/'
@@ -169,7 +160,7 @@ export function googleObjectId(
   return `${issuerId}.adm_${sanitiseSuffix(invitationId)}_${sanitiseSuffix(credentialId).slice(0, 8)}`
 }
 
-function base64url(input: Buffer | string): string {
+export function base64url(input: Buffer | string): string {
   return Buffer.from(input).toString('base64url')
 }
 
@@ -243,10 +234,25 @@ export function buildEventTicketObject(config: GoogleWalletConfig, model: Wallet
  *
  * `aud: 'google'` and `typ: 'savetowallet'` are Google's required constants;
  * `origins` scopes where the link may be invoked from.
+ *
+ * The payload REFERENCES an object by id rather than defining it inline. The
+ * object and its class are created first over the REST API (see google-rest.ts)
+ * and this link only says "add that one". Two reasons it works this way, both
+ * learned from the inline version:
+ *
+ *   LENGTH — a JWT is base64url, so an inline definition puts every field of
+ *   the pass into the URL. A realistic pass measured 2,111 characters against
+ *   Google's ~1,800 guidance; only one with no venue and no date fitted. A
+ *   reference is a few dozen bytes no matter how much the pass says.
+ *
+ *   EXPOSURE — an inline definition carried the OP1 credential in the URL in
+ *   plain sight, and browsers keep URLs in history and sync them across a
+ *   signed-in profile. Here the credential reaches Google in a request body
+ *   over TLS and never enters the link at all.
  */
 export function buildGoogleSaveJwt(
   config: GoogleWalletConfig,
-  model: WalletPassModel,
+  objectId: string,
   now: Date
 ): string {
   const header = { alg: 'RS256', typ: 'JWT' }
@@ -256,10 +262,7 @@ export function buildGoogleSaveJwt(
     typ: 'savetowallet',
     iat: Math.floor(now.getTime() / 1000),
     origins: [config.origin],
-    payload: {
-      eventTicketClasses: [buildEventTicketClass(config, model)],
-      eventTicketObjects: [buildEventTicketObject(config, model)],
-    },
+    payload: { eventTicketObjects: [{ id: objectId }] },
   }
 
   const signingInput = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(payload))}`
@@ -273,7 +276,15 @@ export interface GoogleSaveLink {
   objectId: string
 }
 
-/** Build the complete save link, or throw with a reason the caller maps. */
+/**
+ * Build the save link for an object that has ALREADY been provisioned.
+ *
+ * Still validates the model even though the credential no longer travels in the
+ * link: the object id is derived from the model, and a model bad enough to be
+ * refused here would have produced a pass that looks valid in a wallet and
+ * fails at the door. That check is the reason this function exists rather than
+ * the id being formatted at the call site.
+ */
 export function buildGoogleSaveLink(
   config: GoogleWalletConfig,
   model: WalletPassModel,
@@ -282,9 +293,11 @@ export function buildGoogleSaveLink(
   const invalid = validatePassModel(model)
   if (invalid) throw new Error(`invalid_model: ${invalid}`)
 
+  const objectId = googleObjectId(config.issuerId, model.invitationId, model.credentialId)
+
   return {
-    saveUrl: `${SAVE_URL_PREFIX}${buildGoogleSaveJwt(config, model, now)}`,
+    saveUrl: `${SAVE_URL_PREFIX}${buildGoogleSaveJwt(config, objectId, now)}`,
     classId: googleClassId(config.issuerId, model.eventId),
-    objectId: googleObjectId(config.issuerId, model.invitationId, model.credentialId),
+    objectId,
   }
 }

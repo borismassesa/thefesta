@@ -67,10 +67,21 @@ The Wallet API must be enabled separately from the issuer account.
 
 ### 1.6 Authorise the service account on the issuer
 
+**Mandatory, not optional.** Issuance calls the Google Wallet REST API to create
+the event's class and the guest's object before it mints a save link, so the key
+must hold rights on the issuer or nothing can be issued at all. (An earlier
+adapter defined the pass inline inside the save JWT and made no API calls, which
+is why this step used to be skippable. That path was withdrawn: a realistic pass
+exceeded Google's save-link length guidance, and it carried the admission
+credential in the URL.)
+
 Back in the Google Pay & Wallet Console, go to **Users** and add the service
 account's email address (`...@....iam.gserviceaccount.com`) with the
 **Developer** role. Skipping this is the usual cause of a 403 on the first API
 call: the key is valid, but it has no rights on the issuer.
+
+If issuance starts reporting `class_http_403` or `object_http_403`, re-check
+this first.
 
 ### 1.7 Extract the values
 
@@ -205,7 +216,7 @@ base64 -i wwdr.pem | tr -d '\n' | pbcopy
 
 ---
 
-## Environment variables PR 4 will read
+## Environment variables
 
 Set these on the `opus_pass` Vercel project (Production and Preview), and
 locally in `apps/opus_pass/.env.local`.
@@ -224,9 +235,53 @@ APPLE_WALLET_CERT_PASSWORD=""
 APPLE_WALLET_WWDR_CERT_BASE64=""
 ```
 
-Both providers are behind their own flag. PR 4 ships with both off, so it can
-merge and deploy before either account is finished, and each is turned on
-independently once its credentials are in place.
+Both providers are behind their own flag, and both ship off, so the code can
+merge and deploy before either account is finished.
+
+### The one that is not provider-specific
+
+```
+ADMISSION_CREDENTIAL_KEYS='{"1":"<base64 32 bytes>"}'
+ADMISSION_CREDENTIAL_KEY_VERSION="1"
+```
+
+No pass can be issued without this, whatever the provider flags say, because a
+pass is a view of an admission credential and the credential is encrypted at
+rest with this keyring. `walletIssuanceReady()` checks for it, so a deployment
+missing it withholds the button rather than showing it and failing on tap.
+
+**The same version must hold the same bytes everywhere that shares a database.**
+Local, Preview and Production all point at one Supabase project, so a version
+`1` with different bytes in two places means a credential minted in one fails
+AES-GCM authentication in the other. Rotate by ADDING a version, never by
+changing the bytes under an existing one:
+
+```bash
+node -e 'console.log(require("crypto").randomBytes(32).toString("base64"))'
+```
+
+Old versions stay readable so tickets already in guests' hands keep working.
+
+---
+
+## Google issuance error codes
+
+Issuance reports short codes rather than provider text, because Google echoes
+the request in its error payloads and the request body contains the admission
+credential. The codes appear in `wallet_passes.last_error_code`.
+
+| Code | Meaning |
+| --- | --- |
+| `token_http_401` / `token_http_400` | The service-account key is wrong, revoked, or the clock is badly skewed. |
+| `token_unreachable` | Could not reach `oauth2.googleapis.com`. |
+| `class_http_403` / `object_http_403` | The service account is not a Developer on the issuer. See 1.6. |
+| `class_http_404` after a create | The issuer ID is wrong. |
+| `object_http_400` | The object was rejected. Usually a malformed class reference or a bad field. |
+| `*_unreachable` | Network failure mid-issuance. Safe to retry; issuance is idempotent. |
+
+Retrying is always safe: the class is upserted and the object's id is derived
+from the credential, so a repeat produces the same object rather than a second
+admission.
 
 ---
 

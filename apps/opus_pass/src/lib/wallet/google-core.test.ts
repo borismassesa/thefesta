@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { createVerify, generateKeyPairSync } from 'node:crypto'
 import test from 'node:test'
 import {
+  buildEventTicketClass,
   buildEventTicketObject,
   buildGoogleSaveLink,
   googleClassId,
@@ -77,9 +78,12 @@ test('a tampered payload breaks the signature', () => {
   const [header, payload, signature] = jwtFrom(saveUrl).split('.')
 
   const decoded = decodeSegment(payload) as {
-    payload: { eventTicketObjects: { barcode: { value: string } }[] }
+    payload: { eventTicketObjects: { id: string }[] }
   }
-  decoded.payload.eventTicketObjects[0].barcode.value = 'OP1:someone-elses-credential'
+  // Repointing the reference IS the forgery now: the link is an instruction to
+  // add an object id, so aiming it at another guest's object is the whole
+  // attack. The signature is the only thing standing in the way.
+  decoded.payload.eventTicketObjects[0].id = `${CONFIG.issuerId}.adm_someone_else`
   const forged = Buffer.from(JSON.stringify(decoded)).toString('base64url')
 
   const verifier = createVerify('RSA-SHA256')
@@ -148,21 +152,24 @@ test('two guests at one event share a class but never an object', () => {
 })
 
 test('a venue is emitted only when both name and address exist', () => {
-  const { saveUrl } = buildGoogleSaveLink(CONFIG, { ...MODEL, venueAddress: null })
-  const claims = decodeSegment(jwtFrom(saveUrl).split('.')[1]) as {
-    payload: { eventTicketClasses: Record<string, unknown>[] }
-  }
+  // Asserted on the builder rather than the JWT: the class no longer travels in
+  // the link, it is PUT to Google, so the builder's output is what Google
+  // actually receives.
+  const klass = buildEventTicketClass(CONFIG, { ...MODEL, venueAddress: null }) as Record<
+    string,
+    unknown
+  >
   // Google rejects a partial venue outright, so omitting it is the only
   // correct move when half of it is missing.
-  assert.equal('venue' in claims.payload.eventTicketClasses[0], false)
+  assert.equal('venue' in klass, false)
 })
 
 test('an undated event omits dateTime rather than inventing one', () => {
-  const { saveUrl } = buildGoogleSaveLink(CONFIG, { ...MODEL, startsAt: null })
-  const claims = decodeSegment(jwtFrom(saveUrl).split('.')[1]) as {
-    payload: { eventTicketClasses: Record<string, unknown>[] }
-  }
-  assert.equal('dateTime' in claims.payload.eventTicketClasses[0], false)
+  const klass = buildEventTicketClass(CONFIG, { ...MODEL, startsAt: null }) as Record<
+    string,
+    unknown
+  >
+  assert.equal('dateTime' in klass, false)
 })
 
 test('a rotated credential produces a new object the guest can save', () => {
@@ -184,38 +191,79 @@ test('a rotated credential produces a new object the guest can save', () => {
 test('every pass carries branding', () => {
   // A class with no logo is rejected by Google, and a pass that renders
   // unbranded is worse than one that fails loudly.
-  const { saveUrl } = buildGoogleSaveLink(CONFIG, MODEL)
-  const claims = decodeSegment(jwtFrom(saveUrl).split('.')[1]) as {
-    payload: { eventTicketClasses: { logo?: { sourceUri?: { uri?: string } }; hexBackgroundColor?: string }[] }
+  const klass = buildEventTicketClass(CONFIG, MODEL) as {
+    logo?: { sourceUri?: { uri?: string } }
+    hexBackgroundColor?: string
   }
-  const klass = claims.payload.eventTicketClasses[0]
 
   assert.equal(klass.logo?.sourceUri?.uri, 'https://opuspass.opusfesta.com/icon-512.png')
   assert.match(klass.hexBackgroundColor ?? '', /^#[0-9a-f]{6}$/)
 })
 
-test('the class Google needs to accept an inline definition is present', () => {
-  // Without reviewStatus a non-test issuer rejects the inline class, and every
-  // pass breaks for every real guest while the rest of this suite still passes.
-  const { saveUrl } = buildGoogleSaveLink(CONFIG, MODEL)
-  const claims = decodeSegment(jwtFrom(saveUrl).split('.')[1]) as {
-    payload: { eventTicketClasses: { reviewStatus?: string; issuerName?: string }[] }
+test('the class carries what Google needs to accept it', () => {
+  // Without reviewStatus a non-test issuer rejects the class, and every pass
+  // breaks for every real guest while the rest of this suite still passes.
+  const klass = buildEventTicketClass(CONFIG, MODEL) as {
+    reviewStatus?: string
+    issuerName?: string
   }
-  assert.equal(claims.payload.eventTicketClasses[0].reviewStatus, 'UNDER_REVIEW')
-  assert.equal(claims.payload.eventTicketClasses[0].issuerName, 'OpusPass')
+  assert.equal(klass.reviewStatus, 'UNDER_REVIEW')
+  assert.equal(klass.issuerName, 'OpusPass')
 })
 
-test('the credential appears once in the whole JWT, and never on the class', () => {
+test('the credential never enters the save link at all', () => {
+  // The reason the inline payload was abandoned. A JWT is base64url, not
+  // encryption, so anything in the payload is in the URL — and browsers keep
+  // URLs in history and sync them across a signed-in profile. Under the REST
+  // path the credential reaches Google in a request body and the link carries
+  // only an object id.
+  const { saveUrl } = buildGoogleSaveLink(CONFIG, MODEL)
+  assert.equal(saveUrl.includes(MODEL.credential), false)
+
+  const claims = decodeSegment(jwtFrom(saveUrl).split('.')[1])
+  assert.equal(JSON.stringify(claims).includes(MODEL.credential), false)
+})
+
+test('the credential rides on the object and never on the shared class', () => {
   // The class is shared by every guest at the event. A credential landing
   // there would ship one guest's admission to all of them.
-  const { saveUrl } = buildGoogleSaveLink(CONFIG, MODEL)
-  const claims = decodeSegment(jwtFrom(saveUrl).split('.')[1]) as {
-    payload: { eventTicketClasses: unknown[]; eventTicketObjects: unknown[] }
-  }
-  assert.equal(JSON.stringify(claims.payload.eventTicketClasses).includes(MODEL.credential), false)
+  const klass = JSON.stringify(buildEventTicketClass(CONFIG, MODEL))
+  assert.equal(klass.includes(MODEL.credential), false)
 
-  const whole = JSON.stringify(claims)
-  assert.equal(whole.split(MODEL.credential).length - 1, 1, 'credential appears more than once')
+  const object = JSON.stringify(buildEventTicketObject(CONFIG, MODEL))
+  assert.equal(
+    object.split(MODEL.credential).length - 1,
+    1,
+    'credential should appear exactly once on the object'
+  )
+})
+
+test('the save link stays far inside the length Google will accept', () => {
+  // The defect that forced the REST path: the inline payload put every field of
+  // the pass into the URL, and a realistic one measured 2,111 characters
+  // against Google's ~1,800 guidance. A reference is flat in the pass's size,
+  // so the WORST case here is a fully-populated event.
+  const { saveUrl } = buildGoogleSaveLink(CONFIG, {
+    ...MODEL,
+    venueName: 'Mlimani City Conference Centre',
+    venueAddress: 'Sam Nujoma Road, Dar es Salaam, Tanzania',
+    startsAt: '2026-12-19T15:00:00Z',
+    endsAt: '2026-12-19T23:00:00Z',
+    ticketType: 'Admits 4',
+    entryAllowance: 4,
+  })
+  assert.ok(saveUrl.length < 1800, `save URL is ${saveUrl.length} characters`)
+
+  // And adding pass content must not move it, which is the property that makes
+  // the limit safe to stop thinking about.
+  const minimal = buildGoogleSaveLink(CONFIG, {
+    ...MODEL,
+    venueName: null,
+    venueAddress: null,
+    startsAt: null,
+    endsAt: null,
+  })
+  assert.equal(saveUrl.length, minimal.saveUrl.length)
 })
 
 test('the pass carries no link back, so no capability is stored at Google', () => {
