@@ -721,6 +721,12 @@ export async function bulkImportGuests(
       full_name,
       email: email || null,
       phone: phone || null,
+      // The imported number is the WhatsApp number too. A spreadsheet carries
+      // ONE mobile column (the header map folds "whatsapp" into it), and a
+      // guest with no whatsapp_phone reads as SMS-only on the send console, so
+      // leaving it null made every import a second pass of copying the same
+      // number across by hand. Same defaulting updateGuestPhone already does.
+      whatsapp_phone: phone || null,
       max_party_size: ticketPartySize(row?.max_party_size),
     }]
   })
