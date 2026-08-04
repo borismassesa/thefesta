@@ -419,7 +419,10 @@ function DeleteCoupleModal({
   // Confirm against the name the server will check, which is derived from the
   // profile — not the list's display name, which can fall back to an event name.
   const expectedName = impact?.coupleName ?? couple.coupleName
-  const blocked = (impact?.vendors ?? 0) > 0
+  // One login can run a wedding and a storefront at once. Deleting the login
+  // would take the storefront with it, so for these the wedding side is removed
+  // on its own and the sign-in stays. The wording changes throughout to say so.
+  const sharedWithVendor = (impact?.vendors ?? 0) > 0
 
   function submit() {
     setError(null)
@@ -439,7 +442,11 @@ function DeleteCoupleModal({
 
   if (notice) {
     return (
-      <Modal title="Account deleted, one thing to note" busy={false} onClose={onDeleted}>
+      <Modal
+        title={sharedWithVendor ? 'Wedding side removed, one thing to note' : 'Account deleted, one thing to note'}
+        busy={false}
+        onClose={onDeleted}
+      >
         <div className="px-6 py-5">
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">{notice}</p>
         </div>
@@ -459,14 +466,23 @@ function DeleteCoupleModal({
 
   return (
     <Modal
-      title="Delete couple account"
+      title={sharedWithVendor ? 'Remove the wedding side' : 'Delete couple account'}
       tone="danger"
       subtitle={
-        <>
-          Permanently removes this account and everything they built: events, guest lists, RSVPs, pledges, gift registry,
-          guestbook and their wedding website. Their sign-in login is deleted too, so the email is freed up. This cannot
-          be undone. Paid orders are kept and returned to the unattributed list on this page.
-        </>
+        sharedWithVendor ? (
+          <>
+            Permanently removes everything they built on the wedding side: events, guest lists, RSVPs, pledges, gift
+            registry, guestbook and their wedding website. Their sign-in and their vendor storefront are kept, because
+            the same login runs both. This cannot be undone. Paid orders are kept and returned to the unattributed list
+            on this page.
+          </>
+        ) : (
+          <>
+            Permanently removes this account and everything they built: events, guest lists, RSVPs, pledges, gift
+            registry, guestbook and their wedding website. Their sign-in login is deleted too, so the email is freed up.
+            This cannot be undone. Paid orders are kept and returned to the unattributed list on this page.
+          </>
+        )
       }
       busy={pending}
       onClose={onClose}
@@ -507,26 +523,28 @@ function DeleteCoupleModal({
               </p>
             ) : null}
 
-            {blocked ? (
-              <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-800">
-                This login also owns {impact.vendors} vendor {impact.vendors === 1 ? 'storefront' : 'storefronts'}, which
-                would be destroyed along with it. Delete the vendor from Operations, Vendors first.
+            {sharedWithVendor ? (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+                <span className="font-semibold">
+                  This login also runs {impact.vendors} vendor {impact.vendors === 1 ? 'storefront' : 'storefronts'}
+                </span>
+                , so only the wedding side is removed. The sign-in stays live, the storefront and everything on it is
+                untouched, and the email is not freed up. Delete the storefront from Operations, Vendors if the whole
+                account should go.
               </p>
             ) : null}
           </>
         ) : null}
 
-        {!blocked ? (
-          <Field label={`Type “${expectedName}” to confirm`}>
-            <input
-              className={INPUT_CLASS}
-              value={confirmName}
-              onChange={(e) => setConfirmName(e.target.value)}
-              placeholder={expectedName}
-              autoComplete="off"
-            />
-          </Field>
-        ) : null}
+        <Field label={`Type “${expectedName}” to confirm`}>
+          <input
+            className={INPUT_CLASS}
+            value={confirmName}
+            onChange={(e) => setConfirmName(e.target.value)}
+            placeholder={expectedName}
+            autoComplete="off"
+          />
+        </Field>
 
         {error ? <p className="text-sm font-semibold text-rose-700">{error}</p> : null}
       </div>
@@ -543,11 +561,11 @@ function DeleteCoupleModal({
         <button
           type="button"
           onClick={submit}
-          disabled={pending || loading || blocked || confirmName.trim() !== expectedName.trim()}
+          disabled={pending || loading || confirmName.trim() !== expectedName.trim()}
           className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          Delete permanently
+          {sharedWithVendor ? 'Remove wedding side' : 'Delete permanently'}
         </button>
       </div>
     </Modal>
