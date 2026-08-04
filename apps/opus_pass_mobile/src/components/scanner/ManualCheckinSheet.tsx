@@ -23,16 +23,28 @@ import type { CheckinScanResult, RosterEntry } from '@/types/checkin';
 const LIVE_GREEN = '#9FE870';
 
 /** Entry codes are 6 characters of Crockford-style base32 (no I/L/O/U). */
-const CODE_LENGTH = 6;
+/** A legacy entry code is 6 characters; a Pass ID is 8. Both are typed into
+ *  the same box because a guest reading one out does not know which they have. */
+const ENTRY_CODE_LENGTH = 6;
+const PASS_ID_LENGTH = 8;
+const MAX_IDENTIFIER_LENGTH = PASS_ID_LENGTH;
 
-/** Fold typing variations onto the stored form, exactly as the server does. */
+/** Fold typing variations onto the stored form, exactly as the server does.
+ *  Mirrors normaliseTypedIdentifier in opus_pass lib/checkin/identifiers.ts —
+ *  safe because the alphabet excludes O, I and L, so folding can only rescue a
+ *  mistype and can never turn one valid identifier into another. */
 function normaliseCode(input: string): string {
   return input
     .toUpperCase()
     .replace(/[^0-9A-Z]/g, '')
     .replace(/O/g, '0')
     .replace(/[IL]/g, '1')
-    .slice(0, CODE_LENGTH);
+    .slice(0, MAX_IDENTIFIER_LENGTH);
+}
+
+/** Whether a typed value is a complete identifier of either kind. */
+function isCompleteIdentifier(value: string): boolean {
+  return value.length === ENTRY_CODE_LENGTH || value.length === PASS_ID_LENGTH;
 }
 
 type Mode = 'code' | 'name';
@@ -50,6 +62,10 @@ interface ManualCheckinSheetProps {
   /** Admit with the headcount the attendant confirmed on the card. */
   onAdmit: (guest: RosterEntry, arrived: number) => Promise<CheckinScanResult>;
   onAdmitByCode: (code: string) => Promise<CheckinScanResult>;
+  /** Read-only lookup for a Pass ID. Returns the guest to confirm, or null
+   *  when nothing matches. Writes nothing — admission is the separate
+   *  onAdmit call the confirm card makes. */
+  onLookup?: (passId: string) => Promise<RosterEntry | null>;
   onAdmitted: (result: CheckinScanResult) => void;
 }
 
@@ -75,6 +91,7 @@ export function ManualCheckinSheet({
   onRetry,
   onAdmit,
   onAdmitByCode,
+  onLookup,
   onAdmitted,
 }: ManualCheckinSheetProps) {
   const { editorial } = useTheme();
@@ -123,16 +140,41 @@ export function ManualCheckinSheet({
       });
   }, [roster, query]);
 
+  // Six slots until the typing passes six, then eight. A Pass ID and an entry
+  // code go in the same box because a guest reading one out does not know
+  // which kind they have.
+  const slotCount = code.length > ENTRY_CODE_LENGTH ? PASS_ID_LENGTH : ENTRY_CODE_LENGTH;
+
   const finish = (result: CheckinScanResult) => {
     onClose();
     onAdmitted(result);
   };
 
   const submitCode = async (value: string) => {
-    if (admitting || value.length !== CODE_LENGTH) return;
+    if (admitting || !isCompleteIdentifier(value)) return;
     setAdmitting('code');
     setCodeError(null);
     try {
+      // A Pass ID is looked up FIRST and shown for confirmation rather than
+      // admitting on the spot. The whole reason a guest reads one out is that
+      // something already went wrong, so the attendant needs to see who they
+      // are looking at — right guest, right event, how many of the party are
+      // left — before anyone is admitted. The lookup writes nothing.
+      if (value.length === PASS_ID_LENGTH && onLookup) {
+        const found = await onLookup(value);
+        if (!found) {
+          setCodeError('No guest found with that Pass ID.');
+          setCode('');
+          focusFor('code');
+          return;
+        }
+        // Hand it to the same confirm card a roster pick uses, so admitting is
+        // a deliberate second tap on both paths.
+        setConfirming(found);
+        setCode('');
+        return;
+      }
+
       const result = await onAdmitByCode(value);
 
       // A wrong code is a typo, not an outcome worth taking over the screen:
@@ -164,7 +206,7 @@ export function ManualCheckinSheet({
     setCode(cleaned);
     if (codeError) setCodeError(null);
     // Submit the moment it's complete — at a door, an extra tap per guest adds up.
-    if (cleaned.length === CODE_LENGTH) void submitCode(cleaned);
+    if (isCompleteIdentifier(cleaned)) void submitCode(cleaned);
   };
 
   const admitGuest = async (guest: RosterEntry, arrived: number) => {
@@ -195,7 +237,7 @@ export function ManualCheckinSheet({
             <Text className="font-work-sans text-[15px] text-ed-on-surface">Cancel</Text>
           </Pressable>
           <Text className="font-work-sans-bold text-[17px] text-ed-on-surface">
-            {mode === 'code' ? 'Enter ticket code' : 'Find guest by name'}
+            {mode === 'code' ? 'Enter Pass ID or ticket code' : 'Find guest by name'}
           </Text>
           {/* Mode toggle. Lives here rather than as a line of copy under the
               cells: it's navigation between two ways of doing the same job,
@@ -203,7 +245,7 @@ export function ManualCheckinSheet({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
-              mode === 'code' ? 'Search by name instead' : 'Enter ticket code instead'
+              mode === 'code' ? 'Search by name instead' : 'Enter Pass ID or ticket code instead'
             }
             hitSlop={10}
             onPress={() => {
@@ -228,8 +270,9 @@ export function ManualCheckinSheet({
           {mode === 'code' ? (
             <View className="px-5 pt-8">
               <Text className="text-center font-work-sans text-sm leading-5 text-ed-on-surface-variant">
-                Type the {CODE_LENGTH}-character code printed under the QR on the
-                guest&apos;s ticket.
+                Type the Pass ID or ticket code printed under the QR on the
+                guest&apos;s ticket. A Pass ID shows the guest for you to check
+                before anyone is admitted.
               </Text>
 
               {/* Character cells with one hidden input behind them. Reads as
@@ -240,7 +283,7 @@ export function ManualCheckinSheet({
                 onPress={() => codeInputRef.current?.focus()}
                 className="mt-7 flex-row justify-center gap-2"
               >
-                {Array.from({ length: CODE_LENGTH }).map((_, i) => {
+                {Array.from({ length: slotCount }).map((_, i) => {
                   const char = code[i];
                   const isCursor = i === code.length && !busyOnCode;
                   return (
@@ -267,7 +310,7 @@ export function ManualCheckinSheet({
                   ref={codeInputRef}
                   value={code}
                   onChangeText={onCodeChange}
-                  maxLength={CODE_LENGTH}
+                  maxLength={MAX_IDENTIFIER_LENGTH}
                   autoCapitalize="characters"
                   autoCorrect={false}
                   autoComplete="off"
@@ -296,7 +339,7 @@ export function ManualCheckinSheet({
                 <View className="mt-6 items-center">
                   <ActivityIndicator color={editorial.secondary} />
                 </View>
-              ) : codeError && code.length === CODE_LENGTH ? (
+              ) : codeError && isCompleteIdentifier(code) ? (
                 // Only reachable after a network failure, where the code is
                 // kept. Auto-submit fires on change, so an unchanged code
                 // needs an explicit way to try again.

@@ -23,6 +23,7 @@ function guest(overrides: Partial<RosterEntry> & { fullName: string }): RosterEn
   return {
     invitationId: overrides.fullName,
     entryCode: null,
+    passId: null,
     partySize: 1,
     checkedInAt: null,
     checkedInPartySize: null,

@@ -1001,6 +1001,9 @@ export function computeEntrancePassVars(event: {
 export interface EntrancePassData {
   guestName: string
   invitationId: string
+  /** Printed under the QR so a guest whose screen will not scan can read it
+   *  out. Null on invitations created before 20260805000000. */
+  passId: string | null
   guestContactId: string
   /** Celebrant first names ("Claudia & Daniel") — see entranceCoupleName. */
   coupleName: string
@@ -1042,7 +1045,7 @@ export async function getEntrancePassData(token: string, eventId: string): Promi
 
   const { data: invitation } = await supabase
     .from('guest_invitations')
-    .select('id, rsvp_status, party_size')
+    .select('id, rsvp_status, party_size, pass_id')
     .eq('guest_contact_id', guest.id)
     .eq('event_id', eventId)
     .maybeSingle<{ id: string; rsvp_status: string; party_size: number | null }>()
@@ -1077,6 +1080,7 @@ export async function getEntrancePassData(token: string, eventId: string): Promi
   return {
     guestName: guest.full_name,
     invitationId: invitation.id,
+    passId: (invitation as { pass_id?: string | null }).pass_id ?? null,
     guestContactId: guest.id,
     coupleName: entranceCoupleName(event, profile),
     eventName: event.name,
@@ -2330,6 +2334,10 @@ export interface SendGuestRow {
   checkedInAt: string | null
   /** The door the guest was scanned at (e.g. "Main Gate"). */
   checkedInDoor: string | null
+  /** This guest's admission identifier for THIS event, so the console and the
+   *  printed report can show what the guest was told. Null on invitations
+   *  created before 20260805000000. */
+  passId: string | null
   /** Headcount actually admitted at the door. Null until scanned. */
   checkedInPartySize: number | null
   /** The attendant who scanned this guest in. Parsed from the check-in audit
@@ -2636,6 +2644,8 @@ export async function getSendInvitesData(
       rsvpPartySize: attending ? Math.max(1, attending.party_size ?? 1) : null,
       checkedInAt: attending?.checked_in_at ?? null,
       checkedInDoor: attending?.checked_in_door ?? null,
+      // Already fetched: the roster query selects '*' from guest_invitations.
+      passId: (attending as { pass_id?: string | null } | undefined)?.pass_id ?? null,
       checkedInPartySize: attending?.checked_in_party_size ?? null,
       // The audit label is "Name (Door) (manual: reason)"; the couple only
       // needs the attendant's name — the door has its own column.

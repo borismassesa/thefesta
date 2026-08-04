@@ -46,6 +46,9 @@ export async function GET(req: Request) {
       pass,
       templateDataUri: `data:image/png;base64,${templateBuf.toString('base64')}`,
       qrDataUrl,
+      // A representative value, so the preview shows the Pass ID band the
+      // real ticket now prints. Not a real identifier.
+      passId: 'SAMPLE42',
     }),
     {
       width: TICKET_WIDTH,

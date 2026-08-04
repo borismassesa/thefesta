@@ -46,7 +46,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
     if (!qrDataUrl) {
       return new Response('Not found', { status: 404, headers: { 'referrer-policy': 'no-referrer' } })
     }
-    return await renderTicketImage(pass, qrDataUrl)
+    return await renderTicketImage(pass, qrDataUrl, pass.passId)
   } catch (err) {
     console.error('[wallet-pass] failed to render ticket', err)
     return new Response('Ticket temporarily unavailable', { status: 500 })

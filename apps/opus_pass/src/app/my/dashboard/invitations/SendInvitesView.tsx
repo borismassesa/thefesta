@@ -749,6 +749,7 @@ export default function SendInvitesView({
   function buildReportData(): CheckinReportData {
     const rows = attendingGuests.map((g) => ({
       name: g.name,
+      passId: g.passId,
       ticket: ticketLabelOf(g),
       table: g.tableName,
       door: g.checkedInAt ? g.checkedInDoor : null,

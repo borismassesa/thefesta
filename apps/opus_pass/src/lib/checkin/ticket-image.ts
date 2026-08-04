@@ -58,7 +58,10 @@ export const TICKET_RESPONSE_HEADERS = {
 /** Draw the ticket, or throw if an asset is missing. */
 export async function renderTicketImage(
   pass: TicketInput['pass'],
-  qrDataUrl: string
+  qrDataUrl: string,
+  /** Printed under the QR. Optional so a caller that has not been updated
+   *  still renders a valid ticket rather than failing. */
+  passId?: string | null
 ): Promise<ImageResponse> {
   const [templateBuf, nameFontBuf, serifFontBuf] = await Promise.all([
     readPublicFile('entrance-pass', 'ticket-template.png'),
@@ -71,6 +74,7 @@ export async function renderTicketImage(
       pass,
       templateDataUri: `data:image/png;base64,${templateBuf.toString('base64')}`,
       qrDataUrl,
+      passId,
     }),
     {
       width: TICKET_WIDTH,

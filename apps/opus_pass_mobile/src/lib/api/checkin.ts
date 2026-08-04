@@ -133,6 +133,48 @@ export function submitScan(input: SubmitScanInput): Promise<CheckinScanResult> {
   return postJson<CheckinScanResult>('scan', input);
 }
 
+export interface LookupInput {
+  eventId: string;
+  accessToken: string;
+  /** Exactly one of these. */
+  passId?: string;
+  entryCode?: string;
+}
+
+export type LookupResult =
+  | {
+      status: 'found';
+      identifierType: 'pass_id' | 'legacy_entry_code';
+      invitationId: string;
+      passId: string | null;
+      entryCode: string | null;
+      guestName: string;
+      groupTag: string | null;
+      isVip: boolean;
+      tableName: string | null;
+      rsvpStatus: string;
+      /** False when the guest is no longer attending — /scan would refuse. */
+      admissible: boolean;
+      rsvpdPartySize: number;
+      alreadyAdmitted: number;
+      remainingAllowance: number;
+      firstCheckedInAt: string | null;
+    }
+  | { status: 'not_found'; message: string }
+  | { status: 'error'; message: string };
+
+/**
+ * Find one admission WITHOUT admitting anyone.
+ *
+ * Deliberately a different endpoint from submitScan rather than a flag on it:
+ * a flag that suppresses the write is one typo away from an accidental
+ * admission. This one cannot write. Admission is a separate submitScan call
+ * the attendant makes after seeing who they are looking at.
+ */
+export function lookupAdmission(input: LookupInput): Promise<LookupResult> {
+  return postJson<LookupResult>('lookup', input);
+}
+
 export interface AmendPartySizeInput {
   eventId: string;
   accessToken: string;

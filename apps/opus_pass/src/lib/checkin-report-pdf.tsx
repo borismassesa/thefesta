@@ -25,6 +25,10 @@ function CheckIcon() {
 /** One attending guest and their door check-in, if any. */
 export interface CheckinReportRow {
   name: string
+  /** Globally unique admission identifier, so a paper report can be
+   *  reconciled against what a guest was told. Null on invitations that
+   *  predate Pass IDs. */
+  passId: string | null
   /** "Single" / "Double" ticket label. */
   ticket: string
   /** Seating-plan table name; null when the guest isn't seated yet. */
@@ -78,11 +82,14 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f1f1f4',
   },
-  cName: { width: '25%', fontSize: 9.5 },
-  cTicket: { width: '11%', fontSize: 9 },
-  cTable: { width: '17%', fontSize: 9, color: '#4b5563' },
-  cDoor: { width: '15%', fontSize: 9, color: '#4b5563' },
-  cAttendant: { width: '18%', fontSize: 9, color: '#4b5563' },
+  cName: { width: '22%', fontSize: 9.5 },
+  // Monospaced so 8 characters line up down the page — the column exists to
+  // be scanned against a value someone read aloud, not read as prose.
+  cPassId: { width: '12%', fontSize: 8.5, fontFamily: 'Courier', color: '#4b5563' },
+  cTicket: { width: '9%', fontSize: 9 },
+  cTable: { width: '15%', fontSize: 9, color: '#4b5563' },
+  cDoor: { width: '13%', fontSize: 9, color: '#4b5563' },
+  cAttendant: { width: '15%', fontSize: 9, color: '#4b5563' },
   cArrived: { width: '14%', fontSize: 9, textAlign: 'right', flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 3 },
   arrivedTime: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: SAGE },
   pending: { fontSize: 9, color: NEUTRAL, textAlign: 'right' },
@@ -146,17 +153,19 @@ export function CheckinReportPdf({ data }: { data: CheckinReportData }) {
         </View>
 
         <View style={s.tableHead} fixed>
-          <Text style={[s.th, { width: '25%' }]}>Guest</Text>
-          <Text style={[s.th, { width: '11%' }]}>Ticket</Text>
-          <Text style={[s.th, { width: '17%' }]}>Table</Text>
-          <Text style={[s.th, { width: '15%' }]}>Door</Text>
-          <Text style={[s.th, { width: '18%' }]}>Attendant</Text>
+          <Text style={[s.th, { width: '22%' }]}>Guest</Text>
+          <Text style={[s.th, { width: '12%' }]}>Pass ID</Text>
+          <Text style={[s.th, { width: '9%' }]}>Ticket</Text>
+          <Text style={[s.th, { width: '15%' }]}>Table</Text>
+          <Text style={[s.th, { width: '13%' }]}>Door</Text>
+          <Text style={[s.th, { width: '15%' }]}>Attendant</Text>
           <Text style={[s.th, { width: '14%', textAlign: 'right' }]}>Checked in</Text>
         </View>
 
         {rows.map((r, i) => (
           <View key={i} style={s.row} wrap={false}>
             <Text style={s.cName}>{r.name}</Text>
+            <Text style={s.cPassId}>{r.passId ?? '—'}</Text>
             <Text style={s.cTicket}>{r.ticket}</Text>
             <Text style={s.cTable}>{r.table ?? '—'}</Text>
             <Text style={s.cDoor}>{r.arrivedAt ? r.door ?? '—' : '—'}</Text>

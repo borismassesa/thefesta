@@ -57,13 +57,17 @@ const LABELS = {
 
 export interface TicketInput {
   pass: Pick<EntrancePassData, 'coupleName' | 'dateLabel' | 'venue' | 'city' | 'partySize' | 'introLabel' | 'ticketLanguage'>
+  /** Globally unique admission identifier, printed under the QR so a guest
+   *  whose screen will not scan can read it out. Optional: a ticket rendered
+   *  before 20260805000000 has none, and must still print. */
+  passId?: string | null
   /** data: URI of public/entrance-pass/ticket-template.png */
   templateDataUri: string
   /** data: URL PNG of the guest's real check-in QR */
   qrDataUrl: string
 }
 
-export function buildTicketElement({ pass, templateDataUri, qrDataUrl }: TicketInput): ReactElement {
+export function buildTicketElement({ pass, templateDataUri, qrDataUrl, passId }: TicketInput): ReactElement {
   const labels = LABELS[pass.ticketLanguage] ?? LABELS.en
 
   const nameWidth = TICKET_WIDTH - NAME_BAND.sidePad * 2
@@ -235,6 +239,49 @@ export function buildTicketElement({ pass, templateDataUri, qrDataUrl }: TicketI
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qrDataUrl} width={qrInner} height={qrInner} alt="" />
       </div>
+
+      {/* The Pass ID, printed under the QR.
+          Without this the identifier is inert: it exists in the database and
+          the scanner accepts it, but the guest has no way to know theirs. That
+          is exactly what happened to entry_code, which has been generated and
+          accepted since 20260721000003 and was never rendered anywhere.
+          Grouped 4-and-4 because that is how people read a code aloud, and the
+          separator is cosmetic — the scanner folds it away. */}
+      {passId ? (
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            // Anchored to the ticket's BOTTOM, not measured down from the QR.
+            // The QR ends at 1809 on an 1881-tall ticket, leaving 72px, and
+            // measuring downward overflowed it — the value printed off the
+            // ticket entirely while the label stayed just visible, which is
+            // the worst possible failure for a fallback identifier.
+            top: TICKET_HEIGHT - 74,
+            width: TICKET_WIDTH,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          <span style={{ fontSize: 22, letterSpacing: 3, color: WHITE, opacity: 0.75 }}>
+            {pass.ticketLanguage === 'sw' ? 'NAMBA YA KADI' : 'PASS ID'}
+          </span>
+          <span
+            style={{
+              fontSize: 40,
+              letterSpacing: 8,
+              color: WHITE,
+              fontWeight: 700,
+              // Sized to the 72px the artwork actually leaves below the QR.
+              // Still the largest text in the lower stub after the QR itself.
+              marginTop: 2,
+            }}
+          >
+            {passId.slice(0, 4)} {passId.slice(4)}
+          </span>
+        </div>
+      ) : null}
     </div>
   )
 }

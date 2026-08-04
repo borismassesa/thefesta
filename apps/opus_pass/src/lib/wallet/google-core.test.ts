@@ -349,3 +349,18 @@ test('a key already containing real newlines is left alone', () => {
   const config = loadGoogleWalletConfig(ENV_BASE)
   assert.equal(config!.privateKey, privateKey)
 })
+
+test('the Pass ID is printed under the barcode, grouped for reading aloud', () => {
+  // alternateText is the one readable line under the QR. A credential must
+  // never go there; a Pass ID is an identifier and is exactly what a guest
+  // whose screen will not scan needs to read out.
+  const object = buildEventTicketObject(CONFIG, { ...MODEL, passId: '9KYSZTNF' })
+  assert.equal(object.barcode.alternateText, '9KYS ZTNF')
+  assert.equal(object.barcode.value, MODEL.credential, 'the barcode itself is unchanged')
+  assert.notEqual(object.barcode.alternateText, MODEL.credential)
+})
+
+test('a pass issued before Pass IDs existed still renders', () => {
+  const object = buildEventTicketObject(CONFIG, { ...MODEL, passId: null })
+  assert.equal(object.barcode.alternateText, MODEL.ticketType)
+})

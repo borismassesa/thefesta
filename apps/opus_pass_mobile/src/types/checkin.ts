@@ -13,6 +13,10 @@ export interface RosterEntry {
   fullName: string;
   /** Short code printed on the ticket, for the manual fallback. */
   entryCode: string | null;
+  /** Globally unique admission identifier, printed under the QR. Unlike
+   *  entryCode it resolves without knowing the event, so it is what a guest
+   *  reads out. Null on invitations created before Pass IDs. */
+  passId: string | null;
   /** Headcount the guest RSVP'd for — the default offered at the door. */
   partySize: number;
   checkedInAt: string | null;

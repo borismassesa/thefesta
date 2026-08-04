@@ -220,7 +220,16 @@ export function buildEventTicketObject(config: GoogleWalletConfig, model: Wallet
       // Deliberately NOT the credential: alternateText is rendered as readable
       // text under the barcode, and printing an admission credential there
       // would hand it to anyone glancing at the screen.
-      alternateText: model.ticketType,
+      //
+      // The Pass ID is exactly what belongs here instead. It is an identifier,
+      // not a credential — presenting one still goes through every check a
+      // scan does — so it is safe to display, and it is the value a guest
+      // whose screen will not scan needs to read aloud. Grouped 4-and-4 to
+      // match the ticket. Falls back to the ticket type for passes issued
+      // before Pass IDs existed.
+      alternateText: model.passId
+        ? `${model.passId.slice(0, 4)} ${model.passId.slice(4)}`
+        : model.ticketType,
     },
     // No linksModuleData. The obvious link back is the guest's own
     // /p/<token> page, and putting that URL inside the pass would hand the

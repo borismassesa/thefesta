@@ -40,6 +40,10 @@ export interface WalletPassModel {
 
   /** Single, Double, Family... shown as the admission type. */
   ticketType: string
+  /** Globally unique admission identifier, printed under the barcode so a
+   *  guest whose screen will not scan can read it out. Optional: passes built
+   *  before 20260805000000 have none. */
+  passId?: string | null
   /** How many this pass admits in total. */
   entryAllowance: number
 

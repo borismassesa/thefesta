@@ -13,7 +13,7 @@ import { CountSegments } from '@/components/scanner/CountSegments';
 import { ManualCheckinSheet } from '@/components/scanner/ManualCheckinSheet';
 import { PartySizeSheet } from '@/components/scanner/PartySizeSheet';
 import { ScanTipsBanner, ScanTipsModal } from '@/components/scanner/ScanTipsModal';
-import { amendPartySize, submitScan, validateScannerSession } from '@/lib/api/checkin';
+import { amendPartySize, lookupAdmission, submitScan, validateScannerSession } from '@/lib/api/checkin';
 import { getErrorMessage } from '@/lib/errors';
 import { arrivedHeads, clampArrived } from '@/lib/scannerRoster';
 import { useScannerSession } from '@/hooks/useScannerSession';
@@ -231,6 +231,46 @@ export default function ScanScreen() {
       }
     },
     [session, queryClient, eventId]
+  );
+
+  /**
+   * Find a guest by Pass ID WITHOUT admitting them.
+   *
+   * A guest reads their Pass ID out precisely because something already went
+   * wrong — dead battery, cracked screen, a QR that will not scan. The
+   * attendant needs to see who they are looking at before anyone is admitted,
+   * so this resolves and returns; the confirm card then makes admission a
+   * deliberate second tap.
+   */
+  const lookupByPassId = useCallback(
+    async (passId: string): Promise<RosterEntry | null> => {
+      if (!session) return null;
+      try {
+        const found = await lookupAdmission({
+          eventId: session.eventId,
+          accessToken: session.accessToken,
+          passId,
+        });
+        if (found.status !== 'found') return null;
+        return {
+          invitationId: found.invitationId,
+          fullName: found.guestName,
+          entryCode: found.entryCode,
+          passId: found.passId,
+          partySize: found.rsvpdPartySize,
+          checkedInAt: found.firstCheckedInAt,
+          checkedInPartySize: found.alreadyAdmitted || null,
+          checkedInDoor: null,
+          checkedInBy: null,
+          groupTag: found.groupTag,
+          isVip: found.isVip,
+          table: found.tableName,
+        };
+      } catch {
+        return null;
+      }
+    },
+    [session],
   );
 
   /** Admit by the short code printed on the ticket. Resolved server-side, so
@@ -748,6 +788,7 @@ export default function ScanScreen() {
         onRetry={() => void rosterQuery.refetch()}
         onAdmit={admitManually}
         onAdmitByCode={admitByCode}
+          onLookup={lookupByPassId}
         onAdmitted={handleManualAdmitted}
       />
 

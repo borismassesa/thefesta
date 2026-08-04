@@ -64,8 +64,20 @@ export async function issueWalletPassForToken(
     return { status: 'failed' }
   }
 
+  // Read straight from the invitation rather than widening
+  // resolve_wallet_management_token's result shape. That RPC is a database
+  // function shared by several callers; this is one column on a row we already
+  // have the id for, and a failure here must not deny a guest a working pass —
+  // the alternateText simply falls back to the ticket type.
+  const { data: passIdRow } = await supabase
+    .from('guest_invitations')
+    .select('pass_id')
+    .eq('id', pass.invitationId)
+    .maybeSingle<{ pass_id: string | null }>()
+
   const model: WalletPassModel = {
     invitationId: pass.invitationId,
+    passId: passIdRow?.pass_id ?? null,
     eventId: pass.eventId,
     eventName: coupleLabel(pass.partner1Name, pass.partner2Name, pass.eventName),
     guestName: pass.guestName,

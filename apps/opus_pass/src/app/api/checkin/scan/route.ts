@@ -5,6 +5,8 @@ import { recordCredentialVerification, verifyAdmissionCredential } from '@/lib/c
 import { legacyCredentialsAllowed } from '@/lib/checkin/credential-core'
 import { broadcastCheckin } from '@/lib/checkin/broadcast'
 import { RATE_LIMITED_RESPONSE, withinRateLimit } from '@/lib/checkin/rate-limit'
+import { normaliseTypedIdentifier, PASS_ID_PATTERN } from '@/lib/checkin/identifiers'
+import { acceptsIdentifier, refusalMessage } from '@/lib/checkin/identifier-acceptance'
 
 interface ScanBody {
   eventId?: string
@@ -15,8 +17,12 @@ interface ScanBody {
   /** Manual-override path (guest lost their phone): the attendant picks the
    *  guest from the roster instead of scanning. Requires manualReason. */
   invitationId?: string
-  /** Short code printed on the ticket, used when the QR won't scan. */
+  /** Short code printed on the ticket, used when the QR won't scan. Unique
+   *  only within one event. */
   entryCode?: string
+  /** Globally unique admission identifier, read aloud when the QR won't scan
+   *  and the attendant does not know which event the guest belongs to. */
+  passId?: string
   manualReason?: string
   /** How many of the party actually walked in. Defaults to the whole
    *  remaining allowance server-side when omitted. */
@@ -70,20 +76,9 @@ interface AdmitResult {
  * Ported from apps/opus_scanner/src/app/api/checkin/route.ts, extended with
  * partial-party arrival and a token-free manual-override path.
  */
-/** Fold typing variations onto the stored form: uppercase, no separators,
- *  and look-alike characters mapped onto the alphabet actually in use. */
-function normaliseEntryCode(input: string): string {
-  return input
-    .trim()
-    .toUpperCase()
-    .replace(/[^0-9A-Z]/g, '')
-    .replace(/O/g, '0')
-    .replace(/[IL]/g, '1')
-}
-
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as ScanBody
-  const { eventId, accessToken, qrToken, invitationId, entryCode, manualReason, doorLabel, attendantName } =
+  const { eventId, accessToken, qrToken, invitationId, entryCode, passId, manualReason, doorLabel, attendantName } =
     body
 
   if (!eventId || !accessToken) {
@@ -93,10 +88,15 @@ export async function POST(request: Request) {
   // must carry a reason so the audit trail can explain it. A body carrying
   // both is refused rather than silently resolved as a scan, so an attendant
   // who believes they did a manual override never quietly gets one.
-  if (!qrToken && !((invitationId || entryCode) && manualReason)) {
+  if (!qrToken && !((invitationId || entryCode || passId) && manualReason)) {
     return NextResponse.json({ status: 'error', message: 'Malformed request' }, { status: 400 })
   }
-  if (qrToken && (invitationId || entryCode)) {
+  if (qrToken && (invitationId || entryCode || passId)) {
+    return NextResponse.json({ status: 'error', message: 'Malformed request' }, { status: 400 })
+  }
+  // Exactly one scan-less identifier. Accepting several and picking one would
+  // record an admission against a guest the attendant did not choose.
+  if ([invitationId, entryCode, passId].filter(Boolean).length > 1) {
     return NextResponse.json({ status: 'error', message: 'Malformed request' }, { status: 400 })
   }
 
@@ -123,7 +123,9 @@ export async function POST(request: Request) {
   if (!(await withinRateLimit(supabase, `scan:${access.id}`, 120, 60))) {
     return NextResponse.json(RATE_LIMITED_RESPONSE, { status: 429 })
   }
-  if (entryCode && !(await withinRateLimit(supabase, `scan-code:${access.id}`, 15, 60))) {
+  // Typed identifiers share ONE budget. Giving pass_id its own would double
+  // the enumeration allowance available to a single door token.
+  if ((entryCode || passId) && !(await withinRateLimit(supabase, `scan-code:${access.id}`, 15, 60))) {
     return NextResponse.json(RATE_LIMITED_RESPONSE, { status: 429 })
   }
 
@@ -139,6 +141,27 @@ export async function POST(request: Request) {
   let targetInvitationId: string
   let credentialId: string | null = null
   let credentialFormat: 'opaque_v1' | 'legacy_hmac' | null = null
+  // Stated rather than inferred, so the response and the audit trail agree on
+  // HOW this guest was identified. A caller should never have to reconstruct
+  // that from which fields happened to be present.
+  let identifierType: 'credential' | 'legacy_entry_code' | 'pass_id' | 'roster_pick'
+
+  // Read once and reuse. The legacy-credential branch below already fetches
+  // this row for its own window check; sharing one read keeps the gating from
+  // adding a query per identifier type.
+  let acceptanceRow: Awaited<ReturnType<typeof loadAcceptanceRow>> | undefined
+  async function loadAcceptanceRow() {
+    const { data } = await supabase
+      .from('wedding_events')
+      .select('starts_at, ends_at, created_at, accepts_credential, accepts_entry_code, accepts_pass_id')
+      .eq('id', eventId)
+      .maybeSingle()
+    return data
+  }
+  async function eventAccepts(kind: 'credential' | 'legacy_entry_code' | 'pass_id') {
+    if (acceptanceRow === undefined) acceptanceRow = await loadAcceptanceRow()
+    return acceptanceRow ? acceptsIdentifier(acceptanceRow, kind) : false
+  }
 
   if (qrToken) {
     const verification = await verifyAdmissionCredential(qrToken, {
@@ -169,6 +192,7 @@ export async function POST(request: Request) {
     }
 
     targetInvitationId = verification.invitationId
+    identifierType = 'credential'
     credentialFormat = verification.format
     credentialId = verification.format === 'opaque_v1' ? verification.credentialId : null
 
@@ -180,6 +204,9 @@ export async function POST(request: Request) {
       requestId: body.requestId ?? null,
     })
   } else if (entryCode) {
+    if (!(await eventAccepts('legacy_entry_code'))) {
+      return NextResponse.json({ status: 'invalid', message: refusalMessage('legacy_entry_code') })
+    }
     // Scoped to this event, which is why a 6-character code is enough: it
     // only has to be unique among one guest list, and it identifies rather
     // than authorises — the door token above is what grants access.
@@ -187,14 +214,38 @@ export async function POST(request: Request) {
       .from('guest_invitations')
       .select('id')
       .eq('event_id', eventId)
-      .eq('entry_code', normaliseEntryCode(entryCode))
+      .eq('entry_code', normaliseTypedIdentifier(entryCode))
       .maybeSingle()
     if (!byCode) {
       return NextResponse.json({ status: 'invalid', message: 'No guest found with that code' })
     }
     targetInvitationId = byCode.id
+    identifierType = 'legacy_entry_code'
+  } else if (passId) {
+    if (!(await eventAccepts('pass_id'))) {
+      return NextResponse.json({ status: 'invalid', message: refusalMessage('pass_id') })
+    }
+    // Globally unique, so it resolves without the event — but still filtered
+    // to THIS event, so a scanner authorised for one event cannot read
+    // another event's roster by trying identifiers.
+    const folded = normaliseTypedIdentifier(passId)
+    if (!PASS_ID_PATTERN.test(folded)) {
+      return NextResponse.json({ status: 'invalid', message: 'No guest found with that Pass ID' })
+    }
+    const { data: byPassId } = await supabase
+      .from('guest_invitations')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('pass_id', folded)
+      .maybeSingle()
+    if (!byPassId) {
+      return NextResponse.json({ status: 'invalid', message: 'No guest found with that Pass ID' })
+    }
+    targetInvitationId = byPassId.id
+    identifierType = 'pass_id'
   } else {
     targetInvitationId = invitationId as string
+    identifierType = 'roster_pick'
   }
 
   // The invitation must belong to THIS event and still be an active
@@ -260,6 +311,7 @@ export async function POST(request: Request) {
   const auditLabel = [
     effectiveAttendantName || 'Unknown attendant',
     `(${displayDoor})`,
+    `[${identifierType}]`,
     manualReason ? `(manual: ${manualReason})` : null,
   ]
     .filter(Boolean)
@@ -338,6 +390,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       status: duplicate ? 'duplicate' : 'invalid',
       message: duplicate ? undefined : 'This guest is no longer marked as attending',
+      identifierType,
       guestName,
       partySize: rsvpdPartySize,
       checkedInPartySize: admit.total_admitted,
@@ -380,6 +433,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     status: 'success',
+    identifierType,
     guestName,
     partySize: rsvpdPartySize,
     checkedInPartySize: admit.total_admitted,

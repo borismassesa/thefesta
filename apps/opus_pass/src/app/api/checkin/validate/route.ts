@@ -10,6 +10,9 @@ export interface RosterEntry {
   partySize: number
   /** Short code printed on the ticket, for the manual fallback. */
   entryCode: string | null
+  /** Globally unique admission identifier, so the scanner can look a guest up
+   *  from what they read out without knowing the event. */
+  passId: string | null
   checkedInAt: string | null
   /** How many actually arrived, once scanned. Null until then. */
   checkedInPartySize: number | null
@@ -91,7 +94,7 @@ export async function POST(request: Request) {
   const { data: invitations } = await supabase
     .from('guest_invitations')
     .select(
-      'id, guest_contact_id, entry_code, party_size, checked_in_at, checked_in_party_size, checked_in_door, checked_in_by, guest_contacts(full_name, group_tag)'
+      'id, guest_contact_id, entry_code, pass_id, party_size, checked_in_at, checked_in_party_size, checked_in_door, checked_in_by, guest_contacts(full_name, group_tag)'
     )
     .eq('event_id', eventId)
     .eq('rsvp_status', 'attending')
@@ -119,6 +122,7 @@ export async function POST(request: Request) {
       invitationId: inv.id,
       fullName: contact?.full_name ?? 'Guest',
       entryCode: inv.entry_code,
+      passId: inv.pass_id,
       partySize: inv.party_size ?? 1,
       checkedInAt: inv.checked_in_at,
       checkedInPartySize: inv.checked_in_party_size,
