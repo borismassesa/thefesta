@@ -2062,9 +2062,19 @@ export async function getEventPackageTierId(eventId: string): Promise<string | n
 
 export async function getWhatsAppEntitlement(
   eventId: string,
-  options: { includeReleasedCardPreview?: boolean } = {},
+  options: {
+    includeReleasedCardPreview?: boolean
+    /**
+     * The couple to read the entitlement FOR, when there is no dashboard
+     * session to resolve one from — the WhatsApp webhook sends a guest their
+     * entrance pass on the couple's quota, and nobody is signed in during a
+     * Meta callback. Every caller with a session omits this and keeps the
+     * session as the only source of identity.
+     */
+    actingUser?: { id: string; email: string }
+  } = {},
 ): Promise<WhatsAppEntitlement> {
-  const user = await requireDashboardUser()
+  const user = options.actingUser ?? (await requireDashboardUser())
   const supabase = createDashboardClient()
 
   const { data: profile } = await supabase
