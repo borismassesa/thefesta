@@ -149,6 +149,34 @@ interface PendingSend {
   credits: number
 }
 
+/**
+ * A bulk send while it is happening.
+ *
+ * A wedding roster is hundreds of guests and each one is its own WhatsApp API
+ * call, so a full send is minutes long. Reporting only at the end left the
+ * couple watching a spinner with no way to tell a slow send from a stuck one,
+ * so the send now goes out in small batches and says where it has got to.
+ */
+interface SendProgress {
+  title: string
+  total: number
+  /** Guests attempted so far. Drives the bar. */
+  done: number
+  sent: number
+  failed: number
+  blocked: number
+  skipped: number
+  /** Newest first, capped — the visible proof that it is still moving. */
+  recent: WhatsAppSendResult[]
+  /** Stop was pressed; the batch in flight still has to land. */
+  stopping: boolean
+  stopped: boolean
+}
+
+/** Guests per server round trip. Small enough that the bar moves every couple
+ *  of seconds, large enough not to re-read the entitlement once per guest. */
+const SEND_BATCH_SIZE = 5
+
 type SendTab = 'saveDates' | 'cards' | 'responses' | 'followups' | 'ticket' | 'checkins'
 
 /** How far a production order is through its promised turnaround. Built on the
@@ -226,6 +254,17 @@ export default function SendInvitesView({
   const ticketSent = (g: SendGuestRow) => g.entrancePassSent || entranceSentIds.has(g.id)
   const [confirmSend, setConfirmSend] = useState<PendingSend | null>(null)
   const [report, setReport] = useState<WhatsAppSendSummary | null>(null)
+  // Live state of a bulk send. Null whenever one isn't running.
+  const [sendProgress, setSendProgress] = useState<SendProgress | null>(null)
+  // A ref, not state: the send loop reads it between batches and would
+  // otherwise close over the value it had when the loop started, so a couple
+  // hitting Stop would be ignored until the whole run finished.
+  const stopSendRef = useRef(false)
+  // Guards against a SECOND run starting while one is in flight. A ref rather
+  // than the state above because two clicks in the same tick both read the
+  // pre-render value of state, and the damage here is duplicate WhatsApp
+  // messages to real guests, not a cosmetic glitch.
+  const sendBusyRef = useRef(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [testPhone, setTestPhone] = useState(data.testPhone ?? '')
   const [testSending, setTestSending] = useState(false)
@@ -252,7 +291,7 @@ export default function SendInvitesView({
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   // Any full-screen overlay open — freeze the page behind it so scrolling
   // over the (fixed-position) dim backdrop doesn't also scroll the page.
-  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete))
+  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress))
   // The selected event owns partner names, category and location. The preview
   // chooses a REAL guest so its message and image can never drift apart.
   const hostName = data.sendSettings.hostName
@@ -532,10 +571,12 @@ export default function SendInvitesView({
   // refetch periodically so the table reflects them without a manual reload.
   useEffect(() => {
     const t = setInterval(() => {
-      if (document.visibilityState === 'visible' && !pending && !sendingRow) router.refresh()
+      // Not mid-send: a refresh would swap the roster out from under a run
+      // that is walking it batch by batch.
+      if (document.visibilityState === 'visible' && !pending && !sendingRow && !sendProgress) router.refresh()
     }, 25_000)
     return () => clearInterval(t)
-  }, [router, pending, sendingRow])
+  }, [router, pending, sendingRow, sendProgress])
 
   // Coalesce the roster re-fetches a burst of scans would otherwise trigger:
   // one refresh ~1.2s after the last scan pulls the fresh check-ins (door +
@@ -825,41 +866,150 @@ export default function SendInvitesView({
     setConfirmSend({ ids, reminder, recipients: eligible.length, credits })
   }
 
-  function runBulkSend(ids?: string[], reminder = false) {
-    setConfirmSend(null)
-    startTransition(async () => {
-      try {
-        const res = await sendWhatsAppInvites(ids, eventId)
-        if (!res.hasPaidOrder) {
-          toast.error(strings.toast_no_package)
-          return
-        }
-        // Every guest fell through (unconfirmed, or the account has no card
-        // image) — a "0 sent" success toast would hide the real problem.
-        if (res.sent === 0 && res.failed === 0 && res.blocked === 0 && res.skipped === 0) {
-          toast.error(strings.toast_nothing_sent)
-          setSelected(new Set())
-          return
-        }
-        const verb = res.dryRun
-          ? strings.send_verb_dryrun
-          : reminder
-            ? strings.send_verb_reminded
-            : strings.send_verb_sent
-        const parts = [`${res.sent} ${verb}`]
-        if (res.failed > 0) parts.push(fmt(strings.send_failed_n, { n: res.failed }))
-        if (res.blocked > 0) parts.push(fmt(strings.send_over_quota, { n: res.blocked }))
-        if (res.skipped > 0) parts.push(fmt(strings.send_no_phone, { n: res.skipped }))
-        const summaryLine = parts.join(' · ')
-        if (res.sent > 0) toast.success(summaryLine)
-        else toast.error(summaryLine)
-        setReport(res)
-        setSelected(new Set())
-        router.refresh()
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : strings.toast_nothing_sent)
-      }
+  /**
+   * Run one bulk send as a series of small batches, reporting after each.
+   *
+   * The server action already takes an explicit guest list, so batching needs
+   * nothing new server-side: each call is a complete, independently metered
+   * send of a handful of guests. That also means a stopped run is not a
+   * half-finished one. Every batch that already went out is fully recorded,
+   * and the guests it never reached simply have not been sent to yet.
+   *
+   * Returns the merged summary, or null when the run was refused outright.
+   */
+  async function runInBatches(
+    title: string,
+    ids: string[],
+    send: (batch: string[]) => Promise<WhatsAppSendSummary>,
+  ): Promise<WhatsAppSendSummary | null> {
+    // Never two runs at once. They would share stopSendRef and sendProgress,
+    // so the second would silently un-stop the first and reset its counters,
+    // and the guests in both lists would be messaged twice.
+    if (sendBusyRef.current) return null
+    sendBusyRef.current = true
+    stopSendRef.current = false
+    setSendProgress({
+      title,
+      total: ids.length,
+      done: 0,
+      sent: 0,
+      failed: 0,
+      blocked: 0,
+      skipped: 0,
+      recent: [],
+      stopping: false,
+      stopped: false,
     })
+
+    const merged: WhatsAppSendSummary = {
+      sent: 0, failed: 0, skipped: 0, blocked: 0,
+      dryRun: false, hasPaidOrder: false, purchased: 0, remaining: 0, results: [],
+    }
+
+    try {
+      for (let i = 0; i < ids.length; i += SEND_BATCH_SIZE) {
+        if (stopSendRef.current) {
+          setSendProgress((p) => (p ? { ...p, stopping: false, stopped: true } : p))
+          break
+        }
+        const batch = ids.slice(i, i + SEND_BATCH_SIZE)
+        const res = await send(batch)
+
+        // No paid order is a property of the account, not of this batch, so
+        // there is nothing to gain from asking again with the next five guests.
+        if (!res.hasPaidOrder) {
+          // Only the FIRST batch can report this as "you have no package".
+          // Later on it means the entitlement went away mid-run, and by then
+          // real guests have real messages: returning this batch's summary
+          // would throw the merged one away and show the couple a bare "buy a
+          // package" with no record of the sends that already happened.
+          if (i === 0) return res
+          break
+        }
+
+        if (i === 0) {
+          merged.dryRun = res.dryRun
+          merged.hasPaidOrder = res.hasPaidOrder
+          merged.purchased = res.purchased
+        }
+        merged.sent += res.sent
+        merged.failed += res.failed
+        merged.skipped += res.skipped
+        merged.blocked += res.blocked
+        merged.results.push(...res.results)
+        // Last writer wins: the newest batch read the freshest quota.
+        merged.remaining = res.remaining
+
+        const done = i + batch.length
+        setSendProgress((p) =>
+          p
+            ? {
+                ...p,
+                done,
+                sent: merged.sent,
+                failed: merged.failed,
+                blocked: merged.blocked,
+                skipped: merged.skipped,
+                recent: merged.results.slice(-8).reverse(),
+              }
+            : p,
+        )
+      }
+    } finally {
+      sendBusyRef.current = false
+    }
+
+    return merged
+  }
+
+  async function runBulkSend(ids?: string[], reminder = false) {
+    setConfirmSend(null)
+    // Always an explicit list, so the bar has a denominator. NOT filtered by
+    // hasPhone: the server reports a guest with no number as `skipped`, and
+    // dropping them here would delete that line from the report instead,
+    // leaving the couple no clue why someone never received anything.
+    const targets = (ids ? guests.filter((g) => ids.includes(g.id)) : guests).map((g) => g.id)
+    if (targets.length === 0) {
+      toast.error(strings.toast_nothing_sent)
+      return
+    }
+    try {
+      const res = await runInBatches(strings.progress_title_invites, targets, (batch) =>
+        sendWhatsAppInvites(batch, eventId),
+      )
+      if (!res) return
+      if (!res.hasPaidOrder) {
+        toast.error(strings.toast_no_package)
+        return
+      }
+      // Every guest fell through (unconfirmed, or the account has no card
+      // image) — a "0 sent" success toast would hide the real problem.
+      if (res.sent === 0 && res.failed === 0 && res.blocked === 0 && res.skipped === 0) {
+        toast.error(strings.toast_nothing_sent)
+        setSelected(new Set())
+        return
+      }
+      const verb = res.dryRun
+        ? strings.send_verb_dryrun
+        : reminder
+          ? strings.send_verb_reminded
+          : strings.send_verb_sent
+      const parts = [`${res.sent} ${verb}`]
+      if (res.failed > 0) parts.push(fmt(strings.send_failed_n, { n: res.failed }))
+      if (res.blocked > 0) parts.push(fmt(strings.send_over_quota, { n: res.blocked }))
+      if (res.skipped > 0) parts.push(fmt(strings.send_no_phone, { n: res.skipped }))
+      const summaryLine = parts.join(' · ')
+      if (res.sent > 0) toast.success(summaryLine)
+      else toast.error(summaryLine)
+      setReport(res)
+      setSelected(new Set())
+      router.refresh()
+      if (stopSendRef.current) toast(fmt(strings.progress_stopped, { n: res.sent }))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : strings.toast_nothing_sent)
+    } finally {
+      setSendProgress(null)
+    }
   }
 
   /** Stage sending the entrance-pass ticket to attending guests — a separate,
@@ -885,12 +1035,21 @@ export default function SendInvitesView({
     setConfirmEntranceSend({ ids: eligible.map((g) => g.id), recipients: eligible.length })
   }
 
-  function runEntranceSend() {
-    const ids = confirmEntranceSend?.ids
+  async function runEntranceSend() {
+    // stageEntranceSend always resolves an explicit list, so this is never the
+    // "everyone" case the invite send has to expand for itself.
+    const ids = confirmEntranceSend?.ids ?? []
     setConfirmEntranceSend(null)
     setEntrancePreviewOpen(false)
-    startTransition(async () => {
-      const res = await sendEntrancePasses(ids, eventId)
+    if (ids.length === 0) {
+      toast.error(strings.toast_nothing_sent)
+      return
+    }
+    try {
+      const res = await runInBatches(strings.progress_title_passes, ids, (batch) =>
+        sendEntrancePasses(batch, eventId),
+      )
+      if (!res) return
       if (res.sent === 0 && res.failed === 0 && res.skipped === 0 && res.blocked === 0) {
         toast.error(strings.toast_nothing_sent)
         setSelected(new Set())
@@ -913,7 +1072,12 @@ export default function SendInvitesView({
       setReport(res)
       setSelected(new Set())
       router.refresh()
-    })
+      if (stopSendRef.current) toast(fmt(strings.progress_stopped, { n: res.sent }))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : strings.toast_nothing_sent)
+    } finally {
+      setSendProgress(null)
+    }
   }
 
   /** Nudge everyone who was invited but hasn't replied (re-sends are free). */
@@ -929,6 +1093,10 @@ export default function SendInvitesView({
   function retryFailed() {
     const ids = (report?.results ?? []).filter((r) => r.outcome === 'failed').map((r) => r.id)
     if (ids.length === 0) return
+    // Close the report first. Both overlays sit at the same z-index, so a
+    // report left open renders OVER the progress modal: the retry would look
+    // like it did nothing, with its own button still there to be clicked again.
+    setReport(null)
     runBulkSend(ids)
   }
 
@@ -2457,6 +2625,66 @@ export default function SendInvitesView({
       </div>
       ) : null}
 
+      {/* Bulk-send progress. No overlay-click to dismiss: a send in flight is
+          not something to lose sight of by clicking past it. */}
+      {sendProgress ? (
+        <div className="ovl">
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{sendProgress.title}</h3>
+            <p className="big">
+              {fmt(strings.progress_count, { n: sendProgress.done, m: sendProgress.total })}
+            </p>
+            <div
+              className="pbar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={sendProgress.total}
+              aria-valuenow={sendProgress.done}
+            >
+              <span
+                className="pbarfill"
+                style={{
+                  width: `${sendProgress.total ? (sendProgress.done / sendProgress.total) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            <div className="dsum">
+              <span className="ds ok">{sendProgress.sent} {strings.results_sent}</span>
+              {sendProgress.failed > 0 ? <span className="ds bad">{sendProgress.failed} {strings.results_failed}</span> : null}
+              {sendProgress.blocked > 0 ? <span className="ds warn">{sendProgress.blocked} {strings.results_blocked}</span> : null}
+              {sendProgress.skipped > 0 ? <span className="ds warn">{sendProgress.skipped} {strings.results_skipped}</span> : null}
+            </div>
+            {sendProgress.recent.length > 0 ? (
+              <div className="plist">
+                {sendProgress.recent.map((r) => (
+                  <div key={r.id} className="prow">
+                    <span className={`pdot ${r.outcome}`} />
+                    <span className="pname">{r.name}</span>
+                    {r.outcome === 'sent' && r.resend ? <span className="dtag">{strings.results_resend_tag}</span> : null}
+                    {r.error ? <span className="derr">{r.error}</span> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <p className="mutedp">
+              {sendProgress.stopping ? strings.progress_stopping : strings.progress_note}
+            </p>
+            <div className="mrow">
+              <button
+                className="btn ghost"
+                disabled={sendProgress.stopping}
+                onClick={() => {
+                  stopSendRef.current = true
+                  setSendProgress((p) => (p ? { ...p, stopping: true } : p))
+                }}
+              >
+                {strings.progress_stop}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Bulk-send confirm — the couple must approve {{2}}/{{3}} to send */}
       {confirmSend ? (
         <div className="ovl" onClick={() => setConfirmSend(null)}>
@@ -2674,7 +2902,7 @@ export default function SendInvitesView({
             </div>
             <div className="mrow">
               {report.failed > 0 ? (
-                <button className="btn ghost" disabled={pending} onClick={retryFailed}>
+                <button className="btn ghost" disabled={pending || Boolean(sendProgress)} onClick={retryFailed}>
                   <RotateCcw size={14} /> {strings.results_retry}
                 </button>
               ) : null}
@@ -3073,6 +3301,16 @@ const css = `
   box-shadow:-16px 0 40px rgba(20,18,30,.18); animation:si-slide .18s ease-out; }
 @keyframes si-slide{ from{ transform:translateX(24px); opacity:.4 } to{ transform:none; opacity:1 } }
 .si .drawer h3{ font-size:20px; font-weight:600; }
+/* Bulk-send progress */
+.si .pbar{ margin-top:14px; height:8px; border-radius:999px; background:var(--lav-soft); overflow:hidden; }
+.si .pbarfill{ display:block; height:100%; border-radius:999px; background:var(--green); transition:width .35s ease; }
+.si .plist{ margin-top:14px; max-height:190px; overflow-y:auto; overscroll-behavior:contain; border:1px solid var(--line); border-radius:12px; padding:6px 4px; }
+.si .prow{ display:flex; align-items:center; gap:9px; padding:6px 10px; font-size:13px; }
+.si .prow .pname{ font-weight:600; }
+.si .pdot{ width:7px; height:7px; border-radius:999px; flex:none; background:var(--faint); }
+.si .pdot.sent{ background:var(--wa); }
+.si .pdot.failed{ background:var(--bad-tx); }
+.si .pdot.blocked, .si .pdot.skipped{ background:var(--amber-tx); }
 .si .dsum{ display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
 .si .ds{ font-size:12px; font-weight:600; padding:5px 11px; border-radius:999px; }
 .si .ds.ok{ background:var(--ok-bg); color:var(--ok-tx); }
