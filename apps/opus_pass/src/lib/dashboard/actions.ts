@@ -34,6 +34,7 @@ import {
   releaseSendCredit,
   resolveEventIdOrDefault,
   resolveOwnedEventId,
+  loadRosterIdentities,
 } from './queries'
 import { deliverEntrancePasses } from './entrance-pass-send'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
@@ -48,11 +49,32 @@ import { sendGiftClaimReceipts, type ReceiptGift, type ReceiptLang } from './gif
 import { GIFT_CATALOG } from './gift-catalog'
 import { MAX_TICKET_PARTY } from './types'
 import type { GuestImportRow } from './guest-import-rows'
+import {
+  findDuplicates,
+  toIdentity,
+  type DuplicateMatch,
+  type GuestIdentity,
+} from './guest-duplicates'
+import { guestPhoneKey } from './guest-duplicates'
+import {
+  assessRosterDelivery,
+  resolveSendEligibility,
+  type GuestDeliveryStatus,
+} from './guest-delivery'
+import {
+  buildImportPreview,
+  buildImportVerification,
+  type GuestImportPreview,
+  type GuestImportVerification,
+  type ImportReviewRow,
+} from './guest-import-review'
 import type {
   AttendanceAnswer,
   CardStatus,
   ChildEntry,
   EventType,
+  GuestInvitation,
+  GuestWithInvitations,
   PaymentMethod,
   PledgeStatus,
   ReminderCadence,
@@ -597,38 +619,94 @@ async function alignPendingInvitationPartySize(userId: string, guestId: string, 
   if (error) throw new Error(error.message)
 }
 
-/** Returned rather than thrown — Next.js strips thrown Server Action error
- *  messages in production builds down to a generic "Server Components
- *  render" message with no detail, which makes an expected outcome like a
- *  duplicate phone number look like a crash. Returning it keeps the real
- *  message intact. */
-export type CreateGuestResult = { ok: true; id: string } | { ok: false; error: string }
+/**
+ * Returned rather than thrown — Next.js strips thrown Server Action error
+ * messages in production builds down to a generic "Server Components render"
+ * message with no detail, which makes an expected outcome like a duplicate
+ * phone number look like a crash. Returning it keeps the real message intact.
+ *
+ * `updateGuest` used to throw, which is why a failed EDIT looked like nothing
+ * happening at all: the write genuinely failed, and the reason was discarded
+ * in transit. Both writes now return the saved row too, so the client can
+ * update its own list instead of waiting on a full page re-render.
+ */
+export type SaveGuestResult =
+  | { ok: true; guest: GuestWithInvitations }
+  | { ok: false; error: string; conflicts?: DuplicateMatch[] }
+
+export type CreateGuestResult = SaveGuestResult
+
+/**
+ * The deliverability gate, loaded once per send run.
+ *
+ * Every outbound path asks this same question through this same function.
+ * A send loop that re-derived "can I send to this guest?" for itself is how
+ * the duplicate guard and the send paths came to disagree in the first place.
+ */
+async function loadDeliveryGate(userId: string): Promise<Map<string, GuestDeliveryStatus>> {
+  return assessRosterDelivery(await loadRosterIdentities(userId))
+}
+
+/** Re-read one guest with its invitations, so the client can patch its list. */
+async function readGuestWithInvitations(
+  userId: string,
+  guestId: string,
+): Promise<GuestWithInvitations | null> {
+  const supabase = createDashboardClient()
+  const [{ data: guest }, { data: invitations }] = await Promise.all([
+    supabase.from('guest_contacts').select('*').eq('id', guestId).eq('user_id', userId).maybeSingle(),
+    supabase.from('guest_invitations').select('*').eq('user_id', userId).eq('guest_contact_id', guestId),
+  ])
+  if (!guest) return null
+  return {
+    ...(guest as GuestWithInvitations),
+    invitations: (invitations ?? []) as GuestInvitation[],
+  }
+}
 
 export async function createGuest(input: GuestInput): Promise<CreateGuestResult> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
 
-  // One person, one row: block a second contact with the same phone digits.
-  const digits = (input.whatsapp_phone || input.phone || '').replace(/\D/g, '')
-  if (digits) {
-    const { data: contacts } = await supabase
-      .from('guest_contacts')
-      .select('full_name, phone, whatsapp_phone')
-      .eq('user_id', user.id)
-    const clash = (contacts ?? []).find(
-      (c) =>
-        (c.whatsapp_phone ?? '').replace(/\D/g, '') === digits ||
-        (c.phone ?? '').replace(/\D/g, '') === digits,
-    )
-    if (clash) return { ok: false, error: `This number is already on your list (${clash.full_name})` }
+  // Built before the duplicate check so the name compared is the same name
+  // that would be stored (title + first + last + suffix, composed).
+  let columns: Record<string, unknown>
+  try {
+    columns = guestColumnsFromInput(input)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Guest name is required' }
+  }
+
+  // One person, one row. Compares NORMALIZED numbers, not raw digits: the
+  // original guard compared `replace(/\D/g,'')`, so '0757200767' and
+  // '+255757200767' — the same Tanzanian number — did not clash and two guests
+  // ended up sharing one number. The database enforces this too; this check
+  // exists to name the other guest rather than surface a constraint violation.
+  const candidate = toIdentity({
+    id: null,
+    full_name: String(columns.full_name ?? ''),
+    phone: input.phone,
+    whatsapp_phone: input.whatsapp_phone,
+  })
+  const conflicts = findDuplicates(candidate, await loadRosterIdentities(user.id))
+  const blocking = conflicts.filter((c) => c.level === 'blocked')
+  if (blocking.length > 0) {
+    return { ok: false, error: blocking[0].reason, conflicts }
   }
 
   const { data, error } = await supabase
     .from('guest_contacts')
-    .insert({ user_id: user.id, ...guestColumnsFromInput(input) })
+    .insert({ user_id: user.id, ...columns })
     .select('id')
     .single<{ id: string }>()
-  if (error || !data) return { ok: false, error: error?.message ?? 'Failed to create guest' }
+  if (error || !data) {
+    // The unique index is the real gate. Two admins adding the same number at
+    // once both pass the check above, and one of them lands here.
+    if (error?.code === '23505') {
+      return { ok: false, error: 'That number was just added to your list by someone else.' }
+    }
+    return { ok: false, error: error?.message ?? 'Failed to create guest' }
+  }
 
   // Unified roster: a non-empty eventIds list (Guests form selection) narrows
   // deliberately; ANYTHING else — undefined (quick-add) or [] (form saved with
@@ -639,24 +717,57 @@ export async function createGuest(input: GuestInput): Promise<CreateGuestResult>
   } else {
     await ensureInvitationsForAllEvents(user.id, data.id, input.max_party_size)
   }
+  const saved = await readGuestWithInvitations(user.id, data.id)
+  if (!saved) return { ok: false, error: 'Guest was created but could not be read back' }
   revalidateDashboard()
-  return { ok: true, id: data.id }
+  return { ok: true, guest: saved }
 }
 
-export async function updateGuest(id: string, input: GuestInput): Promise<void> {
+export async function updateGuest(id: string, input: GuestInput): Promise<SaveGuestResult> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
+
+  let columns: Record<string, unknown>
+  try {
+    columns = guestColumnsFromInput(input)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Guest name is required' }
+  }
+
+  // An EDIT could always create a duplicate — this path had no check at all,
+  // so retyping one guest's number onto another was accepted in full. The
+  // candidate carries its own id so a guest is never a duplicate of itself.
+  const candidate = toIdentity({
+    id,
+    full_name: String(columns.full_name ?? ''),
+    phone: input.phone,
+    whatsapp_phone: input.whatsapp_phone,
+  })
+  const conflicts = findDuplicates(candidate, await loadRosterIdentities(user.id))
+  const blocking = conflicts.filter((c) => c.level === 'blocked')
+  if (blocking.length > 0) {
+    return { ok: false, error: blocking[0].reason, conflicts }
+  }
+
   const { error } = await supabase
     .from('guest_contacts')
-    .update(guestColumnsFromInput(input))
+    .update(columns)
     .eq('id', id)
     .eq('user_id', user.id)
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (error.code === '23505') {
+      return { ok: false, error: 'Another guest on your list already uses that number.' }
+    }
+    return { ok: false, error: error.message }
+  }
 
   if (input.eventIds) {
     await syncInvitations(user.id, id, input.eventIds, input.max_party_size)
   }
+  const saved = await readGuestWithInvitations(user.id, id)
+  if (!saved) return { ok: false, error: 'Guest was saved but could not be read back' }
   revalidateDashboard()
+  return { ok: true, guest: saved }
 }
 
 export async function deleteGuest(id: string): Promise<void> {
@@ -684,86 +795,118 @@ export async function deleteGuests(guestIds: string[]): Promise<number> {
 }
 
 /**
- * What a bulk import actually did. The counts reconcile with the file:
- * `imported + skippedDuplicates + skippedNoName` equals the rows submitted,
- * so a guest list that comes up short always has a stated reason.
+ * Stage one of an import: say what the file WOULD do, change nothing.
+ *
+ * This replaces an importer that inserted immediately and reported three
+ * integers. A row whose number already existed was dropped silently, so the
+ * admin saw "2 skipped as duplicates" and never learned which two, or against
+ * whom. On the Moses Seeta list that cost Mama Meena her number outright — it
+ * collided with a later row in the same file, her record was written with no
+ * number at all, and the number reappeared by hand on a different guest hours
+ * later. Nothing in the product could show that had happened.
  */
+export async function previewGuestImport(input: GuestImportRow[]): Promise<GuestImportPreview> {
+  const user = await requireDashboardUser()
+  const rows = normalizeImportRows(input)
+  return buildImportPreview(rows, await loadRosterIdentities(user.id))
+}
+
+/** Re-validated server-side; the browser is never trusted for name or party size. */
+function normalizeImportRows(input: GuestImportRow[]): GuestImportRow[] {
+  return (Array.isArray(input) ? input : []).map((row) => ({
+    full_name: String(row?.full_name ?? '').trim(),
+    email: String(row?.email ?? '').trim() || null,
+    phone: String(row?.phone ?? '').trim() || null,
+    max_party_size: ticketPartySize(row?.max_party_size),
+  }))
+}
+
+/** What a committed import actually did. */
 export interface GuestImportOutcome {
   imported: number
-  /** Phone digits already on the roster, or repeated earlier in this file. */
-  skippedDuplicates: number
-  /** Rows with no name in the name column. */
-  skippedNoName: number
+  /** Rows the admin left unresolved, or that the DB refused on write. */
+  notImported: number
+  /** Rows imported with no phone number: they cannot be messaged. */
+  importedWithoutPhone: number
+  /** Named, so a shortfall is never just a number. */
+  rejected: { name: string; reason: string }[]
+  /** File reconciled against the roster read back out of the database. */
+  verification: GuestImportVerification
 }
 
 /**
- * Bulk-add guests from the importer.
+ * Stage two: write the rows the admin approved.
  *
- * Takes already-parsed rows rather than a delimited string: the client reads
- * the editable text as CSV (so a name containing a comma stays intact) and
- * sends structured rows. Every field is still re-validated here — the browser
- * is never trusted for the name or the party size.
+ * The preview is re-run here rather than trusting the browser's verdict. The
+ * roster can change between preview and commit (a second admin importing, a
+ * guest added by hand), and re-checking is what makes concurrent imports safe
+ * at this layer. The unique index behind it is what makes them safe at all.
  */
-export async function bulkImportGuests(
+export async function commitGuestImport(
   input: GuestImportRow[],
+  approvedLineNumbers: number[],
   eventIds: string[] = [],
 ): Promise<GuestImportOutcome> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
 
-  const received = Array.isArray(input) ? input.length : 0
-  const rows = (Array.isArray(input) ? input : []).flatMap((row) => {
-    const full_name = String(row?.full_name ?? '').trim()
-    if (!full_name) return []
-    const email = String(row?.email ?? '').trim()
-    const phone = String(row?.phone ?? '').trim()
-    return [{
-      full_name,
-      email: email || null,
-      phone: phone || null,
-      // The imported number is the WhatsApp number too. A spreadsheet carries
-      // ONE mobile column (the header map folds "whatsapp" into it), and a
-      // guest with no whatsapp_phone reads as SMS-only on the send console, so
-      // leaving it null made every import a second pass of copying the same
-      // number across by hand. Same defaulting updateGuestPhone already does.
-      whatsapp_phone: phone || null,
-      max_party_size: ticketPartySize(row?.max_party_size),
-    }]
-  })
-  const skippedNoName = received - rows.length
+  const rows = normalizeImportRows(input)
+  const approved = new Set(approvedLineNumbers)
+  const preview = buildImportPreview(rows, await loadRosterIdentities(user.id))
 
-  if (rows.length === 0) return { imported: 0, skippedDuplicates: 0, skippedNoName }
+  const rejected: { name: string; reason: string }[] = []
+  const toWrite: ImportReviewRow[] = []
+  for (const reviewed of preview.rows) {
+    if (!approved.has(reviewed.lineNumber)) continue
+    // An admin can approve a Level 2 hold — that is the point of the review
+    // screen. They cannot approve a row the DATABASE will refuse, because the
+    // insert would fail and take the rest of the batch with it.
+    if (reviewed.flags.hasExactPhoneDuplicate || reviewed.flags.hasExactNameDuplicate || reviewed.flags.hasMissingName) {
+      rejected.push({
+        name: reviewed.row.full_name || `Row ${reviewed.lineNumber}`,
+        reason: reviewed.issues[0] ?? 'Unresolved conflict',
+      })
+      continue
+    }
+    toWrite.push(reviewed)
+  }
 
-  // One person, one row — mirror createGuest's duplicate guard: skip lines
-  // whose phone digits already exist on the roster or earlier in this batch.
-  // The error must not be swallowed: an empty `existing` on failure would
-  // silently disable the guard and re-insert everyone already on the roster.
-  const { data: existing, error: existingErr } = await supabase
-    .from('guest_contacts')
-    .select('phone, whatsapp_phone')
-    .eq('user_id', user.id)
-  if (existingErr) throw new Error(existingErr.message)
-  const seen = new Set(
-    (existing ?? [])
-      .flatMap((c) => [c.phone, c.whatsapp_phone])
-      .map((p) => (p ?? '').replace(/\D/g, ''))
-      .filter(Boolean),
-  )
-  const fresh = rows.filter((r) => {
-    const digits = (r.phone ?? '').replace(/\D/g, '')
-    if (!digits) return true
-    if (seen.has(digits)) return false
-    seen.add(digits)
-    return true
-  })
-  const skippedDuplicates = rows.length - fresh.length
-  if (fresh.length === 0) return { imported: 0, skippedDuplicates, skippedNoName }
+  if (toWrite.length === 0) {
+    return {
+      imported: 0,
+      notImported: rejected.length,
+      importedWithoutPhone: 0,
+      rejected,
+      verification: buildImportVerification(rows, await loadRosterIdentities(user.id)),
+    }
+  }
 
   const { data, error } = await supabase
     .from('guest_contacts')
-    .insert(fresh.map((r) => ({ user_id: user.id, ...r })))
+    .insert(
+      toWrite.map((r) => ({
+        user_id: user.id,
+        full_name: r.row.full_name,
+        email: r.row.email,
+        phone: r.row.phone,
+        // The imported number is the WhatsApp number too. A spreadsheet carries
+        // ONE mobile column (the header map folds "whatsapp" into it), and a
+        // guest with no whatsapp_phone reads as SMS-only on the send console, so
+        // leaving it null made every import a second pass of copying the same
+        // number across by hand. Same defaulting updateGuestPhone already does.
+        whatsapp_phone: r.row.phone,
+        max_party_size: r.row.max_party_size,
+      })),
+    )
     .select('id, max_party_size')
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error(
+        'One of these numbers was added to your list while you were reviewing. Re-run the import to see which.',
+      )
+    }
+    throw new Error(error.message)
+  }
 
   // Unified roster: no explicit event selection means link to every event.
   const ownedIds = eventIds.length
@@ -782,7 +925,27 @@ export async function bulkImportGuests(
     if (invErr) throw new Error(invErr.message)
   }
   revalidateDashboard()
-  return { imported: fresh.length, skippedDuplicates, skippedNoName }
+  return {
+    imported: toWrite.length,
+    notImported: preview.rows.length - toWrite.length,
+    importedWithoutPhone: toWrite.filter((r) => !r.phoneNormalized).length,
+    rejected,
+    // Reconciled by re-reading the roster from the database, NOT from what we
+    // believe we just wrote. An importer reporting its own success is what let
+    // a dropped row go unnoticed for weeks.
+    verification: buildImportVerification(rows, await loadRosterIdentities(user.id)),
+  }
+}
+
+/**
+ * Check a spreadsheet against the stored guest list without importing anything.
+ *
+ * Lets an admin answer "does the table actually match my file?" at any time,
+ * including for imports done before this receipt existed.
+ */
+export async function verifyGuestImport(input: GuestImportRow[]): Promise<GuestImportVerification> {
+  const user = await requireDashboardUser()
+  return buildImportVerification(normalizeImportRows(input), await loadRosterIdentities(user.id))
 }
 
 // ---------------------------------------------------------------- RSVPs (owner edit)
@@ -3237,12 +3400,124 @@ export async function claimCatalogGift(
 // ---------------------------------------------------------------- WhatsApp invitations
 
 /** Per-guest outcome of one send run — powers the results drawer. */
+/**
+ * What a send WOULD do, before it does it.
+ *
+ * Shown in the confirm step so a couple never discovers on the bill that two
+ * guests shared a handset. The eligibility split is computed by the same
+ * function the send itself uses, so the preview cannot promise a different
+ * outcome to the one they get.
+ */
+export interface SendPreview {
+  /** Guests asked for. */
+  requested: number
+  /** Guests that will actually receive a message. */
+  eligible: number
+  /** Held back, each one named with a reason. */
+  skipped: { guestId: string; name: string; reason: string; detail: string }[]
+  /** Distinct handsets the eligible guests resolve to. */
+  distinctNumbers: number
+  /** Numbers that would receive more than one message in this run. */
+  repeatedRecipients: { phone: string; guests: string[] }[]
+}
+
+export async function previewGuestSend(guestIds?: string[]): Promise<SendPreview> {
+  const user = await requireDashboardUser()
+  const supabase = createDashboardClient()
+  const delivery = await loadDeliveryGate(user.id)
+
+  let q = supabase
+    .from('guest_contacts')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('review_status', 'confirmed')
+  if (guestIds && guestIds.length) q = q.in('id', guestIds)
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+
+  const ids = (data ?? []).map((r) => r.id as string)
+  const split = resolveSendEligibility(ids, delivery)
+  return {
+    requested: ids.length,
+    eligible: split.eligible.length,
+    skipped: split.skipped.map((s) => ({
+      guestId: s.guestId,
+      name: s.name,
+      reason: s.reason,
+      detail: s.detail,
+    })),
+    distinctNumbers: split.distinctNumbers,
+    repeatedRecipients: split.repeatedRecipients,
+  }
+}
+
+/**
+ * Resolve a shared-number conflict.
+ *
+ * The gate holds guests back; this is how an admin lets them through, and it
+ * is deliberately the ONLY way. Confirming requires a reason, and the reason,
+ * the person and the moment are all stored — an override is never anonymous.
+ *
+ * Confirmation applies to the whole group, not one row: approving one side of
+ * a shared number while the other stays pending would leave a pair that is
+ * half-resolved, which the gate correctly refuses to send to anyway.
+ */
+export async function confirmSharedContact(
+  guestIds: string[],
+  reason: string,
+): Promise<{ ok: true; confirmed: number } | { ok: false; error: string }> {
+  const user = await requireDashboardUser()
+  const supabase = createDashboardClient()
+
+  const trimmed = reason.trim()
+  if (!trimmed) return { ok: false, error: 'Give a reason before confirming a shared number.' }
+  if (guestIds.length < 2) {
+    return { ok: false, error: 'Confirming a shared number needs the guests who share it.' }
+  }
+
+  const { data: rows, error: readErr } = await supabase
+    .from('guest_contacts')
+    .select('id, full_name, phone, whatsapp_phone')
+    .eq('user_id', user.id)
+    .in('id', guestIds)
+  if (readErr) throw new Error(readErr.message)
+  if ((rows ?? []).length !== guestIds.length) {
+    return { ok: false, error: 'Some of those guests are not on your list.' }
+  }
+
+  // They must genuinely share ONE number. Confirming an unrelated set would
+  // silently lift them out of the uniqueness index for numbers they do not
+  // actually share, disabling the constraint for those rows.
+  const numbers = new Set((rows ?? []).map((r) => guestPhoneKey(r.phone, r.whatsapp_phone)))
+  if (numbers.size !== 1 || numbers.has(null)) {
+    return { ok: false, error: 'Those guests do not all share one phone number.' }
+  }
+
+  const { error } = await supabase
+    .from('guest_contacts')
+    .update({
+      shared_contact_group_id: randomUUID(),
+      shared_contact_confirmed: true,
+      shared_contact_reason: trimmed,
+      shared_contact_approved_at: new Date().toISOString(),
+      shared_contact_approved_by: user.email || user.id,
+    })
+    .eq('user_id', user.id)
+    .in('id', guestIds)
+  if (error) throw new Error(error.message)
+
+  revalidateDashboard()
+  return { ok: true, confirmed: guestIds.length }
+}
+
 export interface WhatsAppSendResult {
   id: string
   name: string
   outcome: 'sent' | 'failed' | 'skipped' | 'blocked'
   /** Provider error message, for failed sends. */
   error?: string
+  /** Why a guest was held back — a skip is never left as a bare count. */
+  reason?: string
   /** True when this was a credit-free re-send to an already-invited guest. */
   resend?: boolean
 }
@@ -3250,7 +3525,9 @@ export interface WhatsAppSendResult {
 export interface WhatsAppSendSummary {
   sent: number
   failed: number
-  /** Skipped because the guest has no phone number. */
+  /** Held back by the deliverability gate: no number, an unusable number, or
+   *  a number shared with another guest that nobody has confirmed. Each one is
+   *  named with its reason in `results`. */
   skipped: number
   /** Skipped because the couple has used up their paid invitation quota. */
   blocked: number
@@ -3411,6 +3688,7 @@ export async function sendWhatsAppInvites(guestIds?: string[], eventId?: string)
   let remaining = ent.remaining // informational only — consumeSendCredit is the actual gate
   const now = new Date().toISOString()
 
+  const delivery = await loadDeliveryGate(user.id)
   for (const g of (guests ?? []) as {
     id: string
     full_name: string
@@ -3418,10 +3696,19 @@ export async function sendWhatsAppInvites(guestIds?: string[], eventId?: string)
     whatsapp_phone: string | null
     public_token: string
   }[]) {
-    const to = normalizePhone(g.whatsapp_phone ?? g.phone)
-    if (!to) {
+    // Deliverability gate. A guest with no number, an unusable number, or a
+    // number shared with another guest that nobody has confirmed is held back
+    // AND named — never silently dropped, and never sent twice to one handset.
+    const gate = delivery.get(g.id)
+    const to = gate?.phoneNormalized ?? null
+    if (!gate?.deliverable || !to) {
       summary.skipped += 1
-      summary.results.push({ id: g.id, name: g.full_name, outcome: 'skipped' })
+      summary.results.push({
+        id: g.id,
+        name: g.full_name,
+        outcome: 'skipped',
+        reason: gate?.detail || 'No phone number',
+      })
       continue
     }
 
@@ -3620,7 +3907,9 @@ export async function sendWhatsAppTestInvite(
 export interface ThankYouSendSummary {
   sent: number
   failed: number
-  /** Skipped because the guest has no phone number. */
+  /** Held back by the deliverability gate: no number, an unusable number, or
+   *  a number shared with another guest that nobody has confirmed. Each one is
+   *  named with its reason in `results`. */
   skipped: number
   /** True when handled by the dry-run stub (no live Meta account yet). */
   dryRun: boolean
@@ -3669,11 +3958,21 @@ export async function sendThankYouMessages(guestIds?: string[], eventId?: string
     .in('id', targetIds)
   if (error) throw new Error(error.message)
 
+  const delivery = await loadDeliveryGate(user.id)
   for (const g of (guests ?? []) as { id: string; full_name: string; phone: string | null; whatsapp_phone: string | null }[]) {
-    const to = normalizePhone(g.whatsapp_phone ?? g.phone)
-    if (!to) {
+    // Deliverability gate. A guest with no number, an unusable number, or a
+    // number shared with another guest that nobody has confirmed is held back
+    // AND named — never silently dropped, and never sent twice to one handset.
+    const gate = delivery.get(g.id)
+    const to = gate?.phoneNormalized ?? null
+    if (!gate?.deliverable || !to) {
       summary.skipped += 1
-      summary.results.push({ id: g.id, name: g.full_name, outcome: 'skipped' })
+      summary.results.push({
+        id: g.id,
+        name: g.full_name,
+        outcome: 'skipped',
+        reason: gate?.detail || 'No phone number',
+      })
       continue
     }
 
@@ -4173,14 +4472,17 @@ async function sendWhatsAppLinkRequests(
     .in('id', guestIds)
   if (error) throw new Error(error.message)
 
+  const delivery = await loadDeliveryGate(user.id)
   for (const g of (guests ?? []) as {
     id: string
     full_name: string
     phone: string | null
     whatsapp_phone: string | null
   }[]) {
-    const to = normalizePhone(g.whatsapp_phone ?? g.phone)
-    if (!to) {
+    // Same deliverability gate as every other outbound path.
+    const gate = delivery.get(g.id)
+    const to = gate?.phoneNormalized ?? null
+    if (!gate?.deliverable || !to) {
       summary.skipped += 1
       continue
     }
@@ -4350,14 +4652,17 @@ export async function sendSmsPledgeRequests(
 
   const link = pledgeUrl(publicOrigin(), ctx.token, ctx.eventId)
 
+  const delivery = await loadDeliveryGate(user.id)
   for (const g of (guests ?? []) as {
     id: string
     full_name: string
     phone: string | null
     whatsapp_phone: string | null
   }[]) {
-    const to = normalizePhone(g.phone ?? g.whatsapp_phone)
-    if (!to) {
+    // Same deliverability gate as every other outbound path.
+    const gate = delivery.get(g.id)
+    const to = gate?.phoneNormalized ?? null
+    if (!gate?.deliverable || !to) {
       summary.skipped += 1
       continue
     }

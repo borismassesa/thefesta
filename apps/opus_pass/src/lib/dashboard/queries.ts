@@ -6,6 +6,7 @@ import { getWhatsAppProvider } from '@/lib/whatsapp'
 import { eventTypeLabel, eventTypeLabelSw, ticketIntroLabel } from './types'
 import type { TicketLanguage } from './types'
 import { toTzs } from './currency'
+import { toIdentity, type GuestIdentity } from './guest-duplicates'
 import { resolveEventCover, type PledgePageConfig, type PledgePaymentMethod } from './pledge-page'
 import { THANK_YOU_FREE_TIER_IDS, resolveThankYouCover, type ThankYouCardConfig } from './thank-you'
 import { parseTemplateCardItemId, resolveEventPackageTierId, type TemplateCardType } from './pledge-card-templates'
@@ -2894,4 +2895,25 @@ export async function getGuestsAwaitingReview(): Promise<GuestWithInvitations[]>
     ...g,
     invitations: byGuest.get(g.id) ?? [],
   }))
+}
+
+/**
+ * Every guest on the couple's roster, reduced to what duplicate detection and
+ * the deliverability gate need.
+ *
+ * Lives here rather than in actions.ts so the send paths that have their own
+ * modules (entrance passes, pledge requests) load the roster the same way. A
+ * second loader is a second chance for the gate and the thing it guards to
+ * disagree about who a guest is.
+ */
+export async function loadRosterIdentities(userId: string): Promise<GuestIdentity[]> {
+  const supabase = createDashboardClient()
+  const { data, error } = await supabase
+    .from('guest_contacts')
+    .select('id, full_name, phone, whatsapp_phone, shared_contact_group_id, shared_contact_confirmed')
+    .eq('user_id', userId)
+  // Must not be swallowed: an empty roster on failure would silently disable
+  // every duplicate check AND open the delivery gate to the whole list.
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => toIdentity(row))
 }

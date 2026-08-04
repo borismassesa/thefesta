@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   Users,
@@ -18,16 +19,22 @@ import {
   ArrowUp,
   CalendarHeart,
   ChevronDown,
+  Ban,
 } from 'lucide-react'
 import { Card, EmptyState, StatusPill } from '@/components/dashboard/primitives'
 import { Button, ConfirmDialog, Slideover, Tabs, Field, inputClass } from '@/components/dashboard/controls'
 import { cn } from '@/lib/utils'
+import { splitStoredGuestName } from '@/lib/dashboard/share'
+import { assessRosterDelivery } from '@/lib/dashboard/guest-delivery'
+import { toIdentity } from '@/lib/dashboard/guest-duplicates'
+import { ResolveSharedContact } from './ResolveSharedContact'
 import { DashboardHero } from '@/components/dashboard/DashboardHero'
 import {
   createGuest,
   updateGuest,
   deleteGuest,
-  bulkImportGuests,
+  previewGuestImport,
+  commitGuestImport,
   sendWhatsAppCollectorRequests,
   sendWhatsAppRsvpReminders,
   type GuestInput,
@@ -37,7 +44,13 @@ import {
   SpreadsheetError,
   type SpreadsheetImportResult,
 } from '@/lib/dashboard/import-spreadsheet'
-import { parseGuestImportRows } from '@/lib/dashboard/guest-import-rows'
+import { parseGuestImportRows, type GuestImportRow } from '@/lib/dashboard/guest-import-rows'
+import {
+  statusBlocksImport,
+  type GuestImportPreview,
+  type GuestImportVerification,
+} from '@/lib/dashboard/guest-import-review'
+import { ImportReview, ImportVerification } from './ImportReview'
 import type { DashboardHeroContent } from '@/lib/cms/dashboard-hero'
 import type { GuestsDashboardCopy } from '@/lib/cms/dashboard-copy'
 import type { DashboardEventScopeStrings } from '@/lib/cms/ui-strings-fallback'
@@ -95,6 +108,35 @@ const emptyForm: GuestInput = {
   address_region: '',
   address_postal_code: '',
   eventIds: [],
+}
+
+/**
+ * The subset of a guest row the table actually renders, derived from the form
+ * so an edit shows instantly. Only display fields: the server remains the
+ * authority and its answer replaces this as soon as it lands.
+ *
+ * Mirrors composeName() in actions.ts. That lives in a 'use server' module and
+ * cannot be imported here, so the two must be kept in step — if they drift,
+ * the name flickers between the optimistic value and the stored one.
+ */
+function localGuestPatch(form: GuestInput): Partial<GuestWithInvitations> {
+  const composed = [form.title, form.first_name, form.last_name, form.suffix]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean)
+    .join(' ')
+  return {
+    full_name: (form.full_name ?? composed).trim(),
+    title: form.title || null,
+    first_name: form.first_name || null,
+    last_name: form.last_name || null,
+    suffix: form.suffix || null,
+    email: form.email || null,
+    phone: form.phone || null,
+    whatsapp_phone: form.whatsapp_phone || null,
+    group_tag: form.group_tag || null,
+    max_party_size: form.max_party_size ?? 1,
+    notes: form.notes || null,
+  }
 }
 
 function hasPlusOne(form: GuestInput): boolean {
@@ -171,10 +213,50 @@ export default function GuestsManager({
   const [importText, setImportText] = useState('')
   const [importSummary, setImportSummary] = useState<SpreadsheetImportResult | null>(null)
   const [importEventIds, setImportEventIds] = useState<string[]>([])
+  // Staged import: the parsed rows and the server's verdict on them. Non-null
+  // `importPreview` switches the slideover from "choose a file" to "review".
+  const [importRows, setImportRows] = useState<GuestImportRow[]>([])
+  const [importPreview, setImportPreview] = useState<GuestImportPreview | null>(null)
+  const [importApproved, setImportApproved] = useState<Set<number>>(new Set())
+  // Stage three: the post-write receipt, reconciling the file against the
+  // roster read back out of the database.
+  const [importReceipt, setImportReceipt] = useState<GuestImportVerification | null>(null)
+  /** The guest whose shared-number conflict is being resolved. */
+  const [resolving, setResolving] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [editing, setEditing] = useState<GuestWithInvitations | null>(null)
   const [form, setForm] = useState<GuestInput>(emptyForm)
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
+
+  // The roster is held locally, seeded from the server render.
+  //
+  // It used to read `initialGuests` directly, which meant every single edit
+  // blocked on a full page re-render: 11 revalidatePath calls, a force-dynamic
+  // page, and a re-fetch of the whole roster plus CMS content before the
+  // slideover would close. On a large list over a mobile connection that is
+  // the "takes time to save, or doesn't save at all" the couple reported. Now
+  // a save patches this list immediately and the round trip happens behind it.
+  const [guests, setGuests] = useState(initialGuests)
+  // Server data still wins whenever it arrives (revalidation, navigation,
+  // another device), so local state can never drift into being stale. This is
+  // React's adjust-state-during-render pattern rather than an effect: an
+  // effect would render one frame of stale rows first, which on this screen
+  // means a guest the admin just deleted blinking back before disappearing.
+  // Deliverability, derived locally from the SAME pure assessment the send
+  // paths run server-side. Derived rather than fetched so it stays correct the
+  // instant an optimistic edit lands, and shared rather than re-implemented so
+  // the badge can never claim a guest is sendable when the server disagrees.
+  const deliverability = useMemo(
+    () => assessRosterDelivery(guests.map((g) => toIdentity(g))),
+    [guests],
+  )
+
+  const [seededFrom, setSeededFrom] = useState(initialGuests)
+  if (seededFrom !== initialGuests) {
+    setSeededFrom(initialGuests)
+    setGuests(initialGuests)
+  }
 
   // Guests belonging to the selected event scope, before any search/view/
   // rsvp refinement. This is the stable base for the stat cards and
@@ -183,9 +265,9 @@ export default function GuestsManager({
   const eventScopedGuests = useMemo(
     () =>
       eventFilter === 'all'
-        ? initialGuests
-        : initialGuests.filter((g) => g.invitations.some((i) => i.event_id === eventFilter)),
-    [initialGuests, eventFilter],
+        ? guests
+        : guests.filter((g) => g.invitations.some((i) => i.event_id === eventFilter)),
+    [guests, eventFilter],
   )
 
   const filtered = useMemo(() => {
@@ -377,12 +459,20 @@ export default function GuestsManager({
     setOpen(true)
   }
 
+  function openResolve(guestId: string) {
+    setResolving(guestId)
+  }
+
   function openEdit(g: GuestWithInvitations) {
     setEditing(g)
+    // Recover the honorific from the stored name. Imported guests carry only
+    // full_name, so splitting on the first space put "Mr" in the first-name
+    // box and left setting the Title dropdown as the only way to fix it.
+    const name = splitStoredGuestName(g)
     setForm({
-      title: g.title ?? '',
-      first_name: g.first_name ?? g.full_name.split(' ')[0] ?? '',
-      last_name: g.last_name ?? g.full_name.split(' ').slice(1).join(' '),
+      title: name.title,
+      first_name: name.first,
+      last_name: name.last,
       suffix: g.suffix ?? '',
       plus_one_title: g.plus_one_title ?? '',
       plus_one_first_name: g.plus_one_first_name ?? '',
@@ -391,8 +481,12 @@ export default function GuestsManager({
       plus_one_name_unknown: g.plus_one_name_unknown ?? false,
       children: g.children ?? [],
       email: g.email ?? '',
-      phone: g.phone ?? '',
-      whatsapp_phone: g.whatsapp_phone ?? '',
+      // Seed the single number field from whatsapp_phone first: that is the
+      // one the send paths use, so where a guest historically carried two
+      // different numbers, collapsing them must keep the number that messages
+      // were actually going to — not silently promote the unused one.
+      phone: g.whatsapp_phone || g.phone || '',
+      whatsapp_phone: g.whatsapp_phone || g.phone || '',
       group_tag: g.group_tag ?? '',
       max_party_size: g.max_party_size > 1 ? 2 : 1,
       notes: g.notes ?? '',
@@ -472,22 +566,51 @@ export default function GuestsManager({
       setTab('info')
       return
     }
+    // Close immediately and reconcile behind it. The write still has to
+    // happen, but the admin is not made to watch a full page re-render before
+    // they can carry on down a 700-row list.
+    const target = editing
+    const snapshot = guests
+    const pendingForm = form
+    setOpen(false)
+
+    if (target) {
+      // Optimistic: show the edit at once, roll back below if it is refused.
+      setGuests((prev) =>
+        prev.map((g) =>
+          g.id === target.id
+            ? { ...g, ...localGuestPatch(pendingForm), invitations: g.invitations }
+            : g,
+        ),
+      )
+    }
+
     startTransition(async () => {
       try {
-        if (editing) {
-          await updateGuest(editing.id, form)
-          toast.success(copy.toast_updated)
-        } else {
-          const res = await createGuest(form)
-          if (!res.ok) {
-            toast.error(res.error ?? 'Something went wrong')
-            return
-          }
-          toast.success(copy.toast_added)
+        const res = target ? await updateGuest(target.id, pendingForm) : await createGuest(pendingForm)
+        if (!res.ok) {
+          // A refusal is a real outcome, not a silent no-op: restore what was
+          // on screen, say why, and put the form back so the fix is one edit
+          // away rather than a retyped record.
+          setGuests(snapshot)
+          setForm(pendingForm)
+          setEditing(target)
+          setOpen(true)
+          toast.error(res.error)
+          return
         }
-        setOpen(false)
+        // Reconcile against what the server actually stored.
+        setGuests((prev) => {
+          const without = prev.filter((g) => g.id !== res.guest.id)
+          return target ? prev.map((g) => (g.id === res.guest.id ? res.guest : g)) : [res.guest, ...without]
+        })
+        toast.success(target ? copy.toast_updated : copy.toast_added)
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Something went wrong')
+        setGuests(snapshot)
+        setForm(pendingForm)
+        setEditing(target)
+        setOpen(true)
+        toast.error(err instanceof Error ? err.message : 'Could not save. Your changes are still here — try again.')
       }
     })
   }
@@ -495,12 +618,16 @@ export default function GuestsManager({
   function confirmRemove() {
     const target = pendingDelete
     if (!target) return
+    const snapshot = guests
+    setGuests((prev) => prev.filter((g) => g.id !== target.id))
+    setPendingDelete(null)
     startTransition(async () => {
       try {
         await deleteGuest(target.id)
         toast.success(copy.toast_removed)
-        setPendingDelete(null)
       } catch (err) {
+        // Put them back rather than leaving the list disagreeing with the DB.
+        setGuests(snapshot)
         toast.error(err instanceof Error ? err.message : 'Could not remove')
       }
     })
@@ -528,7 +655,19 @@ export default function GuestsManager({
     }
   }
 
-  function runImport() {
+  function resetImport() {
+    setImportOpen(false)
+    setImportText('')
+    setImportSummary(null)
+    setImportEventIds([])
+    setImportRows([])
+    setImportPreview(null)
+    setImportApproved(new Set())
+    setImportReceipt(null)
+  }
+
+  /** Stage one. Nothing is written; the file is only classified. */
+  function reviewImport() {
     if (!importText.trim()) {
       toast.error('Paste at least one name')
       return
@@ -540,25 +679,53 @@ export default function GuestsManager({
       toast.error('Paste at least one name')
       return
     }
+    if (unrecognizedTickets.length > 0) {
+      // Don't let an unreadable ticket value quietly become a Single.
+      toast.warning(
+        `Will import as Single: unrecognized ticket ${unrecognizedTickets.length === 1 ? 'type' : 'types'} ${unrecognizedTickets.join(', ')}. Use Single or Double.`,
+      )
+    }
     startTransition(async () => {
       try {
-        const { imported, skippedDuplicates } = await bulkImportGuests(rows, importEventIds)
-        // Say why the count fell short of the rows found, so the summary above
-        // and this toast never disagree without an explanation.
-        const skipped = skippedDuplicates > 0
-          ? `, ${skippedDuplicates} skipped as ${skippedDuplicates === 1 ? 'a duplicate' : 'duplicates'}`
-          : ''
-        toast.success(`${imported} guest${imported === 1 ? '' : 's'} added${skipped}`)
-        if (unrecognizedTickets.length > 0) {
-          // Don't let an unreadable ticket value quietly become a Single.
+        const preview = await previewGuestImport(rows)
+        setImportRows(rows)
+        setImportPreview(preview)
+        setImportApproved(new Set(preview.rows.filter((r) => r.approved).map((r) => r.lineNumber)))
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not read that list')
+      }
+    })
+  }
+
+  /** Stage two. Writes only the rows the admin left selected. */
+  function commitImport() {
+    if (!importPreview) return
+    const approvedLines = [...importApproved]
+    if (approvedLines.length === 0) {
+      toast.error('No rows selected to import')
+      return
+    }
+    startTransition(async () => {
+      try {
+        const outcome = await commitGuestImport(importRows, approvedLines, importEventIds)
+        toast.success(`${outcome.imported} guest${outcome.imported === 1 ? '' : 's'} added`)
+        if (outcome.importedWithoutPhone > 0) {
           toast.warning(
-            `Imported as Single: unrecognized ticket ${unrecognizedTickets.length === 1 ? 'type' : 'types'} ${unrecognizedTickets.join(', ')}. Use Single or Double.`,
+            `${outcome.importedWithoutPhone} added without a phone number. They cannot be messaged until one is added.`,
           )
         }
-        setImportOpen(false)
-        setImportText('')
-        setImportSummary(null)
-        setImportEventIds([])
+        // A shortfall is never left as a bare number: name who did not make it.
+        for (const r of outcome.rejected.slice(0, 3)) {
+          toast.error(`Not imported — ${r.name}: ${r.reason}`)
+        }
+        if (outcome.rejected.length > 3) {
+          toast.error(`${outcome.rejected.length - 3} more rows were not imported.`)
+        }
+        // Hold the slideover open on the receipt. Closing straight to a toast
+        // is what left an admin with no way to tell whether the table actually
+        // matches the file they uploaded.
+        setImportPreview(null)
+        setImportReceipt(outcome.verification)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Import failed')
       }
@@ -598,7 +765,7 @@ export default function GuestsManager({
         pending={pending}
       />
 
-      {initialGuests.length > 0 ? (
+      {guests.length > 0 ? (
         <Card className="px-5 py-4">
           <div className="grid grid-cols-3 divide-x divide-black/[0.12] text-center">
             <Stat value={eventScopedGuests.length} label={copy.stat_guests_label} />
@@ -617,7 +784,7 @@ export default function GuestsManager({
         />
       ) : null}
 
-      {initialGuests.length > 0 ? (
+      {guests.length > 0 ? (
         <div className="flex flex-nowrap items-center gap-3">
           <div className="relative shrink-0" ref={filterRef}>
             <button
@@ -715,7 +882,7 @@ export default function GuestsManager({
         </div>
       ) : null}
 
-      {initialGuests.length === 0 ? (
+      {guests.length === 0 ? (
         <EmptyState
           icon={<Users className="h-7 w-7" />}
           title={copy.empty_title}
@@ -890,6 +1057,26 @@ export default function GuestsManager({
                         ) : (
                           <p className="text-xs text-rose-600">Missing phone</p>
                         )}
+                        {/* A blocked guest says so on the row, with a way out.
+                            Icon + text, never colour alone. */}
+                        {(() => {
+                          const gate = deliverability.get(g.id)
+                          if (!gate || gate.deliverable) return null
+                          if (gate.reason === 'missing_phone') return null // already shown above
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => openResolve(g.id)}
+                              className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100"
+                              title={gate.detail}
+                            >
+                              <Ban className="h-3 w-3 shrink-0" aria-hidden />
+                              <span className="truncate">
+                                {gate.reason === 'unresolved_duplicate' ? 'Duplicate phone' : 'Invalid phone'}
+                              </span>
+                            </button>
+                          )
+                        })()}
                       </td>
                       <td className="py-3.5 pr-4">
                         {g.email ? (
@@ -1004,19 +1191,65 @@ export default function GuestsManager({
       {/* Bulk import — slideover with file or paste */}
       <Slideover
         open={importOpen}
-        onClose={() => setImportOpen(false)}
-        title={copy.import_title}
+        onClose={resetImport}
+        title={
+          importReceipt
+            ? 'Import check'
+            : importPreview
+              ? 'Review before importing'
+              : copy.import_title
+        }
         footer={
-          <>
-            <Button variant="secondary" onClick={() => setImportOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={runImport} disabled={pending}>
-              {pending ? 'Importing…' : 'Import'}
-            </Button>
-          </>
+          importReceipt ? (
+            <Button onClick={resetImport}>Done</Button>
+          ) : importPreview ? (
+            <>
+              <Button variant="secondary" onClick={() => setImportPreview(null)}>
+                Back
+              </Button>
+              <Button onClick={commitImport} disabled={pending || importApproved.size === 0}>
+                {pending ? 'Importing…' : `Import ${importApproved.size} guest${importApproved.size === 1 ? '' : 's'}`}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={resetImport}>
+                Cancel
+              </Button>
+              <Button onClick={reviewImport} disabled={pending}>
+                {pending ? 'Checking…' : 'Review'}
+              </Button>
+            </>
+          )
         }
       >
+        {importReceipt ? (
+          <ImportVerification result={importReceipt} />
+        ) : importPreview ? (
+          <ImportReview
+            preview={importPreview}
+            approved={importApproved}
+            onToggle={(line) =>
+              setImportApproved((prev) => {
+                const next = new Set(prev)
+                if (next.has(line)) next.delete(line)
+                else next.add(line)
+                return next
+              })
+            }
+            onApproveAllHolds={() =>
+              setImportApproved((prev) => {
+                const next = new Set(prev)
+                for (const r of importPreview.rows) {
+                  // Only the held-for-review rows. Rows the database would
+                  // refuse stay out, whatever the admin clicks.
+                  if (r.status === 'needs_review' && statusBlocksImport(r.status)) next.add(r.lineNumber)
+                }
+                return next
+              })
+            }
+          />
+        ) : (
         <div className="space-y-4">
           <div className="rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] p-4">
             <p className="text-sm font-medium text-[#1A1A1A]">{copy.import_upload_title}</p>
@@ -1134,6 +1367,44 @@ export default function GuestsManager({
             </Field>
           ) : null}
         </div>
+        )}
+      </Slideover>
+
+      {/* Resolve a shared number. Reachable from the blocked badge on any
+          affected row — the gate must never be a dead end. */}
+      <Slideover
+        open={resolving !== null}
+        onClose={() => setResolving(null)}
+        title="Shared phone number"
+        footer={
+          <Button variant="secondary" onClick={() => setResolving(null)}>
+            Close
+          </Button>
+        }
+      >
+        {(() => {
+          if (!resolving) return null
+          const gate = deliverability.get(resolving)
+          if (!gate?.phoneNormalized) return null
+          const sharing = guests.filter(
+            (g) => deliverability.get(g.id)?.phoneNormalized === gate.phoneNormalized,
+          )
+          return (
+            <ResolveSharedContact
+              guests={sharing.map((g) => ({ id: g.id, name: g.full_name }))}
+              phone={gate.phoneNormalized}
+              onCorrectNumber={(guestId) => {
+                const target = guests.find((g) => g.id === guestId)
+                setResolving(null)
+                if (target) openEdit(target)
+              }}
+              onResolved={() => {
+                setResolving(null)
+                router.refresh()
+              }}
+            />
+          )
+        })()}
       </Slideover>
 
       <ConfirmDialog
@@ -1325,7 +1596,11 @@ function NameRow({
           onChange={(e) => onChange({ title: e.target.value })}
         >
           <option value=""></option>
-          {TITLE_OPTIONS.map((t) => (
+          {/* A title recovered from a stored name may not be one we offer
+              ("Prof & Mrs Ziddy" is on the live roster). Without an option to
+              match, the select would render blank and quietly drop the
+              honorific from the guest's name on the next save. */}
+          {(TITLE_OPTIONS.includes(title) || !title ? TITLE_OPTIONS : [title, ...TITLE_OPTIONS]).map((t) => (
             <option key={t} value={t}>
               {t}
             </option>
@@ -1408,21 +1683,19 @@ function GuestInfoTab({
               placeholder="you@example.com"
             />
           </Field>
-          <Field label="Mobile" hint="Include the country code for guests outside Tanzania">
+          {/* ONE number, not two. The separate Mobile and WhatsApp inputs
+              asked couples to answer the same question twice: a spreadsheet
+              carries one mobile column, and in practice the two were always
+              the same value. Two fields also meant two different numbers could
+              be stored for one guest, and the send paths pick whatsapp_phone
+              first — so the number an admin saw in "Mobile" was not
+              necessarily the number the message went to. Both columns are
+              still written, kept identical. */}
+          <Field label="Mobile / WhatsApp number" hint="Include the country code for guests outside Tanzania">
             <input
               className={inputClass}
               value={form.phone ?? ''}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="+255 7XX XXX XXX"
-            />
-          </Field>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="WhatsApp" hint="If different from mobile — include the country code">
-            <input
-              className={inputClass}
-              value={form.whatsapp_phone ?? ''}
-              onChange={(e) => setForm({ ...form, whatsapp_phone: e.target.value })}
+              onChange={(e) => setForm({ ...form, phone: e.target.value, whatsapp_phone: e.target.value })}
               placeholder="+255 7XX XXX XXX"
             />
           </Field>

@@ -91,6 +91,14 @@ export interface GuestContact {
   email: string | null
   phone: string | null
   whatsapp_phone: string | null
+  /** Generated in Postgres from whatsapp_phone-then-phone. Never written. */
+  phone_normalized: string | null
+  /** Set when this guest is recorded as sharing a number with another,
+   *  deliberately or pending review. Does NOT mean approved. */
+  shared_contact_group_id: string | null
+  /** True only when an admin confirmed both guests may be messaged on the
+   *  shared number. This, not the group id, decides deliverability. */
+  shared_contact_confirmed: boolean
   group_tag: string | null
   max_party_size: number
   notes: string | null

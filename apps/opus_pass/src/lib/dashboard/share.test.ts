@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { firstNameOf, fullNameOf } from './share'
+import { firstNameOf, fullNameOf, splitStoredGuestName } from './share'
 
 /**
  * Honorific stripping for greetings.
@@ -42,4 +42,109 @@ test('a name that is nothing but titles falls back to the whole input', () => {
   assert.equal(firstNameOf('Mr'), 'Mr')
   assert.equal(firstNameOf('Mr & Mrs'), 'Mr & Mrs')
   assert.equal(fullNameOf('Mr & Mrs'), 'Mr & Mrs')
+})
+
+// ── splitStoredGuestName ──────────────────────────────────────────────────
+// Fixtures are the real inconsistent shapes on the Moses Seeta roster: the
+// same "Mr & Mrs X" name is stored three different ways.
+
+test('the honorific is recovered from full_name when no title is stored', () => {
+  assert.deepEqual(splitStoredGuestName({ full_name: 'Mr & Mrs Agapit' }), {
+    title: 'Mr & Mrs',
+    first: 'Agapit',
+    last: '',
+  })
+})
+
+test('a badly split stored name is corrected, not trusted', () => {
+  // Stored as first "Mr", last "& Mrs Alphayo" — the form used to show "Mr"
+  // as the guest's first name.
+  assert.deepEqual(
+    splitStoredGuestName({ full_name: 'Mr & Mrs Alphayo', first_name: 'Mr', last_name: '& Mrs Alphayo' }),
+    { title: 'Mr & Mrs', first: 'Alphayo', last: '' },
+  )
+})
+
+test('a differently-split stored name is corrected too', () => {
+  assert.deepEqual(
+    splitStoredGuestName({ full_name: 'Mr & Mrs Amon Nkembo', first_name: 'Mr & Mrs Amon', last_name: 'Nkembo' }),
+    { title: 'Mr & Mrs', first: 'Amon', last: 'Nkembo' },
+  )
+})
+
+test('a correct stored split comes back unchanged', () => {
+  assert.deepEqual(
+    splitStoredGuestName({ full_name: 'Dr Joyce Nkembo', title: 'Dr', first_name: 'Joyce', last_name: 'Nkembo' }),
+    { title: 'Dr', first: 'Joyce', last: 'Nkembo' },
+  )
+})
+
+test('a name with no honorific keeps every word', () => {
+  assert.deepEqual(splitStoredGuestName({ full_name: 'Robert Munisi' }), {
+    title: '',
+    first: 'Robert',
+    last: 'Munisi',
+  })
+  assert.deepEqual(splitStoredGuestName({ full_name: 'Joel' }), { title: '', first: 'Joel', last: '' })
+})
+
+test('a name that is nothing but an honorific stays the name', () => {
+  // Otherwise the guest ends up with no name at all.
+  assert.deepEqual(splitStoredGuestName({ full_name: 'Mama' }), { title: '', first: 'Mama', last: '' })
+})
+
+test('the recovered title matches a dropdown option', () => {
+  assert.equal(splitStoredGuestName({ full_name: 'MR & MRS MSUYA' }).title, 'Mr & Mrs')
+  assert.equal(splitStoredGuestName({ full_name: 'mrs Mwanjala' }).title, 'Mrs')
+})
+
+test('an empty name does not invent one', () => {
+  assert.deepEqual(splitStoredGuestName({ full_name: '' }), { title: '', first: '', last: '' })
+})
+
+test('a corrupt stored split is rebuilt from full_name, not trusted', () => {
+  // Live roster row: recomposing the stored parts gives
+  // "Mr & Mrs Msuya & Mrs Msuya", so saving the form would have corrupted the
+  // name. full_name is what every other surface shows, so it wins.
+  assert.deepEqual(
+    splitStoredGuestName({
+      full_name: 'Mr & Mrs Msuya',
+      title: 'Mr & Mrs',
+      first_name: 'Msuya',
+      last_name: '& Mrs Msuya',
+    }),
+    { title: 'Mr & Mrs', first: 'Msuya', last: '' },
+  )
+})
+
+test('a stored split with the name only in last_name is rebuilt', () => {
+  assert.deepEqual(
+    splitStoredGuestName({ full_name: 'Mr & Mrs Kawa', title: 'Mr & Mrs', first_name: null, last_name: 'Kawa' }),
+    { title: 'Mr & Mrs', first: 'Kawa', last: '' },
+  )
+})
+
+test('every real roster name survives a split-then-recompose round trip', () => {
+  // The check that caught the corruption above. A split that does not add back
+  // up to the stored name would silently rewrite that guest on the next save.
+  const roster = [
+    { full_name: 'Mr & Mrs Lameck', first_name: 'Mr', last_name: '& Mrs Lameck' },
+    { full_name: 'Mr & Mrs Msuya', title: 'Mr & Mrs', first_name: 'Msuya', last_name: '& Mrs Msuya' },
+    { full_name: 'Mr & Mrs Amon Nkembo', first_name: 'Mr & Mrs Amon', last_name: 'Nkembo' },
+    { full_name: 'Mr & Mrs Richard Minja', title: 'Mr & Mrs', last_name: 'Richard Minja' },
+    { full_name: 'Prof & Mrs Ziddy' },
+    { full_name: 'Mh& Mrs Mwakasaka' },
+    { full_name: 'Familia ya Njeje' },
+    { full_name: 'Lucy & Angel' },
+    { full_name: 'Mary Mary (Mhasibu)' },
+    { full_name: 'Mr & Mrs Augustino (Abigeal)' },
+    { full_name: 'Ms Sarah', title: 'Ms', first_name: 'Sarah' },
+    { full_name: 'Ombeni' },
+    { full_name: 'Le Plant' },
+  ]
+  for (const guest of roster) {
+    const { title, first, last } = splitStoredGuestName(guest)
+    const recomposed = [title, first, last].filter(Boolean).join(' ')
+    assert.equal(recomposed, guest.full_name, `split changed "${guest.full_name}"`)
+  }
 })

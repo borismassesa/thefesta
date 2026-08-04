@@ -43,7 +43,9 @@ import {
   enableInviteSharing,
   applySaveDateTemplate,
   removeSaveDateTemplate,
+  previewGuestSend,
   sendWhatsAppInvites,
+  type SendPreview,
   sendWhatsAppTestInvite,
   prepareInviteGuestPreview,
   sendEntrancePasses,
@@ -147,6 +149,12 @@ interface PendingSend {
   reminder: boolean
   recipients: number
   credits: number
+  /**
+   * What the server says this run would actually do. Authoritative: the same
+   * assessment the send itself uses, so the dialog cannot promise a different
+   * outcome to the one the couple gets.
+   */
+  preview: SendPreview
 }
 
 /**
@@ -854,16 +862,36 @@ export default function SendInvitesView({
     })
   }
 
-  /** Stage a bulk send: show recipients + credit cost, send on confirm. */
+  /**
+   * Stage a bulk send: ask the SERVER what this run would do, then show it.
+   *
+   * Eligibility used to be decided here with a local hasPhone() check, which
+   * is a second definition of "can we send to this guest" sitting next to the
+   * server's. That divergence is the whole reason a number could be held by
+   * two guests and still be messaged twice. The preview now comes from the
+   * same assessment the send performs.
+   */
   function stageBulkSend(ids?: string[], { reminder = false }: { reminder?: boolean } = {}) {
-    const pool = ids ? guests.filter((g) => ids.includes(g.id)) : guests
-    const eligible = pool.filter(hasPhone)
-    if (eligible.length === 0) {
-      toast.error(strings.toast_nothing_sent)
-      return
-    }
-    const credits = eligible.filter((g) => g.status === 'none').length
-    setConfirmSend({ ids, reminder, recipients: eligible.length, credits })
+    startTransition(async () => {
+      try {
+        const preview = await previewGuestSend(ids)
+        if (preview.eligible === 0) {
+          toast.error(strings.toast_nothing_sent)
+          // Say who was held and why rather than leaving a dead end.
+          for (const s of preview.skipped.slice(0, 3)) toast.error(`${s.name}: ${s.detail}`)
+          return
+        }
+        const eligibleIds = new Set(
+          (ids ? guests.filter((g) => ids.includes(g.id)) : guests)
+            .filter((g) => !preview.skipped.some((s) => s.guestId === g.id))
+            .map((g) => g.id),
+        )
+        const credits = guests.filter((g) => eligibleIds.has(g.id) && g.status === 'none').length
+        setConfirmSend({ ids, reminder, recipients: preview.eligible, credits, preview })
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : strings.toast_send_failed)
+      }
+    })
   }
 
   /**
@@ -2694,6 +2722,45 @@ export default function SendInvitesView({
             {confirmSend.credits > 0 ? (
               <p className="mutedp">{fmt(strings.confirm_credits, { n: confirmSend.credits, m: quota.remaining })}</p>
             ) : null}
+
+            {/* Two guests on one handset means two paid messages to that
+                handset. That must be visible here, not discovered on the bill. */}
+            {confirmSend.preview.repeatedRecipients.length > 0 ? (
+              <div className="sendwarn danger">
+                <b>
+                  {confirmSend.preview.eligible} messages will reach{' '}
+                  {confirmSend.preview.distinctNumbers} phone
+                  {confirmSend.preview.distinctNumbers === 1 ? '' : 's'}.
+                </b>
+                <ul>
+                  {confirmSend.preview.repeatedRecipients.map((r) => (
+                    <li key={r.phone}>
+                      {r.phone} receives {r.guests.length}: {r.guests.join(', ')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {/* Never silently skip. Everyone held back is named, with why. */}
+            {confirmSend.preview.skipped.length > 0 ? (
+              <div className="sendwarn">
+                <b>
+                  {confirmSend.preview.skipped.length} guest
+                  {confirmSend.preview.skipped.length === 1 ? '' : 's'} will not be sent to
+                </b>
+                <ul>
+                  {confirmSend.preview.skipped.slice(0, 8).map((s) => (
+                    <li key={s.guestId}>
+                      {s.name} — {s.detail}
+                    </li>
+                  ))}
+                </ul>
+                {confirmSend.preview.skipped.length > 8 ? (
+                  <p className="mutedp">and {confirmSend.preview.skipped.length - 8} more.</p>
+                ) : null}
+              </div>
+            ) : null}
             <div className="vars">
               <div className="vlegend">{strings.settings_legend}</div>
               <div className="confirmdetail"><span>{strings.field_host_label}</span><b>{hostName}</b></div>
@@ -3257,6 +3324,14 @@ const css = `
 .si .modal h3{ font-size:21px; font-weight:600; }
 .si .modal .big{ font-size:14.5px; margin-top:12px; line-height:1.5; }
 .si .mutedp{ color:var(--muted); font-size:12.5px; margin-top:8px; line-height:1.5; }
+/* Pre-send warnings. Text carries the meaning, not colour alone — an admin
+   scanning quickly, or one who cannot distinguish the tint, still reads
+   exactly who is affected and why. */
+.si .sendwarn{ margin-top:12px; padding:10px 12px; border-radius:10px; border:1px solid rgba(0,0,0,.10); background:rgba(0,0,0,.03); font-size:12.5px; line-height:1.55; }
+.si .sendwarn.danger{ border-color:#fecdd3; background:#fff1f2; color:#9f1239; }
+.si .sendwarn b{ display:block; margin-bottom:4px; }
+.si .sendwarn ul{ margin:0; padding-left:16px; }
+.si .sendwarn li{ margin:2px 0; }
 .si .mrow{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
 .si .mhead{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .si .xbtn{ border:none; background:#f3f2f5; color:var(--muted); width:30px; height:30px; border-radius:50%; cursor:pointer;

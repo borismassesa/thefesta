@@ -8,6 +8,8 @@ import {
   releaseSendCredit,
 } from './queries'
 import { fullNameOf, normalizePhone, publicOrigin, templateParam } from './share'
+import { assessRosterDelivery } from './guest-delivery'
+import { loadRosterIdentities } from './queries'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import type { WhatsAppSendSummary } from './actions'
 import type { EventType } from './types'
@@ -132,6 +134,11 @@ export async function deliverEntrancePasses(args: {
   const origin = publicOrigin()
   let remaining = ent.entrancePassRemaining // informational only — consumeSendCredit is the actual gate
 
+  // Entrance passes carry an admission identity. Sending one to a number that
+  // another guest also holds is worse than a wasted message: two people
+  // receive a pass on one handset with no way to tell whose is whose.
+  const delivery = assessRosterDelivery(await loadRosterIdentities(user.id))
+
   for (const g of (guests ?? []) as {
     id: string
     full_name: string
@@ -139,10 +146,16 @@ export async function deliverEntrancePasses(args: {
     whatsapp_phone: string | null
     public_token: string
   }[]) {
-    const to = normalizePhone(g.whatsapp_phone ?? g.phone)
-    if (!to) {
+    const gate = delivery.get(g.id)
+    const to = gate?.phoneNormalized ?? null
+    if (!gate?.deliverable || !to) {
       summary.skipped += 1
-      summary.results.push({ id: g.id, name: g.full_name, outcome: 'skipped' })
+      summary.results.push({
+        id: g.id,
+        name: g.full_name,
+        outcome: 'skipped',
+        reason: gate?.detail || 'No phone number',
+      })
       continue
     }
 

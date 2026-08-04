@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createDashboardClient } from './supabase'
 import { resolveEventCover, type PledgePageConfig } from './pledge-page'
 import { firstNameOf, normalizePhone, pledgeUrl, publicOrigin } from './share'
+import { assessRosterDelivery } from './guest-delivery'
+import { loadRosterIdentities } from './queries'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import { getSmsProvider } from '@/lib/sms'
 import type { ReminderCadence, SendChannel } from './types'
@@ -190,9 +192,14 @@ export async function sendPledgeRequestForCouple(
       const cover = resolveEventCover(profile?.pledge_page, resolvedEventId)
       if (cover.coverImageUrl) headerImageUrl = cover.coverImageUrl
     }
+    // A pledge request asks for money. Two requests to one handset reads as a
+    // double ask, and pledges recorded against the wrong guest inflate the
+    // expected total.
+    const delivery = assessRosterDelivery(await loadRosterIdentities(userId))
     for (const g of rows) {
-      const to = normalizePhone(g.whatsapp_phone ?? g.phone)
-      if (!to) {
+      const gate = delivery.get(g.id)
+      const to = gate?.phoneNormalized ?? null
+      if (!gate?.deliverable || !to) {
         summary.skipped += 1
         continue
       }

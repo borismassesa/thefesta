@@ -373,15 +373,26 @@ export function templateParam(value: string | undefined, fallback: string, max =
   return (clean || fallback).slice(0, max)
 }
 
-/** Normalize a phone number to digits + leading country code for wa.me / sms. */
+/**
+ * Normalize a phone number to digits + leading country code for wa.me / sms.
+ *
+ * MUST agree exactly with public.opuspass_normalize_phone() (20260804160000),
+ * which backs guest_contacts.phone_normalized and therefore the "one number,
+ * one guest" unique index. phone-normalization-parity.test.ts holds both to
+ * one fixture; change neither side alone.
+ *
+ * Strips every non-digit, not just a leading '+'. Keeping interior or trailing
+ * '+' characters (as this did before) made "255757200767 (+ wife)" normalize
+ * to "255757200767+" here but "255757200767" in the index, so the pre-insert
+ * duplicate check cleared a guest the index then rejected with a raw 23505.
+ */
 export function normalizePhone(raw: string | null | undefined): string | null {
   if (!raw) return null
-  let digits = raw.replace(/[^\d+]/g, '')
-  if (digits.startsWith('+')) digits = digits.slice(1)
+  let digits = raw.replace(/\D/g, '')
   // Tanzania local format 0XXXXXXXXX -> 255XXXXXXXXX
   if (digits.startsWith('0')) digits = `255${digits.slice(1)}`
   // Tanzania mobile typed without the leading 0 (7XXXXXXXX / 6XXXXXXXX).
-  // Anything else must already carry its country code — we cannot guess it.
+  // Anything else must already carry its country code — we cannot guess one.
   if (/^[67]\d{8}$/.test(digits)) digits = `255${digits}`
   return digits || null
 }
@@ -442,4 +453,72 @@ export function emailShareUrl(
   message: string
 ): string {
   return `mailto:${guest.email ?? ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`
+}
+
+/**
+ * Split a stored guest name back into the title / first / last the edit form
+ * shows.
+ *
+ * Imported guests only ever get `full_name` — `title`, `first_name` and
+ * `last_name` are left null, and where they were backfilled it was done by
+ * splitting on the first space. Neither knows what an honorific is, so one
+ * roster ends up holding all of:
+ *
+ *   "Mr & Mrs Agapit"      -> first null,            last null
+ *   "Mr & Mrs Alphayo"     -> first "Mr",            last "& Mrs Alphayo"
+ *   "Mr & Mrs Amon Nkembo" -> first "Mr & Mrs Amon", last "Nkembo"
+ *
+ * The edit form then showed "Mr" as the guest's first name, and the only way
+ * an admin could correct it was to set the Title dropdown — which is why
+ * editing a guest felt like title was a required field.
+ *
+ * The split is always derived from `full_name`, never from the stored title /
+ * first / last. Three reasons, all of them live on the Moses Seeta roster:
+ *
+ *  - The stored parts are frequently wrong ("Mr" as a first name), which is
+ *    the complaint itself.
+ *  - They are sometimes actively corrupt: "Mr & Mrs Msuya" is held as title
+ *    "Mr & Mrs" / first "Msuya" / last "& Mrs Msuya", which adds back up to
+ *    "Mr & Mrs Msuya & Mrs Msuya" — saving the form would rewrite the guest.
+ *  - Checking whether the parts add up to full_name is not enough to tell the
+ *    good from the bad: "Mr" + "& Mrs Alphayo" recomposes perfectly and is
+ *    still the split that puts an honorific in the first-name box.
+ *
+ * Deriving is round-trip safe by construction: the pieces are taken from
+ * full_name, so they always add back up to it. full_name is also what every
+ * other surface already displays and sends, so it is the value to agree with.
+ */
+export function splitStoredGuestName(guest: {
+  full_name?: string | null
+  title?: string | null
+  first_name?: string | null
+  last_name?: string | null
+}): { title: string; first: string; last: string } {
+  const full = (guest.full_name ?? '').trim()
+  if (!full) {
+    return {
+      title: (guest.title ?? '').trim(),
+      first: (guest.first_name ?? '').trim(),
+      last: (guest.last_name ?? '').trim(),
+    }
+  }
+
+  const words = full.split(/\s+/)
+  const start = skipTitles(words)
+  // Every word is an honorific ("Mama"): keep it as the name rather than
+  // leaving the guest nameless.
+  if (start <= 0) {
+    return start === 0
+      ? { title: '', first: words[0] ?? '', last: words.slice(1).join(' ') }
+      : { title: '', first: full, last: '' }
+  }
+
+  // Re-cased from the stored value so "MR & MRS" comes back as "Mr & Mrs" and
+  // matches an option in the form's dropdown.
+  const title = words
+    .slice(0, start)
+    .map((w) => (w === '&' ? '&' : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(' ')
+  const rest = words.slice(start)
+  return { title, first: rest[0] ?? '', last: rest.slice(1).join(' ') }
 }
