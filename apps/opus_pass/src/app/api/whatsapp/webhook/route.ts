@@ -3,6 +3,8 @@ import { createNotification } from '@/lib/dashboard/notifications'
 import { formatLongDate } from '@/lib/dashboard/share'
 import { invitationLocation, invitationMapsUrl } from '@/lib/dashboard/invitation-event-details'
 import { BTN, getWhatsAppProvider, parseInboundButtons, parseStatusUpdates, verifyWebhookSignature, webhookVerifyToken } from '@/lib/whatsapp'
+import { guestPassLink } from '@/lib/wallet/pass-link'
+import { decidePassLink, rsvpConfirmationMessage } from '@/lib/wallet/pass-link-core'
 
 export const dynamic = 'force-dynamic'
 
@@ -203,7 +205,12 @@ export async function POST(req: Request) {
         .from('guest_invitations')
         .update({ rsvp_status: status, responded_at: new Date().toISOString() })
         .eq('guest_contact_id', guest.id)
-      await (resolvedEventId ? rsvpUpdate.eq('event_id', resolvedEventId) : rsvpUpdate)
+      // `.select('id')` so the pass link below knows WHICH admission was just
+      // confirmed. The rows are needed rather than re-queried: re-reading would
+      // race the couple editing the roster in the same moment.
+      const { data: rsvpRows } = await (
+        resolvedEventId ? rsvpUpdate.eq('event_id', resolvedEventId) : rsvpUpdate
+      ).select('id')
       await createNotification({
         userId: guest.user_id,
         type: 'rsvp_received',
@@ -212,12 +219,23 @@ export async function POST(req: Request) {
         actorName: guest.full_name,
         href: '/my/dashboard/rsvps',
       })
+      // The guest's pass link, when this tap identifies exactly one admission.
+      // decidePassLink holds the reasoning and the refusals.
+      //
+      // It rides on THIS message rather than a second one because the reply is
+      // already a free-form session text, legal only inside the 24-hour
+      // customer service window the guest's own tap just opened. A separate
+      // send would need its own approved template.
+      const decision = decidePassLink(
+        status,
+        resolvedEventId,
+        (rsvpRows ?? []).map((r) => r.id as string)
+      )
+      const passLink = decision.offer ? await guestPassLink(decision.invitationId, supabase) : null
+
       // Without this, tapping a button silently updates the couple's
       // dashboard but the guest who tapped it sees nothing happen at all.
-      const confirmMsg =
-        status === 'attending'
-          ? 'Asante! Tumepokea uthibitisho wako wa kuhudhuria. Tunakusubiri! 🎉'
-          : 'Asante kwa kutujulisha. Tunasikitika kwamba hutoweza kuhudhuria. 💐'
+      const confirmMsg = rsvpConfirmationMessage(status, passLink)
       const confirmResult = await provider.sendText(tap.from, confirmMsg)
       await supabase.from('whatsapp_messages').insert({
         user_id: guest.user_id,
