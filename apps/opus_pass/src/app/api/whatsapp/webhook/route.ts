@@ -3,7 +3,9 @@ import { createNotification } from '@/lib/dashboard/notifications'
 import { formatLongDate } from '@/lib/dashboard/share'
 import { invitationLocation, invitationMapsUrl } from '@/lib/dashboard/invitation-event-details'
 import { BTN, getWhatsAppProvider, parseInboundButtons, parseStatusUpdates, verifyWebhookSignature, webhookVerifyToken } from '@/lib/whatsapp'
+import { after } from 'next/server'
 import { deliverEntrancePasses } from '@/lib/dashboard/entrance-pass-send'
+import { samePhone, shouldAutoSendEntrancePass } from '@/lib/whatsapp/auto-entrance-pass'
 import { revokeGuestPassLinks } from '@/lib/wallet/pass-link'
 import { rsvpConfirmationMessage } from '@/lib/whatsapp/rsvp-confirmation'
 
@@ -133,17 +135,19 @@ export async function POST(req: Request) {
     //
     // Resolution is by token, and the token says nothing about who is holding
     // the handset — WhatsApp forwards templates with their buttons intact, so
-    // a forwarded invite tapped by Bob resolves to Alice. Nothing sent from
-    // here may therefore go to the SENDER's number if it is specific to the
-    // guest: the entrance pass is addressed from the roster instead.
+    // a forwarded invite tapped by Bob resolves to Alice. phone/whatsapp_phone
+    // are selected so the automatic entrance-pass send can require the sender
+    // to BE that guest; see shouldAutoSendEntrancePass.
     type ResolvedGuest = {
       id: string
       user_id: string
       full_name: string
+      phone: string | null
+      whatsapp_phone: string | null
     }
     const guestQuery = supabase
       .from('guest_contacts')
-      .select('id, user_id, full_name')
+      .select('id, user_id, full_name, phone, whatsapp_phone')
     const { data: guest } = tap.token
       ? await guestQuery.eq('public_token', tap.token).maybeSingle<ResolvedGuest>()
       : await guestQuery.eq('phone', tap.from).maybeSingle<ResolvedGuest>()
@@ -219,9 +223,10 @@ export async function POST(req: Request) {
         .from('guest_invitations')
         .update({ rsvp_status: status, responded_at: new Date().toISOString() })
         .eq('guest_contact_id', guest.id)
-      // `.select('id')` so the pass link below knows WHICH admission was just
-      // confirmed. The rows are needed rather than re-queried: re-reading would
-      // race the couple editing the roster in the same moment.
+      // `.select('id')` so the decline path below knows WHICH admissions were
+      // just withdrawn from, and can retire their pass links. The rows are
+      // needed rather than re-queried: re-reading would race the couple
+      // editing the roster in the same moment.
       const { data: rsvpRows } = await (
         resolvedEventId ? rsvpUpdate.eq('event_id', resolvedEventId) : rsvpUpdate
       ).select('id')
@@ -267,49 +272,60 @@ export async function POST(req: Request) {
 
       // The entrance pass follows the acknowledgement: a guest who confirms is
       // owed their ticket, and waiting for the couple to remember to send it
-      // is what this automates.
+      // is what this automates. shouldAutoSendEntrancePass holds the refusals,
+      // and the reason there are any: unlike the couple clicking "send", this
+      // path has no human authorising a spend.
       //
-      // Requires an event. A tap that can't be attributed to one updated EVERY
-      // invitation the guest holds (legacy sends carry no event id), so there
-      // is no single ticket to draw and guessing sends the wrong wedding's.
+      // Runs in `after()`, so the 200 goes back to Meta before any of it
+      // happens. This handler's contract is to answer fast — several queries
+      // and a template send in front of the response is exactly the slow
+      // processing that makes Meta redeliver. (A redelivery would be harmless:
+      // the inbound wamid is inserted before any work and a duplicate skips
+      // the tap entirely. Harmless is not a reason to provoke it.)
       //
-      // The ticket goes to the number the guest is ON FILE with, never to
-      // tap.from, so a tap arriving from someone else's handset cannot divert
-      // it. That is why this needs no sender check of its own.
-      //
-      // Best-effort, and deliberately after the reply is already sent and
-      // logged: the acknowledgement is what the guest is owed for tapping, and
-      // no failure in the ticket path may take it down or make Meta retry the
-      // whole webhook.
-      if (status === 'attending' && resolvedEventId) {
-        try {
-          const { data: couple } = await supabase
-            .from('users')
-            .select('email')
-            .eq('id', guest.user_id)
-            .maybeSingle<{ email: string | null }>()
-          const summary = await deliverEntrancePasses({
-            user: { id: guest.user_id, email: couple?.email ?? '' },
-            eventId: resolvedEventId,
-            guestIds: [guest.id],
-          })
-          if (summary.sent === 0) {
-            // Worth a line: a guest who confirmed and got no ticket is the
-            // support question this will actually generate, and the counters
-            // say which of the reasons it was.
-            console.warn('[whatsapp webhook] confirmed without an entrance pass', {
-              guestId: guest.id,
-              blocked: summary.blocked,
-              skipped: summary.skipped,
-              failed: summary.failed,
+      // Best-effort by construction. The acknowledgement is what the guest is
+      // owed for tapping, and it is already sent and logged by here.
+      if (shouldAutoSendEntrancePass(status, resolvedEventId, tap.from, [guest.phone, guest.whatsapp_phone])) {
+        const eventId = resolvedEventId as string
+        const guestId = guest.id
+        const userId = guest.user_id
+        after(async () => {
+          try {
+            const { data: couple } = await supabase
+              .from('users')
+              .select('email')
+              .eq('id', userId)
+              .maybeSingle<{ email: string | null }>()
+            const summary = await deliverEntrancePasses({
+              user: { id: userId, email: couple?.email ?? '' },
+              eventId,
+              guestIds: [guestId],
+            })
+            if (summary.sent === 0) {
+              // Worth a line: a guest who confirmed and got no ticket is the
+              // support question this will actually generate, and the counters
+              // say which of the reasons it was.
+              console.warn('[whatsapp webhook] confirmed without an entrance pass', {
+                guestId,
+                blocked: summary.blocked,
+                skipped: summary.skipped,
+                failed: summary.failed,
+              })
+            }
+          } catch (err) {
+            console.error('[whatsapp webhook] entrance pass send failed', {
+              guestId,
+              kind: (err as Error)?.name,
             })
           }
-        } catch (err) {
-          console.error('[whatsapp webhook] entrance pass send failed', {
-            guestId: guest.id,
-            kind: (err as Error)?.name,
-          })
-        }
+        })
+      } else if (status === 'attending') {
+        // The refusals are silent to the guest, so they have to be loud here.
+        console.warn('[whatsapp webhook] confirmed without an automatic entrance pass', {
+          guestId: guest.id,
+          hasEvent: Boolean(resolvedEventId),
+          senderIsGuest: samePhone(tap.from, guest.phone) || samePhone(tap.from, guest.whatsapp_phone),
+        })
       }
     } else if (tap.kind === BTN.VIEW_LOCATION) {
       // Reply with the specific event this tap was about; fall back to the
