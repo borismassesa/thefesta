@@ -3,8 +3,8 @@ import { createNotification } from '@/lib/dashboard/notifications'
 import { formatLongDate } from '@/lib/dashboard/share'
 import { invitationLocation, invitationMapsUrl } from '@/lib/dashboard/invitation-event-details'
 import { BTN, getWhatsAppProvider, parseInboundButtons, parseStatusUpdates, verifyWebhookSignature, webhookVerifyToken } from '@/lib/whatsapp'
-import { guestPassLink } from '@/lib/wallet/pass-link'
-import { decidePassLink, rsvpConfirmationMessage } from '@/lib/wallet/pass-link-core'
+import { guestPassLink, revokeGuestPassLinks } from '@/lib/wallet/pass-link'
+import { decidePassLink, rsvpConfirmationMessage, samePhone } from '@/lib/wallet/pass-link-core'
 
 export const dynamic = 'force-dynamic'
 
@@ -129,10 +129,23 @@ export async function POST(req: Request) {
     }
 
     // Resolve the guest: token from the button payload, else sender phone.
-    const guestQuery = supabase.from('guest_contacts').select('id, user_id, full_name')
+    // phone/whatsapp_phone are selected for the pass link only. Resolution is
+    // by token, and the token says nothing about who is holding the handset,
+    // so the link has to be checked against the number on file. See
+    // decidePassLink.
+    type ResolvedGuest = {
+      id: string
+      user_id: string
+      full_name: string
+      phone: string | null
+      whatsapp_phone: string | null
+    }
+    const guestQuery = supabase
+      .from('guest_contacts')
+      .select('id, user_id, full_name, phone, whatsapp_phone')
     const { data: guest } = tap.token
-      ? await guestQuery.eq('public_token', tap.token).maybeSingle<{ id: string; user_id: string; full_name: string }>()
-      : await guestQuery.eq('phone', tap.from).maybeSingle<{ id: string; user_id: string; full_name: string }>()
+      ? await guestQuery.eq('public_token', tap.token).maybeSingle<ResolvedGuest>()
+      : await guestQuery.eq('phone', tap.from).maybeSingle<ResolvedGuest>()
     if (!guest) {
       // No matching guest — the tap is recorded above (for idempotency/audit)
       // but nothing else can happen. Log it: this is the #1 silent-failure
@@ -229,9 +242,34 @@ export async function POST(req: Request) {
       const decision = decidePassLink(
         status,
         resolvedEventId,
-        (rsvpRows ?? []).map((r) => r.id as string)
+        (rsvpRows ?? []).map((r) => r.id as string),
+        tap.from,
+        [guest.phone, guest.whatsapp_phone]
       )
       const passLink = decision.offer ? await guestPassLink(decision.invitationId, supabase) : null
+
+      // A guest who withdraws should not keep a working pass link. This matters
+      // beyond tidiness: the token is re-used rather than rotated, so without
+      // revoking here a guest who attends, declines, then re-attends is handed
+      // back the SAME link, and a copy that leaked in the first round outlives
+      // the decline that should have ended it.
+      if (status === 'declined' && rsvpRows?.length) {
+        await revokeGuestPassLinks(
+          rsvpRows.map((r) => r.id as string),
+          supabase
+        )
+      }
+      if (status === 'attending' && !decision.offer) {
+        // Worth a line: a guest who confirmed and got no pass link is the
+        // support question this will actually generate, and the alternative is
+        // it being indistinguishable from the feature being off.
+        console.warn('[whatsapp webhook] confirmed without a pass link', {
+          guestId: guest.id,
+          hasEvent: Boolean(resolvedEventId),
+          matched: (rsvpRows ?? []).length,
+          senderIsGuest: samePhone(tap.from, guest.phone) || samePhone(tap.from, guest.whatsapp_phone),
+        })
+      }
 
       // Without this, tapping a button silently updates the couple's
       // dashboard but the guest who tapped it sees nothing happen at all.
