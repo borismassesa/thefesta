@@ -117,6 +117,20 @@ test('successful preparation creates one row and one png', async () => {
   assert.equal(client.asset()?.png_storage_path, result.pngStoragePath)
 })
 
+test('a guest whose name needs XML escaping still gets a card', async () => {
+  // "Mr & Mrs Ngando" reaches the markup as "Mr &amp; Mrs Ngando". The
+  // substitution check used to look for the raw string, so every guest with an
+  // ampersand was refused as GUEST_ROLE_UNMAPPED: a correctly rendered card,
+  // reported as a mapping fault, on a design a designer had already approved.
+  const client = makeClient({ guestName: 'Mr & Mrs Ngando' })
+
+  const result = await run(client)
+
+  assert.equal(result.ok, true, result.ok ? '' : `failed: ${result.code}`)
+  if (!result.ok) return
+  assert.equal(client.asset()?.status, 'ready')
+})
+
 test('a retry after success is reused and writes nothing', async () => {
   const client = makeClient()
   const first = await run(client)

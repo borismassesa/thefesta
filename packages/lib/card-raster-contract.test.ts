@@ -161,6 +161,24 @@ test('accepts a card that really carries this guest', () => {
   assert.deepEqual(assertGuestSubstituted(svg, 'Bw. Juma Ally', ['guest_name']), { ok: true })
 })
 
+test('accepts a guest whose name the renderer had to XML-escape', () => {
+  // "Mr & Mrs Ngando" is written into the markup as "Mr &amp; Mrs Ngando".
+  // Searching for the raw form failed every guest with an ampersand in the
+  // name, and reported it as an unmapped guest layer.
+  const svg = '<text>Mr &amp; Mrs Ngando</text>'
+
+  assert.deepEqual(assertGuestSubstituted(svg, 'Mr & Mrs Ngando', ['guest_name']), { ok: true })
+})
+
+test('still rejects an escaping guest name the card does not carry', () => {
+  const result = assertGuestSubstituted('<text>Mr &amp; Mrs Other</text>', 'Mr & Mrs Ngando', [
+    'guest_name',
+  ])
+
+  assert.equal(result.ok, false)
+  if (!result.ok) assert.match(result.reason, /not present/)
+})
+
 test('rejects a card where the renderer never applied the role', () => {
   const result = assertGuestSubstituted('<text>Bw. Juma Ally</text>', 'Bw. Juma Ally', [])
 
