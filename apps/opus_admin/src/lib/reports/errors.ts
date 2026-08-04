@@ -27,6 +27,7 @@ export const REPORT_ERROR_TOKENS = [
   'report.no_template_version',
   'report.recipients_unresolved',
   'report.validation_failed',
+  'report.system_fields_unavailable',
 ] as const
 
 export type ReportErrorToken = (typeof REPORT_ERROR_TOKENS)[number]
@@ -51,6 +52,8 @@ const MESSAGES: Record<ReportErrorToken, string> = {
   'report.recipients_unresolved':
     'This report could not work out who to send it to. Check that your manager is set on your record.',
   'report.validation_failed': 'Some answers need fixing before this can be filed.',
+  'report.system_fields_unavailable':
+    'This report expects figures the system fills in, and they are not available yet. Nothing was saved. Tell People Ops before filling it in by hand.',
 }
 
 const GENERIC = 'The report could not be saved right now. Try again in a moment.'

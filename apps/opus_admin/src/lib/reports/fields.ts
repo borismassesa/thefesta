@@ -54,6 +54,27 @@ export const REPORT_FIELD_LABELS: Record<ReportFieldType, string> = {
   rating: 'Rating',
 }
 
+/**
+ * Who supplies the value.
+ *
+ * From OF-ENG-RPT-006: "The system fills in whatever it already knows. Anything
+ * the dashboard can count is shown as a value the employee confirms. They only
+ * type what the system cannot know." This is the property that makes a daily
+ * report take under three minutes, so it belongs in the template, not in a
+ * per-form special case.
+ *
+ * 'employee'   the person types it.
+ * 'system'     resolved server-side from `systemSourceKey` and shown for
+ *              confirmation. The renderer shows a value, not an empty input.
+ * 'calculated' derived from other fields in the same submission. Never entered,
+ *              never confirmed.
+ *
+ * Absent means 'employee', so every template written before this existed keeps
+ * behaving exactly as it did.
+ */
+export const REPORT_FILLED_BY = ['employee', 'system', 'calculated'] as const
+export type ReportFilledBy = (typeof REPORT_FILLED_BY)[number]
+
 /** One column of a `table` field, or one input of a `repeatable_list` item. */
 export type ReportSubField = {
   key: string
@@ -85,6 +106,22 @@ export type ReportField = {
   placeholder?: string
   required?: boolean
 
+  /** Who supplies the value. Absent means 'employee'. */
+  filledBy?: ReportFilledBy
+  /** Required when filledBy is 'system'. Names the server-side resolver that
+   *  produces the value. A system field without one is a template that promises
+   *  a number nothing can supply, so parseFormDefinition discards it. */
+  systemSourceKey?: string
+  /**
+   * The "Feeds" column of the spec: which KPI this number is used to calculate.
+   * Absent means the field is context only.
+   *
+   * Holds `growth_metric_definitions.code` rather than the row id. jsonb cannot
+   * carry a foreign key either way, and a code survives a restore, reads in a
+   * diff, and can be written by hand when authoring a template.
+   */
+  feedsMetricCode?: string
+
   // ---- numeric constraints (number, percentage, currency, rating, kpi_value)
   min?: number
   max?: number
@@ -99,6 +136,9 @@ export type ReportField = {
   maxLength?: number
 
   // ---- kpi_value only
+  /** @deprecated Free string that referenced nothing. Use `feedsMetricCode`,
+   *  which names a real growth_metric_definitions row. Kept so stored template
+   *  versions, which are immutable, still parse. */
   kpiKey?: string
   unit?: string
 
@@ -382,21 +422,51 @@ export function validateContent(
   return errors.length === 0 ? { ok: true } : { ok: false, errors }
 }
 
+/** True when the value comes from the server rather than from the person. */
+export function isSystemFilled(field: ReportField): boolean {
+  return field.filledBy === 'system' || field.filledBy === 'calculated'
+}
+
+/** Keys the server must resolve before a draft can be cleaned. Lets a caller
+ *  assert it has supplied everything rather than discovering a blanked field. */
+export function systemFieldKeys(definition: ReportFormDefinition): string[] {
+  return allFields(definition).filter(isSystemFilled).map((f) => f.key)
+}
+
 /**
  * Drop anything the definition does not declare, and fill in what it does.
  *
- * Called before every write. Two jobs: a client cannot smuggle extra keys into
- * stored content, and a field added to the template after a draft was started
- * appears with its empty value rather than as `undefined` that the renderer has
- * to special-case.
+ * Called before every write. Three jobs now:
+ *
+ * 1. A client cannot smuggle extra keys into stored content.
+ * 2. A field added to the template after a draft was started appears with its
+ *    empty value rather than as `undefined` the renderer has to special-case.
+ * 3. A client cannot author a system-filled value. This is the teeth behind
+ *    "every number appears once, calculated in one place". If the browser could
+ *    POST its own figure for "Events closed", the number would exist twice and
+ *    the two copies could disagree, which is exactly what the rule forbids.
+ *
+ * System fields therefore take their value from `options.systemValues` and from
+ * nowhere else. A system field with no resolved value is emptied rather than
+ * filled from the request: failing to an empty box is visible and recoverable,
+ * whereas trusting the client is neither.
+ *
+ * Templates that declare no `filledBy` are entirely unaffected, so every
+ * template written before this existed behaves exactly as it did.
  */
 export function cleanContent(
   definition: ReportFormDefinition,
   content: ReportContent,
+  options: { systemValues?: ReportContent } = {},
 ): ReportContent {
   const cleaned: ReportContent = {}
   for (const section of definition.sections) {
     for (const field of section.fields) {
+      if (isSystemFilled(field)) {
+        const resolved = options.systemValues?.[field.key]
+        cleaned[field.key] = resolved === undefined ? emptyValue(field) : resolved
+        continue
+      }
       const value = content[field.key]
       cleaned[field.key] = value === undefined ? emptyValue(field) : value
     }
@@ -431,6 +501,25 @@ export function parseFormDefinition(value: unknown): ReportFormDefinition {
         const field = f as Record<string, unknown>
         if (typeof field.key !== 'string' || typeof field.label !== 'string') continue
         if (!REPORT_FIELD_TYPES.includes(field.type as ReportFieldType)) continue
+
+        // filledBy decides whether a client may author this value, so an
+        // unrecognised one is not downgraded to 'employee' and waved through:
+        // that would hand a system number back to manual entry, which is the
+        // one thing "every number appears once" rules out. Discard the field,
+        // matching how an unknown type is treated.
+        if (field.filledBy !== undefined) {
+          if (!REPORT_FILLED_BY.includes(field.filledBy as ReportFilledBy)) continue
+          // A system field names its resolver or it promises a value that
+          // nothing can supply.
+          if (
+            field.filledBy === 'system' &&
+            (typeof field.systemSourceKey !== 'string' || field.systemSourceKey.trim() === '')
+          ) {
+            continue
+          }
+        }
+        if (field.feedsMetricCode !== undefined && typeof field.feedsMetricCode !== 'string') continue
+
         fields.push(field as unknown as ReportField)
       }
     }
