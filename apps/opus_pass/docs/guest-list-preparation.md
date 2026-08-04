@@ -30,7 +30,8 @@ header is fine. These labels are recognised:
 |---|---|
 | Name (required) | Name, Full Name, Jina, Jina Kamili, Majina |
 | Phone | Phone, Mobile, WhatsApp, Namba ya Simu, Simu, Namba |
-| Email (optional) | Email, Barua Pepe |
+| Email (optional) | Email, Email Address, Barua Pepe |
+| Ticket type (optional) | Ticket, Ticket Type, Invitation Type, Aina ya Tiketi |
 
 Anything else you add (Na., Status, Maelezo, Notes) is ignored and safe to keep.
 
@@ -61,10 +62,11 @@ Do not type "Hakuna namba", "N/A", "-" or "TBC". That text is saved as the
 guest's phone number and the card fails to send. An empty cell is correct: the
 guest imports fine and a number can be added later.
 
-**1.8 Only keep tabs you want imported.**
-Every worksheet with a proper header row is imported, including test and draft
-tabs. Delete them before sending. Summary and review tabs are skipped
-automatically, so those can stay.
+**1.8 Multi-sheet workbooks are supported.**
+Every worksheet with a recognized Name / Jina header is imported. Review,
+Summary, Budget and Instructions tabs are skipped because they do not have a
+guest Name header. If two tabs are both genuine guest lists, both are imported;
+duplicate phone numbers are removed across the combined batch.
 
 **1.9 No merged cells, and no colour coding as data.**
 A merged cell keeps its text in the first cell only and leaves the rest of the
@@ -78,7 +80,7 @@ its own column.
 
 | Item | How it is handled |
 |---|---|
-| Single or Double ticket | Everyone imports as **Single**. Change to Double in the dashboard after the upload. |
+| Single or Double ticket | Add an optional **Ticket Type** column containing Single or Double. Blank or unrecognized values become Single. |
 | Table or seating | Set in Seating after the guests exist. |
 | Which event a guest attends | Chosen in the upload dialog under "Invite all to", not in the sheet. |
 | Totals rows | Ignored, so a JUMLA line at the bottom is harmless. |
@@ -147,7 +149,8 @@ kinaruhusiwa. Majina yanayotambuliwa:
 |---|---|
 | Jina (lazima) | Jina, Jina Kamili, Majina, Name, Full Name |
 | Simu | Namba ya Simu, Simu, Namba, WhatsApp, Phone, Mobile |
-| Barua pepe (hiari) | Barua Pepe, Email |
+| Barua pepe (hiari) | Barua Pepe, Email, Email Address |
+| Aina ya tiketi (hiari) | Aina ya Tiketi, Ticket Type, Ticket, Invitation Type |
 
 Safu nyingine zozote (Na., Status, Maelezo) hazisomwi na unaweza kuziacha.
 
@@ -178,10 +181,11 @@ Usiandike "Hakuna namba", "N/A", "-" wala "TBC". Maandishi hayo yanahifadhiwa
 kama namba ya simu ya mgeni na kadi inashindwa kutumwa. Kisanduku kitupu ndiyo
 sahihi: mgeni anaingia salama na namba inaweza kuongezwa baadaye.
 
-**1.8 Baki na tabo unazotaka ziingizwe tu.**
-Kila tabo yenye mstari sahihi wa vichwa inaingizwa, ikiwemo tabo za majaribio na
-rasimu. Zifute kabla ya kutuma. Tabo za muhtasari na hakiki zinarukwa
-zenyewe, hizo zinaweza kubaki.
+**1.8 Faili yenye tabo nyingi inaruhusiwa.**
+Kila tabo yenye kichwa cha Name / Jina kinachotambulika inaingizwa. Tabo za
+Review, Summary, Budget na Instructions zinarukwa kwa sababu hazina kichwa cha
+jina la mgeni. Tabo mbili zikiwa orodha halisi za wageni, zote zinaingizwa;
+namba za simu zilizorudiwa zinaondolewa kwenye mkusanyiko mzima.
 
 **1.9 Hakuna visanduku vilivyounganishwa, na rangi si taarifa.**
 Kisanduku kilichounganishwa (merged) kinabaki na maandishi kwenye kisanduku cha
@@ -195,7 +199,7 @@ lazima iandikwe kama maandishi kwenye safu yake.
 
 | Kipengele | Jinsi inavyoshughulikiwa |
 |---|---|
-| Tiketi ya Single au Double | Kila mtu anaingia kama **Single**. Badilisha kuwa Double kwenye dashibodi baada ya kupakia. |
+| Tiketi ya Single au Double | Ongeza safu ya hiari ya **Aina ya Tiketi / Ticket Type** yenye Single au Double. Nafasi tupu au thamani isiyotambulika inaingia kama Single. |
 | Meza na mpangilio wa viti | Hupangwa kwenye Seating baada ya wageni kuingia. |
 | Tukio analohudhuria mgeni | Huchaguliwa kwenye dirisha la kupakia chini ya "Invite all to", siyo kwenye lahajedwali. |
 | Mstari wa jumla | Hurukwa, kwa hiyo JUMLA chini ya orodha haileti tatizo. |

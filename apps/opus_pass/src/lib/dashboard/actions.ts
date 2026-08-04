@@ -48,6 +48,7 @@ import { pledgeRequestEmail } from './pledge-email'
 import { sendGiftClaimReceipts, type ReceiptGift, type ReceiptLang } from './gift-registry-receipt'
 import { GIFT_CATALOG } from './gift-catalog'
 import { MAX_TICKET_PARTY } from './types'
+import type { GuestImportRow } from './guest-import-rows'
 import type {
   AttendanceAnswer,
   CardStatus,
@@ -683,29 +684,60 @@ export async function deleteGuests(guestIds: string[]): Promise<number> {
   return data?.length ?? 0
 }
 
-/** Paste names (one per line, optional "Name, email, phone") to bulk-add. */
-export async function bulkImportGuests(text: string, eventIds: string[] = []): Promise<number> {
+/**
+ * What a bulk import actually did. The counts reconcile with the file:
+ * `imported + skippedDuplicates + skippedNoName` equals the rows submitted,
+ * so a guest list that comes up short always has a stated reason.
+ */
+export interface GuestImportOutcome {
+  imported: number
+  /** Phone digits already on the roster, or repeated earlier in this file. */
+  skippedDuplicates: number
+  /** Rows with no name in the name column. */
+  skippedNoName: number
+}
+
+/**
+ * Bulk-add guests from the importer.
+ *
+ * Takes already-parsed rows rather than a delimited string: the client reads
+ * the editable text as CSV (so a name containing a comma stays intact) and
+ * sends structured rows. Every field is still re-validated here — the browser
+ * is never trusted for the name or the party size.
+ */
+export async function bulkImportGuests(
+  input: GuestImportRow[],
+  eventIds: string[] = [],
+): Promise<GuestImportOutcome> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
 
-  const rows = text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [full_name, email, phone] = line.split(',').map((p) => p.trim())
-      return { full_name, email: email || null, phone: phone || null }
-    })
-    .filter((r) => r.full_name)
+  const received = Array.isArray(input) ? input.length : 0
+  const rows = (Array.isArray(input) ? input : []).flatMap((row) => {
+    const full_name = String(row?.full_name ?? '').trim()
+    if (!full_name) return []
+    const email = String(row?.email ?? '').trim()
+    const phone = String(row?.phone ?? '').trim()
+    return [{
+      full_name,
+      email: email || null,
+      phone: phone || null,
+      max_party_size: ticketPartySize(row?.max_party_size),
+    }]
+  })
+  const skippedNoName = received - rows.length
 
-  if (rows.length === 0) return 0
+  if (rows.length === 0) return { imported: 0, skippedDuplicates: 0, skippedNoName }
 
   // One person, one row — mirror createGuest's duplicate guard: skip lines
   // whose phone digits already exist on the roster or earlier in this batch.
-  const { data: existing } = await supabase
+  // The error must not be swallowed: an empty `existing` on failure would
+  // silently disable the guard and re-insert everyone already on the roster.
+  const { data: existing, error: existingErr } = await supabase
     .from('guest_contacts')
     .select('phone, whatsapp_phone')
     .eq('user_id', user.id)
+  if (existingErr) throw new Error(existingErr.message)
   const seen = new Set(
     (existing ?? [])
       .flatMap((c) => [c.phone, c.whatsapp_phone])
@@ -719,7 +751,8 @@ export async function bulkImportGuests(text: string, eventIds: string[] = []): P
     seen.add(digits)
     return true
   })
-  if (fresh.length === 0) return 0
+  const skippedDuplicates = rows.length - fresh.length
+  if (fresh.length === 0) return { imported: 0, skippedDuplicates, skippedNoName }
 
   const { data, error } = await supabase
     .from('guest_contacts')
@@ -744,7 +777,7 @@ export async function bulkImportGuests(text: string, eventIds: string[] = []): P
     if (invErr) throw new Error(invErr.message)
   }
   revalidateDashboard()
-  return fresh.length
+  return { imported: fresh.length, skippedDuplicates, skippedNoName }
 }
 
 // ---------------------------------------------------------------- RSVPs (owner edit)

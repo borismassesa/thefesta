@@ -32,7 +32,12 @@ import {
   sendWhatsAppRsvpReminders,
   type GuestInput,
 } from '@/lib/dashboard/actions'
-import { fileToImportLines, SpreadsheetError } from '@/lib/dashboard/import-spreadsheet'
+import {
+  fileToImportResult,
+  SpreadsheetError,
+  type SpreadsheetImportResult,
+} from '@/lib/dashboard/import-spreadsheet'
+import { parseGuestImportRows } from '@/lib/dashboard/guest-import-rows'
 import type { DashboardHeroContent } from '@/lib/cms/dashboard-hero'
 import type { GuestsDashboardCopy } from '@/lib/cms/dashboard-copy'
 import type { DashboardEventScopeStrings } from '@/lib/cms/ui-strings-fallback'
@@ -164,6 +169,7 @@ export default function GuestsManager({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [view, setView] = useState<GuestView>('manage')
   const [importText, setImportText] = useState('')
+  const [importSummary, setImportSummary] = useState<SpreadsheetImportResult | null>(null)
   const [importEventIds, setImportEventIds] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [editing, setEditing] = useState<GuestWithInvitations | null>(null)
@@ -199,6 +205,7 @@ export default function GuestsManager({
       return (
         g.full_name.toLowerCase().includes(q) ||
         (g.email ?? '').toLowerCase().includes(q) ||
+        (g.whatsapp_phone ?? g.phone ?? '').toLowerCase().includes(q) ||
         (g.group_tag ?? '').toLowerCase().includes(q)
       )
     })
@@ -259,7 +266,8 @@ export default function GuestsManager({
   }, [eventScopedGuests])
 
   const counts = useMemo(() => {
-    const missingContact = filtered.filter((g) => !g.email && !g.phone && !g.whatsapp_phone).length
+    const missingEmail = filtered.filter((g) => !g.email).length
+    const missingPhone = filtered.filter((g) => !g.phone && !g.whatsapp_phone).length
     const invited = filtered.filter((g) => wasSentForScope(g, eventFilter, sentEventIds)).length
     let replied = 0
     let totalInvites = 0
@@ -272,7 +280,7 @@ export default function GuestsManager({
     // Entrance passes are a Single/Double product — a guest allocated 2+
     // seats is a Double (max_party_size is clamped to 2 on write).
     const doubles = filtered.filter((g) => g.max_party_size >= 2).length
-    return { missingContact, invited, replied, totalInvites, doubles }
+    return { missingEmail, missingPhone, invited, replied, totalInvites, doubles }
   }, [filtered, eventFilter, sentEventIds])
 
   // One rule per line in the CMS field, same shape as the website benefits list.
@@ -506,12 +514,13 @@ export default function GuestsManager({
     const file = e.target.files?.[0]
     if (!file) return
     try {
-      const lines = await fileToImportLines(file)
-      if (!lines.trim()) {
+      const result = await fileToImportResult(file)
+      if (!result.lines.trim()) {
         toast.error('No guests found in that file')
         return
       }
-      setImportText(lines)
+      setImportText(result.lines)
+      setImportSummary(result)
     } catch (err) {
       toast.error(err instanceof SpreadsheetError ? err.message : 'Could not read file')
     } finally {
@@ -524,12 +533,31 @@ export default function GuestsManager({
       toast.error('Paste at least one name')
       return
     }
+    // Read the editable text as CSV here so a name containing a comma stays
+    // one field, then send structured rows rather than a delimited string.
+    const { rows, unrecognizedTickets } = parseGuestImportRows(importText)
+    if (rows.length === 0) {
+      toast.error('Paste at least one name')
+      return
+    }
     startTransition(async () => {
       try {
-        const n = await bulkImportGuests(importText, importEventIds)
-        toast.success(`${n} guest${n === 1 ? '' : 's'} added`)
+        const { imported, skippedDuplicates } = await bulkImportGuests(rows, importEventIds)
+        // Say why the count fell short of the rows found, so the summary above
+        // and this toast never disagree without an explanation.
+        const skipped = skippedDuplicates > 0
+          ? `, ${skippedDuplicates} skipped as ${skippedDuplicates === 1 ? 'a duplicate' : 'duplicates'}`
+          : ''
+        toast.success(`${imported} guest${imported === 1 ? '' : 's'} added${skipped}`)
+        if (unrecognizedTickets.length > 0) {
+          // Don't let an unreadable ticket value quietly become a Single.
+          toast.warning(
+            `Imported as Single: unrecognized ticket ${unrecognizedTickets.length === 1 ? 'type' : 'types'} ${unrecognizedTickets.join(', ')}. Use Single or Double.`,
+          )
+        }
         setImportOpen(false)
         setImportText('')
+        setImportSummary(null)
         setImportEventIds([])
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Import failed')
@@ -543,11 +571,9 @@ export default function GuestsManager({
   // title, so it's obvious at a glance which event's guest list is showing.
   const selectedEventName = events.length > 1 && eventFilter !== 'all' ? eventName(eventFilter) : undefined
 
-  // "Invited to" only earns its column across the whole roster (a guest can
-  // belong to several events). Scoped to one event it just repeats the event
-  // name on every row, so the guest-level mailing address — always useful and
-  // never redundant — takes that slot instead. The Address view forces it too.
-  const showAddressCol = eventFilter !== 'all' || view === 'address'
+  // Mailing address has its own workflow. Keep it out of the core Manage table
+  // and show it only when the couple deliberately opens the Address view.
+  const showAddressCol = view === 'address'
 
   return (
     <div className="space-y-6">
@@ -783,11 +809,21 @@ export default function GuestsManager({
                   </th>
                   <th scope="col" className="py-3 pr-4">
                     <span className="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]/55">
-                      Email &amp; phone
+                      Phone number
                     </span>
-                    {counts.missingContact > 0 ? (
+                    {counts.missingPhone > 0 ? (
                       <p className="mt-0.5 text-[11px] font-normal normal-case tracking-normal text-rose-600">
-                        {counts.missingContact} missing
+                        {counts.missingPhone} missing
+                      </p>
+                    ) : null}
+                  </th>
+                  <th scope="col" className="py-3 pr-4">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]/55">
+                      Email
+                    </span>
+                    {counts.missingEmail > 0 ? (
+                      <p className="mt-0.5 text-[11px] font-normal normal-case tracking-normal text-rose-600">
+                        {counts.missingEmail} missing
                       </p>
                     ) : null}
                   </th>
@@ -802,13 +838,7 @@ export default function GuestsManager({
                         </p>
                       ) : null}
                     </th>
-                  ) : (
-                    <th scope="col" className="hidden py-3 pr-4 md:table-cell">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]/55">
-                        Invited to
-                      </span>
-                    </th>
-                  )}
+                  ) : null}
                   <th scope="col" className="py-3 pr-4">
                     <span className="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]/55">
                       Ticket type
@@ -826,7 +856,6 @@ export default function GuestsManager({
               </thead>
               <tbody className="divide-y divide-black/[0.05]">
                 {filtered.map((g) => {
-                  const invitationsInScope = scopedInvitations(g, eventFilter)
                   const isSelected = selected.has(g.id)
                   return (
                     <tr
@@ -856,18 +885,18 @@ export default function GuestsManager({
                         </div>
                       </td>
                       <td className="py-3.5 pr-4">
-                        <div className="space-y-0.5 text-xs">
-                          {g.email ? (
-                            <p className="truncate text-[#1A1A1A]/70">{g.email}</p>
-                          ) : (
-                            <p className="text-rose-600">Missing email</p>
-                          )}
-                          {g.whatsapp_phone || g.phone ? (
-                            <p className="truncate text-[#1A1A1A]/70">{g.whatsapp_phone ?? g.phone}</p>
-                          ) : (
-                            <p className="text-rose-600">Missing phone</p>
-                          )}
-                        </div>
+                        {g.whatsapp_phone || g.phone ? (
+                          <p className="truncate text-xs text-[#1A1A1A]/70">{g.whatsapp_phone ?? g.phone}</p>
+                        ) : (
+                          <p className="text-xs text-rose-600">Missing phone</p>
+                        )}
+                      </td>
+                      <td className="py-3.5 pr-4">
+                        {g.email ? (
+                          <p className="truncate text-xs text-[#1A1A1A]/70">{g.email}</p>
+                        ) : (
+                          <p className="text-xs text-rose-600">Missing email</p>
+                        )}
                       </td>
                       {showAddressCol ? (
                         <td className="py-3.5 pr-4">
@@ -888,29 +917,7 @@ export default function GuestsManager({
                             </button>
                           )}
                         </td>
-                      ) : (
-                        <td className="hidden py-3.5 pr-4 md:table-cell">
-                          {invitationsInScope.length === 0 ? (
-                            <span className="text-xs text-[#1A1A1A]/40">Not invited yet</span>
-                          ) : (
-                            <div className="flex max-w-[180px] flex-wrap gap-1">
-                              {invitationsInScope.slice(0, 2).map((inv) => (
-                                <span
-                                  key={inv.id}
-                                  className="rounded-full bg-black/[0.05] px-2 py-0.5 text-xs text-[#1A1A1A]/70"
-                                >
-                                  {eventName(inv.event_id)}
-                                </span>
-                              ))}
-                              {invitationsInScope.length > 2 ? (
-                                <span className="text-xs text-[#1A1A1A]/40">
-                                  +{invitationsInScope.length - 2}
-                                </span>
-                              ) : null}
-                            </div>
-                          )}
-                        </td>
-                      )}
+                      ) : null}
                       <td className="py-3.5 pr-4">
                         <span className="inline-flex items-center rounded-full bg-[#9FE870]/25 px-2.5 py-1 text-xs font-medium text-[#3f6b1f]">
                           {g.max_party_size >= 2 ? 'Double' : 'Single'}
@@ -1021,7 +1028,10 @@ export default function GuestsManager({
               {importText ? (
                 <button
                   type="button"
-                  onClick={() => setImportText('')}
+                  onClick={() => {
+                    setImportText('')
+                    setImportSummary(null)
+                  }}
                   className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-[#1A1A1A]/55 hover:bg-black/[0.05]"
                 >
                   <X className="h-3 w-3" /> Clear
@@ -1035,6 +1045,38 @@ export default function GuestsManager({
               className="hidden"
               onChange={onImportFile}
             />
+            {importSummary ? (
+              <div className="mt-3 rounded-lg border border-[#9FE870]/50 bg-[#9FE870]/10 px-3 py-2 text-xs leading-relaxed text-[#1A1A1A]/75">
+                <b className="font-semibold text-[#1A1A1A]">
+                  {importSummary.guestCount} guest {importSummary.guestCount === 1 ? 'row' : 'rows'} found
+                </b>
+                {' from '}{importSummary.importedSheets.join(', ')}.
+                {importSummary.skippedSheets.length > 0 ? (
+                  <> Skipped non-guest {importSummary.skippedSheets.length === 1 ? 'sheet' : 'sheets'}: {importSummary.skippedSheets.join(', ')}.</>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-xl border border-black/[0.1] bg-white p-4">
+            <h4 className="text-sm font-semibold text-[#1A1A1A]">Columns we read</h4>
+            <dl className="mt-3 grid grid-cols-[minmax(110px,0.8fr)_1.4fr_auto] gap-x-3 gap-y-2 text-xs leading-relaxed">
+              <dt className="font-medium text-[#1A1A1A]">Name / Jina</dt>
+              <dd className="text-[#1A1A1A]/60">Guest or couple name</dd>
+              <dd className="font-medium text-rose-600">Required</dd>
+              <dt className="font-medium text-[#1A1A1A]">Phone number</dt>
+              <dd className="text-[#1A1A1A]/60">Phone, Mobile, WhatsApp or Namba ya Simu</dd>
+              <dd className="text-[#1A1A1A]/45">Optional</dd>
+              <dt className="font-medium text-[#1A1A1A]">Email</dt>
+              <dd className="text-[#1A1A1A]/60">Email or Barua Pepe</dd>
+              <dd className="text-[#1A1A1A]/45">Optional</dd>
+              <dt className="font-medium text-[#1A1A1A]">Ticket Type</dt>
+              <dd className="text-[#1A1A1A]/60">Single or Double</dd>
+              <dd className="text-[#1A1A1A]/45">Optional</dd>
+            </dl>
+            <p className="mt-3 border-t border-black/[0.06] pt-3 text-xs leading-relaxed text-[#1A1A1A]/60">
+              More than one sheet? We import every sheet with a recognized Name / Jina header and skip sheets such as Review, Summary and Instructions. Extra columns are ignored.
+            </p>
           </div>
 
           <details className="group rounded-xl border border-black/[0.1] bg-white/60 p-4 open:bg-white">
@@ -1057,13 +1099,16 @@ export default function GuestsManager({
             ) : null}
           </details>
 
-          <Field label="Or paste names" hint="One per line. Optionally: Name, email, phone">
+          <Field label="Or paste names" hint="One per line. Optionally: Name, email, phone, ticket type">
             <textarea
               className={inputClass}
               rows={8}
               value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              placeholder={'Asha Mussa, asha@email.com, 0712345678\nJuma Said\nGrace Mollel, grace@email.com'}
+              onChange={(e) => {
+                setImportText(e.target.value)
+                setImportSummary(null)
+              }}
+              placeholder={'Asha Mussa, asha@email.com, 0712345678, Single\nMr & Mrs Juma, , 0755000850, Double\nGrace Mollel, grace@email.com'}
             />
           </Field>
 
