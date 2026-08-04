@@ -118,9 +118,26 @@ BEGIN
       provider_class_id = COALESCE(EXCLUDED.provider_class_id, wallet_passes.provider_class_id),
       provider_object_id = COALESCE(EXCLUDED.provider_object_id, wallet_passes.provider_object_id),
       last_error_code = EXCLUDED.last_error_code,
-      last_issued_at = COALESCE(EXCLUDED.last_issued_at, wallet_passes.last_issued_at),
+      -- last_issued_at and pass_version both describe a pass a guest could
+      -- actually be holding, so a revoked row pins them for the same reason it
+      -- pins status. Otherwise an issuance against a withdrawn admission
+      -- leaves the row reading 'revoked' while these two go on advancing, and
+      -- the table reports a live pass in the columns anyone would consult to
+      -- ask how many there are.
+      --
+      -- Enforced here rather than in the caller: issue.ts checks the
+      -- credential before it ever gets this far, and the next caller should
+      -- not have to know that it must.
+      last_issued_at = CASE
+        WHEN wallet_passes.status = 'revoked' THEN wallet_passes.last_issued_at
+        ELSE COALESCE(EXCLUDED.last_issued_at, wallet_passes.last_issued_at)
+      END,
       pass_version = wallet_passes.pass_version
-        + CASE WHEN EXCLUDED.status = 'issued' THEN 1 ELSE 0 END
+        + CASE
+            WHEN wallet_passes.status = 'revoked' THEN 0
+            WHEN EXCLUDED.status = 'issued' THEN 1
+            ELSE 0
+          END
   RETURNING * INTO v_row;
 
   RETURN QUERY SELECT 'recorded'::TEXT, v_row.id, v_row.pass_version;

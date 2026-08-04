@@ -164,16 +164,45 @@ BEGIN
 END $$;
 
 -- A later issuance attempt must not resurrect a withdrawn pass.
+--
+-- Status is the obvious half. The other half is that every column describing a
+-- live pass has to be pinned too: a row reading 'revoked' whose pass_version
+-- keeps climbing still reports a pass the guest was supposed to have lost, in
+-- exactly the columns anyone counting live passes would read.
 DO $$
-DECLARE res RECORD;
+DECLARE
+  res RECORD;
+  before_version INT;
+  before_issued TIMESTAMPTZ;
+  after_version INT;
+  after_issued TIMESTAMPTZ;
 BEGIN
+  SELECT pass_version, last_issued_at INTO before_version, before_issued
+    FROM wallet_passes
+   WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000300'
+     AND provider = 'google';
+
   SELECT * INTO res FROM record_wallet_pass(
     '44444444-0000-0000-0000-000000000300', 'google', 'issued', 'c', 'o');
   PERFORM assert_eq(res.result, 'recorded', 'AE5 the call still succeeds');
+
+  SELECT pass_version, last_issued_at INTO after_version, after_issued
+    FROM wallet_passes
+   WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000300'
+     AND provider = 'google';
+
   PERFORM assert_eq((SELECT status FROM wallet_passes
                      WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000300'
                        AND provider = 'google'),
                     'revoked', 'AE5 but revocation is sticky');
+  PERFORM assert_eq(after_version, before_version,
+                    'AE5 and pass_version does not advance on a revoked row');
+  PERFORM assert_eq(res.pass_version, before_version,
+                    'AE5 and the returned version reports the pinned one');
+  IF after_issued IS DISTINCT FROM before_issued THEN
+    RAISE EXCEPTION 'FAIL: AE5 last_issued_at advanced on a revoked row';
+  END IF;
+  RAISE NOTICE 'pass: AE5 last_issued_at is pinned on a revoked row';
 END $$;
 
 -- An oversized error code cannot smuggle a signed JWT into the table.
