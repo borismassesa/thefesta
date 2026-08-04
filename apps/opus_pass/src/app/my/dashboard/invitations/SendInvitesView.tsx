@@ -260,6 +260,11 @@ export default function SendInvitesView({
   // otherwise close over the value it had when the loop started, so a couple
   // hitting Stop would be ignored until the whole run finished.
   const stopSendRef = useRef(false)
+  // Guards against a SECOND run starting while one is in flight. A ref rather
+  // than the state above because two clicks in the same tick both read the
+  // pre-render value of state, and the damage here is duplicate WhatsApp
+  // messages to real guests, not a cosmetic glitch.
+  const sendBusyRef = useRef(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [testPhone, setTestPhone] = useState(data.testPhone ?? '')
   const [testSending, setTestSending] = useState(false)
@@ -877,6 +882,11 @@ export default function SendInvitesView({
     ids: string[],
     send: (batch: string[]) => Promise<WhatsAppSendSummary>,
   ): Promise<WhatsAppSendSummary | null> {
+    // Never two runs at once. They would share stopSendRef and sendProgress,
+    // so the second would silently un-stop the first and reset its counters,
+    // and the guests in both lists would be messaged twice.
+    if (sendBusyRef.current) return null
+    sendBusyRef.current = true
     stopSendRef.current = false
     setSendProgress({
       title,
@@ -896,48 +906,57 @@ export default function SendInvitesView({
       dryRun: false, hasPaidOrder: false, purchased: 0, remaining: 0, results: [],
     }
 
-    for (let i = 0; i < ids.length; i += SEND_BATCH_SIZE) {
-      if (stopSendRef.current) {
-        setSendProgress((p) => (p ? { ...p, stopping: false, stopped: true } : p))
-        break
-      }
-      const batch = ids.slice(i, i + SEND_BATCH_SIZE)
-      const res = await send(batch)
+    try {
+      for (let i = 0; i < ids.length; i += SEND_BATCH_SIZE) {
+        if (stopSendRef.current) {
+          setSendProgress((p) => (p ? { ...p, stopping: false, stopped: true } : p))
+          break
+        }
+        const batch = ids.slice(i, i + SEND_BATCH_SIZE)
+        const res = await send(batch)
 
-      // No paid order is a property of the account, not of this batch, so
-      // there is nothing to gain from asking again with the next five guests.
-      if (!res.hasPaidOrder) {
-        setSendProgress(null)
-        return res
-      }
+        // No paid order is a property of the account, not of this batch, so
+        // there is nothing to gain from asking again with the next five guests.
+        if (!res.hasPaidOrder) {
+          // Only the FIRST batch can report this as "you have no package".
+          // Later on it means the entitlement went away mid-run, and by then
+          // real guests have real messages: returning this batch's summary
+          // would throw the merged one away and show the couple a bare "buy a
+          // package" with no record of the sends that already happened.
+          if (i === 0) return res
+          break
+        }
 
-      if (i === 0) {
-        merged.dryRun = res.dryRun
-        merged.hasPaidOrder = res.hasPaidOrder
-        merged.purchased = res.purchased
-      }
-      merged.sent += res.sent
-      merged.failed += res.failed
-      merged.skipped += res.skipped
-      merged.blocked += res.blocked
-      merged.results.push(...res.results)
-      // Last writer wins: the newest batch read the freshest quota.
-      merged.remaining = res.remaining
+        if (i === 0) {
+          merged.dryRun = res.dryRun
+          merged.hasPaidOrder = res.hasPaidOrder
+          merged.purchased = res.purchased
+        }
+        merged.sent += res.sent
+        merged.failed += res.failed
+        merged.skipped += res.skipped
+        merged.blocked += res.blocked
+        merged.results.push(...res.results)
+        // Last writer wins: the newest batch read the freshest quota.
+        merged.remaining = res.remaining
 
-      const done = i + batch.length
-      setSendProgress((p) =>
-        p
-          ? {
-              ...p,
-              done,
-              sent: merged.sent,
-              failed: merged.failed,
-              blocked: merged.blocked,
-              skipped: merged.skipped,
-              recent: merged.results.slice(-8).reverse(),
-            }
-          : p,
-      )
+        const done = i + batch.length
+        setSendProgress((p) =>
+          p
+            ? {
+                ...p,
+                done,
+                sent: merged.sent,
+                failed: merged.failed,
+                blocked: merged.blocked,
+                skipped: merged.skipped,
+                recent: merged.results.slice(-8).reverse(),
+              }
+            : p,
+        )
+      }
+    } finally {
+      sendBusyRef.current = false
     }
 
     return merged
@@ -945,11 +964,11 @@ export default function SendInvitesView({
 
   async function runBulkSend(ids?: string[], reminder = false) {
     setConfirmSend(null)
-    // Always an explicit list, so the bar has a denominator. Matches what the
-    // confirm dialog counted, which filtered the same way.
-    const targets = (ids ? guests.filter((g) => ids.includes(g.id)) : guests)
-      .filter(hasPhone)
-      .map((g) => g.id)
+    // Always an explicit list, so the bar has a denominator. NOT filtered by
+    // hasPhone: the server reports a guest with no number as `skipped`, and
+    // dropping them here would delete that line from the report instead,
+    // leaving the couple no clue why someone never received anything.
+    const targets = (ids ? guests.filter((g) => ids.includes(g.id)) : guests).map((g) => g.id)
     if (targets.length === 0) {
       toast.error(strings.toast_nothing_sent)
       return
@@ -1074,6 +1093,10 @@ export default function SendInvitesView({
   function retryFailed() {
     const ids = (report?.results ?? []).filter((r) => r.outcome === 'failed').map((r) => r.id)
     if (ids.length === 0) return
+    // Close the report first. Both overlays sit at the same z-index, so a
+    // report left open renders OVER the progress modal: the retry would look
+    // like it did nothing, with its own button still there to be clicked again.
+    setReport(null)
     runBulkSend(ids)
   }
 
@@ -2879,7 +2902,7 @@ export default function SendInvitesView({
             </div>
             <div className="mrow">
               {report.failed > 0 ? (
-                <button className="btn ghost" disabled={pending} onClick={retryFailed}>
+                <button className="btn ghost" disabled={pending || Boolean(sendProgress)} onClick={retryFailed}>
                   <RotateCcw size={14} /> {strings.results_retry}
                 </button>
               ) : null}
