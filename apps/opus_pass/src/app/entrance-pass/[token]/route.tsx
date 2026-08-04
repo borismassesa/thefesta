@@ -18,6 +18,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
 
   try {
     const qrDataUrl = await generateEntryPassQrDataUrl(pass.guestContactId, pass.invitationId)
+    // Withdrawn. Drawing anything here would put a working pass back in the
+    // guest's hands, so the ticket simply stops existing.
+    if (!qrDataUrl) return new Response('Not found', { status: 404 })
     return await renderTicketImage(pass, qrDataUrl)
   } catch (err) {
     console.error('[entrance-pass] failed to render ticket', err)

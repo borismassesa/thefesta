@@ -48,6 +48,11 @@ function readPublicFile(...segments: string[]): Promise<Buffer> {
 export const TICKET_RESPONSE_HEADERS = {
   'cache-control': 'private, no-store',
   'referrer-policy': 'no-referrer',
+  // The page carrying this image is noindex, but the image URL can be reached
+  // on its own (a pasted link, an intermediary that expands it) and a bare
+  // Response inherits no page-level directive. A scannable ticket must never
+  // end up in a search index.
+  'x-robots-tag': 'noindex, nofollow, noimageindex',
 } as const
 
 /** Draw the ticket, or throw if an asset is missing. */

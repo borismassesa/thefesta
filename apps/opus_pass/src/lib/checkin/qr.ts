@@ -26,6 +26,10 @@ export function renderCredentialQr(rawCredential: string): Promise<string> {
  * render. Re-rendering returns the SAME credential, so a ticket already in a
  * guest's WhatsApp thread keeps working.
  *
+ * Returns null when the pass has been WITHDRAWN. That case must never fall
+ * back to anything: drawing a legacy token for a revoked credential would put
+ * a working QR back in the guest's hands and undo the revocation.
+ *
  * ROLLOUT SAFETY VALVE: with no credential key configured this falls back to
  * the legacy signed token rather than failing the render, so a deploy that
  * lands before the key does still produces scannable tickets. That is not a
@@ -36,10 +40,14 @@ export function renderCredentialQr(rawCredential: string): Promise<string> {
 export async function generateEntryPassQrDataUrl(
   guestContactId: string,
   invitationId: string
-): Promise<string> {
+): Promise<string | null> {
   if (credentialIssuanceConfigured()) {
-    const credential = await ensureAdmissionCredential(invitationId, 'entrance_pass_render')
-    if (credential) return renderCredentialQr(credential.rawCredential)
+    const outcome = await ensureAdmissionCredential(invitationId, 'entrance_pass_render')
+    if (outcome.status === 'ok') return renderCredentialQr(outcome.credential.rawCredential)
+    if (outcome.status === 'revoked') {
+      console.warn('[entry-pass-qr] pass is revoked, refusing to draw a ticket', { invitationId })
+      return null
+    }
     console.error('[entry-pass-qr] credential issuance failed, falling back to legacy token', {
       invitationId,
     })

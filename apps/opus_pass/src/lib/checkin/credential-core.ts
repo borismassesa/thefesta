@@ -29,6 +29,8 @@ const SECRET_PATTERN = /^[A-Za-z0-9_-]+$/
 
 export type CredentialIssuanceSource =
   | 'entrance_pass_render'
+  /** Minted (or reused) when a guest adds their pass to a wallet. */
+  | 'wallet_pass'
   | 'rotation'
   | 'admin'
   | 'backfill'
@@ -233,6 +235,8 @@ export function decryptCredential(
 const DEFAULT_LEGACY_GRACE_DAYS = 14
 /** Assumed length of an event with no recorded end, for the same purpose. */
 const ASSUMED_EVENT_HOURS = 24
+/** How long an undated event keeps honouring pre-OP1 tickets after creation. */
+const ASSUMED_UNDATED_EVENT_DAYS = 180
 
 /**
  * Whether a legacy HMAC ticket may still be honoured for this event.
@@ -244,24 +248,31 @@ const ASSUMED_EVENT_HOURS = 24
  * event itself and closes on its own.
  */
 export function legacyCredentialsAllowed(
-  event: { starts_at: string | null; ends_at: string | null },
+  event: { starts_at: string | null; ends_at: string | null; created_at?: string | null },
   now: Date = new Date(),
   graceDays: number = DEFAULT_LEGACY_GRACE_DAYS
 ): boolean {
   const endsAt = event.ends_at ? Date.parse(event.ends_at) : NaN
   const startsAt = event.starts_at ? Date.parse(event.starts_at) : NaN
 
-  // An event with neither timestamp cannot be aged out on a schedule, and
-  // guessing would either strand real guests or keep the branch alive forever.
-  // Accepting it is the safe half of that trade only because the branch itself
-  // is temporary and its usage is measured.
+  // "Date to be announced" is a normal state in this product, not a rare edge
+  // case, so an event with no dates must NOT hold the compatibility branch
+  // open forever — that is the branch's own retirement signal, and it would
+  // never drain to zero. Fall back to when the event was created, which does
+  // age out. With nothing at all to anchor to, refuse: a legacy ticket for an
+  // event we can date in no way whatsoever is not worth keeping a decodable
+  // payload alive for.
+  const createdAt = event.created_at ? Date.parse(event.created_at) : NaN
+
   let reference: number
   if (Number.isFinite(endsAt)) {
     reference = endsAt
   } else if (Number.isFinite(startsAt)) {
     reference = startsAt + ASSUMED_EVENT_HOURS * 3600_000
+  } else if (Number.isFinite(createdAt)) {
+    reference = createdAt + ASSUMED_UNDATED_EVENT_DAYS * 86_400_000
   } else {
-    return true
+    return false
   }
 
   return now.getTime() <= reference + graceDays * 86_400_000

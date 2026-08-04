@@ -47,6 +47,17 @@ export interface EnsureAdmissionCredentialResult {
 }
 
 /**
+ * `revoked` is deliberately NOT merged into `null`. A caller that cannot tell
+ * a withdrawn pass from a transient failure will fall back to drawing
+ * something, and for the ticket renderer that fallback is a legacy token —
+ * which would bring the revoked pass straight back.
+ */
+export type EnsureAdmissionCredentialOutcome =
+  | { status: 'ok'; credential: EnsureAdmissionCredentialResult }
+  | { status: 'revoked' }
+  | { status: 'failed' }
+
+/**
  * The invitation's active credential, minting one if it has none.
  *
  * A candidate is generated up front because the raw value cannot be recovered
@@ -60,7 +71,7 @@ export async function ensureAdmissionCredential(
   invitationId: string,
   source: CredentialIssuanceSource,
   client?: SupabaseClient
-): Promise<EnsureAdmissionCredentialResult | null> {
+): Promise<EnsureAdmissionCredentialOutcome> {
   const supabase = client ?? createSupabaseServerClient()
   const ring = keyring()
 
@@ -79,14 +90,18 @@ export async function ensureAdmissionCredential(
     // Never interpolate the error: a provider payload can echo the parameters
     // it was called with, and those include the ciphertext.
     console.error('[credentials] ensure failed', { invitationId, code: error.code })
-    return null
+    return { status: 'failed' }
   }
 
   const row = (data as EnsureCredentialRow[] | null)?.[0]
-  if (!row || row.result === 'not_found' || !row.credential_id) return null
+  if (row?.result === 'revoked') return { status: 'revoked' }
+  if (!row || row.result === 'not_found' || !row.credential_id) return { status: 'failed' }
 
   if (row.created) {
-    return { credentialId: row.credential_id, rawCredential: candidate, created: true }
+    return {
+      status: 'ok',
+      credential: { credentialId: row.credential_id, rawCredential: candidate, created: true },
+    }
   }
 
   try {
@@ -95,7 +110,10 @@ export async function ensureAdmissionCredential(
       row.encryption_key_version,
       ring
     )
-    return { credentialId: row.credential_id, rawCredential, created: false }
+    return {
+      status: 'ok',
+      credential: { credentialId: row.credential_id, rawCredential, created: false },
+    }
   } catch {
     // A credential we cannot read is a credential we cannot reprint. Rotating
     // is the only way back to a working ticket, and it is safe: the unreadable
@@ -104,12 +122,13 @@ export async function ensureAdmissionCredential(
       invitationId,
       keyVersion: row.encryption_key_version,
     })
-    return rotateAdmissionCredential(
+    const rotated = await rotateAdmissionCredential(
       invitationId,
       'Stored credential could not be decrypted with any configured key',
       'rotation',
       supabase
     )
+    return rotated ? { status: 'ok', credential: rotated } : { status: 'failed' }
   }
 }
 
@@ -165,7 +184,34 @@ export async function revokeAdmissionCredential(
     console.error('[credentials] revoke failed', { credentialId, code: error.code })
     return false
   }
-  return (data as RevokeCredentialRow[] | null)?.[0]?.result === 'revoked'
+  const revoked = (data as RevokeCredentialRow[] | null)?.[0]?.result === 'revoked'
+
+  // Stand down the wallet bookkeeping too, so wallet_passes stops reporting a
+  // live pass for an admission that has been withdrawn. Deliberately after the
+  // credential: the credential is what actually stops entry, and this is only
+  // the record of what each provider was handed.
+  if (revoked) {
+    const { data: cred } = await supabase
+      .from('admission_credentials')
+      .select('guest_invitation_id')
+      .eq('id', credentialId)
+      .maybeSingle<{ guest_invitation_id: string }>()
+
+    if (cred?.guest_invitation_id) {
+      const { error: walletError } = await supabase.rpc('revoke_wallet_passes', {
+        p_guest_invitation_id: cred.guest_invitation_id,
+        p_reason: reason,
+      })
+      if (walletError) {
+        console.error('[credentials] could not stand down wallet passes', {
+          credentialId,
+          code: walletError.code,
+        })
+      }
+    }
+  }
+
+  return revoked
 }
 
 /* -------------------------------------------------------------------------- */
@@ -180,6 +226,9 @@ export type CredentialVerificationFailure =
   | 'superseded'
   | 'legacy_not_allowed'
   | 'invitation_mismatch'
+  /** The store could not be reached. NOT the same as "never issued": a door
+   *  must retry, not refuse a legitimate guest during an outage. */
+  | 'unavailable'
 
 export type AdmissionCredentialVerification =
   | {
@@ -239,7 +288,17 @@ export async function verifyAdmissionCredential(
   const fingerprint = credentialFingerprint(parsed.raw)
 
   if (parsed.kind === 'legacy_hmac') {
-    const payload = verifyEntryPassToken(parsed.raw)
+    // Anything that is not a well-formed OP1 reaches here, so a stray QR (a
+    // supermarket barcode, another app's token) hits this line. Once
+    // CHECKIN_TOKEN_SECRET is retired the verifier throws on a missing secret,
+    // and an uncaught throw would turn the first stray scan of the night into
+    // a 500 instead of "not a valid entry pass".
+    let payload: ReturnType<typeof verifyEntryPassToken> = null
+    try {
+      payload = verifyEntryPassToken(parsed.raw)
+    } catch {
+      return { valid: false, format: 'legacy_hmac', reason: 'legacy_not_allowed', fingerprint }
+    }
     if (!payload) {
       return { valid: false, format: 'legacy_hmac', reason: 'malformed', fingerprint }
     }
@@ -267,8 +326,12 @@ export async function verifyAdmissionCredential(
   })
 
   if (error) {
+    // Deliberately NOT 'unknown'. Collapsing an outage into "never issued"
+    // would tell every arriving guest their ticket is fake for as long as the
+    // database is unwell. The two are only indistinguishable when the store is
+    // healthy, which is when the enumeration property actually matters.
     console.error('[credentials] resolve failed', { code: error.code })
-    return { valid: false, format: 'opaque_v1', reason: 'unknown', fingerprint }
+    return { valid: false, format: 'opaque_v1', reason: 'unavailable', fingerprint }
   }
 
   const row = (data as ResolveCredentialRow[] | null)?.[0]
@@ -346,7 +409,7 @@ export async function recordCredentialVerification(
 /* -------------------------------------------------------------------------- */
 
 interface EnsureCredentialRow {
-  result: 'issued' | 'existing' | 'not_found'
+  result: 'issued' | 'existing' | 'not_found' | 'revoked'
   credential_id: string | null
   token_ciphertext_hex: string
   encryption_key_version: number

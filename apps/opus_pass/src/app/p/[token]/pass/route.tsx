@@ -41,6 +41,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
 
   try {
     const qrDataUrl = await generateEntryPassQrDataUrl(pass.guestContactId, pass.invitationId)
+    // The admission behind this pass has been withdrawn. Same answer as every
+    // other unavailable state on this route, so the surface stays uniform.
+    if (!qrDataUrl) {
+      return new Response('Not found', { status: 404, headers: { 'referrer-policy': 'no-referrer' } })
+    }
     return await renderTicketImage(pass, qrDataUrl)
   } catch (err) {
     console.error('[wallet-pass] failed to render ticket', err)

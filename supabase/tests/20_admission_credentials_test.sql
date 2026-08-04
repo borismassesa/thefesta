@@ -266,6 +266,43 @@ BEGIN
   END;
 END $$;
 
+-- Revocation must survive the guest reopening their own ticket link. The
+-- entrance-pass route calls ensure_admission_credential() on every render, so
+-- minting whenever no active credential exists would mean a withdrawn pass
+-- comes back to life on the next page load.
+DO $$
+DECLARE res RECORD; cred_id UUID;
+BEGIN
+  PERFORM ensure_admission_credential(
+    '44444444-0000-0000-0000-000000000100',
+    test_hash('OP1:revoke-me'), test_ciphertext('OP1:revoke-me'), 1, 'entrance_pass_render');
+  SELECT id INTO cred_id FROM admission_credentials
+   WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000100' AND status = 'active';
+  PERFORM revoke_admission_credential(cred_id, 'Guest cancelled');
+
+  SELECT * INTO res FROM ensure_admission_credential(
+    '44444444-0000-0000-0000-000000000100',
+    test_hash('OP1:sneaky'), test_ciphertext('OP1:sneaky'), 1, 'entrance_pass_render');
+  PERFORM assert_eq(res.result, 'revoked', 'Q4 a re-render does NOT re-mint after revocation');
+  PERFORM assert_eq(res.created, FALSE, 'Q4 nothing was created');
+  PERFORM assert_eq((SELECT count(*)::INT FROM admission_credentials
+                     WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000100'
+                       AND status = 'active'),
+                    0, 'Q4 the guest still has no working pass');
+
+  -- Re-issuing after a deliberate withdrawal has to be explicit, and rotation
+  -- is the path that demands a reason.
+  SELECT * INTO res FROM rotate_admission_credential(
+    '44444444-0000-0000-0000-000000000100',
+    test_hash('OP1:reissued'), test_ciphertext('OP1:reissued'), 1,
+    'Guest reinstated by the couple', 'admin');
+  PERFORM assert_eq(res.result, 'rotated', 'Q5 rotation can still reinstate deliberately');
+  PERFORM assert_eq((SELECT count(*)::INT FROM admission_credentials
+                     WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000100'
+                       AND status = 'active'),
+                    1, 'Q5 exactly one active credential after reinstatement');
+END $$;
+
 -- ===========================================================================
 -- R. Event expiry
 -- ===========================================================================
@@ -319,8 +356,9 @@ BEGIN
                      WHERE guest_invitation_id = '44444444-0000-0000-0000-000000000101'
                        AND action = 'rotated'),
                     'Guest reported their ticket was forwarded', 'T1 with its reason');
+  -- Two: the Q-block revocation and the Q4 revoke-then-re-render case.
   PERFORM assert_eq((SELECT count(*)::INT FROM admission_credential_events
-                     WHERE action = 'revoked'), 1, 'T2 revocation recorded');
+                     WHERE action = 'revoked'), 2, 'T2 revocations recorded');
   PERFORM assert_eq((SELECT count(*)::INT FROM admission_credential_events
                      WHERE action = 'expired'), 1, 'T3 event expiry recorded');
   -- One each for invitations 100, 103 (expiring), 103 (after expiry), 101
