@@ -23,9 +23,9 @@ approval. Start it before you need it.
    Sign in with the Google account that should hold the **Admin** role. Use a
    shared OpusFesta account, not a personal one: this role cannot be
    transferred easily, and losing it means losing pass publishing.
-2. Provide the public business name. This string is shown to guests inside
-   Google Wallet, so it should read as the brand a guest expects, not a legal
-   entity name.
+2. Provide the public business name. This is the legal entity Google verifies
+   against: `OpusFesta Company Limited`. It is NOT the name guests see on a
+   pass (see the note on issuer name below).
 3. Accept the Google Wallet API Additional Terms of Service.
 4. On the dashboard, find the **Google Wallet API** card and click **Create a
    pass**, then **Build your first pass**. Accept the Google Wallet API Terms.
@@ -37,7 +37,34 @@ That creates the Issuer account.
 In the console's Google Wallet API section, copy the **Issuer ID** (a long
 number). This becomes `GOOGLE_WALLET_ISSUER_ID`.
 
-### 1.3 Understand demo mode
+**Live values (2026-08-02):**
+
+| What | Value |
+| --- | --- |
+| Issuer ID | `3388000000023183279` |
+| Merchant ID | `BCR2DN5TXX4ZNJD6` |
+| Template class | `3388000000023183279.opuspass_template` |
+| Publishing access | **Granted** |
+
+None of these are secrets; they appear in every save link. The service account
+key is the only secret on the Google side.
+
+### 1.3 Issuer name on the pass: OpusPass, not OpusFesta
+
+`issuerName` is a field on each **class**, not on the issuer account, so it is
+chosen per pass type and can differ between products under the same account.
+
+Every class OpusPass creates uses `OpusPass`. A guest receives a digital card
+from OpusPass, RSVPs through OpusPass, and gets their entry pass seconds later.
+OpusFesta is the parent company and may be a name they have never seen, so it
+is the wrong identity on the one surface a guest looks at while walking up to a
+door. OpusPass is a subsidiary of OpusFesta; the legal entity stays in the
+Business Profile, where Google's verification uses it.
+
+A future OpusFesta product issuing its own passes sets its own `issuerName` on
+its own classes. Nothing here constrains that.
+
+### 1.4 Understand demo mode
 
 Every new account starts in **demo mode**. Passes can be created, but only
 issued to Google accounts holding the Admin or Developer role, or explicitly
@@ -48,7 +75,7 @@ end before approval lands.
 Request publishing access from the console when the integration works. Until it
 is granted, a real guest cannot save a pass.
 
-### 1.4 Enable the API in Google Cloud
+### 1.5 Enable the API in Google Cloud
 
 The Wallet API must be enabled separately from the issuer account.
 
@@ -56,7 +83,7 @@ The Wallet API must be enabled separately from the issuer account.
    project (or reuse an existing OpusFesta one).
 2. **APIs & Services → Library → Google Wallet API → Enable.**
 
-### 1.5 Create the service account
+### 1.6 Create the service account
 
 1. **IAM & Admin → Service Accounts → Create service account.**
    Name it something legible, e.g. `opuspass-wallet-issuer`.
@@ -65,7 +92,30 @@ The Wallet API must be enabled separately from the issuer account.
 3. Open the service account → **Keys → Add key → Create new key → JSON**.
    The JSON downloads once. Treat it as a live credential.
 
-### 1.6 Authorise the service account on the issuer
+#### If key creation is blocked
+
+Newer Google Cloud organisations enforce `iam.disableServiceAccountKeyCreation`
+automatically ("Secure by Default"), and step 3 fails with *"Service account key
+creation is disabled"*.
+
+Grant yourself **Organization Policy Administrator** (`roles/orgpolicy.policyAdmin`)
+at the **organization** scope, not the project. Two traps here:
+
+- The **Owner** role does not include it. Google excludes it deliberately so a
+  project owner cannot switch off an organisation's guardrails.
+- **Organization Administrator** (`roles/resourcemanager.organizationAdmin`) is
+  a different role that can only *view* organisation policies.
+
+Then **IAM & Admin → Organization Policies** → `iam.disableServiceAccountKeyCreation`
+→ **Manage policy** → scope it to the single project → **Override parent's
+policy** → rule **Off**. Leave the constraint enforced everywhere else.
+
+The more secure alternative is Workload Identity Federation, where Vercel's OIDC
+token is exchanged for Google credentials and no long-lived key exists at all.
+It is a bigger piece of setup and changes how the adapter authenticates, so it
+is worth doing deliberately rather than while debugging a first integration.
+
+### 1.7 Authorise the service account on the issuer
 
 **Mandatory, not optional.** Issuance calls the Google Wallet REST API to create
 the event's class and the guest's object before it mints a save link, so the key
@@ -83,7 +133,7 @@ call: the key is valid, but it has no rights on the issuer.
 If issuance starts reporting `class_http_403` or `object_http_403`, re-check
 this first.
 
-### 1.7 Extract the values
+### 1.8 Extract the values
 
 From the downloaded JSON:
 
