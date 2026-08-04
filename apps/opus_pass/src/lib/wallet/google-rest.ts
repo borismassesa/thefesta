@@ -85,6 +85,16 @@ interface CachedToken {
 const tokenCache = new Map<string, CachedToken>()
 
 /**
+ * Exchanges already in flight, so a burst of saves costs ONE token request.
+ *
+ * Without this, every guest who taps Save while the first exchange is still
+ * open sees an empty cache and starts their own — the classic stampede, and
+ * exactly the shape of traffic this has: nobody saves a pass for hours, then a
+ * whole wedding does at once when the link goes out.
+ */
+const inFlight = new Map<string, Promise<{ ok: true; token: string } | { ok: false; code: string }>>()
+
+/**
  * Refresh a minute before Google would stop accepting the token.
  *
  * Without the margin a token fetched at 3599s is still "valid" here and expired
@@ -101,10 +111,38 @@ export async function getAccessToken(
   const cached = tokenCache.get(config.serviceAccountEmail)
   if (cached && cached.expiresAt > now.getTime()) return { ok: true, token: cached.token }
 
-  const body = new URLSearchParams({
-    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-    assertion: buildTokenAssertion(config, now),
-  }).toString()
+  const pending = inFlight.get(config.serviceAccountEmail)
+  if (pending) return pending
+
+  const attempt = exchangeToken(config, fetchImpl, now)
+  inFlight.set(config.serviceAccountEmail, attempt)
+  try {
+    return await attempt
+  } finally {
+    // Cleared whatever the outcome. Leaving a settled failure here would pin
+    // every later caller to that one failure for the life of the instance.
+    inFlight.delete(config.serviceAccountEmail)
+  }
+}
+
+async function exchangeToken(
+  config: GoogleWalletConfig,
+  fetchImpl: FetchLike,
+  now: Date
+): Promise<{ ok: true; token: string } | { ok: false; code: string }> {
+  let body: string
+  try {
+    body = new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: buildTokenAssertion(config, now),
+    }).toString()
+  } catch {
+    // Signing is the only thing here that can throw, and it means the key is
+    // malformed. Caught rather than allowed to propagate: the caller's outer
+    // handler is written for signing the SAVE link and would report this as
+    // sign_failed with OpenSSL fields that are all undefined.
+    return { ok: false, code: 'token_sign_failed' }
+  }
 
   let res
   try {
@@ -140,9 +178,10 @@ export async function getAccessToken(
   return { ok: true, token: parsed.access_token }
 }
 
-/** Test seam, and the escape hatch if a key is rotated inside a warm instance. */
+/** Test seam. Nothing in production calls this; a key rotation cycles the instance. */
 export function resetAccessTokenCache(): void {
   tokenCache.clear()
+  inFlight.clear()
 }
 
 function authHeaders(token: string): Record<string, string> {
@@ -198,13 +237,37 @@ export async function upsertEventTicketClass(
 }
 
 /**
- * Create the guest's object.
+ * Create the guest's object, or bring an existing one up to date.
  *
- * POST only, and 409 is success. The object id encodes the credential id, so a
- * given object's contents can never need to change: rotating the credential
- * produces a different id and therefore a different object. That makes a repeat
- * save — the same guest opening their pass page twice — genuinely idempotent
- * rather than an update that has to be reconciled.
+ * POST, then PATCH on 409. The 409 is ordinary rather than exceptional: a guest
+ * opening their pass page a second time hits it every time.
+ *
+ * The PATCH is the part worth explaining, because an earlier version of this
+ * function treated 409 as simply "done" and that was wrong twice over.
+ *
+ *   STALE CONTENT. The object id is derived from the invitation and the
+ *   credential only, but the object also carries the guest's NAME and the
+ *   admission type. Both move without the credential moving — a host fixing a
+ *   spelling, or a party going from one to two — and there is no id change to
+ *   force a fresh object. Accepting the 409 froze whatever happened to be true
+ *   the first time the guest saved, permanently: a couple's pass still reading
+ *   "Single", a corrected name still misspelled.
+ *
+ *   ID COLLISION. googleObjectId truncates the credential id to 8 hex
+ *   characters, so two credentials for one invitation collide with probability
+ *   around 1 in 4 billion. Rare, but the case it lands on is rotation, which is
+ *   the precise thing that id scheme exists to handle: the guest would keep
+ *   presenting the REVOKED credential and be refused at the door, with
+ *   re-saving unable to repair it.
+ *
+ * PATCH fixes both, and is safe for the same reason the id is built that way:
+ * the credential is not among the things that can change here. A genuinely
+ * rotated credential yields a different id and therefore a different object, so
+ * this cannot overwrite a live admission with a stale one — and in the collision
+ * case it writes the NEW credential over the old, which is the desired outcome.
+ *
+ * None of this was reachable under the previous inline path, which is why the
+ * pass was documented there as un-updatable.
  */
 export async function insertEventTicketObject(
   config: GoogleWalletConfig,
@@ -212,19 +275,37 @@ export async function insertEventTicketObject(
   token: string,
   fetchImpl: FetchLike
 ): Promise<{ ok: true } | { ok: false; code: string }> {
+  const body = JSON.stringify(buildEventTicketObject(config, model))
+
   let res
   try {
     res = await fetchImpl(`${WALLET_API}/eventTicketObject`, {
       method: 'POST',
       headers: authHeaders(token),
-      body: JSON.stringify(buildEventTicketObject(config, model)),
+      body,
     })
   } catch {
     return { ok: false, code: 'object_unreachable' }
   }
 
-  if (res.ok || res.status === 409) return { ok: true }
-  return { ok: false, code: `object_http_${res.status}` }
+  if (res.ok) return { ok: true }
+  if (res.status !== 409) return { ok: false, code: `object_http_${res.status}` }
+
+  const objectId = googleObjectId(config.issuerId, model.invitationId, model.credentialId)
+  try {
+    res = await fetchImpl(`${WALLET_API}/eventTicketObject/${encodeURIComponent(objectId)}`, {
+      method: 'PATCH',
+      headers: authHeaders(token),
+      body,
+    })
+  } catch {
+    return { ok: false, code: 'object_unreachable' }
+  }
+
+  if (res.ok) return { ok: true }
+  // Distinct from object_http_*: this one says the object EXISTS and could not
+  // be refreshed, which is a different problem from being unable to create it.
+  return { ok: false, code: `object_patch_http_${res.status}` }
 }
 
 /**

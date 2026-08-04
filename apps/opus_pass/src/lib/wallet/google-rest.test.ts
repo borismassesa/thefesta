@@ -148,6 +148,39 @@ test('a failed token exchange is not cached as if it had succeeded', async () =>
   assert.equal(calls.length, 2, 'the retry must actually re-request')
 })
 
+test('a burst of simultaneous saves costs one token request, not one each', async () => {
+  // The traffic this actually sees: nothing for hours, then a whole wedding at
+  // once when the link goes out. Awaiting sequentially cannot catch this — the
+  // cache is already warm by the second call — so these must overlap.
+  const { fetch, calls } = stubFetch([TOKEN_OK])
+  const results = await Promise.all(
+    Array.from({ length: 8 }, () => getAccessToken(CONFIG, fetch))
+  )
+
+  assert.equal(calls.length, 1, `${calls.length} token requests for one burst`)
+  for (const r of results) assert.deepEqual(r, { ok: true, token: 'ya29.test' })
+})
+
+test('a failure shared by a burst does not pin later callers to it', async () => {
+  // The in-flight entry must be cleared on failure too. Left in place, every
+  // later save for the life of the instance would resolve to this one failure.
+  const { fetch } = stubFetch([{ status: 500 }, TOKEN_OK])
+  const failed = await Promise.all([getAccessToken(CONFIG, fetch), getAccessToken(CONFIG, fetch)])
+  for (const r of failed) assert.equal(r.ok, false)
+
+  assert.deepEqual(await getAccessToken(CONFIG, fetch), { ok: true, token: 'ya29.test' })
+})
+
+test('an unusable private key is named as such, not as a save-link signing fault', async () => {
+  // providers.ts wraps issuance in a catch written for signing the SAVE link,
+  // and would report this as sign_failed with OpenSSL fields that are all
+  // undefined. Naming it here is what makes the log point at the real cause.
+  const broken = { ...CONFIG, privateKey: '-----BEGIN PRIVATE KEY-----\nnope\n-----END PRIVATE KEY-----' }
+  const { fetch, calls } = stubFetch([TOKEN_OK])
+  assert.deepEqual(await getAccessToken(broken, fetch), { ok: false, code: 'token_sign_failed' })
+  assert.equal(calls.length, 0, 'nothing should have been sent to Google')
+})
+
 // ---------------------------------------------------------------------------
 // Class
 // ---------------------------------------------------------------------------
@@ -190,12 +223,52 @@ test('a class error that is not 404 does not fall through to a create', async ()
 // Object
 // ---------------------------------------------------------------------------
 
-test('re-saving the same pass is idempotent rather than an error', async () => {
-  // The object id encodes the credential id, so an existing object is by
-  // construction the same object. A guest opening their pass page twice is the
-  // ordinary case, not a fault.
-  const { fetch } = stubFetch([{ status: 409 }])
+test('re-saving the same pass refreshes it rather than erroring', async () => {
+  // A guest opening their pass page twice is the ordinary case, not a fault.
+  const { fetch, calls } = stubFetch([{ status: 409 }, { status: 200 }])
   assert.deepEqual(await insertEventTicketObject(CONFIG, MODEL, 't', fetch), { ok: true })
+
+  assert.deepEqual(calls.map((c) => c.method), ['POST', 'PATCH'])
+})
+
+test('a corrected name or party size reaches a pass the guest already saved', async () => {
+  // The defect that made 409-as-success wrong. The object id comes from the
+  // invitation and credential only, but the object carries the NAME and the
+  // admission type — and those move without the credential moving. Accepting
+  // the 409 froze a couple's pass reading "Single" forever, with no id change
+  // able to force a fresh object.
+  const { fetch, calls } = stubFetch([{ status: 409 }, { status: 200 }])
+  const corrected = { ...MODEL, guestName: 'Fabiola Thomas-Mushi', ticketType: 'Double', entryAllowance: 2 }
+  assert.deepEqual(await insertEventTicketObject(CONFIG, corrected, 't', fetch), { ok: true })
+
+  const patch = calls[1]
+  assert.equal(patch.method, 'PATCH')
+  assert.ok(patch.url.endsWith(`/eventTicketObject/${CONFIG.issuerId}.adm_44444444-0000-0000-0000-000000000001_11111111`))
+  assert.ok(patch.body.includes('Fabiola Thomas-Mushi'))
+  assert.ok(patch.body.includes('Double'))
+})
+
+test('a rotated credential is written over a colliding object rather than left stale', async () => {
+  // googleObjectId truncates the credential id to 8 hex characters, so two
+  // credentials for one invitation collide about once in 4 billion. The case it
+  // lands on is rotation, and accepting the 409 would leave the guest
+  // presenting the REVOKED credential, refused at the door, with re-saving
+  // unable to repair it.
+  const rotated = { ...MODEL, credential: `OP1:${'Zz9'.padEnd(43, 'x')}`, credentialId: MODEL.credentialId }
+  const { fetch, calls } = stubFetch([{ status: 409 }, { status: 200 }])
+  assert.deepEqual(await insertEventTicketObject(CONFIG, rotated, 't', fetch), { ok: true })
+
+  assert.ok(calls[1].body.includes(rotated.credential), 'the new credential must be written')
+  assert.equal(calls[1].body.includes(MODEL.credential), false)
+})
+
+test('an object that exists but cannot be refreshed is distinguishable', async () => {
+  // A different problem from being unable to create it, and the code says so.
+  const { fetch } = stubFetch([{ status: 409 }, { status: 403 }])
+  assert.deepEqual(await insertEventTicketObject(CONFIG, MODEL, 't', fetch), {
+    ok: false,
+    code: 'object_patch_http_403',
+  })
 })
 
 test('an object failure is reported with its status', async () => {
@@ -204,6 +277,35 @@ test('an object failure is reported with its status', async () => {
     ok: false,
     code: 'object_http_400',
   })
+})
+
+test('a network failure on the class CREATE leg is reported, not swallowed', async () => {
+  // The PUT-leg throw was covered; the POST fallback's own failure was not.
+  const { fetch } = stubFetch([{ status: 404 }, { throws: true }])
+  assert.deepEqual(await upsertEventTicketClass(CONFIG, MODEL, 't', fetch), {
+    ok: false,
+    code: 'class_unreachable',
+  })
+})
+
+test('a rotated credential provisions a different object end to end', async () => {
+  // The guarantee the whole design leans on, asserted through the real flow
+  // rather than through googleObjectId alone.
+  const { fetch } = stubFetch([TOKEN_OK, { status: 200 }, { status: 200 }])
+  const first = await provisionGooglePass(CONFIG, MODEL, fetch)
+
+  resetAccessTokenCache()
+  const second = stubFetch([TOKEN_OK, { status: 200 }, { status: 200 }])
+  const rotated = await provisionGooglePass(
+    CONFIG,
+    { ...MODEL, credential: `OP1:${'Qq1'.padEnd(43, 'y')}`, credentialId: '99999999-8888-7777-6666-555555555555' },
+    second.fetch
+  )
+
+  assert.ok(first.ok && rotated.ok)
+  assert.notEqual(first.objectId, rotated.objectId)
+  // Same event, so the class is shared: a rotation must not fork the event.
+  assert.equal(first.classId, rotated.classId)
 })
 
 // ---------------------------------------------------------------------------
@@ -289,8 +391,11 @@ test('every error code fits the column that stores it', async () => {
     [{ throws: true }],
     [TOKEN_OK, { status: 403 }],
     [TOKEN_OK, { throws: true }],
+    [TOKEN_OK, { status: 404 }, { throws: true }],
     [TOKEN_OK, { status: 200 }, { status: 400 }],
     [TOKEN_OK, { status: 200 }, { throws: true }],
+    [TOKEN_OK, { status: 200 }, { status: 409 }, { status: 403 }],
+    [TOKEN_OK, { status: 200 }, { status: 409 }, { throws: true }],
   ]
   for (const responses of cases) {
     resetAccessTokenCache()

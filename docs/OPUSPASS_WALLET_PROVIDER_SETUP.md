@@ -277,6 +277,8 @@ credential. The codes appear in `wallet_passes.last_error_code`.
 | `class_http_403` / `object_http_403` | The service account is not a Developer on the issuer. See 1.6. |
 | `class_http_404` after a create | The issuer ID is wrong. |
 | `object_http_400` | The object was rejected. Usually a malformed class reference or a bad field. |
+| `object_patch_http_403` | The object exists but could not be refreshed. Same cause as above. |
+| `token_sign_failed` | `GOOGLE_WALLET_PRIVATE_KEY` is not a usable private key. |
 | `*_unreachable` | Network failure mid-issuance. Safe to retry; issuance is idempotent. |
 
 Retrying is always safe: the class is upserted and the object's id is derived
