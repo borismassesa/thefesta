@@ -1,0 +1,175 @@
+name: CI
+
+# Build verification for the monorepo's apps.
+#
+# Why this exists: the Vercel projects for this repo all run with
+# `git.deploymentEnabled: false` (apps/*/vercel.json) and
+# `gitProviderOptions.createDeployments: "disabled"` at the project level,
+# because production deploys are manual via scripts/deploy.sh. The only thing
+# Vercel still posts on a PR is a "Skipped - Not affected" status for the
+# projects the PR did NOT touch. The project that IS affected posts nothing,
+# so the app a PR actually changes was the one app with no build behind it
+# (see PR #272, which changed only apps/opus_pass and merged with zero builds).
+#
+# A real `next build` is the gate here, not just `tsc --noEmit`: moving a pure
+# helper out of a 'use server' / 'server-only' module type-checks cleanly and
+# still breaks the Turbopack production build.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Detect changed apps
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.detect.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: detect
+        name: Work out which apps the change can affect
+        env:
+          # Read through env, never interpolated into the script body: these
+          # three are the only event-controlled values this step touches.
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          # Every workspace app that is buildable in CI. apps/Opus_info,
+          # apps/mobile and apps/planning_tools are untracked local leftovers
+          # with no package.json, so they are deliberately absent.
+          ALL_APPS='["opus_admin","opus_pass","opus_pass_mobile","opus_scanner","opus_website","studio","vendors_portal"]'
+
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "Not a pull request - building everything."
+            echo "apps=$ALL_APPS" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # fetch-depth: 0 above already brought down full history, so both
+          # SHAs are present and no extra fetch is needed here.
+          CHANGED="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          echo "Changed files:"
+          echo "$CHANGED" | sed 's/^/  /'
+
+          # Anything shared (workspace packages, the lockfile, root config, or
+          # this workflow itself) can break any app, so build them all.
+          if echo "$CHANGED" | grep -qE '^(packages/|package\.json$|package-lock\.json$|turbo\.json$|tsconfig|scripts/|\.github/workflows/ci\.yml$)'; then
+            echo "Shared code changed - building every app."
+            echo "apps=$ALL_APPS" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # `sed -n ...p` is used rather than grep on purpose: grep exits 1 on
+          # no match, which pipefail would turn into a failed detect job,
+          # whereas sed exits 0 and yields an empty list -> empty matrix.
+          # Read line by line: a directory name may legally contain spaces,
+          # and an unquoted `for app in $TOUCHED` would split one such name
+          # into two words and match an unrelated app against ALL_APPS.
+          TOUCHED="$(echo "$CHANGED" | sed -n 's#^apps/\([^/]*\)/.*#\1#p' | sort -u)"
+          APPS='[]'
+          while IFS= read -r app; do
+            [ -n "$app" ] || continue
+            case "$ALL_APPS" in
+              *"\"$app\""*) APPS="$(echo "$APPS" | jq -c --arg a "$app" '. + [$a]')" ;;
+              *) echo "Ignoring apps/$app (not a buildable workspace)." ;;
+            esac
+          done <<< "$TOUCHED"
+          echo "Building: $APPS"
+          echo "apps=$APPS" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.app }}
+    needs: detect
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+
+    env:
+      # Placeholders only. The service/URL values below are read at build time
+      # by some app's module graph, but none of them is contacted during
+      # `next build`, so dummy values are enough to compile and prerender.
+      # (NEXT_TELEMETRY_DISABLED and NODE_OPTIONS are build-tooling flags, not
+      # app config.) Do NOT put real secrets here - pull_request builds must
+      # stay safe on forks.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_placeholder
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+      # Clerk parses the publishable key, so it has to be a well-formed
+      # pk_test value rather than an arbitrary string.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
+      CLERK_SECRET_KEY: sk_test_placeholder
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3006
+      NEXT_PUBLIC_OPUS_PASS_URL: http://localhost:3008
+      NEXT_TELEMETRY_DISABLED: '1'
+      NODE_OPTIONS: --max-old-space-size=8192
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the Node version the four Vercel projects build with,
+          # which is a dashboard setting (all four report 24.x) and so is not
+          # checkable from this repo - root engines.node only says ">=18".
+          node-version: 24
+          cache: npm
+
+      - name: Install workspace
+        run: npm ci
+
+      - name: Type-check
+        run: npm run type-check --if-present --workspace=apps/${{ matrix.app }}
+
+      - name: Test
+        run: npm run test --if-present --workspace=apps/${{ matrix.app }}
+
+      - name: Build
+        run: npm run build --workspace=apps/${{ matrix.app }}
+
+      - name: Lint (informational)
+        # Not a gate yet: several apps carry a substantial number of
+        # pre-existing eslint errors on main, so failing here would only teach
+        # people to ignore a red check. No count is quoted on purpose - it
+        # would rot. Promote this to a gate once the backlog is cleared.
+        continue-on-error: true
+        run: npm run lint --if-present --workspace=apps/${{ matrix.app }}
+
+  # Single stable check to require in branch protection. Without it the
+  # required-checks list would have to name every matrix leg, and a leg that
+  # does not run (app not changed) can never report.
+  ci:
+    name: CI
+    if: always()
+    needs: [detect, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify no app build failed
+        run: |
+          if [ "${{ needs.detect.result }}" != "success" ]; then
+            echo "Change detection failed."; exit 1
+          fi
+          if [ "${{ needs.build.result }}" = "failure" ] || [ "${{ needs.build.result }}" = "cancelled" ]; then
+            echo "At least one app failed to build."; exit 1
+          fi
+          echo "OK"
