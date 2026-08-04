@@ -14,6 +14,11 @@ export function publicOrigin(): string {
 const NAME_TITLES = new Set([
   'mr', 'mrs', 'ms', 'miss', 'mx', 'dr', 'prof', 'rev', 'sir', 'madam', 'chief', 'eng', 'engr', 'capt',
   'mzee', 'bwana', 'bi', 'bibi', 'ndugu',
+  // Joins a compound honorific: "Mr & Mrs Boris Massesa" must greet "Boris",
+  // not "&". Only ever skipped BETWEEN titles, since the loop stops at the
+  // first word that isn't in this set. Swahili's "na" is deliberately absent:
+  // it would eat the real first name of a guest called "Na Mwangi".
+  '&', 'and',
 ])
 
 /** Index of the first word that isn't a leading title, or -1 if every word
