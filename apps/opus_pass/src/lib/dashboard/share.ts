@@ -362,6 +362,12 @@ export function pledgeReminderMessage(
   )
 }
 
+/** Collapse whitespace (Meta rejects newlines/tabs in params) and cap length. */
+export function templateParam(value: string | undefined, fallback: string, max = 60): string {
+  const clean = (value ?? '').replace(/\s+/g, ' ').trim()
+  return (clean || fallback).slice(0, max)
+}
+
 /** Normalize a phone number to digits + leading country code for wa.me / sms. */
 export function normalizePhone(raw: string | null | undefined): string | null {
   if (!raw) return null
