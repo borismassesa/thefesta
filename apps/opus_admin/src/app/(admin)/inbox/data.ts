@@ -1,6 +1,9 @@
-import type { InboxItem, SourceMeta } from './types'
+import type { CaseRecord, CategoryMeta } from './types'
+import { isActive } from './lib'
 
-export const SOURCE_META: Record<string, SourceMeta> = {
+// Category accents are used for a single 4px dot per row, nothing more. Status
+// and SLA own the colour budget on this page, so the categories stay quiet.
+export const CATEGORY_META: Record<string, CategoryMeta> = {
   booking_inquiry: {
     key: 'booking_inquiry',
     label: 'Booking inquiry',
@@ -15,9 +18,9 @@ export const SOURCE_META: Record<string, SourceMeta> = {
     tint: '#FEF3DB',
     text: '#8A5A09',
   },
-  review_flag: {
-    key: 'review_flag',
-    label: 'Review flag',
+  review_moderation: {
+    key: 'review_moderation',
+    label: 'Review moderation',
     accent: '#E0457B',
     tint: '#FCE4EC',
     text: '#9B1D4C',
@@ -50,9 +53,9 @@ export const SOURCE_META: Record<string, SourceMeta> = {
     tint: '#FCDDDD',
     text: '#921E1E',
   },
-  system_alert: {
-    key: 'system_alert',
-    label: 'System alert',
+  technical_incident: {
+    key: 'technical_incident',
+    label: 'Technical incident',
     accent: '#7A7A7A',
     tint: '#EFEFEF',
     text: '#3F3F3F',
@@ -63,32 +66,78 @@ const now = Date.now()
 const m = (mins: number) => new Date(now - mins * 60_000).toISOString()
 const h = (hrs: number) => new Date(now - hrs * 3_600_000).toISOString()
 const d = (days: number) => new Date(now - days * 86_400_000).toISOString()
+const inMins = (mins: number) => new Date(now + mins * 60_000).toISOString()
+const inHrs = (hrs: number) => new Date(now + hrs * 3_600_000).toISOString()
 
-export const DEMO_INBOX: InboxItem[] = [
+export const DEMO_CASES: CaseRecord[] = [
   {
     id: 'inq-001',
-    source: 'booking_inquiry',
-    subject: 'Full wedding — 180 guests at Ngare Sero (Dec 2026)',
+    reference: 'BK-2026-00481',
+    channel: 'booking_form',
+    category: 'booking_inquiry',
+    team: 'sales_booking',
+    subject: 'Full wedding, 180 guests at Ngare Sero (Dec 2026)',
     preview:
-      'Hi OpusFesta team, we’d love your help planning a destination wedding in Arusha. Budget is around TZS 45M…',
-    sender: {
+      'Destination wedding in Arusha around 12 December 2026. Budget TZS 45M excluding attire. Asking for a discovery call this week.',
+    requester: {
       name: 'Zawadi Mushi',
       handle: 'zawadi.mushi@gmail.com',
       role: 'client',
       avatarColor: '#F0DFF6',
       initials: 'ZM',
     },
-    receivedAt: m(8),
+    openedAt: m(8),
+    lastActivityAt: m(8),
     status: 'new',
     priority: 'high',
     assignee: null,
+    followers: [],
     unread: true,
-    starred: true,
     tags: ['Arusha', 'destination'],
-    related: { type: 'client', id: 'cl-8821', label: 'Zawadi & Baraka' },
-    thread: [
+    value: 45_000_000,
+    sla: { firstResponseDueAt: inMins(42), resolutionDueAt: inHrs(46) },
+    context: {
+      customer: {
+        name: 'Zawadi Mushi',
+        email: 'zawadi.mushi@gmail.com',
+        phone: '+255 754 220 118',
+        language: 'English',
+        location: 'Arusha',
+        lifecycle: 'New lead',
+        previousCases: 0,
+      },
+      record: {
+        title: 'Zawadi & Baraka wedding',
+        kind: 'booking',
+        fields: [
+          { label: 'Event type', value: 'Full wedding' },
+          { label: 'Event date', value: '12 December 2026' },
+          { label: 'Guests', value: '180' },
+          { label: 'Location', value: 'Ngare Sero, Arusha' },
+          { label: 'Budget', value: 'TZS 45,000,000' },
+          { label: 'Services', value: 'Venue, décor, catering, photo, film' },
+          { label: 'Stage', value: 'Inquiry received' },
+        ],
+      },
+    },
+    linked: [
+      { kind: 'client', id: 'cl-8821', label: 'Zawadi & Baraka', meta: 'New lead' },
+      { kind: 'task', id: 'tk-9012', label: 'Schedule discovery call', meta: 'Not started' },
+    ],
+    timeline: [
       {
+        kind: 'event',
+        id: 'ev-1',
+        at: m(8),
+        event: 'created',
+        actor: 'Website booking form',
+        detail: 'Case created from the booking form on opusfesta.com',
+      },
+      {
+        kind: 'message',
         id: 'msg-1',
+        at: m(8),
+        direction: 'inbound',
         from: {
           name: 'Zawadi Mushi',
           handle: 'zawadi.mushi@gmail.com',
@@ -96,18 +145,17 @@ export const DEMO_INBOX: InboxItem[] = [
           avatarColor: '#F0DFF6',
           initials: 'ZM',
         },
-        at: m(8),
         body: `Hi OpusFesta team,
 
-We’d love your help planning a destination wedding in Arusha around 12 December 2026. Guest count is roughly 180 and our ceremony-and-reception budget is TZS 45M excluding attire.
+We would love your help planning a destination wedding in Arusha around 12 December 2026. Guest count is roughly 180 and our ceremony-and-reception budget is TZS 45M excluding attire.
 
 Key asks:
-• Venue — Ngare Sero or something similar
-• Full décor + catering (halal + vegetarian options)
-• Photo + film package
+• Venue, Ngare Sero or something similar
+• Full décor and catering (halal and vegetarian options)
+• Photo and film package
 • Logistics for 40 out-of-town guests
 
-Could we schedule a discovery call this week? I’ve attached our moodboard and a rough guest list.
+Could we schedule a discovery call this week? I have attached our moodboard and a rough guest list.
 
 Thanks,
 Zawadi`,
@@ -148,32 +196,91 @@ Zawadi`,
           },
         ],
       },
+      {
+        kind: 'event',
+        id: 'ev-2',
+        at: m(7),
+        event: 'routed',
+        actor: 'Routing rule R-04',
+        detail: 'Routed to Sales & Booking, priority raised to High (budget above TZS 20M)',
+      },
+      {
+        kind: 'event',
+        id: 'ev-3',
+        at: m(7),
+        event: 'sla_started',
+        actor: 'System',
+        detail: 'First response due in 60 minutes',
+      },
     ],
   },
+
   {
     id: 'app-014',
-    source: 'vendor_application',
-    subject: 'New vendor application — Flora Mara Studios (florist)',
+    reference: 'VA-2026-00142',
+    channel: 'vendor_portal',
+    category: 'vendor_application',
+    team: 'vendor_success',
+    subject: 'New vendor application, Flora Mara Studios (florist)',
     preview:
-      'Application submitted with 12 portfolio images and NBC trading licence. Requires moderation before listing.',
-    sender: {
+      'Application submitted with 12 portfolio images, NBC trading licence and TRA certificate. Needs moderation before listing.',
+    requester: {
       name: 'Flora Mara Studios',
       handle: 'hello@floramara.co.tz',
       role: 'vendor',
       avatarColor: '#FEF3DB',
       initials: 'FM',
     },
-    receivedAt: m(42),
+    openedAt: m(42),
+    lastActivityAt: m(42),
     status: 'new',
     priority: 'normal',
     assignee: null,
+    followers: [],
     unread: true,
-    starred: false,
     tags: ['florist', 'Dar'],
-    related: { type: 'vendor', id: 'vn-app-014', label: 'Flora Mara Studios' },
-    thread: [
+    sla: { firstResponseDueAt: inHrs(3.4), resolutionDueAt: inHrs(70) },
+    context: {
+      customer: {
+        name: 'Flora Mara Studios',
+        email: 'hello@floramara.co.tz',
+        phone: '+255 713 909 220',
+        language: 'Swahili',
+        location: 'Dar es Salaam',
+        lifecycle: 'Applicant',
+        previousCases: 0,
+      },
+      record: {
+        title: 'Flora Mara Studios',
+        kind: 'application',
+        fields: [
+          { label: 'Vertical', value: 'Service, florist' },
+          { label: 'Verification', value: 'Documents uploaded, not reviewed' },
+          { label: 'Portfolio', value: '12 images' },
+          { label: 'Licence', value: 'NBC trading licence 2026' },
+          { label: 'TIN', value: 'TRA certificate attached' },
+          { label: 'Reviewer', value: 'Unassigned' },
+        ],
+      },
+    },
+    linked: [
+      { kind: 'vendor', id: 'vn-app-014', label: 'Flora Mara Studios', meta: 'Pending review' },
+      { kind: 'approval', id: 'ap-0331', label: 'Vendor listing approval', meta: 'Not requested' },
+    ],
+    timeline: [
       {
+        kind: 'event',
+        id: 'ev-1',
+        at: m(42),
+        event: 'created',
+        actor: 'Vendor portal',
+        detail: 'Application submitted through the vendor portal',
+      },
+      {
+        kind: 'message',
         id: 'msg-1',
+        at: m(42),
+        direction: 'inbound',
         from: {
           name: 'Flora Mara Studios',
           handle: 'hello@floramara.co.tz',
@@ -181,12 +288,11 @@ Zawadi`,
           avatarColor: '#FEF3DB',
           initials: 'FM',
         },
-        at: m(42),
         body: `Jambo,
 
 Please find our application to join the OpusFesta marketplace as a florist based in Dar es Salaam.
 
-We’ve attached portfolio images plus our licences and a sample quote sheet.
+We have attached portfolio images plus our licences and a sample quote sheet.
 
 Looking forward to your review.`,
         attachments: [
@@ -233,37 +339,210 @@ Looking forward to your review.`,
           },
         ],
       },
+      {
+        kind: 'event',
+        id: 'ev-2',
+        at: m(41),
+        event: 'routed',
+        actor: 'Routing rule R-11',
+        detail: 'Routed to Vendor Success, awaiting reviewer assignment',
+      },
     ],
   },
+
+  {
+    id: 'sup-441',
+    reference: 'SUP-2026-01188',
+    channel: 'whatsapp',
+    category: 'client_support',
+    team: 'customer_support',
+    subject: 'M-Pesa deposit shows paid but booking still pending',
+    preview:
+      'Paid TZS 500,000 at 14:02 via Vodacom. Booking page still says awaiting deposit. Reference VJ8A2K.',
+    requester: {
+      name: 'Amani Kileo',
+      handle: '+255 744 812 019',
+      role: 'client',
+      avatarColor: '#E1ECF9',
+      initials: 'AK',
+    },
+    openedAt: h(3),
+    lastActivityAt: h(2.5),
+    status: 'in_progress',
+    priority: 'urgent',
+    assignee: 'David O.',
+    followers: ['Neema K.'],
+    mentionsMe: true,
+    unread: false,
+    tags: ['mpesa', 'deposit', 'payment-failure'],
+    value: 500_000,
+    sla: {
+      firstResponseDueAt: h(2.5),
+      resolutionDueAt: inMins(35),
+      firstRespondedAt: h(2.6),
+    },
+    context: {
+      customer: {
+        name: 'Amani Kileo',
+        email: 'amani.kileo@gmail.com',
+        phone: '+255 744 812 019',
+        language: 'Swahili',
+        location: 'Dodoma',
+        lifecycle: 'Booked client',
+        previousCases: 2,
+      },
+      record: {
+        title: 'Booking #33128',
+        kind: 'booking',
+        fields: [
+          { label: 'Event date', value: '4 October 2026' },
+          { label: 'Vendor', value: 'Kilele Catering' },
+          { label: 'Booking total', value: 'TZS 2,500,000' },
+          { label: 'Deposit', value: 'TZS 500,000, unmatched' },
+          { label: 'Payment ref', value: 'VJ8A2K' },
+          { label: 'Stage', value: 'Awaiting deposit' },
+        ],
+      },
+    },
+    linked: [
+      { kind: 'booking', id: 'bk-33128', label: 'Booking #33128', meta: 'Awaiting deposit' },
+      { kind: 'payment', id: 'pm-VJ8A2K', label: 'M-Pesa VJ8A2K', meta: 'TZS 500,000, unmatched' },
+      { kind: 'incident', id: 'inc-011', label: 'Reconciliation job failures', meta: 'Open' },
+    ],
+    timeline: [
+      {
+        kind: 'message',
+        id: 'msg-1',
+        at: h(3),
+        direction: 'inbound',
+        from: {
+          name: 'Amani Kileo',
+          handle: '+255 744 812 019',
+          role: 'client',
+          avatarColor: '#E1ECF9',
+          initials: 'AK',
+        },
+        body: 'I paid TZS 500,000 this afternoon via M-Pesa for booking #33128. The reference is VJ8A2K. The page still says awaiting deposit and I need confirmation before the vendor releases the date. Screenshot of the M-Pesa confirmation attached.',
+        attachments: [
+          {
+            id: 'att-ak-1',
+            name: 'mpesa-confirmation.jpg',
+            kind: 'image',
+            mime: 'image/jpeg',
+            size: 318_440,
+            url: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=80',
+            thumbUrl:
+              'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=240&h=240&fit=crop&q=70',
+          },
+        ],
+      },
+      {
+        kind: 'event',
+        id: 'ev-1',
+        at: h(2.9),
+        event: 'priority_changed',
+        actor: 'Routing rule R-02',
+        detail: 'Priority set to Urgent, payment issue on a live booking',
+      },
+      {
+        kind: 'event',
+        id: 'ev-2',
+        at: h(2.8),
+        event: 'assigned',
+        actor: 'Grace M.',
+        detail: 'Assigned to David O. (Customer Support)',
+      },
+      {
+        kind: 'message',
+        id: 'msg-2',
+        at: h(2.6),
+        direction: 'outbound',
+        from: { name: 'David O.', role: 'agent', avatarColor: '#E1ECF9', initials: 'DO' },
+        body: 'Habari Amani, thank you for the reference. I can see the payment on our side and I am matching it to the booking now. I will confirm within the hour.',
+      },
+      {
+        kind: 'note',
+        id: 'nt-1',
+        at: h(2.5),
+        from: { name: 'David O.', role: 'agent', avatarColor: '#E1ECF9', initials: 'DO' },
+        body: 'Vodacom webhook retried 3 times with status=SUCCESS but our reconciliation job failed to match TillRef. Pulling logs. @Neema K. this is the third one this week, may be the same root cause as INC-011.',
+      },
+    ],
+  },
+
   {
     id: 'rvw-209',
-    source: 'review_flag',
-    subject: '1★ review flagged on Serengeti Sound & Lights',
+    reference: 'TS-2026-00209',
+    channel: 'system_event',
+    category: 'review_moderation',
+    team: 'trust_safety',
+    subject: '1-star review flagged on Serengeti Sound & Lights',
     preview:
-      'Review reported by vendor as “factually incorrect — we were never contracted for this date”. Needs arbitration.',
-    sender: {
+      'Vendor reports the review as factually incorrect. No booking found for the reviewer within 90 days. Needs arbitration.',
+    requester: {
       name: 'Auto-moderation',
       role: 'system',
       avatarColor: '#EFEFEF',
       initials: 'SYS',
     },
-    receivedAt: h(2),
+    openedAt: h(2),
+    lastActivityAt: h(1.5),
     status: 'open',
     priority: 'high',
     assignee: 'Neema K.',
+    followers: ['Neema K.'],
     unread: true,
-    starred: false,
     tags: ['arbitration'],
-    related: { type: 'review', id: 'rv-0912', label: 'Serengeti Sound & Lights' },
-    thread: [
+    sla: { firstResponseDueAt: m(20), resolutionDueAt: inHrs(20) },
+    context: {
+      customer: {
+        name: 'Serengeti Sound & Lights',
+        email: 'ops@serengeti-sl.co.tz',
+        phone: '+255 782 114 006',
+        language: 'English',
+        location: 'Mwanza',
+        lifecycle: 'Verified vendor',
+        previousCases: 4,
+      },
+      record: {
+        title: 'Review rv-0912',
+        kind: 'review',
+        fields: [
+          { label: 'Rating', value: '1 star' },
+          { label: 'Reviewer', value: 'A. Kapinga' },
+          { label: 'Claimed event', value: '18 July 2026' },
+          { label: 'Booking match', value: 'None within 90 days' },
+          { label: 'Vendor standing', value: 'Verified, 4.8 average' },
+          { label: 'Visibility', value: 'Live on the storefront' },
+        ],
+      },
+    },
+    linked: [
+      { kind: 'review', id: 'rv-0912', label: 'Review rv-0912', meta: 'Live, disputed' },
+      { kind: 'vendor', id: 'vn-118', label: 'Serengeti Sound & Lights', meta: 'Verified' },
+    ],
+    timeline: [
       {
-        id: 'msg-1',
-        from: { name: 'Auto-moderation', role: 'system', avatarColor: '#EFEFEF', initials: 'SYS' },
+        kind: 'event',
+        id: 'ev-1',
         at: h(2),
-        body: 'Vendor disputed review rv-0912 citing “no booking on the stated date”. Booking search returned no match for the reviewer’s email within 90 days of the claimed event.',
+        event: 'created',
+        actor: 'Auto-moderation',
+        detail: 'Vendor disputed review rv-0912, case opened for arbitration',
       },
       {
+        kind: 'message',
+        id: 'msg-1',
+        at: h(2),
+        direction: 'inbound',
+        from: { name: 'Auto-moderation', role: 'system', avatarColor: '#EFEFEF', initials: 'SYS' },
+        body: 'Vendor disputed review rv-0912 citing no booking on the stated date. Booking search returned no match for the reviewer email within 90 days of the claimed event.',
+      },
+      {
+        kind: 'message',
         id: 'msg-2',
+        at: h(1.5),
+        direction: 'inbound',
         from: {
           name: 'Serengeti Sound & Lights',
           handle: 'ops@serengeti-sl.co.tz',
@@ -271,8 +550,7 @@ Looking forward to your review.`,
           avatarColor: '#DFF5F1',
           initials: 'SS',
         },
-        at: h(1.5),
-        body: 'Please remove this — we have no contract on file for Ms. Kapinga. Our CRM export for the past 90 days is attached.',
+        body: 'Please remove this. We have no contract on file for Ms. Kapinga. Our CRM export for the past 90 days is attached.',
         attachments: [
           {
             id: 'att-ss-1',
@@ -290,87 +568,185 @@ Looking forward to your review.`,
           },
         ],
       },
+      {
+        kind: 'event',
+        id: 'ev-2',
+        at: m(20),
+        event: 'sla_breached',
+        actor: 'System',
+        detail: 'First response deadline passed with no reply to the vendor',
+      },
     ],
   },
+
   {
-    id: 'sup-441',
-    source: 'client_support',
-    subject: 'M-Pesa deposit shows paid but booking still pending',
+    id: 'ref-022',
+    reference: 'RF-2026-00220',
+    channel: 'email',
+    category: 'refund_request',
+    team: 'finance',
+    subject: 'Refund request, photographer no-show (Booking #32870)',
     preview:
-      'Paid TZS 500,000 deposit at 14:02 via Vodacom but the booking page still says “awaiting deposit”. Reference: VJ8A2K.',
-    sender: {
-      name: 'Amani Kileo',
-      handle: '+255 744 812 019',
+      'Vendor did not arrive at the ceremony. Couple requesting a full refund plus compensation under the OpusFesta guarantee.',
+    requester: {
+      name: 'Grace Mwakyanjala',
+      handle: 'grace.mwakyan@outlook.com',
       role: 'client',
-      avatarColor: '#E1ECF9',
-      initials: 'AK',
+      avatarColor: '#FCDDDD',
+      initials: 'GM',
     },
-    receivedAt: h(3),
-    status: 'in_progress',
+    openedAt: h(9),
+    lastActivityAt: h(7),
+    status: 'waiting_internal',
     priority: 'urgent',
-    assignee: 'David O.',
+    assignee: 'Neema K.',
+    followers: ['Neema K.', 'David O.'],
     unread: false,
-    starred: true,
-    tags: ['mpesa', 'deposit'],
-    related: { type: 'booking', id: 'bk-33128', label: 'Booking #33128' },
-    thread: [
-      {
-        id: 'msg-1',
-        from: {
-          name: 'Amani Kileo',
-          handle: '+255 744 812 019',
-          role: 'client',
-          avatarColor: '#E1ECF9',
-          initials: 'AK',
-        },
-        at: h(3),
-        body: 'I paid TZS 500,000 this afternoon via M-Pesa for booking #33128. The reference is VJ8A2K. The page still says awaiting deposit and I need confirmation before the vendor releases the date. Screenshot of the M-Pesa confirmation attached.',
-        attachments: [
-          {
-            id: 'att-ak-1',
-            name: 'mpesa-confirmation.jpg',
-            kind: 'image',
-            mime: 'image/jpeg',
-            size: 318_440,
-            url: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=80',
-            thumbUrl:
-              'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=240&h=240&fit=crop&q=70',
-          },
+    tags: ['refund', 'no-show', 'guarantee'],
+    value: 1_800_000,
+    sla: {
+      firstResponseDueAt: h(8),
+      resolutionDueAt: inHrs(9),
+      firstRespondedAt: h(8.4),
+    },
+    context: {
+      customer: {
+        name: 'Grace Mwakyanjala',
+        email: 'grace.mwakyan@outlook.com',
+        phone: '+255 767 331 887',
+        language: 'English',
+        location: 'Dar es Salaam',
+        lifecycle: 'Booked client',
+        previousCases: 1,
+      },
+      record: {
+        title: 'Refund on booking #32870',
+        kind: 'refund',
+        fields: [
+          { label: 'Amount requested', value: 'TZS 1,800,000' },
+          { label: 'Reason', value: 'Vendor no-show' },
+          { label: 'Vendor', value: 'Lumen Frames Photography' },
+          { label: 'Event date', value: '1 August 2026' },
+          { label: 'Guarantee claim', value: 'Yes, under review' },
+          { label: 'Finance approval', value: 'Required, above TZS 1M' },
         ],
       },
+    },
+    linked: [
+      { kind: 'refund', id: 'rf-22', label: 'Refund rf-22', meta: 'TZS 1,800,000' },
+      { kind: 'booking', id: 'bk-32870', label: 'Booking #32870', meta: 'Completed, disputed' },
+      { kind: 'vendor', id: 'vn-077', label: 'Lumen Frames Photography', meta: '2 open disputes' },
+      { kind: 'approval', id: 'ap-0410', label: 'Finance refund approval', meta: 'Pending' },
+    ],
+    timeline: [
       {
+        kind: 'message',
+        id: 'msg-1',
+        at: h(9),
+        direction: 'inbound',
+        from: {
+          name: 'Grace Mwakyanjala',
+          handle: 'grace.mwakyan@outlook.com',
+          role: 'client',
+          avatarColor: '#FCDDDD',
+          initials: 'GM',
+        },
+        body: 'The photographer we booked never arrived on Saturday. We called 6 times, no response. We want a full refund and to know how OpusFesta will make this right.',
+      },
+      {
+        kind: 'event',
+        id: 'ev-1',
+        at: h(8.8),
+        event: 'routed',
+        actor: 'Routing rule R-07',
+        detail: 'Refund above TZS 1,000,000, routed to Finance and a Finance approval was created',
+      },
+      {
+        kind: 'message',
         id: 'msg-2',
-        from: { name: 'David O.', role: 'system', avatarColor: '#F0DFF6', initials: 'DO' },
-        at: h(2.5),
-        internal: true,
-        body: 'Internal — Vodacom webhook retried 3× with status=SUCCESS but our reconciliation job failed to match TillRef. Pulling logs.',
+        at: h(8.4),
+        direction: 'outbound',
+        from: { name: 'Neema K.', role: 'agent', avatarColor: '#F0DFF6', initials: 'NK' },
+        body: 'Grace, I am so sorry this happened. I have opened a guarantee claim and escalated the refund for approval today. You will hear from me before the end of the day with the outcome.',
+      },
+      {
+        kind: 'note',
+        id: 'nt-1',
+        at: h(7),
+        from: { name: 'Neema K.', role: 'agent', avatarColor: '#F0DFF6', initials: 'NK' },
+        body: 'Vendor has two other open disputes this quarter. Recommending full refund plus a card credit, and a Trust & Safety review of the vendor account.',
+      },
+      {
+        kind: 'event',
+        id: 'ev-2',
+        at: h(7),
+        event: 'status_changed',
+        actor: 'Neema K.',
+        detail: 'Status set to Waiting internally, blocked on Finance approval ap-0410',
       },
     ],
   },
+
   {
     id: 'pay-057',
-    source: 'payout_dispute',
-    subject: 'Vendor disputing Oct payout amount (-TZS 180k)',
+    reference: 'PD-2026-00057',
+    channel: 'email',
+    category: 'payout_dispute',
+    team: 'finance',
+    subject: 'Vendor disputing October payout amount, short by TZS 180k',
     preview:
-      'Expected TZS 2,430,000 for October. Received TZS 2,250,000. Difference appears to be the promo discount on booking #32044.',
-    sender: {
+      'Expected TZS 2,430,000 for October, received TZS 2,250,000. Difference looks like the promo discount on booking #32044.',
+    requester: {
       name: 'Kilele Catering',
       handle: 'finance@kilele.co.tz',
       role: 'vendor',
       avatarColor: '#FCE6D4',
       initials: 'KC',
     },
-    receivedAt: h(6),
+    openedAt: h(6),
+    lastActivityAt: h(6),
     status: 'open',
     priority: 'normal',
     assignee: null,
+    followers: [],
     unread: true,
-    starred: false,
     tags: ['payout', 'reconciliation'],
-    related: { type: 'payout', id: 'po-oct-057', label: 'Payout · Oct · Kilele' },
-    thread: [
+    value: 180_000,
+    sla: { firstResponseDueAt: inHrs(1.6), resolutionDueAt: inHrs(42) },
+    context: {
+      customer: {
+        name: 'Kilele Catering',
+        email: 'finance@kilele.co.tz',
+        phone: '+255 786 550 341',
+        language: 'English',
+        location: 'Dar es Salaam',
+        lifecycle: 'Verified vendor',
+        previousCases: 3,
+      },
+      record: {
+        title: 'October payout, Kilele Catering',
+        kind: 'payout',
+        fields: [
+          { label: 'Payout period', value: 'October 2026' },
+          { label: 'Vendor expected', value: 'TZS 2,430,000' },
+          { label: 'Paid out', value: 'TZS 2,250,000' },
+          { label: 'Difference', value: 'TZS 180,000' },
+          { label: 'Suspected cause', value: 'Promo discount on booking #32044' },
+          { label: 'Payout status', value: 'Settled, under review' },
+        ],
+      },
+    },
+    linked: [
+      { kind: 'payout', id: 'po-oct-057', label: 'Payout, October, Kilele', meta: 'Settled' },
+      { kind: 'booking', id: 'bk-32044', label: 'Booking #32044', meta: 'Promo applied' },
+      { kind: 'vendor', id: 'vn-041', label: 'Kilele Catering', meta: 'Verified' },
+    ],
+    timeline: [
       {
+        kind: 'message',
         id: 'msg-1',
+        at: h(6),
+        direction: 'inbound',
         from: {
           name: 'Kilele Catering',
           handle: 'finance@kilele.co.tz',
@@ -378,8 +754,7 @@ Looking forward to your review.`,
           avatarColor: '#FCE6D4',
           initials: 'KC',
         },
-        at: h(6),
-        body: 'Habari. The October payout is short by TZS 180,000 compared to our invoices. Please verify — we suspect the discount code on #32044 was not applied before commission. Statement PDF and reconciliation sheet attached.',
+        body: 'Habari. The October payout is short by TZS 180,000 compared to our invoices. Please verify, we suspect the discount code on #32044 was not applied before commission. Statement PDF and reconciliation sheet attached.',
         attachments: [
           {
             id: 'att-kc-1',
@@ -397,68 +772,79 @@ Looking forward to your review.`,
           },
         ],
       },
-    ],
-  },
-  {
-    id: 'ref-022',
-    source: 'refund_request',
-    subject: 'Refund request — photographer no-show (Booking #32870)',
-    preview:
-      'Vendor did not arrive at the ceremony. Couple requesting full refund + compensation under the OpusFesta guarantee.',
-    sender: {
-      name: 'Grace Mwakyanjala',
-      handle: 'grace.mwakyan@outlook.com',
-      role: 'client',
-      avatarColor: '#FCDDDD',
-      initials: 'GM',
-    },
-    receivedAt: h(9),
-    status: 'in_progress',
-    priority: 'urgent',
-    assignee: 'Neema K.',
-    unread: false,
-    starred: true,
-    tags: ['refund', 'no-show', 'guarantee'],
-    related: { type: 'refund', id: 'rf-22', label: 'Refund · #32870' },
-    thread: [
       {
-        id: 'msg-1',
-        from: {
-          name: 'Grace Mwakyanjala',
-          handle: 'grace.mwakyan@outlook.com',
-          role: 'client',
-          avatarColor: '#FCDDDD',
-          initials: 'GM',
-        },
-        at: h(9),
-        body: 'The photographer we booked never arrived on Saturday. We called 6 times, no response. We want a full refund and to know how OpusFesta will make this right.',
+        kind: 'event',
+        id: 'ev-1',
+        at: h(5.9),
+        event: 'routed',
+        actor: 'Routing rule R-09',
+        detail: 'Routed to Finance, awaiting assignment',
       },
     ],
   },
+
   {
     id: 'sup-442',
-    source: 'vendor_support',
+    reference: 'SUP-2026-01191',
+    channel: 'vendor_portal',
+    category: 'vendor_support',
+    team: 'vendor_success',
     subject: 'Availability calendar not syncing with Google',
     preview:
-      'Turned on Google Calendar sync yesterday — new bookings are not appearing on my calendar. Is there an outage?',
-    sender: {
+      'Google Calendar sync turned on yesterday. Two new bookings today, neither appeared. Asking whether there is an outage.',
+    requester: {
       name: 'Asilia Events',
       handle: 'bookings@asiliaevents.co.tz',
       role: 'vendor',
       avatarColor: '#DFF5F1',
       initials: 'AE',
     },
-    receivedAt: h(14),
-    status: 'open',
+    openedAt: h(14),
+    lastActivityAt: h(11),
+    status: 'waiting_on_customer',
     priority: 'normal',
-    assignee: null,
+    assignee: 'David O.',
+    followers: [],
     unread: false,
-    starred: false,
     tags: ['calendar', 'integration'],
-    related: { type: 'vendor', id: 'vn-201', label: 'Asilia Events' },
-    thread: [
+    sla: {
+      firstResponseDueAt: h(13),
+      resolutionDueAt: inHrs(28),
+      firstRespondedAt: h(13.2),
+      pausedReason: 'waiting_on_customer',
+    },
+    context: {
+      customer: {
+        name: 'Asilia Events',
+        email: 'bookings@asiliaevents.co.tz',
+        phone: '+255 715 442 908',
+        language: 'English',
+        location: 'Arusha',
+        lifecycle: 'Verified vendor',
+        previousCases: 6,
+      },
+      record: {
+        title: 'Asilia Events',
+        kind: 'vendor',
+        fields: [
+          { label: 'Vertical', value: 'Service, planning' },
+          { label: 'Verification', value: 'Verified' },
+          { label: 'Integration', value: 'Google Calendar, connected 2 Aug' },
+          { label: 'Payout status', value: 'Current' },
+          { label: 'Vendor manager', value: 'David O.' },
+        ],
+      },
+    },
+    linked: [
+      { kind: 'vendor', id: 'vn-201', label: 'Asilia Events', meta: 'Verified' },
+      { kind: 'task', id: 'tk-8804', label: 'Re-run calendar sync diagnostics', meta: 'In progress' },
+    ],
+    timeline: [
       {
+        kind: 'message',
         id: 'msg-1',
+        at: h(14),
+        direction: 'inbound',
         from: {
           name: 'Asilia Events',
           handle: 'bookings@asiliaevents.co.tz',
@@ -466,70 +852,179 @@ Looking forward to your review.`,
           avatarColor: '#DFF5F1',
           initials: 'AE',
         },
-        at: h(14),
         body: 'Hi team, I connected Google Calendar yesterday evening. Two new bookings today and neither appeared. Is there an outage on your side?',
+      },
+      {
+        kind: 'message',
+        id: 'msg-2',
+        at: h(13.2),
+        direction: 'outbound',
+        from: { name: 'David O.', role: 'agent', avatarColor: '#E1ECF9', initials: 'DO' },
+        body: 'No outage on our side. The sync only pushes bookings created after the connection, so the two from this morning should have appeared. Could you disconnect and reconnect the calendar, then send me a screenshot of the permissions screen?',
+      },
+      {
+        kind: 'event',
+        id: 'ev-1',
+        at: h(11),
+        event: 'status_changed',
+        actor: 'David O.',
+        detail: 'Status set to Waiting on customer, SLA clock paused',
       },
     ],
   },
+
   {
     id: 'sys-014',
-    source: 'system_alert',
-    subject: 'Payment webhook failing — Airtel Money (3 retries)',
+    reference: 'INC-2026-00014',
+    channel: 'system_event',
+    category: 'technical_incident',
+    team: 'technology',
+    subject: 'Payment webhook failing, Airtel Money (3 retries)',
     preview:
-      'Airtel Money webhook endpoint responded with 502 Bad Gateway on 3 consecutive retries since 09:14 EAT.',
-    sender: {
+      'Airtel Money webhook endpoint returned 502 on 3 consecutive retries since 09:14 EAT. Pager sent to on-call.',
+    requester: {
       name: 'OpusFesta Monitor',
       role: 'system',
       avatarColor: '#EFEFEF',
       initials: 'OF',
     },
-    receivedAt: d(1),
+    openedAt: d(1),
+    lastActivityAt: d(0.9),
     status: 'resolved',
-    priority: 'high',
+    priority: 'critical',
     assignee: 'David O.',
+    followers: ['Neema K.'],
     unread: false,
-    starred: false,
-    tags: ['airtel', 'webhook'],
-    related: { type: 'booking', id: 'sys-14', label: 'Incident · WH-014' },
-    thread: [
+    tags: ['airtel', 'webhook', 'payment-failure'],
+    sla: {
+      firstResponseDueAt: d(0.98),
+      resolutionDueAt: d(0.8),
+      firstRespondedAt: d(0.99),
+    },
+    resolution: { reason: 'issue_fixed', at: d(0.9), by: 'David O.' },
+    context: {
+      customer: {
+        name: 'OpusFesta platform',
+        language: 'English',
+        location: 'Platform-wide',
+        lifecycle: 'Internal',
+        previousCases: 13,
+      },
+      record: {
+        title: 'Incident WH-014',
+        kind: 'incident',
+        fields: [
+          { label: 'Component', value: 'Airtel Money webhook' },
+          { label: 'First failure', value: '09:14 EAT' },
+          { label: 'Failure count', value: '3 retries, 502' },
+          { label: 'Blast radius', value: '14 pending payment events' },
+          { label: 'On-call', value: 'David O.' },
+          { label: 'Root cause', value: 'Expired webhook certificate' },
+        ],
+      },
+    },
+    linked: [
+      { kind: 'incident', id: 'inc-014', label: 'Incident WH-014', meta: 'Resolved' },
+      { kind: 'payment', id: 'pm-batch-14', label: '14 pending payment events', meta: 'Redelivered' },
+    ],
+    timeline: [
       {
+        kind: 'message',
         id: 'msg-1',
-        from: { name: 'OpusFesta Monitor', role: 'system', avatarColor: '#EFEFEF', initials: 'OF' },
         at: d(1),
+        direction: 'inbound',
+        from: { name: 'OpusFesta Monitor', role: 'system', avatarColor: '#EFEFEF', initials: 'OF' },
         body: 'Airtel Money webhook returned 502 on 3 retries starting 09:14 EAT. Pager sent to on-call (David O.).',
       },
       {
-        id: 'msg-2',
-        from: { name: 'David O.', role: 'system', avatarColor: '#F0DFF6', initials: 'DO' },
+        kind: 'event',
+        id: 'ev-1',
+        at: d(0.99),
+        event: 'automation',
+        actor: 'Routing rule R-15',
+        detail: 'Priority set to Critical, incident created and on-call notified',
+      },
+      {
+        kind: 'note',
+        id: 'nt-1',
         at: d(0.9),
-        internal: true,
-        body: 'Resolved — rotated webhook cert and re-enqueued 14 pending events. All delivered successfully.',
+        from: { name: 'David O.', role: 'agent', avatarColor: '#E1ECF9', initials: 'DO' },
+        body: 'Resolved. Rotated the webhook certificate and re-enqueued 14 pending events, all delivered successfully.',
+      },
+      {
+        kind: 'event',
+        id: 'ev-2',
+        at: d(0.9),
+        event: 'resolved',
+        actor: 'David O.',
+        detail: 'Resolved as Technical issue fixed',
       },
     ],
   },
+
   {
     id: 'inq-002',
-    source: 'booking_inquiry',
-    subject: 'Send-off ceremony — 60 guests Zanzibar (Feb 2027)',
+    reference: 'BK-2026-00479',
+    channel: 'contact_form',
+    category: 'booking_inquiry',
+    team: 'sales_booking',
+    subject: 'Send-off ceremony, 60 guests in Zanzibar (Feb 2027)',
     preview:
-      'Looking for a lead planner + décor for a send-off in Zanzibar. Mostly Kanga theme. Budget flexible.',
-    sender: {
+      'Looking for a lead planner and full décor for a send-off in Zanzibar. Kanga theme throughout. Budget flexible.',
+    requester: {
       name: 'Upendo Mwinuka',
       handle: 'upendo@kilimogroup.com',
       role: 'client',
       avatarColor: '#F0DFF6',
       initials: 'UM',
     },
-    receivedAt: d(2),
-    status: 'open',
+    openedAt: d(2),
+    lastActivityAt: d(1.6),
+    status: 'in_progress',
     priority: 'normal',
     assignee: 'Neema K.',
+    followers: ['Neema K.'],
     unread: false,
-    starred: false,
     tags: ['Zanzibar', 'send-off'],
-    thread: [
+    value: 12_000_000,
+    sla: {
+      firstResponseDueAt: d(1.9),
+      resolutionDueAt: inHrs(14),
+      firstRespondedAt: d(1.92),
+    },
+    context: {
+      customer: {
+        name: 'Upendo Mwinuka',
+        email: 'upendo@kilimogroup.com',
+        phone: '+255 789 004 552',
+        language: 'Swahili',
+        location: 'Zanzibar',
+        lifecycle: 'Qualified lead',
+        previousCases: 1,
+      },
+      record: {
+        title: 'Mwinuka send-off',
+        kind: 'booking',
+        fields: [
+          { label: 'Event type', value: 'Send-off ceremony' },
+          { label: 'Event date', value: 'February 2027, date open' },
+          { label: 'Guests', value: '60' },
+          { label: 'Location', value: 'Zanzibar' },
+          { label: 'Budget', value: 'Flexible, guide TZS 12M' },
+          { label: 'Stage', value: 'Quotation drafted' },
+        ],
+      },
+    },
+    linked: [
+      { kind: 'client', id: 'cl-8790', label: 'Upendo Mwinuka', meta: 'Qualified lead' },
+      { kind: 'task', id: 'tk-8850', label: 'Send Kanga theme moodboard', meta: 'Due tomorrow' },
+    ],
+    timeline: [
       {
+        kind: 'message',
         id: 'msg-1',
+        at: d(2),
+        direction: 'inbound',
         from: {
           name: 'Upendo Mwinuka',
           handle: 'upendo@kilimogroup.com',
@@ -537,34 +1032,87 @@ Looking forward to your review.`,
           avatarColor: '#F0DFF6',
           initials: 'UM',
         },
-        at: d(2),
-        body: 'We’re planning a send-off for 60 guests in Zanzibar in Feb 2027. Kanga theme throughout. Need a lead planner and full décor — budget is flexible for the right team.',
+        body: 'We are planning a send-off for 60 guests in Zanzibar in Feb 2027. Kanga theme throughout. Need a lead planner and full décor, budget is flexible for the right team.',
+      },
+      {
+        kind: 'message',
+        id: 'msg-2',
+        at: d(1.92),
+        direction: 'outbound',
+        from: { name: 'Neema K.', role: 'agent', avatarColor: '#F0DFF6', initials: 'NK' },
+        body: 'Karibu Upendo. A Kanga-themed send-off in Zanzibar is very much our kind of brief. I am putting together two planner options and an outline quotation, and I will send both across this week.',
+      },
+      {
+        kind: 'event',
+        id: 'ev-1',
+        at: d(1.6),
+        event: 'linked',
+        actor: 'Neema K.',
+        detail: 'Linked task tk-8850, send Kanga theme moodboard',
       },
     ],
   },
+
   {
     id: 'app-015',
-    source: 'vendor_application',
-    subject: 'New vendor application — Tanzanite Sound (DJ)',
+    reference: 'VA-2026-00139',
+    channel: 'vendor_portal',
+    category: 'vendor_application',
+    team: 'vendor_success',
+    subject: 'New vendor application, Tanzanite Sound (DJ)',
     preview:
-      'DJ duo based in Mwanza, 6 years experience. Portfolio includes 40+ weddings. Awaiting document verification.',
-    sender: {
+      'DJ duo based in Mwanza, 6 years experience, 40+ weddings. Awaiting document verification.',
+    requester: {
       name: 'Tanzanite Sound',
       handle: 'book@tanzanitesound.co.tz',
       role: 'vendor',
       avatarColor: '#FEF3DB',
       initials: 'TS',
     },
-    receivedAt: d(3),
-    status: 'open',
+    openedAt: d(3),
+    lastActivityAt: d(2.8),
+    status: 'snoozed',
     priority: 'low',
-    assignee: null,
+    assignee: 'David O.',
+    followers: [],
     unread: false,
-    starred: false,
     tags: ['DJ', 'Mwanza'],
-    thread: [
+    snoozedUntil: inHrs(30),
+    sla: {
+      firstResponseDueAt: d(2.9),
+      resolutionDueAt: inHrs(50),
+      firstRespondedAt: d(2.85),
+      pausedReason: 'snoozed',
+    },
+    context: {
+      customer: {
+        name: 'Tanzanite Sound',
+        email: 'book@tanzanitesound.co.tz',
+        phone: '+255 762 887 100',
+        language: 'Swahili',
+        location: 'Mwanza',
+        lifecycle: 'Applicant',
+        previousCases: 0,
+      },
+      record: {
+        title: 'Tanzanite Sound',
+        kind: 'application',
+        fields: [
+          { label: 'Vertical', value: 'Service, DJ' },
+          { label: 'Experience', value: '6 years, 40+ weddings' },
+          { label: 'Verification', value: 'Awaiting national ID capture' },
+          { label: 'Reviewer', value: 'David O.' },
+          { label: 'Snoozed until', value: 'Tomorrow afternoon' },
+        ],
+      },
+    },
+    linked: [{ kind: 'vendor', id: 'vn-app-015', label: 'Tanzanite Sound', meta: 'Documents pending' }],
+    timeline: [
       {
+        kind: 'message',
         id: 'msg-1',
+        at: d(3),
+        direction: 'inbound',
         from: {
           name: 'Tanzanite Sound',
           handle: 'book@tanzanitesound.co.tz',
@@ -572,33 +1120,74 @@ Looking forward to your review.`,
           avatarColor: '#FEF3DB',
           initials: 'TS',
         },
-        at: d(3),
         body: 'Application submitted. Six years of experience, 40+ weddings, based in Mwanza. Documents uploaded.',
+      },
+      {
+        kind: 'message',
+        id: 'msg-2',
+        at: d(2.85),
+        direction: 'outbound',
+        from: { name: 'David O.', role: 'agent', avatarColor: '#E1ECF9', initials: 'DO' },
+        body: 'Asante for applying. Your portfolio looks strong. We still need the national ID capture completed before we can verify the account, the link is in your vendor portal under Verify.',
+      },
+      {
+        kind: 'event',
+        id: 'ev-1',
+        at: d(2.8),
+        event: 'snoozed',
+        actor: 'David O.',
+        detail: 'Snoozed until tomorrow afternoon, waiting on ID capture',
       },
     ],
   },
+
   {
-    id: 'arch-099',
-    source: 'client_support',
+    id: 'sup-443',
+    reference: 'SUP-2026-01142',
+    channel: 'email',
+    category: 'client_support',
+    team: 'customer_support',
     subject: 'How do I change the card on file?',
-    preview: 'Answered — linked self-serve guide. Archiving.',
-    sender: {
+    preview: 'Answered with the self-serve guide. Closed as inquiry answered.',
+    requester: {
       name: 'Joyce Sanga',
       handle: 'joyce.sanga@yahoo.com',
       role: 'client',
       avatarColor: '#E1ECF9',
       initials: 'JS',
     },
-    receivedAt: d(6),
-    status: 'archived',
+    openedAt: d(6),
+    lastActivityAt: d(5.9),
+    status: 'closed',
     priority: 'low',
     assignee: 'Neema K.',
+    followers: [],
     unread: false,
-    starred: false,
     tags: ['billing'],
-    thread: [
+    sla: {
+      firstResponseDueAt: d(5.95),
+      resolutionDueAt: d(5),
+      firstRespondedAt: d(5.9),
+    },
+    resolution: { reason: 'inquiry_answered', at: d(5.9), by: 'Neema K.' },
+    context: {
+      customer: {
+        name: 'Joyce Sanga',
+        email: 'joyce.sanga@yahoo.com',
+        phone: '+255 754 009 771',
+        language: 'English',
+        location: 'Dar es Salaam',
+        lifecycle: 'Booked client',
+        previousCases: 3,
+      },
+    },
+    linked: [{ kind: 'client', id: 'cl-7712', label: 'Joyce Sanga', meta: 'Booked client' }],
+    timeline: [
       {
+        kind: 'message',
         id: 'msg-1',
+        at: d(6),
+        direction: 'inbound',
         from: {
           name: 'Joyce Sanga',
           handle: 'joyce.sanga@yahoo.com',
@@ -606,28 +1195,37 @@ Looking forward to your review.`,
           avatarColor: '#E1ECF9',
           initials: 'JS',
         },
-        at: d(6),
         body: 'How do I change the card I have on file for automatic instalments?',
       },
       {
+        kind: 'message',
         id: 'msg-2',
-        from: { name: 'Neema K.', role: 'system', avatarColor: '#F0DFF6', initials: 'NK' },
         at: d(5.9),
-        body: 'Hi Joyce — you can update it from Settings → Payment methods. Full guide here: opusfesta.help/change-card. Let us know if you run into any issues!',
+        direction: 'outbound',
+        from: { name: 'Neema K.', role: 'agent', avatarColor: '#F0DFF6', initials: 'NK' },
+        body: 'Hi Joyce, you can update it from Settings, then Payment methods. Full guide here: opusfesta.help/change-card. Let us know if you run into any issues.',
+      },
+      {
+        kind: 'event',
+        id: 'ev-1',
+        at: d(5.9),
+        event: 'resolved',
+        actor: 'Neema K.',
+        detail: 'Resolved as Inquiry answered, then closed',
       },
     ],
   },
 ]
 
 // First-paint seed for the header's Messages badge. Counted off the same list
-// the page renders, and with the same rule the page's own "Unread" folder uses
-// — archived threads are excluded, since they are out of the working set even
-// if they were never opened. Once /inbox mounts it republishes the live count
-// (see InboxUnread), because read state lives in that page's local state and
-// is never written back here.
+// the page renders, using the page's own definition of an actionable case, so
+// the badge and the "Unread" saved view can never disagree.
 //
-// This is the one place to repoint when the inbox moves off DEMO_INBOX: swap
+// Once /inbox mounts it republishes the live count (see InboxUnread), because
+// read state lives in that page's local state and is never written back here.
+//
+// This is the one place to repoint when the inbox moves off DEMO_CASES: swap
 // the source here and the header follows.
 export function getInboxUnreadCount(): number {
-  return DEMO_INBOX.filter((i) => i.unread && i.status !== 'archived').length
+  return DEMO_CASES.filter((c) => c.unread && isActive(c)).length
 }

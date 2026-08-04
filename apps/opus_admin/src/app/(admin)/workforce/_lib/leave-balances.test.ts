@@ -36,12 +36,15 @@ describe('buildAnnualLeaveBalances', () => {
       leaveYear,
     })
 
+    // Mar 10-12 is Tue-Thu (3 days). Apr 1-7 is Wed-Tue and now includes
+    // Saturday the 4th (6 days, Sunday the 5th excluded). Saturday is a working
+    // day at OpusFesta, so it costs a day of leave like any other.
     assert.deepEqual(balances[0], {
       employeeId: 'emp-1',
       entitlementDays: 28,
-      usedDays: 8,
-      remainingDays: 20,
-      usagePercent: 29,
+      usedDays: 9,
+      remainingDays: 19,
+      usagePercent: 32,
     })
     assert.equal(balances[1].remainingDays, 28)
   })
@@ -58,7 +61,7 @@ describe('buildAnnualLeaveBalances', () => {
     assert.equal(balance.remainingDays, 25)
   })
 
-  it('counts only weekdays inside the current leave year', () => {
+  it('counts only working days inside the current leave year', () => {
     const [balance] = buildAnnualLeaveBalances({
       employees: [employees[0]],
       requests: [request({ startDate: '2025-12-29', endDate: '2026-01-03', days: 6 })],
@@ -66,14 +69,30 @@ describe('buildAnnualLeaveBalances', () => {
       leaveYear,
     })
 
-    assert.equal(balance.usedDays, 2)
-    assert.equal(balance.remainingDays, 26)
+    // Clipped to the leave year, the range is Thu 1, Fri 2 and Sat 3 January.
+    // The December days fall in the previous leave year and are not charged here.
+    assert.equal(balance.usedDays, 3)
+    assert.equal(balance.remainingDays, 25)
   })
 
-  it('does not count weekend-only leave against the balance', () => {
+  it('charges a Saturday but never a Sunday', () => {
+    // 2026-08-01 is a Saturday, 2026-08-02 the Sunday. Saturday is a working
+    // day, so a Saturday-Sunday absence costs one day, not zero and not two.
     const [balance] = buildAnnualLeaveBalances({
       employees: [employees[0]],
       requests: [request({ startDate: '2026-08-01', endDate: '2026-08-02', days: 2 })],
+      entitlementDays: 28,
+      leaveYear,
+    })
+
+    assert.equal(balance.usedDays, 1)
+    assert.equal(balance.remainingDays, 27)
+  })
+
+  it('does not count Sunday-only leave against the balance', () => {
+    const [balance] = buildAnnualLeaveBalances({
+      employees: [employees[0]],
+      requests: [request({ startDate: '2026-08-02', endDate: '2026-08-02', days: 1 })],
       entitlementDays: 28,
       leaveYear,
     })

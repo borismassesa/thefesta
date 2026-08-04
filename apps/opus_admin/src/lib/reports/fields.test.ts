@@ -11,6 +11,7 @@ import {
   cleanContent,
   emptyValue,
   parseFormDefinition,
+  systemFieldKeys,
   validateContent,
   validateFieldValue,
   type ReportField,
@@ -261,6 +262,128 @@ describe('cleanContent', () => {
   it('fills a field added to the template after the draft was started', () => {
     const cleaned = cleanContent(definition, { a: 'hi' })
     assert.equal(cleaned.b, null)
+  })
+})
+
+// OF-ENG-RPT-006: "The system fills in whatever it already knows... They only
+// type what the system cannot know", and "Every number appears once... calculated
+// in one place. Never entered twice." These cases are what stops the browser
+// becoming a second place a number can come from.
+describe('system-filled fields', () => {
+  const definition: ReportFormDefinition = {
+    sections: [
+      {
+        key: 's',
+        title: 'S',
+        fields: [
+          field({ key: 'complaints', type: 'number', label: 'Complaints received' }),
+          field({
+            key: 'closed',
+            type: 'number',
+            label: 'OpusPass events closed today',
+            filledBy: 'system',
+            systemSourceKey: 'opuspass.events_closed_today',
+            feedsMetricCode: 'OPUSPASS_EVENTS_CLOSED',
+          }),
+        ],
+      },
+    ],
+  }
+
+  it('takes the system value and ignores what the client sent', () => {
+    const cleaned = cleanContent(
+      definition,
+      { complaints: 2, closed: 999 },
+      { systemValues: { closed: 8 } },
+    )
+    assert.equal(cleaned.closed, 8, 'the server figure must win')
+    assert.equal(cleaned.complaints, 2, 'the employee still fills their own field')
+  })
+
+  it('empties a system field rather than trusting the client when unresolved', () => {
+    const cleaned = cleanContent(definition, { complaints: 2, closed: 999 })
+    assert.equal(cleaned.closed, null, 'an unresolved system field must not fall back to the request')
+  })
+
+  it('lists the keys a caller has to resolve', () => {
+    assert.deepEqual(systemFieldKeys(definition), ['closed'])
+  })
+
+  it('treats a template with no filledBy exactly as before', () => {
+    const plain: ReportFormDefinition = {
+      sections: [{ key: 's', title: 'S', fields: [field({ key: 'a', type: 'short_text' })] }],
+    }
+    assert.deepEqual(cleanContent(plain, { a: 'hi' }), { a: 'hi' })
+    assert.equal(systemFieldKeys(plain).length, 0)
+  })
+
+  it('discards a system field that names no resolver', () => {
+    const parsed = parseFormDefinition({
+      sections: [
+        {
+          key: 's',
+          title: 'S',
+          fields: [
+            { key: 'ok', label: 'Fine', type: 'number', filledBy: 'system', systemSourceKey: 'a.b' },
+            { key: 'orphan', label: 'No resolver', type: 'number', filledBy: 'system' },
+            { key: 'blank', label: 'Blank resolver', type: 'number', filledBy: 'system', systemSourceKey: '  ' },
+          ],
+        },
+      ],
+    })
+    assert.deepEqual(allFields(parsed).map((f) => f.key), ['ok'])
+  })
+
+  it('discards a field claiming an unrecognised filledBy instead of downgrading it', () => {
+    const parsed = parseFormDefinition({
+      sections: [
+        {
+          key: 's',
+          title: 'S',
+          fields: [{ key: 'sneaky', label: 'Sneaky', type: 'number', filledBy: 'client' }],
+        },
+      ],
+    })
+    // Downgrading to 'employee' would hand a system number back to manual entry.
+    assert.equal(allFields(parsed).length, 0)
+  })
+
+  it('keeps filledBy and feedsMetricCode through a parse round-trip', () => {
+    const parsed = parseFormDefinition({
+      sections: [
+        {
+          key: 's',
+          title: 'S',
+          fields: [
+            {
+              key: 'closed',
+              label: 'Events closed',
+              type: 'number',
+              filledBy: 'system',
+              systemSourceKey: 'opuspass.events_closed_today',
+              feedsMetricCode: 'OPUSPASS_EVENTS_CLOSED',
+            },
+          ],
+        },
+      ],
+    })
+    const [f] = allFields(parsed)
+    assert.equal(f.filledBy, 'system')
+    assert.equal(f.feedsMetricCode, 'OPUSPASS_EVENTS_CLOSED')
+  })
+
+  it('calculated fields are system-filled too', () => {
+    const derived: ReportFormDefinition = {
+      sections: [
+        {
+          key: 's',
+          title: 'S',
+          fields: [field({ key: 'rate', type: 'percentage', filledBy: 'calculated' })],
+        },
+      ],
+    }
+    assert.deepEqual(systemFieldKeys(derived), ['rate'])
+    assert.equal(cleanContent(derived, { rate: 100 }, { systemValues: { rate: 62 } }).rate, 62)
   })
 })
 

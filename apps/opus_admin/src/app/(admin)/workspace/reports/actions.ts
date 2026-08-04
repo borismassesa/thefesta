@@ -8,7 +8,13 @@ import { requireWorkspaceCapability } from '@/lib/workspace/guards'
 import { recordSensitiveWorkspaceAction } from '@/lib/workspace/activity'
 import { toSafeMessage } from '@/lib/workspace/errors'
 import { reportErrorToken, reportMessage } from '@/lib/reports/errors'
-import { cleanContent, parseFormDefinition, validateContent, type ReportContent } from '@/lib/reports/fields'
+import {
+  cleanContent,
+  parseFormDefinition,
+  systemFieldKeys,
+  validateContent,
+  type ReportContent,
+} from '@/lib/reports/fields'
 import { blockingFailures, parseRecipientRules, resolveRecipients } from '@/lib/reports/recipients'
 import { buildDirectoryContext } from '@/lib/reports/directory'
 import type { FieldError } from '@/lib/reports/fields'
@@ -145,6 +151,19 @@ export async function saveDraft(
   // smuggle keys the template does not declare into stored content.
   const definition = await loadDefinition(submissionId)
   if (!definition) return { ok: false, error: reportMessage({ message: 'report.no_template_version' }) }
+
+  // System-filled fields take their value from the server and never from the
+  // request. No resolver is wired yet, so a template that declares one would
+  // have its value silently emptied on every autosave. Refuse the save instead:
+  // a blocked draft is recoverable, a quietly blanked figure that someone later
+  // reads as real is not.
+  const unresolved = systemFieldKeys(definition)
+  if (unresolved.length > 0) {
+    logDbError('reports.autosave.unresolved_system_fields', new Error(unresolved.join(',')), {
+      employeeId: employee.id,
+    })
+    return { ok: false, error: reportMessage({ message: 'report.system_fields_unavailable' }) }
+  }
 
   const cleaned = cleanContent(definition, content)
   // Drafts may be incomplete, but they may not be malformed: a rating of 99

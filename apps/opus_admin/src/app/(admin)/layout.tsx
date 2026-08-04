@@ -7,6 +7,7 @@ import { DesktopOnlyNotice } from '@/components/DesktopOnlyNotice'
 import { PageHeadingProvider } from '@/components/PageHeading'
 import { PageSearchProvider } from '@/components/PageSearch'
 import { InboxUnreadProvider } from '@/components/InboxUnread'
+import { SidebarFocusProvider } from '@/components/SidebarFocus'
 import { getInboxUnreadCount } from './inbox/data'
 import {
   getAdminAccessRole,
@@ -79,22 +80,26 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     <PageHeadingProvider>
       <PageSearchProvider>
         <InboxUnreadProvider initial={inboxUnreadSeed}>
-          {/* The shell has no responsive layout; this states that plainly
-              below the lg breakpoint rather than serving a broken one. */}
-          <DesktopOnlyNotice />
-          <div className="flex h-screen bg-[#FDFDFD] font-sans antialiased text-gray-900">
-            <Sidebar permissions={permissions} profile={profile} workspace={workspace} />
-            {/* Full-height secondary-sidebar column. Empty (0-width) on pages
-                without a secondary nav; pages portal their sidebar in via
-                SecondarySidebarSlot so the Header stays only above the content. */}
-            <div id="secondary-sidebar" className="shrink-0" />
-            <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
-              <Header profile={profile} />
-              <main className="flex-1 overflow-y-auto overflow-x-hidden">
-                {children}
-              </main>
+          {/* Lets a workspace-shaped page (the Operations Inbox today) ask the
+              shell to step back to its icon rail while it is open. */}
+          <SidebarFocusProvider>
+            {/* The shell has no responsive layout; this states that plainly
+                below the lg breakpoint rather than serving a broken one. */}
+            <DesktopOnlyNotice />
+            <div className="flex h-screen bg-[#FDFDFD] font-sans antialiased text-gray-900">
+              <Sidebar permissions={permissions} profile={profile} workspace={workspace} />
+              {/* Full-height secondary-sidebar column. Empty (0-width) on pages
+                  without a secondary nav; pages portal their sidebar in via
+                  SecondarySidebarSlot so the Header stays only above the content. */}
+              <div id="secondary-sidebar" className="shrink-0" />
+              <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+                <Header profile={profile} />
+                <main className="flex-1 overflow-y-auto overflow-x-hidden">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
+          </SidebarFocusProvider>
         </InboxUnreadProvider>
       </PageSearchProvider>
     </PageHeadingProvider>

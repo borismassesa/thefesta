@@ -809,13 +809,26 @@ export default function DesignJobEditor({
                     () => requestDesignInfo(designId, [...asking]),
                     asking.size > 0
                       ? `Asked the couple for ${asking.size} field${asking.size === 1 ? '' : 's'}.`
-                      : 'Cleared the request.',
+                      : isReleased
+                        ? 'Cleared the request. This card stays released.'
+                        : 'Nothing outstanding. This job is now in design.',
                   )
+                }
+                title={
+                  asking.size > 0
+                    ? 'Send the couple a link asking for the ticked fields.'
+                    : isReleased
+                      ? 'Clears the outstanding request. A released card keeps its stage.'
+                      : 'Nothing is ticked, so this stops waiting on the couple and moves the job to In design.'
                 }
                 className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
               >
-                <Send className="h-4 w-4" />
-                Request {asking.size > 0 ? `${asking.size} field${asking.size === 1 ? '' : 's'}` : 'nothing'}
+                {asking.size > 0 ? <Send className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                {asking.size > 0
+                  ? `Request ${asking.size} field${asking.size === 1 ? '' : 's'}`
+                  : isReleased
+                    ? 'Clear the request'
+                    : 'Nothing to ask, start designing'}
               </button>
               <button
                 type="button"

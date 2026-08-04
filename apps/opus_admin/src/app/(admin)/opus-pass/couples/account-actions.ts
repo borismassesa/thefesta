@@ -530,7 +530,8 @@ export interface CoupleDeletionImpact {
   /** Paid orders — kept, but detached back to the unattributed banner. */
   paidOrders: number
   lifetimeSpendTzs: number
-  /** Vendor storefronts owned by this same login. Non-zero blocks deletion. */
+  /** Vendor storefronts owned by this same login. Non-zero means the login is
+   *  shared, so only the couple side can be removed — see deleteCoupleAccount. */
   vendors: number
   canSignIn: boolean
 }
@@ -574,7 +575,7 @@ export async function getCoupleDeletionImpact(userId: string): Promise<Result<{ 
     return count ?? 0
   }
 
-  const [stats, orders, events, notes, reviews, websites, vendors] = await Promise.all([
+  const [stats, orders, events, notes, reviews, website, vendors] = await Promise.all([
     supabase
       .from('couple_account_stats')
       .select('guest_count, invitation_count, pledge_count, registry_item_count, guestbook_count, paid_order_count, lifetime_spend_tzs')
@@ -596,7 +597,14 @@ export async function getCoupleDeletionImpact(userId: string): Promise<Result<{ 
     countBy('wedding_events'),
     countBy('couple_account_notes'),
     countBy('reviews'),
-    countBy('wedding_websites'),
+    // The wedding website is a document on couple_profiles, not a table of its
+    // own — the wedding_websites table in migration 20260319000001 was never the
+    // shape the builder shipped with (apps/opus_pass/src/app/website-builder).
+    supabase
+      .from('couple_profiles')
+      .select('website_doc')
+      .eq('user_id', userId)
+      .maybeSingle<{ website_doc: unknown }>(),
     countBy('vendors'),
   ])
 
@@ -621,7 +629,7 @@ export async function getCoupleDeletionImpact(userId: string): Promise<Result<{ 
       guestbookEntries: s?.guestbook_count ?? 0,
       notes,
       reviews,
-      websites,
+      websites: website.data?.website_doc ? 1 : 0,
       paidOrders,
       lifetimeSpendTzs: Number(s?.lifetime_spend_tzs) || 0,
       vendors,
@@ -634,19 +642,24 @@ export async function getCoupleDeletionImpact(userId: string): Promise<Result<{ 
  * Permanently delete a couple account.
  *
  * Order, and why:
- *  1. Refuse if this login also owns a vendor storefront. `vendors.user_id`
- *     CASCADEs from `users`, so deleting the couple would silently destroy a
- *     live vendor business. Those have their own delete flow under
- *     /operations/vendors.
- *  2. Detach paid orders. `invitation_orders.user_id` has no foreign key, so the
+ *  1. Detach paid orders. `invitation_orders.user_id` has no foreign key, so the
  *     delete would leave rows pointing at a ghost account — revenue that shows
  *     in no total and in no unattributed banner. Nulling it returns them to the
  *     banner on this page, where they can be re-linked. This runs before the
  *     irreversible steps on purpose: if a later step fails, the orders are
  *     merely un-attributed, which is a state the banner already handles.
- *  3. Remove the Clerk login, so the email is free for a fresh sign-up. A
+ *  2. Remove the Clerk login, so the email is free for a fresh sign-up. A
  *     genuine Clerk failure aborts before the account row is deleted.
- *  4. Delete the `users` row; every couple-side child table CASCADEs.
+ *  3. Delete the `users` row; every couple-side child table CASCADEs.
+ *
+ * SHARED LOGINS take a different path. A login may own a couple workspace and a
+ * vendor storefront at once (migration 20260730030000) — the create flow above
+ * deliberately adopts such a login rather than refusing it. `vendors.user_id`
+ * CASCADEs from `users`, so steps 2 and 3 would destroy a live vendor business.
+ * For those, only the couple side is removed: delete_couple_workspace() tears
+ * down the workspace and its planning data in one transaction, and the login,
+ * its sign-in and its storefront stay exactly as they were. The vendor is
+ * deleted from /operations/vendors and nowhere else.
  *
  * `confirmName` must match the displayed couple name exactly, which is what
  * makes this safe to expose in a list row.
@@ -665,13 +678,8 @@ export async function deleteCoupleAccount(userId: string, confirmName: string): 
       error: `The name you typed doesn’t match “${impact.coupleName}”. Deletion cancelled.`,
     }
   }
-  if (impact.vendors > 0) {
-    return {
-      ok: false,
-      error: `This login also owns ${impact.vendors} vendor ${impact.vendors === 1 ? 'storefront' : 'storefronts'}, which would be destroyed with it. Delete the vendor from Operations → Vendors first, or leave this account in place.`,
-    }
-  }
 
+  const sharedWithVendor = impact.vendors > 0
   const supabase = createSupabaseAdminClient()
   const { data: user, error: userErr } = await supabase
     .from('users')
@@ -694,27 +702,43 @@ export async function deleteCoupleAccount(userId: string, confirmName: string): 
     }
   }
 
-  const clerkRes = await deletePlatformClerkLogin({ clerkId: user.clerk_id, email: user.email })
-  if (!clerkRes.ok) {
-    return { ok: false, error: clerkRes.error ?? 'Could not remove the couple’s sign-in login.' }
-  }
+  let clerkWarning: string | undefined
+  if (sharedWithVendor) {
+    const { error: workspaceErr } = await supabase.rpc('delete_couple_workspace', { p_user_id: userId })
+    if (workspaceErr) {
+      return { ok: false, error: `Could not remove the wedding side of this account: ${workspaceErr.message}` }
+    }
+  } else {
+    const clerkRes = await deletePlatformClerkLogin({ clerkId: user.clerk_id, email: user.email })
+    if (!clerkRes.ok) {
+      return { ok: false, error: clerkRes.error ?? 'Could not remove the couple’s sign-in login.' }
+    }
+    clerkWarning = clerkRes.warning
 
-  const { error: deleteErr } = await supabase.from('users').delete().eq('id', userId)
-  if (deleteErr) {
-    return { ok: false, error: `Could not delete the account: ${deleteErr.message}` }
+    const { error: deleteErr } = await supabase.from('users').delete().eq('id', userId)
+    if (deleteErr) {
+      return { ok: false, error: `Could not delete the account: ${deleteErr.message}` }
+    }
   }
 
   await recordAuditEvent({
-    eventType: 'opuspass.couple_deleted',
+    eventType: sharedWithVendor ? 'opuspass.couple_workspace_deleted' : 'opuspass.couple_deleted',
     severity: 'critical',
-    message: `Deleted couple account ${impact.coupleName} <${user.email ?? 'no email'}>: ${impact.events} events, ${impact.guests} guests, ${impact.invitations} invitations. ${impact.paidOrders} paid orders detached`,
+    message: sharedWithVendor
+      ? `Removed the wedding side of ${impact.coupleName} <${user.email ?? 'no email'}>: ${impact.events} events, ${impact.guests} guests, ${impact.invitations} invitations. ${impact.paidOrders} paid orders detached. The login and its ${impact.vendors} vendor ${impact.vendors === 1 ? 'storefront' : 'storefronts'} were kept`
+      : `Deleted couple account ${impact.coupleName} <${user.email ?? 'no email'}>: ${impact.events} events, ${impact.guests} guests, ${impact.invitations} invitations. ${impact.paidOrders} paid orders detached`,
     targetResource: `users:${userId}`,
-    metadata: { user_id: userId, email: user.email, impact },
+    metadata: { user_id: userId, email: user.email, impact, couple_side_only: sharedWithVendor },
   })
 
   revalidateCouples(userId)
   revalidatePath('/finance/payments')
-  return { ok: true, warning: clerkRes.warning }
+  return {
+    ok: true,
+    warning: sharedWithVendor
+      ? `The wedding side is gone. This login also runs ${impact.vendors === 1 ? 'a vendor storefront' : `${impact.vendors} vendor storefronts`}, so the sign-in and the storefront were kept and ${user.email ?? 'the email'} still works. Delete those from Operations, Vendors if the whole account should go.`
+      : clerkWarning,
+  }
 }
 
 // ------------------------------------------------------------- dormant clean-up

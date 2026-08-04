@@ -7,6 +7,23 @@
 //
 // Mirrors leave_expand_days() and the overlap trigger in the migration.
 
+/**
+ * The company working week, as ISO weekdays (Mon = 1 … Sun = 7).
+ *
+ * Saturday is a working day at OpusFesta. Both handover documents
+ * (OF-ENG-RPT-006 and OF-HR-TT-0826) describe a Monday-to-Friday week and are
+ * out of date on this point; the staff rota is the authority. See
+ * docs/PERFORMANCE_EXECUTION_INTEGRATION.md, Q1.
+ *
+ * THIS IS A FALLBACK, NOT THE ANSWER. `work_schedules.working_weekdays` is
+ * authoritative and is what every server-side calculation reads, so an employee
+ * on a non-standard schedule is handled correctly there. This constant exists
+ * only for display surfaces that cannot reach the database, and it lives here so
+ * that the surfaces which used to hardcode Mon-Fri now disagree in one place
+ * instead of three.
+ */
+export const COMPANY_WORKING_WEEKDAYS: readonly number[] = [1, 2, 3, 4, 5, 6]
+
 export const LEAVE_PORTIONS = ['full', 'half_am', 'half_pm', 'hours'] as const
 export type LeavePortion = (typeof LEAVE_PORTIONS)[number]
 
