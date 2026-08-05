@@ -6,6 +6,8 @@ import {
   normalizeDigitalCardProduct,
   type DigitalCardProductRecord,
 } from '@/lib/cms/opus-pass-digital-cards-products'
+import { getJobsForProduct } from '../../designer/queries'
+import CardProductionPanel from './CardProductionPanel'
 import CardSectionTabs from './CardSectionTabs'
 import ProductEditor from './ProductEditor'
 
@@ -16,7 +18,7 @@ export default async function DigitalCardProductDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  if (!(await hasPermission('cms.read'))) redirect('/')
+  if (!(await hasPermission('digitalcards.read'))) redirect('/')
 
   const { id } = await params
 
@@ -34,10 +36,16 @@ export default async function DigitalCardProductDetailPage({
   if (error) throw error
   if (!data) notFound()
 
+  const jobs = await getJobsForProduct(id)
+
   return (
     <>
       <CardSectionTabs productId={id} />
-      <ProductEditor initial={normalizeDigitalCardProduct(data)} isNew={false} />
+      <ProductEditor
+        initial={normalizeDigitalCardProduct(data)}
+        isNew={false}
+        productionPanel={<CardProductionPanel jobs={jobs} />}
+      />
     </>
   )
 }

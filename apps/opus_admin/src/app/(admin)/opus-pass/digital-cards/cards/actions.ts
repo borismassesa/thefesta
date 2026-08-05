@@ -3,14 +3,22 @@
 import { revalidatePath } from 'next/cache'
 import { revalidateOpusPass } from '@/lib/revalidate'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { requireAdminRole, type AdminAccessRole } from '@/lib/admin-auth'
+import { requirePermission } from '@/lib/admin-auth'
 import {
   READ_ONLY_PRODUCT_COLUMNS,
   type DigitalCardProductRecord,
 } from '@/lib/cms/opus-pass-digital-cards-products'
 
-// Same role allowlist as /lib/cms/upload-media.ts — keep them in sync.
-const PRODUCT_EDIT_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
+// Gated on a PERMISSION, not a role allowlist.
+//
+// This used to be requireAdminRole(['owner','admin','editor']) while the page
+// that reaches it gated on a permission key, so the module ran two different
+// authorisation systems at once: a role granted card access through the Roles
+// matrix could open the editor and then fail every save, because the allowlist
+// answers to legacyRoleBucket() rather than to the matrix.
+//
+// digitalcards.write is what the Roles matrix grants, so the page gate and the
+// action gate now agree.
 
 type DbError = { code?: string | null; message?: string | null; details?: string | null }
 
@@ -45,7 +53,7 @@ async function revalidateProductPaths(id?: string): Promise<void> {
 export async function upsertDigitalCardProduct(
   product: DigitalCardProductRecord,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  await requireAdminRole(PRODUCT_EDIT_ROLES)
+  await requirePermission('digitalcards.write')
   const supabase = createSupabaseAdminClient()
 
   // The editor loads rows with select('*'), so the record carries columns the
@@ -76,7 +84,7 @@ export async function patchDigitalCardProduct(
   id: string,
   patch: Partial<Pick<DigitalCardProductRecord, 'published' | 'sort_order' | 'free_sample'>>,
 ): Promise<void> {
-  await requireAdminRole(PRODUCT_EDIT_ROLES)
+  await requirePermission('digitalcards.write')
   const supabase = createSupabaseAdminClient()
   const { error } = await supabase
     .from('website_invitations_products')
@@ -88,7 +96,7 @@ export async function patchDigitalCardProduct(
 }
 
 export async function deleteDigitalCardProduct(id: string): Promise<void> {
-  await requireAdminRole(PRODUCT_EDIT_ROLES)
+  await requirePermission('digitalcards.write')
   const supabase = createSupabaseAdminClient()
   const { error } = await supabase
     .from('website_invitations_products')

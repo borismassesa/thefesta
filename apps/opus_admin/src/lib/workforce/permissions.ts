@@ -148,6 +148,28 @@ export const WORKFORCE_ROLES_KEYS = [
 ] as const
 
 // ---------------------------------------------------------------------------
+// Digital Cards
+// ---------------------------------------------------------------------------
+// The card catalogue, the personalisation queue and the release gate ran on
+// cms.read / cms.write / cms.publish — the WEBSITE CONTENT keys. That made
+// "can edit homepage copy" and "can release a wedding invitation to two
+// hundred guests" the same grant, and there was no way to separate them
+// without editing code.
+//
+// A released card cannot be recalled, so it deserves a key of its own. These
+// three exist so that narrowing who may release a card becomes a Roles-matrix
+// decision rather than a deploy.
+//
+// Introducing them changes nobody's access on its own: CMS_EXPANSION below
+// keeps every current cms.* holder working exactly as before. Tightening is a
+// separate, deliberate step — see the note on CMS_PUBLISH_EXPANSION.
+export const DIGITAL_CARDS_KEYS = [
+  'digitalcards.read',
+  'digitalcards.write',
+  'digitalcards.publish',
+] as const
+
+// ---------------------------------------------------------------------------
 // Legacy expansion (spec 3.5)
 // ---------------------------------------------------------------------------
 // A REVIEWED table, not "every key". Derived by enumerating every existing
@@ -205,6 +227,42 @@ export const NEVER_EXPANDED: readonly PermissionKey[] = [
   'platform.admin',
 ] as const
 
+// --- CMS -> Digital Cards compatibility ------------------------------------
+// Same discipline as the workforce table above: prevent LOSS of access without
+// granting NEW authority. Every Digital Cards gate used to read a cms.* key,
+// so each new key is implied by exactly the old key that guarded it.
+//
+// Without this, the deploy that switches the gates would lock every content
+// editor out of the catalogue until a migration landed AND People Ops edited
+// each role — the failure the cms.svg.upload migration warns about, arrived at
+// from the opposite direction.
+
+/** `cms.read` implies read access to the Digital Cards surface. */
+export const CMS_READ_EXPANSION: readonly PermissionKey[] = ['digitalcards.read'] as const
+
+/** `cms.write` implies editing cards. Includes read: every writer could read. */
+export const CMS_WRITE_EXPANSION: readonly PermissionKey[] = [
+  'digitalcards.read',
+  'digitalcards.write',
+] as const
+
+/**
+ * `cms.publish` implies releasing a card.
+ *
+ * This is the compatibility bridge, NOT the intended end state. It preserves
+ * today's behaviour, in which anyone who can publish website content can also
+ * approve and release a wedding card. Splitting the two is the whole point of
+ * the key existing; doing it here would silently revoke release from whoever
+ * relies on it today, which is a decision for the Roles matrix, not a
+ * compatibility table.
+ *
+ * To finish the split: grant digitalcards.publish explicitly to the roles that
+ * should hold it, then delete this constant and its branch below.
+ */
+export const CMS_PUBLISH_EXPANSION: readonly PermissionKey[] = [
+  'digitalcards.publish',
+] as const
+
 /**
  * Expand legacy `workforce.read` / `workforce.write` into the granular keys.
  *
@@ -226,6 +284,18 @@ export function expandLegacyPermissions(
   if (next.has('workforce.write')) {
     for (const k of LEGACY_READ_EXPANSION) next.add(k)
     for (const k of LEGACY_WRITE_EXPANSION) next.add(k)
+  }
+  // Digital Cards used to live entirely on the CMS keys. Each new key is
+  // implied by the old key that guarded the same action, so a role that is
+  // still on cms.* keeps working unchanged.
+  if (next.has('cms.read')) {
+    for (const k of CMS_READ_EXPANSION) next.add(k)
+  }
+  if (next.has('cms.write')) {
+    for (const k of CMS_WRITE_EXPANSION) next.add(k)
+  }
+  if (next.has('cms.publish')) {
+    for (const k of CMS_PUBLISH_EXPANSION) next.add(k)
   }
   return next
 }
@@ -280,4 +350,8 @@ export const ALL_PERMISSION_KEYS: readonly PermissionKey[] = [
   'commissions.read',
   'commissions.manage',
   'commissions.design',
+  // Digital Cards: the catalogue path. Its bespoke sibling is commissions.*
+  // above; both are fulfilment paths of the same product, but they gate
+  // different surfaces and different people hold them.
+  ...DIGITAL_CARDS_KEYS,
 ] as const

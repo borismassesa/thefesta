@@ -22,7 +22,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ designId: string }> },
 ) {
-  if (!(await hasPermission('cms.read'))) {
+  if (!(await hasPermission('digitalcards.read'))) {
     return new NextResponse('Forbidden', { status: 403 })
   }
   const { designId } = await params

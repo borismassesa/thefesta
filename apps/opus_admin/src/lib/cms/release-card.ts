@@ -3,12 +3,20 @@ import { createHash } from 'node:crypto'
 
 import {
   injectFontCss,
-  renderCardSvg,
+  planIsReleasable,
+  renderPlanToSvg,
+  resolveCardLayout,
+  validateLayoutGeometry,
   type CardFieldBinding,
+  type CardLayout,
+  type CardLayoutState,
+  type CardRenderManifest,
+  type LayoutDiagnostic,
   type RenderSkip,
 } from '@opusfesta/lib'
 import type { createSupabaseAdminClient } from '@/lib/supabase'
 import { loadCardArtwork } from '@/lib/cms/card-artwork'
+import { buildCardLayoutContext } from '@/lib/cms/card-layout-context'
 import { cardFontFaceCssFor } from '@/lib/cms/card-font-css'
 import { releaseCardFieldValues } from '@/lib/cms/release-card-values'
 import { logReleaseFailure } from '@/lib/cms/release-log'
@@ -35,12 +43,32 @@ import { logReleaseFailure } from '@/lib/cms/release-log'
 const BUCKET = 'card-releases'
 
 export type ReleaseResult =
-  | { ok: true; path: string; bytes: number; sha256: string; artworkSvgUrl: string }
-  | { ok: false; error: string; skipped?: RenderSkip[] }
+  | {
+      ok: true
+      path: string
+      bytes: number
+      sha256: string
+      artworkSvgUrl: string
+      /**
+       * The layout this file was frozen against.
+       *
+       * Stored on the release row, because guest_name is substituted per guest
+       * AFTER the freeze and needs the same box, size and fit policy the
+       * reviewer approved. Reading the product row at that point would let an
+       * admin widening a box today silently re-lay-out cards that went to two
+       * hundred guests last week.
+       */
+      layout: CardLayout
+      /** The full dependency set this file was produced from. */
+      manifest: CardRenderManifest
+    }
+  | { ok: false; error: string; skipped?: RenderSkip[]; diagnostics?: LayoutDiagnostic[] }
 
 type ProductRow = {
   artwork_svg_url: string | null
   field_bindings: CardFieldBinding[] | null
+  card_layout: unknown
+  card_layout_state: CardLayoutState | null
 }
 
 /**
@@ -53,6 +81,34 @@ type ProductRow = {
  */
 function isFatalSkip(skip: RenderSkip): boolean {
   return skip.reason !== 'no_value'
+}
+
+/**
+ * Guest names to test a card's guest-name box against before freezing it.
+ *
+ * Not invented: these are the shapes a Tanzanian guest list actually contains.
+ * A card is released once and then serves every guest on that list, so the box
+ * has to survive the longest of them, not the couple's own short example.
+ */
+const GUEST_NAME_STRESS = [
+  'Prof. Dr. Eng. Arch. Benjamin Emmanuel Mwakatobe',
+  'Bw & Bi Christopher Alexander Mwakipesile',
+]
+
+/** The stress value most likely to fail, so one resolve covers the set. */
+function longest(values: readonly string[]): string {
+  return [...values].sort((a, b) => b.length - a.length)[0] ?? ''
+}
+
+/**
+ * Turn layout blockers into something a reviewer can act on.
+ *
+ * The diagnostics already carry a written message: they are authored for a
+ * human standing at the screen, not for a log, precisely so this function does
+ * not have to reconstruct the reason from a code.
+ */
+function describeDiagnostics(issues: LayoutDiagnostic[]): string {
+  return issues.map((issue) => issue.message).join(' ')
 }
 
 /** Turn skip reasons into something a reviewer can act on. */
@@ -109,7 +165,7 @@ export async function freezeCardRelease(
 
   const { data: product, error: productError } = await supabase
     .from('website_invitations_products')
-    .select('artwork_svg_url, field_bindings')
+    .select('artwork_svg_url, field_bindings, card_layout, card_layout_state')
     .eq('id', row.product_id)
     .maybeSingle<ProductRow>()
   if (productError) {
@@ -172,17 +228,73 @@ export async function freezeCardRelease(
   // particular guest. Never preserve the artwork's sample invitee (or a stale
   // designer value) in the copy the couple sees. Per-guest rendering replaces
   // this neutral Swahili placeholder later in the delivery pipeline.
-  const rendered = renderCardSvg(
-    artwork.svg,
+  const values = releaseCardFieldValues(row.field_values, { partner1Name, partner2Name })
+
+  const { layout, state, metricsFor, manifest } = await buildCardLayoutContext({
+    svg: artwork.svg,
+    requiredFonts: artwork.requiredFonts,
     bindings,
-    releaseCardFieldValues(row.field_values, { partner1Name, partner2Name }),
-  )
+    storedOverrides: product.card_layout,
+    state: product.card_layout_state ?? 'none',
+  })
+
+  // Every decision about what will be drawn is made here, once. The serialiser
+  // below only writes it down, and the same plan is what a Studio preview shows
+  // — so a card a reviewer approved cannot render differently from what they saw.
+  const plan = resolveCardLayout({ layout, state, values, metricsFor })
+
+  // A value that could not be made to fit is exactly as fatal as a field that
+  // could not be written. Both ship an invitation that is not the one the
+  // reviewer approved, and an invitation cannot be recalled.
+  if (!planIsReleasable(plan)) {
+    return {
+      ok: false,
+      error: `The card cannot be released as-is: ${describeDiagnostics(plan.blockers)}`,
+      diagnostics: plan.blockers,
+    }
+  }
+
+  // Geometry is checked separately from fit because it does not depend on the
+  // couple's answers: a box outside the artwork, or text sitting on the QR
+  // code's quiet zone, is wrong for every order this card will ever take.
+  const structural = validateLayoutGeometry(layout).filter((issue) => issue.severity === 'blocker')
+  if (structural.length > 0) {
+    return {
+      ok: false,
+      error: `The card's layout cannot be released as-is: ${describeDiagnostics(structural)}`,
+      diagnostics: structural,
+    }
+  }
+
+  const rendered = renderPlanToSvg(artwork.svg, plan, bindings, values)
   const fatal = rendered.skipped.filter(isFatalSkip)
   if (fatal.length > 0) {
     return {
       ok: false,
       error: `The card cannot be released as-is: ${describeSkips(fatal)}.`,
       skipped: fatal,
+    }
+  }
+
+  // The guest name is written per guest, AFTER this file is frozen, so it is
+  // the one value the render above does not cover. Stress it here so a box that
+  // will fail on a real guest list fails now, in front of a reviewer.
+  //
+  // This is a design-level gate, and it cannot prove that every future guest
+  // name fits — no freeze-time check can. prepare-guest-asset.ts resolves each
+  // ACTUAL name before delivering it, and that is what makes the guarantee.
+  const guestCheck = resolveCardLayout({
+    layout,
+    state,
+    values: { ...values, guest_name: longest(GUEST_NAME_STRESS) },
+    metricsFor,
+  })
+  const guestBlockers = guestCheck.blockers.filter((issue) => issue.role === 'guest_name')
+  if (guestBlockers.length > 0) {
+    return {
+      ok: false,
+      error: `A long guest name will not fit this card: ${describeDiagnostics(guestBlockers)}`,
+      diagnostics: guestBlockers,
     }
   }
 
@@ -214,6 +326,8 @@ export async function freezeCardRelease(
     bytes: bytes.byteLength,
     sha256: createHash('sha256').update(bytes).digest('hex'),
     artworkSvgUrl: product.artwork_svg_url ?? '',
+    layout,
+    manifest,
   }
 }
 
@@ -295,6 +409,13 @@ export async function releaseApprovedDesign(
       svg_storage_path: frozen.path,
       svg_sha256: frozen.sha256,
       artwork_svg_url: frozen.artworkSvgUrl,
+      // Frozen alongside the file. The per-guest render reads THIS, never the
+      // product row, so a later layout edit cannot change a card already sent.
+      layout_snapshot: frozen.layout,
+      // Which renderer, which fitter, which artwork, which font measurements.
+      // Without it, regenerating a guest asset years from now could break a
+      // line differently and nothing would say why.
+      render_manifest: frozen.manifest,
       released_at: now,
       released_by: author,
     })
@@ -318,6 +439,17 @@ export async function releaseApprovedDesign(
       reviewed_by: author,
       reviewed_at: now,
       review_note: '',
+      // Publishing a new release IS the answer to a couple's change request:
+      // what they are served becomes the corrected card. Cleared here rather
+      // than in the action so it cannot be answered without a release actually
+      // being cut — marking it handled while the couple still holds the old
+      // card is exactly the quiet lie this pipeline is built to avoid.
+      //
+      // A request that arrives DURING a publish is lost to this write. That is
+      // the safe direction: the note survives in the history either way, and
+      // re-raising a flag over a card that was just corrected would send a
+      // designer to re-read a request the new release may already have answered.
+      change_requested_at: null,
     })
     .eq('id', design.id)
 

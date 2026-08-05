@@ -166,3 +166,82 @@ describe('a self-review check that could not run does not count as passing', () 
     )
   })
 })
+
+// The gate above is only worth anything if assigned_to is ever set. It was not:
+// the column, its index, the queue column and checkSelfReview all existed, but
+// NOTHING in the repo wrote it. So every card was unassigned, every self-review
+// check returned isSelf: false, and the two-eyes rule — the only thing standing
+// between a designer and approving their own uncancellable wedding card —
+// silently passed for everyone.
+//
+// A gate with no writer is not a gate. These guard the writer.
+describe('assigned_to has a writer', () => {
+  it('starting a job records who started it', () => {
+    const body = actionBodies().get('startDesignJob')
+    assert.ok(body, 'startDesignJob has been renamed or removed')
+    assert.match(
+      body!,
+      /assigned_to: callerEmployeeId/,
+      'startDesignJob no longer assigns the job to whoever started it, so cards go back to being unowned',
+    )
+    assert.match(
+      body!,
+      /getCallerEmployeeId\(\)/,
+      'startDesignJob no longer resolves the caller to an employee id',
+    )
+  })
+
+  it('there is an explicit way to assign and to release', () => {
+    const bodies = actionBodies()
+    assert.ok(bodies.get('setDesignAssignee'), 'setDesignAssignee has been renamed or removed')
+    assert.ok(bodies.get('claimDesignJob'), 'claimDesignJob has been renamed or removed')
+  })
+
+  it('claiming refuses when the caller has no employee record', () => {
+    // getCallerEmployeeId returns null for an account with no directory row.
+    // Passing that through would write assigned_to: null — silently releasing
+    // the card instead of claiming it, which is the opposite of what was asked
+    // AND reopens the two-eyes hole.
+    const body = actionBodies().get('claimDesignJob')!
+    assert.match(
+      body,
+      /if \(!employeeId\) \{[\s\S]{0,400}?return \{\s*\n?\s*ok: false/,
+      'claimDesignJob no longer refuses when the caller cannot be resolved to an employee',
+    )
+  })
+
+  it('assigning is permission-gated before it writes', () => {
+    const body = actionBodies().get('setDesignAssignee')!
+    assert.match(
+      body,
+      /await requirePermission\('digitalcards\.write'\)/,
+      'setDesignAssignee is no longer permission-gated',
+    )
+    assert.ok(
+      body.indexOf('requirePermission(') < body.indexOf('.update('),
+      'setDesignAssignee writes before checking permission',
+    )
+  })
+
+  it('assignment is a compare-and-set, not a blind overwrite', () => {
+    // Two people pressing Take at the same instant must not both believe they
+    // got the card — one of them would then be assigned to work they think is
+    // theirs while the other is the one barred from approving it.
+    const body = actionBodies().get('setDesignAssignee')!
+    assert.match(
+      body,
+      /\.is\('assigned_to', null\)[\s\S]{0,200}?\.eq\('assigned_to', design\.assigned_to\)/,
+      'setDesignAssignee no longer conditions its write on the previous holder',
+    )
+  })
+
+  it('the assignee lookup stays out of actions.ts', () => {
+    // Enforced by the "no second, unchecked assignee lookup" test above; this
+    // states the positive half, so the helper cannot be quietly inlined back.
+    assert.match(
+      actionsSrc,
+      /import \{ resolveAssignableEmployee \} from '@\/lib\/cms\/card-assignee'/,
+      'the assignable-employee check has been inlined into actions.ts',
+    )
+  })
+})

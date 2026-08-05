@@ -346,14 +346,25 @@ function fallbackRolePermissions(role: AdminAccessRole): Set<PermissionKey> {
         'support.write',
         'commissions.read',
         'commissions.manage',
+        // Digital Cards. Listed explicitly rather than left to the cms.*
+        // expansion, because this branch returns a raw set: it is the path
+        // taken when the permission RPC FAILED, and expandLegacyPermissions is
+        // only applied to the RPC's result. Omitting them here would make a
+        // transient DB fault lock an admin out of the catalogue.
+        'digitalcards.read', 'digitalcards.write', 'digitalcards.publish',
       ])
     case 'editor':
-      return new Set(['cms.read', 'cms.write', 'cms.publish', 'vendor.read'])
+      return new Set([
+        'cms.read', 'cms.write', 'cms.publish', 'vendor.read',
+        'digitalcards.read', 'digitalcards.write', 'digitalcards.publish',
+      ])
     case 'viewer':
       return new Set([
         'cms.read', 'vendor.read', 'bookings.read', 'finance.read',
         'workforce.read', 'workforce.roles.read', 'insights.read',
         'commissions.read',
+        // Read only, matching this role's cms.read-without-cms.write shape.
+        'digitalcards.read',
       ])
     case 'author':
       // Authors don't access the dashboard — they live under /contribute.

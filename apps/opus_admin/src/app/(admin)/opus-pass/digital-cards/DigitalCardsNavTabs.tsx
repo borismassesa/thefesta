@@ -1,71 +1,80 @@
-'use client'
-
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Mail, PenTool, type LucideIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { hasPermission } from '@/lib/admin-auth'
+import DigitalCardsNavTabsView, { type SectionTab } from './DigitalCardsNavTabsView'
 
 // The Digital Cards product surface, split by what you are actually doing:
 //
-//   Cards         the catalogue. One card, one page, with its artwork, its
-//                 layer mapping and its typefaces all on it.
-//   Card Designer the per-order work of personalising a card someone bought.
+//   Catalogue             the cards we sell. One card, one page, with its
+//                         artwork, its layer mapping and its typefaces on it.
+//   Personalisation Queue the per-order work of personalising a catalogue card
+//                         someone bought.
+//   Custom Card Studio    bespoke cards made from a brief rather than from the
+//                         catalogue.
 //
-// There was a third tab, "Templates", which listed the same cards again and
-// held the layer mapping. Two tabs over one table meant setting a card up was a
-// round trip, so it now lives under the card. Tabs without an href render
-// disabled until that surface ships.
-type Tab = { label: string; icon: LucideIcon; href?: string }
+// Two fulfilment paths to the same customer outcome (a finished card for a
+// couple), so they are tabs of one product rather than separate modules — even
+// though they remain separate implementations underneath.
+//
+// Naming, deliberately:
+//   "Catalogue" not "Cards", because a couple's finished card is also a card,
+//   and the old label claimed both.
+//   "Personalisation Queue" not "Card Designer", because this surface
+//   substitutes a couple's details into already-mapped artwork. It is not a
+//   drawing tool, and the old name promised one.
+//   "Custom Card Studio" not "Commission Studio", because "commission" reads
+//   as a fee in a sidebar that also lists payouts and payments.
+//
+// ── Why this is a server component ──────────────────────────────────────────
+// The tabs no longer share one permission. Catalogue and Personalisation Queue
+// are digitalcards.read; Custom Card Studio is commissions.read. A list would
+// show a content editor a Studio tab that bounces them to "/", and show a
+// studio operator two tabs they cannot open. So the set is resolved per caller
+// here and handed to a client component that only renders it.
 
-const TABS: Tab[] = [
-  { label: 'Cards', icon: Mail, href: '/opus-pass/digital-cards/cards' },
-  { label: 'Card Designer', icon: PenTool, href: '/opus-pass/digital-cards/designer' },
-]
+/** Where a caller lands when they open Digital Cards without naming a tab. */
+export const DIGITAL_CARDS_TABS = {
+  catalogue: '/opus-pass/digital-cards/cards',
+  personalisation: '/opus-pass/digital-cards/designer',
+  // Still under /opus-pass/commissions. Navigation moved; the route did not.
+  customStudio: '/opus-pass/commissions',
+} as const
 
-export default function DigitalCardsNavTabs() {
-  const pathname = usePathname()
-  return (
-    <div className="border-b border-gray-100">
-      <nav className="flex gap-1 px-8" aria-label="Digital Cards sections">
-        {TABS.map((tab) => {
-          const Icon = tab.icon
+/**
+ * The tabs this caller may actually open.
+ *
+ * Exported so the section's root route can redirect to the first one rather
+ * than assuming the catalogue — a studio operator has no digitalcards.read and
+ * would otherwise be bounced off the product they were sent to.
+ */
+export async function visibleDigitalCardsTabs(): Promise<SectionTab[]> {
+  const [canReadCatalogue, canReadStudio] = await Promise.all([
+    hasPermission('digitalcards.read'),
+    hasPermission('commissions.read'),
+  ])
 
-          if (!tab.href) {
-            return (
-              <span
-                key={tab.label}
-                title="Coming soon"
-                aria-disabled="true"
-                className="inline-flex cursor-not-allowed select-none items-center gap-2 border-b-2 border-transparent px-3 py-2.5 text-sm font-semibold text-gray-300"
-              >
-                <Icon className="h-4 w-4 stroke-[1.75]" />
-                {tab.label}
-                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                  Soon
-                </span>
-              </span>
-            )
-          }
+  const tabs: SectionTab[] = []
+  if (canReadCatalogue) {
+    tabs.push(
+      { label: 'Catalogue', icon: 'catalogue', href: DIGITAL_CARDS_TABS.catalogue },
+      { label: 'Personalisation Queue', icon: 'personalisation', href: DIGITAL_CARDS_TABS.personalisation },
+    )
+  }
+  if (canReadStudio) {
+    tabs.push({
+      label: 'Custom Card Studio',
+      icon: 'studio',
+      href: DIGITAL_CARDS_TABS.customStudio,
+      // The Studio's own pages live outside this URL prefix, so the active
+      // test cannot be derived from the href alone.
+      activePaths: ['/opus-pass/commissions'],
+    })
+  }
+  return tabs
+}
 
-          const active = pathname === tab.href || pathname.startsWith(tab.href + '/')
-          return (
-            <Link
-              key={tab.label}
-              href={tab.href}
-              aria-current={active ? 'page' : undefined}
-              className={cn(
-                'inline-flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors',
-                active
-                  ? 'border-[#7E5896] text-[#7E5896]'
-                  : 'border-transparent text-gray-500 hover:text-gray-900'
-              )}
-            >
-              <Icon className="h-4 w-4 stroke-[1.75]" />
-              {tab.label}
-            </Link>
-          )
-        })}
-      </nav>
-    </div>
-  )
+export default async function DigitalCardsNavTabs() {
+  const tabs = await visibleDigitalCardsTabs()
+  // One tab is not a tab bar. A caller who can reach exactly one surface is
+  // shown no chrome rather than a single permanently-selected control.
+  if (tabs.length < 2) return null
+  return <DigitalCardsNavTabsView tabs={tabs} />
 }

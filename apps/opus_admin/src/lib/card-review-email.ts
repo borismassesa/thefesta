@@ -15,14 +15,20 @@ import { escapeHtml, renderEmail } from '@/lib/email-shell'
 // gallery can render without a database, and a sender that never throws.
 
 /**
- * Reviewers hold `cms.publish`, designers hold `cms.write`.
+ * Reviewers are whoever may RELEASE a card, which is now its own key.
  *
- * `resolveDesignRecipients` treats the two as equivalent, which is exactly why
- * designers and reviewers are currently the same people and the review step
- * means nothing. `cms.publish` already carries "can release" elsewhere in the
- * admin, so splitting on it needs no new permission key.
+ * Both spellings, for the length of the migration: a role still on cms.publish
+ * reaches the release gate through the compatibility expansion and must keep
+ * being asked to review, while a role moved fully onto digitalcards.publish
+ * holds no cms key at all and would otherwise never be told a card is waiting.
+ * A review request that reaches nobody leaves a finished card sitting in the
+ * queue, which is the failure this email exists to prevent.
+ *
+ * Still deliberately narrower than the designer list: the publish key is what
+ * separates a reviewer from a designer, and that separation is the whole point
+ * of the review step.
  */
-const REVIEWER_PERMISSIONS = ['cms.publish']
+const REVIEWER_PERMISSIONS = ['digitalcards.publish', 'cms.publish']
 
 function parseEnvRecipients(raw: string | undefined): string[] {
   if (!raw) return []
@@ -82,7 +88,7 @@ export function buildCardReviewEmail(args: CardReviewArgs): {
 
   const html = renderEmail({
     preheader: `${args.cardName} is finished and needs a second pair of eyes`,
-    eyebrow: 'Card Designer',
+    eyebrow: 'Personalisation Queue',
     heading: 'A card is ready for review',
     referenceCode: args.orderRef,
     sections: [

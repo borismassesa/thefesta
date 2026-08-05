@@ -30,9 +30,16 @@ const inputCls =
 export default function ProductEditor({
   initial,
   isNew,
+  productionPanel,
 }: {
   initial: DigitalCardProductRecord
   isNew: boolean
+  /**
+   * Rendered below the form. A server component passed in as a slot, because
+   * it needs a database read and this editor is a client component. Absent on
+   * a new card, which cannot have jobs yet.
+   */
+  productionPanel?: React.ReactNode
 }) {
   const router = useRouter()
   const [product, setProduct] = useState<DigitalCardProductRecord>(initial)
@@ -96,7 +103,7 @@ export default function ProductEditor({
   // the page's h2. No section tabs here.
   useSetPageHeading({
     title: isNew ? 'New card' : product.name || 'Untitled card',
-    back: { href: LIST, label: 'All cards' },
+    back: { href: LIST, label: 'Catalogue' },
   })
 
   return (
@@ -240,6 +247,11 @@ export default function ProductEditor({
           <Card title="Visibility">
             <Toggle label="Published (visible on the site)" checked={product.published} onChange={(v) => set('published', v)} />
           </Card>
+
+          {/* Last, deliberately: it is context for the edits above rather than
+              another thing to fill in, and it is the only block here that is
+              read-only. */}
+          {productionPanel}
         </div>
 
         {/* Sticky action bar. -mx-8 cancels the section layout's px-8 gutter so

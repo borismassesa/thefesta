@@ -2,13 +2,22 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { getAdminAccessRole, hasPermission, isAdminDashboardRole } from '@/lib/admin-auth'
+import DigitalCardsNavTabs from '../../digital-cards/DigitalCardsNavTabs'
+import SetDigitalCardsHeading from '../../digital-cards/SetDigitalCardsHeading'
+import CustomCardStudioTabs from '../CustomCardStudioTabs'
 import { getCommissionMetrics, type MetricRow } from './queries'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Commission analytics.
+ * Custom Card Studio analytics.
  * Specs: OP-CCS-PRD-001 §9; OP-CCS-TDD-001 step 11.
+ *
+ * A view of the studio rather than a peer of it, so it is a tab inside the
+ * Custom Card Studio instead of its own sidebar entry. It measures the BESPOKE
+ * path only. Catalogue performance (sales by card, conversion, fulfilment
+ * turnaround) has no surface yet; when it gets one, these two become the two
+ * halves of one Digital Cards analytics area.
  *
  * Every figure is shown against the target the PRD actually committed to.
  * A bare "83%" tells nobody whether to act; "83% against a target of 85%"
@@ -31,13 +40,16 @@ export default async function CommissionAnalyticsPage(props: {
   const { metrics, designers, totalOrders } = await getCommissionMetrics(days)
 
   return (
-    <div className="space-y-6">
+    <>
+      <SetDigitalCardsHeading />
+      <DigitalCardsNavTabs />
+      <CustomCardStudioTabs />
+      <div className="space-y-6 px-8 pt-6 pb-6">
+      {/* The <h1> is gone: the shared header says "Digital Cards" and the tab
+          bars say which part. The range pills stay on this row. */}
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-            Commission analytics
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-600">
+          <p className="max-w-2xl text-sm text-gray-600">
             Margin here is designer throughput against a salary cost, so turnaround time is the
             profitability lever rather than just an ops concern. Targets are the ones committed in
             the PRD.
@@ -139,7 +151,8 @@ export default async function CommissionAnalyticsPage(props: {
           </section>
         </>
       )}
-    </div>
+      </div>
+    </>
   )
 }
 

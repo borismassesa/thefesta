@@ -170,7 +170,7 @@ export default async function DigitalCardProductsListPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  if (!(await hasPermission('cms.read'))) redirect('/')
+  if (!(await hasPermission('digitalcards.read'))) redirect('/')
 
   const sp = await searchParams
   const q = (sp.q ?? '').trim()
