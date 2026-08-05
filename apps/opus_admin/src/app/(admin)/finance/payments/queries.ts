@@ -62,6 +62,10 @@ export type DigitalCardPayment = {
   ref: string
   status: DigitalCardPaymentStatus
   category: PaymentCategory
+  /** 'topup' = extra digital cards on an already-released order. Approving one
+   *  releases it immediately and creates no design job — see
+   *  approveDigitalCardPayment. */
+  orderKind: 'purchase' | 'topup'
   userId: string | null
   /** Which of the buyer's events this order's quota is assigned to — null
    *  until the couple assigns it (see OpusPass event-scoped credits). */
@@ -97,6 +101,7 @@ type DigitalCardPaymentRow = {
   user_id: string | null
   event_id: string | null
   currency: string
+  order_kind: 'purchase' | 'topup' | null
   subtotal: string | number
   discount: string | number
   amount_total: string | number
@@ -120,7 +125,7 @@ type DigitalCardPaymentRow = {
 }
 
 const COLUMNS = `
-  id, ref, status, category, user_id, event_id, currency, subtotal, discount, amount_total,
+  id, ref, status, category, order_kind, user_id, event_id, currency, subtotal, discount, amount_total,
   contact_name, contact_email, contact_phone, items, payment_method,
   payer_phone, payer_name, payment_reference, payment_label,
   payment_submitted_at, paid_at, reviewed_at, reviewed_by, review_note,
@@ -148,6 +153,7 @@ function mapPayment(row: DigitalCardPaymentRow): DigitalCardPayment {
     ref: row.ref,
     status: row.status,
     category: toCategory(row.category),
+    orderKind: row.order_kind ?? 'purchase',
     userId: row.user_id,
     eventId: row.event_id,
     currency: row.currency,

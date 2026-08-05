@@ -1,5 +1,5 @@
 import { getEvents, getSendInvitesData } from '@/lib/dashboard/queries'
-import { getCardDetailRequests } from '@/lib/dashboard/card-details'
+import { countCardsNeedingDetails } from '@/lib/dashboard/card-details'
 import { resolveEventScope } from '@/lib/dashboard/event-scope'
 import { EventChooser } from '@/components/dashboard/EventScope'
 import { getLocale } from '@/lib/cms/locale'
@@ -62,7 +62,7 @@ export default async function InvitationsPage({
     )
   }
 
-  const [data, strings, scopeStrings, rsvpsCopy, catalogProducts, cardDetailRequests] =
+  const [data, strings, scopeStrings, rsvpsCopy, catalogProducts, cardsNeedingDetails] =
     await Promise.all([
       getSendInvitesData(scope.selected?.id, events),
       loadUiStrings('dashboard-send', locale),
@@ -71,8 +71,8 @@ export default async function InvitationsPage({
       loadDigitalCardProducts(locale),
       // While a card is in production the couple's own missing details are
       // usually what the designer is waiting on, so the waiting state needs to
-      // know whether anything has been asked of them.
-      getCardDetailRequests(),
+      // know whether anything is still blank on their cards.
+      countCardsNeedingDetails(),
     ])
   // Production countdown. Computed here rather than in the client component so
   // the day number is fixed at render: "now" on the server and "now" in the
@@ -103,7 +103,7 @@ export default async function InvitationsPage({
       rsvpsCopy={rsvpsCopy}
       saveDateTemplates={saveDateTemplates}
       initialTab={tab}
-      pendingCardDetails={cardDetailRequests.length}
+      pendingCardDetails={cardsNeedingDetails}
       productionEta={productionEta}
     />
   )

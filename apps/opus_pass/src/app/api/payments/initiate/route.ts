@@ -7,10 +7,12 @@ import { createNotification } from '@/lib/dashboard/notifications'
 import { resolveOwnedEventId } from '@/lib/dashboard/queries'
 import {
   createPendingOrder,
+  findOrderByIdempotencyKey,
   markManualPaymentEmails,
   setProviderOrderId,
   transitionOrder,
 } from '@/lib/payments/orders'
+import { resolveTopup, topupOrderItem } from '@/lib/payments/topup'
 import { sendManualPaymentSubmittedEmails } from '@/lib/payments/email'
 import { createProductOrderLines, resolveRegistryContext } from '@/lib/payments/product-orders'
 import {
@@ -60,7 +62,9 @@ export async function POST(req: Request): Promise<NextResponse<InitiateResponse>
   if (method !== 'mobile' && method !== 'card' && method !== 'lipa_namba') {
     return bad('Choose a payment method.')
   }
-  if (!Array.isArray(items) || items.length === 0) {
+  // A top-up carries no cart: its single line is built server-side from the
+  // parent order, so an empty `items` is correct rather than an empty cart.
+  if (!body.topup && (!Array.isArray(items) || items.length === 0)) {
     return bad('Your cart is empty.')
   }
   if (!contact?.email || !contact?.phone) {
@@ -78,6 +82,159 @@ export async function POST(req: Request): Promise<NextResponse<InitiateResponse>
     }
     if (!body.paymentReference?.trim() || !PAYREF_RE.test(body.paymentReference.trim())) {
       return bad('Enter the payment reference from your confirmation SMS.')
+    }
+  }
+
+  // ── Top-up: extra capacity on a card the couple already owns ────────────────
+  // Separated from the cart flow entirely. Nothing about what is bought comes
+  // from the browser except "which released card" and "how many guests", and
+  // both are re-validated against the parent order before a shilling is asked
+  // for. Signed-in only: a top-up writes a child of an owned order, which is
+  // not something a guest checkout can be allowed to do.
+  if (body.topup) {
+    const topupUser = await getDashboardUser().catch((error) => {
+      console.error('[payments] dashboard user lookup failed', error)
+      return null
+    })
+    if (!topupUser) return bad('Sign in to top up your invitations.')
+
+    const idempotencyKey = body.idempotencyKey?.trim()
+    if (!idempotencyKey) return bad('Could not submit this top-up. Refresh the page and try again.')
+
+    // A repeat of an intent that already became an order. Answer with that
+    // order rather than creating a second one — this is the refresh/retry path,
+    // and it must be indistinguishable from the first call's outcome.
+    const existing = await findOrderByIdempotencyKey(topupUser.id, idempotencyKey)
+    if (existing) {
+      return NextResponse.json({
+        ref: existing.ref,
+        status: existing.status,
+        message:
+          existing.status === 'processing'
+            ? 'Payment submitted for review.'
+            : undefined,
+      })
+    }
+
+    const topupEventId = await resolveOwnedEventId(topupUser.id, body.eventId)
+    if (!topupEventId) return bad('Choose which event these invitations are for.')
+
+    const resolved = await resolveTopup({
+      userId: topupUser.id,
+      eventId: topupEventId,
+      releaseId: body.topup.releaseId,
+      guests: body.topup.guests,
+    })
+    if (!resolved.ok) return bad(resolved.message)
+
+    const { candidate, guests, unitPrice, amount } = resolved
+    const topupItem = topupOrderItem(candidate, guests, amount)
+    const topupRef = generateRef()
+    const origin = appOrigin(req)
+    const topupPayerPhone =
+      method === 'mobile' || method === 'lipa_namba' ? normalizeMsisdn(body.phone!.trim()) : null
+    const topupOrderInput = {
+      ref: topupRef,
+      userId: topupUser.id,
+      currency: 'TZS',
+      subtotal: amount,
+      discount: 0,
+      amountTotal: amount,
+      contact: { name: contact.name, email: contact.email, phone: contact.phone },
+      eventId: topupEventId,
+      items: [topupItem],
+      payerPhone: topupPayerPhone,
+      paymentLabel: body.paymentLabel ?? null,
+      orderKind: 'topup' as const,
+      parentOrderId: candidate.parentOrderId,
+      topupReleaseId: candidate.releaseId,
+      topupUnitPrice: unitPrice,
+      idempotencyKey,
+    }
+
+    if (method === 'lipa_namba') {
+      const payerName = body.payerName?.trim() ?? ''
+      const paymentReference = body.paymentReference?.trim().toUpperCase() ?? ''
+      const order = await createPendingOrder({
+        ...topupOrderInput,
+        status: 'processing',
+        provider: 'mpesa_lipa_namba',
+        paymentMethod: 'lipa_namba',
+        payerName,
+        paymentReference,
+        paymentSubmittedAt: new Date().toISOString(),
+      })
+      const emailFlags = await sendManualPaymentSubmittedEmails(order)
+      await Promise.all([
+        markManualPaymentEmails(order.ref, emailFlags),
+        createNotification({
+          userId: topupUser.id,
+          type: 'payment_submitted',
+          title: 'Top-up submitted',
+          body: `${guests} more invitations · ${formatTzs(amount)} is under finance review${paymentReference ? ` · ref ${paymentReference}` : ''}`,
+          href: '/my/dashboard/orders',
+        }),
+      ])
+      return NextResponse.json({
+        ref: order.ref,
+        status: order.status,
+        message: 'Payment submitted for review.',
+      })
+    }
+
+    if (!isSelcomConfigured()) {
+      return NextResponse.json(
+        { ref: '', status: 'failed', message: 'Card & mobile payments are not available yet. Choose Lipa Namba.' },
+        { status: 503 },
+      )
+    }
+
+    const order = await createPendingOrder({ ...topupOrderInput, paymentMethod: method })
+    // The idempotency key already belonged to an order created between our
+    // lookup and this insert — two submits racing. createPendingOrder returned
+    // the winner; don't charge for it a second time.
+    if (order.ref !== topupRef) {
+      return NextResponse.json({ ref: order.ref, status: order.status })
+    }
+
+    try {
+      const created = await createOrder({
+        orderRef: topupRef,
+        amount,
+        currency: 'TZS',
+        buyerName: contact.name ?? 'OpusPass customer',
+        buyerEmail: contact.email,
+        buyerPhone: contact.phone,
+        redirectUrl: `${origin}/my/dashboard/invitations/top-up/confirmation?ref=${topupRef}`,
+        // The top-up UI is a drawer over the send console, so a cancelled card
+        // payment returns there rather than to a route of its own.
+        cancelUrl: `${origin}/my/dashboard/invitations?event=${topupEventId}`,
+        webhookUrl: `${origin}/api/payments/webhook`,
+      })
+      if (created.resultcode && created.resultcode !== '000') {
+        await transitionOrder(topupRef, 'failed')
+        return NextResponse.json({ ref: topupRef, status: 'failed', message: created.message ?? 'Could not start the payment.' }, { status: 502 })
+      }
+      if (method === 'card') {
+        const redirectUrl = extractGatewayUrl(created)
+        if (!redirectUrl) {
+          await transitionOrder(topupRef, 'failed')
+          return NextResponse.json({ ref: topupRef, status: 'failed', message: 'Card payment is unavailable right now.' }, { status: 502 })
+        }
+        return NextResponse.json({ ref: topupRef, status: 'pending', redirectUrl })
+      }
+      const transid = randomUUID().replace(/-/g, '').slice(0, 20)
+      await setProviderOrderId(topupRef, transid)
+      const push = await walletPush({ orderRef: topupRef, msisdn: topupPayerPhone!, transid })
+      if (push.resultcode && push.resultcode !== '000') {
+        await transitionOrder(topupRef, 'failed')
+        return NextResponse.json({ ref: topupRef, status: 'failed', message: push.message ?? 'Could not send the payment prompt.' }, { status: 502 })
+      }
+      return NextResponse.json({ ref: topupRef, status: 'pending' })
+    } catch (err) {
+      console.error('[payments] top-up initiate failed', err)
+      await transitionOrder(topupRef, 'failed').catch(() => {})
+      return NextResponse.json({ ref: topupRef, status: 'failed', message: 'Payment could not be started. Please try again.' }, { status: 502 })
     }
   }
 

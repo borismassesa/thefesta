@@ -46,11 +46,20 @@ export type OrderRow = {
   delivery: Record<string, unknown> | null
   /** Set once finalize_product_order has run its once-only side effects. */
   product_finalized_at: string | null
+  /** 'purchase' (a card was bought and designed) or 'topup' (extra capacity on
+   *  a parent order's already-released card). See migration 20260804180000. */
+  order_kind: 'purchase' | 'topup'
+  /** Top-up only: the original purchase this inherits card/event/price from. */
+  parent_order_id: string | null
+  /** Top-up only: the exact frozen release the extra guests will receive. */
+  topup_release_id: string | null
+  /** Top-up only: TZS per guest actually charged, frozen at purchase. */
+  topup_unit_price: number | null
   created_at: string
 }
 
 export const ORDER_SELECT_COLS =
-  'id, ref, user_id, status, currency, subtotal, discount, amount_total, contact_name, contact_email, contact_phone, event_date, event_id, items, provider, payment_method, payer_phone, payer_name, payment_reference, provider_order_id, payment_label, payment_submitted_at, paid_at, fulfillment_status, fulfillment_updated_at, fulfillment_updated_by, receipt_emailed_at, purchase_notified_at, kind, category, delivery, product_finalized_at, created_at'
+  'id, ref, user_id, status, currency, subtotal, discount, amount_total, contact_name, contact_email, contact_phone, event_date, event_id, items, provider, payment_method, payer_phone, payer_name, payment_reference, provider_order_id, payment_label, payment_submitted_at, paid_at, fulfillment_status, fulfillment_updated_at, fulfillment_updated_by, receipt_emailed_at, purchase_notified_at, kind, category, delivery, product_finalized_at, order_kind, parent_order_id, topup_release_id, topup_unit_price, created_at'
 const SELECT_COLS = ORDER_SELECT_COLS
 
 export async function createPendingOrder(input: {
@@ -78,6 +87,16 @@ export async function createPendingOrder(input: {
    *  better than the derivation (e.g. the future attire/rings checkout). */
   category?: OrderCategory
   delivery?: Record<string, unknown> | null
+  /** Top-up fields. All four move together — the DB enforces that a top-up
+   *  carries a parent, a release and a unit price, and that a purchase carries
+   *  none of them (invitation_orders_topup_shape). */
+  orderKind?: 'purchase' | 'topup'
+  parentOrderId?: string | null
+  topupReleaseId?: string | null
+  topupUnitPrice?: number | null
+  /** Per-user key that makes a repeated initiate call a no-op. When the key has
+   *  already been used, the existing order is returned instead of a new one. */
+  idempotencyKey?: string | null
 }): Promise<OrderRow> {
   const supabase = createSupabaseServerClient()
   const { data, error } = await supabase
@@ -106,11 +125,42 @@ export async function createPendingOrder(input: {
       kind: input.kind ?? 'invitation',
       category: input.category ?? deriveOrderCategory(input.kind ?? 'invitation', input.items),
       delivery: input.delivery ?? null,
+      order_kind: input.orderKind ?? 'purchase',
+      parent_order_id: input.parentOrderId ?? null,
+      topup_release_id: input.topupReleaseId ?? null,
+      topup_unit_price: input.topupUnitPrice ?? null,
+      idempotency_key: input.idempotencyKey ?? null,
     })
     .select(SELECT_COLS)
     .single()
-  if (error) throw new Error(`createPendingOrder failed: ${error.message}`)
+  if (error) {
+    // 23505 on the per-user idempotency index = this exact intent already
+    // became an order (a refresh, a double tap, a retry after a timeout).
+    // Returning that order is the correct response, not an error: the caller
+    // then reports the real status of the payment already in flight.
+    if ((error as { code?: string }).code === '23505' && input.idempotencyKey && input.userId) {
+      const existing = await findOrderByIdempotencyKey(input.userId, input.idempotencyKey)
+      if (existing) return existing
+    }
+    throw new Error(`createPendingOrder failed: ${error.message}`)
+  }
   return data as OrderRow
+}
+
+/** The order a previous initiate call with this key already created, if any. */
+export async function findOrderByIdempotencyKey(
+  userId: string,
+  idempotencyKey: string,
+): Promise<OrderRow | null> {
+  const supabase = createSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('invitation_orders')
+    .select(SELECT_COLS)
+    .eq('user_id', userId)
+    .eq('idempotency_key', idempotencyKey)
+    .maybeSingle()
+  if (error) throw new Error(`findOrderByIdempotencyKey failed: ${error.message}`)
+  return (data as OrderRow) ?? null
 }
 
 export async function getOrderByRef(ref: string): Promise<OrderRow | null> {
@@ -127,9 +177,17 @@ export async function getOrderByRef(ref: string): Promise<OrderRow | null> {
 // Map a server OrderRow into the StoredOrder shape the invoice PDF renders from.
 // paymentStatus reflects the order's current stage (paid → "PAID", else
 // "PAYMENT VERIFYING"). Shared by the email sender and the /api/invoice route.
-export function orderRowToStoredOrder(order: OrderRow): StoredOrder {
+export function orderRowToStoredOrder(
+  order: OrderRow,
+  /** Ref of this order's parent, when it is a top-up. Resolved by the caller
+   *  (see getOrdersForUser) because the row itself only carries the parent's id
+   *  and the orders list needs a human-readable ref to group by. */
+  parentRef?: string | null,
+): StoredOrder {
   return {
     ref: order.ref,
+    orderKind: order.order_kind,
+    parentRef: parentRef ?? null,
     paidAt: order.paid_at ?? order.payment_submitted_at ?? order.created_at,
     eventId: order.event_id,
     eventDate: order.event_date ?? undefined,
@@ -197,6 +255,36 @@ export async function getOrdersForUser(
   return (data as OrderRow[]) ?? []
 }
 
+/**
+ * Every order for the couple's dashboard, with each top-up carrying the ref of
+ * the purchase it belongs to.
+ *
+ * The parent is looked up separately rather than embedded: `parent_order_id`
+ * is a self-referencing FK, and the embed syntax for those depends on the
+ * constraint name, which is exactly the kind of thing that breaks silently on
+ * a later migration. A second read of at most a handful of ids is cheaper than
+ * that risk.
+ */
+export async function getOrdersForDashboardUser(
+  userId: string,
+  email: string | null | undefined,
+  whatsappPhone: string | null,
+): Promise<StoredOrder[]> {
+  const rows = await getOrdersForUser(userId, email, whatsappPhone)
+
+  const parentIds = [...new Set(rows.map((r) => r.parent_order_id).filter((id): id is string => Boolean(id)))]
+  const refById = new Map<string, string>()
+  if (parentIds.length > 0) {
+    const supabase = createSupabaseServerClient()
+    const { data } = await supabase.from('invitation_orders').select('id, ref').in('id', parentIds)
+    for (const row of (data ?? []) as { id: string; ref: string }[]) refById.set(row.id, row.ref)
+  }
+
+  return rows.map((row) =>
+    orderRowToStoredOrder(row, row.parent_order_id ? refById.get(row.parent_order_id) ?? null : null),
+  )
+}
+
 export async function setProviderOrderId(ref: string, providerOrderId: string): Promise<void> {
   const supabase = createSupabaseServerClient()
   await supabase
@@ -260,6 +348,16 @@ export async function transitionOrder(
   // status='paid' directly), but the finalize RPC is idempotent so a Selcom
   // product order finalizing here is equally safe.
   if (next === 'paid') {
+    // A top-up inherits a release a human already approved, so payment is the
+    // only thing standing between it and being sendable. Mirrors the finance
+    // approval path in opus_admin — a gateway-confirmed top-up must not sit at
+    // 'not_started' waiting for design work that will never be created.
+    if (current.order_kind === 'topup') {
+      await supabase
+        .from('invitation_orders')
+        .update({ fulfillment_status: 'ready', fulfillment_updated_at: new Date().toISOString() })
+        .eq('ref', ref)
+    }
     if (current.kind === 'product') {
       const { finalizeProductOrder } = await import('./product-orders')
       await finalizeProductOrder(ref)

@@ -21,6 +21,9 @@ type PaymentEmailRow = {
   payment_reference: string | null
   kind: string
   category: string | null
+  /** 'topup' orders inherit an already-released card, so approving one has to
+   *  skip design entirely — see approveDigitalCardPayment. */
+  order_kind: 'purchase' | 'topup' | null
 }
 
 /**
@@ -67,7 +70,7 @@ async function getPayment(id: string): Promise<PaymentEmailRow> {
   const supabase = createSupabaseAdminClient()
   const { data, error } = await supabase
     .from('invitation_orders')
-    .select('id, ref, user_id, status, amount_total, contact_name, contact_email, payment_reference, kind, category')
+    .select('id, ref, user_id, status, amount_total, contact_name, contact_email, payment_reference, kind, category, order_kind')
     .eq('id', id)
     .eq('provider', 'mpesa_lipa_namba')
     .single<PaymentEmailRow>()
@@ -173,6 +176,7 @@ export async function approveDigitalCardPayment(formData: FormData): Promise<voi
 
   const reviewedBy = (await getCallerEmail()) ?? 'admin'
   const now = new Date().toISOString()
+  const isTopup = payment.order_kind === 'topup'
   const supabase = createSupabaseAdminClient()
   const { error } = await supabase
     .from('invitation_orders')
@@ -182,12 +186,32 @@ export async function approveDigitalCardPayment(formData: FormData): Promise<voi
       reviewed_at: now,
       reviewed_by: reviewedBy,
       review_note: note || null,
+      // A top-up has no card to design: it inherits a release that a human
+      // already approved, pinned on the order at purchase. Approval IS its
+      // fulfillment, so it goes straight to 'ready' and the couple's pool grows
+      // the moment finance confirms the money. Leaving it 'not_started' would
+      // park paid capacity behind design work that will never happen.
+      ...(isTopup ? { fulfillment_status: 'ready', fulfillment_updated_at: now } : {}),
     })
     .eq('id', id)
     .eq('provider', 'mpesa_lipa_namba')
   if (error) throw new Error(error.message)
 
-  if (payment.kind === 'product') {
+  if (isTopup) {
+    // Deliberately no sendDesignBrief: briefing designers on a top-up would put
+    // a job in front of them that does not exist.
+    await Promise.all([
+      emailCustomer({ payment, kind: 'approved', note }).catch((error) => {
+        console.error('[digital-card-payments] top-up approval email failed', error)
+      }),
+      createCustomerNotification({
+        userId: payment.user_id,
+        type: 'payment_confirmed',
+        title: 'Top-up approved',
+        body: `${formatTzs(payment.amount_total)} confirmed. Your extra invitations are ready to send.`,
+      }),
+    ])
+  } else if (payment.kind === 'product') {
     // Product order — the couple notification + guest/couple receipts run in
     // opus_pass via finalize; the invitation-flavoured customer email/notice
     // below doesn't apply (the buyer is an unauthenticated guest).

@@ -16,10 +16,23 @@ import { DESIGN_SLA_HOURS, designDueAt } from '@/lib/cms/design-sla'
  * Who hears about a new card.
  *
  * Mirrors editorial-recipients.ts: an explicit env list wins (useful for a
- * shared design inbox), otherwise fall back to dashboard staff who can edit
- * CMS content, since that is the permission the Card Designer itself requires.
+ * shared design inbox), otherwise fall back to dashboard staff who hold the
+ * permission the Personalisation Queue itself requires.
+ *
+ * Both the new Digital Cards keys AND the CMS keys they were split out of, and
+ * both are load-bearing. A role still on cms.write reaches the queue through
+ * the compatibility expansion, so dropping the old keys here would stop
+ * emailing people who can still do the work. A role migrated fully onto
+ * digitalcards.* holds no cms key at all, so listing only the old ones would
+ * silently stop emailing the people who are MEANT to do it — a queue that
+ * quietly goes unwatched, with no error anywhere.
  */
-const DESIGNER_PERMISSIONS = ['cms.write', 'cms.publish'] as const
+const DESIGNER_PERMISSIONS = [
+  'digitalcards.write',
+  'digitalcards.publish',
+  'cms.write',
+  'cms.publish',
+] as const
 
 function parseEnvRecipients(raw: string | undefined): string[] {
   if (!raw) return []
@@ -60,6 +73,7 @@ type OrderBriefRow = {
   items: OrderLineItem[] | null
   contact_name: string | null
   event_date: string | null
+  order_kind: 'purchase' | 'topup' | null
 }
 
 function formatDue(approvedAt: string): string {
@@ -99,7 +113,7 @@ export function buildDesignBriefEmail(args: DesignBriefArgs): {
   const { cardNames } = args
   const html = renderEmail({
     preheader: `${cardNames.length} card${cardNames.length === 1 ? '' : 's'} to design — due in ${DESIGN_SLA_HOURS}h`,
-    eyebrow: 'Card Designer',
+    eyebrow: 'Personalisation Queue',
     heading: 'A new card is ready to design',
     referenceCode: args.ref,
     sections: [
@@ -155,10 +169,17 @@ export async function sendDesignBrief(
   const supabase = createSupabaseAdminClient()
   const { data: order } = await supabase
     .from('invitation_orders')
-    .select('ref, items, contact_name, event_date')
+    .select('ref, items, contact_name, event_date, order_kind')
     .eq('id', orderId)
     .maybeSingle<OrderBriefRow>()
   if (!order) return { sent: false, recipients: recipients.length, reason: 'order_not_found' }
+  // A top-up commissions no design work. The approval action already skips this
+  // call; the guard is here too because a brief telling designers to make a card
+  // that does not need making is worse than a missing one, and this function is
+  // reachable from anywhere.
+  if (order.order_kind === 'topup') {
+    return { sent: false, recipients: recipients.length, reason: 'topup_order' }
+  }
 
   const items = Array.isArray(order.items) ? order.items : []
   const totals = readOrderTotals(items)

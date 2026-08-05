@@ -16,6 +16,13 @@ import {
   type StoredOrderPayment,
 } from '@/lib/cart-storage'
 import type { InitiateRequest, InitiateResponse, StatusResponse } from '@/lib/payments/types'
+import {
+  MPESA_LIPA_NAMBA,
+  MPESA_LIPA_NAME,
+  PAYREF_RE,
+  PHONE_RE,
+  SELCOM_ENABLED,
+} from '@/lib/payments/lipa-namba'
 import { useT } from '@/components/providers/UIStringsProvider'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -52,18 +59,6 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   },
 ]
 
-// OpusFesta's M-Pesa Lipa Namba (TIPS / Tan QR merchant number) — from the
-// official Vodacom "Pesa ni M-Pesa" merchant poster.
-// Automated Selcom payments (M-Pesa STK push + card) are gated behind this flag.
-// Until OpusFesta has a Selcom merchant account, it stays OFF and checkout uses
-// only the manual Lipa Namba flow: the customer pays externally and enters their
-// name, phone, and transaction reference; the OpusFesta team confirms it.
-// Flip NEXT_PUBLIC_PAYMENTS_SELCOM_ENABLED=true (with SELCOM_* server creds) to
-// turn the automated push + card options on.
-const SELCOM_ENABLED = process.env.NEXT_PUBLIC_PAYMENTS_SELCOM_ENABLED === 'true'
-
-const MPESA_LIPA_NAMBA = '350298654'
-const MPESA_LIPA_NAME = 'OPUSFESTA COMPANY LIMITED'
 const MPESA_LIPA_POSTER_SRC = '/assets/payment/opusfesta-mpesa-lipa-poster.png'
 
 // Payment networks per Tan QR merchant poster. The dial codes + structure stay
@@ -139,10 +134,6 @@ function formatTzs(n: number): string {
   return `TZS ${n.toLocaleString('en-US')}`
 }
 
-const PHONE_RE = /^\+?(?:[\d](?:[\s().-]?)){9,}$/
-// Transaction confirmation codes vary per network (M-Pesa: 10 alphanumeric,
-// Tigo/Airtel: digits, banks may include dots/dashes) — keep it lenient.
-const PAYREF_RE = /^[A-Za-z0-9.\-]{6,25}$/
 
 type Errors = Partial<
   Record<'mobilePhone' | 'payerName' | 'payRef' | 'cart' | 'contact' | 'event', string>

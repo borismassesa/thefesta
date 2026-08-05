@@ -57,9 +57,12 @@ export type InitiateItem = {
   total: number
   /** Marks a non-invitation flat-price line so priceOrder() re-prices it
    *  authoritatively instead of trusting the client or guest-tier math:
-   *  'template_unlock' (a pledge/thank-you card unlock) or 'product' (a real
-   *  vendor product from the registry shop, priced from products.price_tzs). */
-  kind?: 'template_unlock' | 'product'
+   *  'template_unlock' (a pledge/thank-you card unlock), 'product' (a real
+   *  vendor product from the registry shop, priced from products.price_tzs),
+   *  or 'topup' (extra capacity on an already-released card — priced from the
+   *  PARENT order by resolveTopup(), and rejected outright by priceOrder so it
+   *  can only ever be created through the top-up path). */
+  kind?: 'template_unlock' | 'product' | 'topup'
   // ── Product-line fields (kind === 'product') ──────────────────────────────
   /** The products.id being bought. */
   productId?: string
@@ -86,7 +89,20 @@ export type InitiateRequest = {
   /** Manual Lipa Namba transaction confirmation code/reference. */
   paymentReference?: string
   contact: InitiateContact
+  /** The cart lines. Empty (and ignored) for a top-up, whose single line is
+   *  built server-side from the parent order — see `topup`. */
   items: InitiateItem[]
+  /** Extra sending capacity on a card the couple already had released. Only
+   *  `releaseId` and `guests` come from the browser; the event, card, tier and
+   *  per-guest price are all resolved from the parent order server-side. */
+  topup?: {
+    /** invitation_card_design_releases.id of the card being topped up. */
+    releaseId: string
+    guests: number
+  }
+  /** Per-user key that makes a repeated submit a no-op instead of a second
+   *  order. Required for top-ups. */
+  idempotencyKey?: string
   eventDate?: string
   /** Which of the couple's wedding_events this order's design/quota is for. */
   eventId?: string

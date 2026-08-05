@@ -13,6 +13,7 @@ import {
   Clock,
   Download,
   LayoutGrid,
+  PenTool,
   Rows3,
   Hourglass,
 } from 'lucide-react'
@@ -311,6 +312,14 @@ function OrderCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold text-gray-900">{order.ref}</h2>
+            {/* A top-up commissions no design work — it adds capacity to a card
+                that was already made. Labelled here so nobody in fulfilment
+                looks for a job that does not exist. */}
+            {order.orderKind === 'topup' && (
+              <span className={cn(META_PILL, GREEN_PILL)}>
+                Top-up{order.parentRef ? ` · ${order.parentRef}` : ''}
+              </span>
+            )}
             {isPaid ? <StatusBadge status={order.fulfillmentStatus} /> : <AwaitingPaymentBadge />}
             <span className={cn(META_PILL, 'bg-[#F0DFF6] text-[#7E5896]')}>
               {PAYMENT_CATEGORY_BADGE[order.category]}
@@ -364,6 +373,19 @@ function OrderCard({
               <Download className="h-4 w-4" />
               Invoice
             </a>
+          )}
+          {/* Approving a payment here is what releases the card into design,
+              but there was no route from the approval to the work it started.
+              Card orders only: the other four categories in this ledger have no
+              design queue behind them. */}
+          {isPaid && order.category === 'digital_card' && (
+            <Link
+              href={`/opus-pass/digital-cards/designer?q=${encodeURIComponent(order.ref)}`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:border-[#C9A0DC] hover:text-[#7E5896]"
+            >
+              <PenTool className="h-4 w-4" />
+              Design work
+            </Link>
           )}
         </div>
       </div>
