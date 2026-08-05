@@ -243,10 +243,11 @@ export function buildTicketElement({ pass, templateDataUri, qrDataUrl, passId }:
       </div>
 
       {/* The Pass ID value, printed under the QR with no label.
-          It is set to match the category intro line at the top of the card
-          (same face, same 58px), so the ticket opens and closes on the same
-          note instead of the code reading as fallback text in whatever font
-          happened to be resolved.
+          Set in Roboto Bold rather than the card's Playfair: a code is read
+          character by character, not as a word, and the serif's thin strokes
+          and old-style figures work against that. Every renderer of this
+          element must register the 'Roboto' family (see ticket-image.ts and
+          the preview route) or satori silently falls back.
           Without this the identifier is inert: it exists in the database and
           the scanner accepts it, but the guest has no way to know theirs. That
           is exactly what happened to entry_code, which has been generated and
@@ -271,9 +272,9 @@ export function buildTicketElement({ pass, templateDataUri, qrDataUrl, passId }:
         >
           <span
             style={{
-              fontFamily: 'Playfair Display',
+              fontFamily: 'Roboto',
               fontWeight: 700,
-              fontSize: 58,
+              fontSize: 52,
               letterSpacing: 6,
               color: WHITE,
             }}

@@ -23,12 +23,13 @@ export async function GET(req: Request) {
   const pass = await getEntrancePassPreviewData(eventId)
   if (!pass) return new Response('Not found', { status: 404 })
 
-  let templateBuf: Buffer, nameFontBuf: Buffer, serifFontBuf: Buffer, qrDataUrl: string
+  let templateBuf: Buffer, nameFontBuf: Buffer, serifFontBuf: Buffer, codeFontBuf: Buffer, qrDataUrl: string
   try {
-    ;[templateBuf, nameFontBuf, serifFontBuf, qrDataUrl] = await Promise.all([
+    ;[templateBuf, nameFontBuf, serifFontBuf, codeFontBuf, qrDataUrl] = await Promise.all([
       readFile(path.join(process.cwd(), 'public', 'entrance-pass', 'ticket-template.png')),
       readFile(path.join(process.cwd(), 'public', 'fonts', 'DancingScript-Regular.ttf')),
       readFile(path.join(process.cwd(), 'public', 'fonts', 'PlayfairDisplay-Bold.woff')),
+      readFile(path.join(process.cwd(), 'public', 'fonts', 'Roboto-Bold.ttf')),
       QRCode.toDataURL('OPUSPASS-SAMPLE-TICKET', {
         margin: 1,
         width: 512,
@@ -56,6 +57,7 @@ export async function GET(req: Request) {
       fonts: [
         { name: 'Dancing Script', data: nameFontBuf, style: 'normal', weight: 400 },
         { name: 'Playfair Display', data: serifFontBuf, style: 'normal', weight: 700 },
+        { name: 'Roboto', data: codeFontBuf, style: 'normal', weight: 700 },
       ],
       headers: { 'cache-control': 'private, no-store' },
     },

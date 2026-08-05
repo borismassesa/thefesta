@@ -63,10 +63,11 @@ export async function renderTicketImage(
    *  still renders a valid ticket rather than failing. */
   passId?: string | null
 ): Promise<ImageResponse> {
-  const [templateBuf, nameFontBuf, serifFontBuf] = await Promise.all([
+  const [templateBuf, nameFontBuf, serifFontBuf, codeFontBuf] = await Promise.all([
     readPublicFile('entrance-pass', 'ticket-template.png'),
     readPublicFile('fonts', 'DancingScript-Regular.ttf'),
     readPublicFile('fonts', 'PlayfairDisplay-Bold.woff'),
+    readPublicFile('fonts', 'Roboto-Bold.ttf'),
   ])
 
   return new ImageResponse(
@@ -82,6 +83,7 @@ export async function renderTicketImage(
       fonts: [
         { name: 'Dancing Script', data: nameFontBuf, style: 'normal', weight: 400 },
         { name: 'Playfair Display', data: serifFontBuf, style: 'normal', weight: 700 },
+        { name: 'Roboto', data: codeFontBuf, style: 'normal', weight: 700 },
       ],
       headers: TICKET_RESPONSE_HEADERS,
     }
