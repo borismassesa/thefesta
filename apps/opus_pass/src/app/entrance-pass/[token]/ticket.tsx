@@ -243,9 +243,10 @@ export function buildTicketElement({ pass, templateDataUri, qrDataUrl, passId }:
       </div>
 
       {/* The Pass ID value, printed under the QR with no label.
-          It is set in the ticket's own Playfair Display, matching the date
-          and venue rows, so it reads as part of the card rather than as
-          fallback text in whatever font happened to be resolved.
+          It is set to match the category intro line at the top of the card
+          (same face, same 58px), so the ticket opens and closes on the same
+          note instead of the code reading as fallback text in whatever font
+          happened to be resolved.
           Without this the identifier is inert: it exists in the database and
           the scanner accepts it, but the guest has no way to know theirs. That
           is exactly what happened to entry_code, which has been generated and
@@ -272,8 +273,8 @@ export function buildTicketElement({ pass, templateDataUri, qrDataUrl, passId }:
             style={{
               fontFamily: 'Playfair Display',
               fontWeight: 700,
-              fontSize: 48,
-              letterSpacing: 8,
+              fontSize: 58,
+              letterSpacing: 6,
               color: WHITE,
             }}
           >
