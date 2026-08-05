@@ -281,7 +281,25 @@ export default function SendInvitesView({
   // The per-guest review drawer. A single send used to fire straight at Meta
   // from the row button, which made an accidental click unrecoverable — this
   // is the confidence checkpoint that click now goes through.
-  const [review, setReview] = useState<{ guest: SendGuestRow; mode: 'invite' | 'pass' } | null>(null)
+  //
+  // Keyed to the selected event and holding only the guest's ID, never a copy
+  // of the row. This component stays mounted across an event switch (switchEvent
+  // is a client-side router.push), so a snapshot taken on click would survive
+  // into an event it was never reviewed against: status, entrancePassUrl and
+  // party size are all per-event, and the drawer would show one event's ticket
+  // while sending another's. Same trap the Ticket Details editor fell into.
+  // Reading the guest out of `guests` each render also keeps the drawer honest
+  // when the 25s poll lands an RSVP mid-review.
+  const [reviewState, setReviewState] = useState<{
+    eventId: string | null
+    value: { guestId: string; mode: 'invite' | 'pass' } | null
+  }>({ eventId: selectedEventId, value: null })
+  const review = reviewState.eventId === selectedEventId ? reviewState.value : null
+  const setReview = (value: { guestId: string; mode: 'invite' | 'pass' } | null) =>
+    setReviewState({ eventId: selectedEventId, value })
+  // A guest deleted (or filtered out of the roster) while the drawer is open
+  // closes it rather than leaving a drawer pointed at nothing.
+  const reviewGuest = review ? (guests.find((g) => g.id === review.guestId) ?? null) : null
   const [resendMenuId, setResendMenuId] = useState<string | null>(null)
   useEffect(() => {
     if (!resendMenuId) return
@@ -320,7 +338,7 @@ export default function SendInvitesView({
   const [topUpOpen, setTopUpOpen] = useState(false)
   // Any full-screen overlay open — freeze the page behind it so scrolling
   // over the (fixed-position) dim backdrop doesn't also scroll the page.
-  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress || topUpOpen || review))
+  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress || topUpOpen || reviewGuest))
   // The selected event owns partner names, category and location. The preview
   // chooses a REAL guest so its message and image can never drift apart.
   const hostName = data.sendSettings.hostName
@@ -2724,14 +2742,14 @@ export default function SendInvitesView({
                                   toast.error(strings.entrance_needs_whatsapp)
                                   return
                                 }
-                                setReview({ guest: g, mode: 'pass' })
+                                setReview({ guestId: g.id, mode: 'pass' })
                               }}
                             >
-                              {sendingRow === g.id ? (
-                                <Loader2 size={14} className="spin" />
-                              ) : (
-                                <Ticket size={14} />
-                              )}
+                              {/* No spinner: this button opens the review
+                                  drawer, it no longer sends. The send happens
+                                  inside the drawer, which shows its own
+                                  progress. */}
+                              <Ticket size={14} />
                               {strings.row_preview_send_pass}
                             </button>
                           )
@@ -2767,7 +2785,7 @@ export default function SendInvitesView({
                                 className="ia send"
                                 disabled={pending || !hasPhone(g)}
                                 title={strings.row_preview_send}
-                                onClick={() => setReview({ guest: g, mode: 'invite' })}
+                                onClick={() => setReview({ guestId: g.id, mode: 'invite' })}
                               >
                                 <Eye size={13} /> {strings.row_preview_send}
                               </button>
@@ -2783,7 +2801,7 @@ export default function SendInvitesView({
                                 className="ia"
                                 disabled={pending}
                                 title={strings.row_preview}
-                                onClick={() => setReview({ guest: g, mode: 'invite' })}
+                                onClick={() => setReview({ guestId: g.id, mode: 'invite' })}
                               >
                                 <Eye size={13} /> {strings.row_preview}
                               </button>
@@ -2813,7 +2831,7 @@ export default function SendInvitesView({
                                     </button>
                                     <button
                                       role="menuitem"
-                                      onClick={() => { setResendMenuId(null); setReview({ guest: g, mode: 'invite' }) }}
+                                      onClick={() => { setResendMenuId(null); setReview({ guestId: g.id, mode: 'invite' }) }}
                                     >
                                       <Eye size={13} /> {strings.row_resend_preview}
                                     </button>
@@ -3134,24 +3152,24 @@ export default function SendInvitesView({
           opening prepares a fresh, guest-specific preview — a card prepared
           for whoever was reviewed last must never be what gets approved.
           Keyed by guest so switching rows remounts rather than reusing state. */}
-      {review && eventId ? (
+      {review && reviewGuest && eventId ? (
         <ReviewSendDrawer
-          key={`${review.mode}:${review.guest.id}`}
+          key={`${review.mode}:${reviewGuest.id}`}
           mode={review.mode}
-          guest={review.guest}
+          guest={reviewGuest}
           eventId={eventId}
-          phone={review.guest.whatsappPhone ?? review.guest.phone ?? ''}
-          partyLabel={partyLabelFor(review.guest, review.mode)}
+          phone={reviewGuest.whatsappPhone ?? reviewGuest.phone ?? ''}
+          partyLabel={partyLabelFor(reviewGuest, review.mode)}
           message={
             review.mode === 'pass'
               ? {
-                  body: entrancePassBodyFor(review.guest.name),
+                  body: entrancePassBodyFor(reviewGuest.name),
                   footer: ENTRANCE_PASS_TEMPLATE.footer,
                   buttons: [],
                 }
               : {
                   body: INVITE_TEMPLATE.body
-                    .replace('{{1}}', formatInviteGuestName(review.guest.name, 'Amina'))
+                    .replace('{{1}}', formatInviteGuestName(reviewGuest.name, 'Amina'))
                     .replace('{{2}}', hostName.trim() || event.coupleName)
                     .replace('{{3}}', eventCat.trim() || event.eventCategorySw),
                   footer: INVITE_TEMPLATE.footer,
@@ -3160,14 +3178,14 @@ export default function SendInvitesView({
           }
           artwork={
             review.mode === 'pass'
-              ? { kind: 'static', url: review.guest.entrancePassUrl }
+              ? { kind: 'static', url: reviewGuest.entrancePassUrl }
               : { kind: 'prepare' }
           }
-          checks={reviewChecksFor(review.guest, review.mode)}
+          checks={reviewChecksFor(reviewGuest, review.mode)}
           creditNote={
             review.mode === 'pass'
               ? null
-              : review.guest.status === 'none'
+              : reviewGuest.status === 'none'
                 ? strings.review_credit_one
                 : strings.review_credit_free
           }
@@ -3175,11 +3193,11 @@ export default function SendInvitesView({
           strings={strings}
           onSend={() =>
             review.mode === 'pass'
-              ? sendEntrancePasses([review.guest.id], eventId)
-              : sendWhatsAppInvites([review.guest.id], eventId)
+              ? sendEntrancePasses([reviewGuest.id], eventId)
+              : sendWhatsAppInvites([reviewGuest.id], eventId)
           }
           onSent={() => {
-            if (review.mode === 'pass') setEntranceSentIds((prev) => new Set(prev).add(review.guest.id))
+            if (review.mode === 'pass') setEntranceSentIds((prev) => new Set(prev).add(reviewGuest.id))
             // Soft refresh: the row reconciles with the server's own ledger
             // without a page reload.
             router.refresh()
@@ -3187,9 +3205,9 @@ export default function SendInvitesView({
           onEditGuest={() => {
             setReview(null)
             setRowEdit({
-              id: review.guest.id,
-              name: review.guest.name,
-              phone: review.guest.phone ?? review.guest.whatsappPhone ?? '',
+              id: reviewGuest.id,
+              name: reviewGuest.name,
+              phone: reviewGuest.phone ?? reviewGuest.whatsappPhone ?? '',
               askDelete: false,
             })
           }}
