@@ -32,7 +32,9 @@ const NAME_BAND = { top: 486, height: 292, sidePad: 60 }
 const DATE_ROW = { top: 770, height: 110 }
 const VENUE_ROW = { top: 916, height: 190, sidePad: 60 }
 const PILL = { top: 1227, height: 87 }
-const QR_BOX = { top: 1386, size: 423, pad: 14 }
+// The QR card stays square (a stretched QR will not scan) but is smaller
+// than the artwork's sample block, so the Pass ID below it has real room.
+const QR_BOX = { top: 1386, size: 352, pad: 14 }
 
 /** Tickets are only ever sold as Single or Double — those two words are
  *  the entire pill vocabulary. Anything above one is a Double; "Party of
@@ -240,7 +242,10 @@ export function buildTicketElement({ pass, templateDataUri, qrDataUrl, passId }:
         <img src={qrDataUrl} width={qrInner} height={qrInner} alt="" />
       </div>
 
-      {/* The Pass ID, printed under the QR.
+      {/* The Pass ID value, printed under the QR with no label.
+          It is set in the ticket's own Playfair Display, matching the date
+          and venue rows, so it reads as part of the card rather than as
+          fallback text in whatever font happened to be resolved.
           Without this the identifier is inert: it exists in the database and
           the scanner accepts it, but the guest has no way to know theirs. That
           is exactly what happened to entry_code, which has been generated and
@@ -252,30 +257,24 @@ export function buildTicketElement({ pass, templateDataUri, qrDataUrl, passId }:
           style={{
             position: 'absolute',
             left: 0,
-            // Anchored to the ticket's BOTTOM, not measured down from the QR.
-            // The QR ends at 1809 on an 1881-tall ticket, leaving 72px, and
-            // measuring downward overflowed it — the value printed off the
-            // ticket entirely while the label stayed just visible, which is
-            // the worst possible failure for a fallback identifier.
-            top: TICKET_HEIGHT - 74,
+            // Anchored to the ticket's BOTTOM, not measured down from the QR,
+            // so a change to the QR box can never push the identifier off the
+            // card — the worst possible failure for a fallback identifier.
+            top: TICKET_HEIGHT - 96,
             width: TICKET_WIDTH,
+            height: 72,
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          <span style={{ fontSize: 22, letterSpacing: 3, color: WHITE, opacity: 0.75 }}>
-            {pass.ticketLanguage === 'sw' ? 'NAMBA YA KADI' : 'PASS ID'}
-          </span>
           <span
             style={{
-              fontSize: 40,
+              fontFamily: 'Playfair Display',
+              fontWeight: 700,
+              fontSize: 48,
               letterSpacing: 8,
               color: WHITE,
-              fontWeight: 700,
-              // Sized to the 72px the artwork actually leaves below the QR.
-              // Still the largest text in the lower stub after the QR itself.
-              marginTop: 2,
             }}
           >
             {passId.slice(0, 4)} {passId.slice(4)}
