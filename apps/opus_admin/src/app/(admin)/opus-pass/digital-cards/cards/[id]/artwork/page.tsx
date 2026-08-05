@@ -30,7 +30,7 @@ export default async function CardArtworkPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  if (!(await hasPermission('cms.read'))) redirect('/')
+  if (!(await hasPermission('digitalcards.read'))) redirect('/')
   const { id } = await params
   // There is no artwork to map until the card exists.
   if (id === 'new') redirect('/opus-pass/digital-cards/cards/new')

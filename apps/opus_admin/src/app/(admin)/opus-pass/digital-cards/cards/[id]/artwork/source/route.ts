@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
  * uploaded, before any couple's answers exist.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await hasPermission('cms.read'))) {
+  if (!(await hasPermission('digitalcards.read'))) {
     return new NextResponse('Forbidden', { status: 403 })
   }
   const { id } = await params

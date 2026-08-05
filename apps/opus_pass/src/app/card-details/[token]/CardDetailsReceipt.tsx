@@ -1,15 +1,15 @@
 import { CheckCircle2 } from 'lucide-react'
-import type { TokenCardDetailRequest } from '@/lib/dashboard/card-details'
+import type { TokenCardDetailCard } from '@/lib/dashboard/card-details'
 import { cardFieldCopy, cardFieldOrder } from '@/lib/dashboard/card-details-labels'
 
 /**
- * What the couple sees once they've answered everything.
+ * What the couple sees once the card has gone out.
  *
- * Deliberately not a bare "thanks" page: they reach this every time they
- * re-open the WhatsApp link, and it is the last point at which a misspelt name
- * or a wrong venue can still be caught before it is printed on every card.
+ * They reach this every time they re-open the WhatsApp link, so it shows what
+ * we hold rather than a bare dead end. Editing has closed by this point — the
+ * card is already with their guests — so the last line points at a human.
  */
-export default function CardDetailsReceipt({ request }: { request: TokenCardDetailRequest }) {
+export default function CardDetailsReceipt({ request }: { request: TokenCardDetailCard }) {
   const provided = Object.entries(request.values)
     .filter(([, value]) => String(value).trim())
     // Object key order is arbitrary; read it back in card order instead.
@@ -21,8 +21,8 @@ export default function CardDetailsReceipt({ request }: { request: TokenCardDeta
         <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-500" />
         <h1 className="mt-3 text-xl font-semibold text-gray-900">Thank you</h1>
         <p className="mt-1.5 text-sm text-gray-500">
-          We have everything we need for your {request.cardName}. Our designers are working on it
-          now.
+          Your {request.cardName} is finished and on its way to your guests. Here is what we printed
+          on it.
         </p>
       </header>
 

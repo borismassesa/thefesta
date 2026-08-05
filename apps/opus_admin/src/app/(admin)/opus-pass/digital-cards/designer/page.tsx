@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { hasPermission } from '@/lib/admin-auth'
+import { getCallerEmployeeId, hasPermission } from '@/lib/admin-auth'
 import DigitalCardsNavTabs from '../DigitalCardsNavTabs'
 import SetDigitalCardsHeading from '../SetDigitalCardsHeading'
 import { getDesignQueue } from './queries'
@@ -11,14 +11,21 @@ export const dynamic = 'force-dynamic'
 export default async function CardDesignerQueuePage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; view?: string }>
+  // `q` prefills the queue's search. It exists so other surfaces can link to
+  // the work for one order rather than dumping the reader on the whole queue
+  // to find it by eye — Orders & Fulfilment does exactly that.
+  searchParams: Promise<{ status?: string; view?: string; q?: string }>
 }) {
-  if (!(await hasPermission('cms.read'))) redirect('/')
+  if (!(await hasPermission('digitalcards.read'))) redirect('/')
 
-  const [{ status, view }, jobs, canWrite] = await Promise.all([
+  const [{ status, view, q }, jobs, canWrite, myEmployeeId] = await Promise.all([
     searchParams,
     getDesignQueue(),
-    hasPermission('cms.write'),
+    hasPermission('digitalcards.write'),
+    // Drives "Mine" vs a colleague's name on each row. Null for an owner or
+    // admin who has no employee record; the queue then simply never says
+    // "Mine", which is accurate — nothing can be assigned to them.
+    getCallerEmployeeId(),
   ])
 
   return (
@@ -32,6 +39,8 @@ export default async function CardDesignerQueuePage({
           activeStatus={status ?? ''}
           view={view === 'table' ? 'table' : 'list'}
           canWrite={canWrite}
+          myEmployeeId={myEmployeeId}
+          initialQuery={q ?? ''}
         />
       </div>
     </>

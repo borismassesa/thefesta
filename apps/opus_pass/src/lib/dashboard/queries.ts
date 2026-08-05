@@ -17,7 +17,7 @@ import {
   invitationMapsUrl,
   invitationPartner2Required,
 } from './invitation-event-details'
-import { getOrdersForUser, orderRowToStoredOrder } from '@/lib/payments/orders'
+import { getOrdersForDashboardUser } from '@/lib/payments/orders'
 import type { StoredOrder } from '@/lib/cart-storage'
 import type { SiteDoc } from '@/lib/builder/types'
 import type { Treatment } from '@/components/guests/InvitationVisual'
@@ -1968,8 +1968,7 @@ export async function getOrdersForDashboard(): Promise<StoredOrder[]> {
     .select('whatsapp_phone')
     .eq('user_id', user.id)
     .maybeSingle<{ whatsapp_phone: string | null }>()
-  const rows = await getOrdersForUser(user.id, user.email, profile?.whatsapp_phone ?? null)
-  return rows.map(orderRowToStoredOrder)
+  return getOrdersForDashboardUser(user.id, user.email, profile?.whatsapp_phone ?? null)
 }
 
 export interface PaidOrderSummary {

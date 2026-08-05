@@ -81,9 +81,29 @@ export type ClassFont = {
   family?: string
   weight?: string
   style?: string
+  /**
+   * Typesetting properties, read here for the same reason as the family: an
+   * Internal CSS export puts `.cls-7{font-size:24.32px;letter-spacing:.1em;}`
+   * in the stylesheet and leaves only `class="cls-7"` on the <text>. A layout
+   * engine that read only attributes would measure every such layer at the
+   * default 16px and lay the card out around a size the designer never chose.
+   */
+  size?: string
+  letterSpacing?: string
+  anchor?: string
   /** Stylesheet position of the last rule that touched this class. */
   order: number
 }
+
+/** CSS properties `readClassFonts` collects, in the spelling stylesheets use. */
+const CLASS_FONT_PROPERTIES = [
+  ['family', 'font-family'],
+  ['weight', 'font-weight'],
+  ['style', 'font-style'],
+  ['size', 'font-size'],
+  ['letterSpacing', 'letter-spacing'],
+  ['anchor', 'text-anchor'],
+] as const satisfies readonly (readonly [keyof Omit<ClassFont, 'order'>, string])[]
 
 /**
  * Class name → typeface, read from the document's <style> blocks.
@@ -101,16 +121,14 @@ export type ClassFont = {
 export function readClassFonts(svg: string): Map<string, ClassFont> {
   const fonts = new Map<string, ClassFont>()
   forEachStyleRule(svg, (classNames, body, order) => {
-    const family = declaration(body, 'font-family')
-    const weight = declaration(body, 'font-weight')
-    const style = declaration(body, 'font-style')
-    if (!family && !weight && !style) return
+    const declared = CLASS_FONT_PROPERTIES.map(
+      ([key, property]) => [key, declaration(body, property)] as const,
+    ).filter((pair): pair is readonly [keyof Omit<ClassFont, 'order'>, string] => Boolean(pair[1]))
+    if (declared.length === 0) return
     for (const cls of classNames) {
       const entry = fonts.get(cls) ?? { order }
       // Later rule wins per property; untouched properties survive.
-      if (family) entry.family = family
-      if (weight) entry.weight = weight
-      if (style) entry.style = style
+      for (const [key, value] of declared) entry[key] = value
       entry.order = order
       fonts.set(cls, entry)
     }

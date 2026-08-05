@@ -14,6 +14,11 @@ export type FulfillmentOrder = {
   paymentLabel: string | null
   paymentReference: string | null
   category: PaymentCategory
+  /** 'topup' = extra digital cards on an order that was already designed and
+   *  released. It commissions no design work, so the fulfillment console shows
+   *  it as capacity added to `parentRef` rather than as a job of its own. */
+  orderKind: 'purchase' | 'topup'
+  parentRef: string | null
   fulfillmentStatus: FulfillmentStatus
   fulfillmentUpdatedAt: string | null
   fulfillmentUpdatedBy: string | null
@@ -45,6 +50,8 @@ type FulfillmentOrderRow = {
   status: string
   provider: string
   category: string | null
+  order_kind: 'purchase' | 'topup' | null
+  parent_order_id: string | null
   payment_method: string | null
   payment_label: string | null
   payment_reference: string | null
@@ -62,7 +69,8 @@ type FulfillmentOrderRow = {
 }
 
 const COLUMNS = `
-  id, ref, status, provider, category, payment_method, payment_label,
+  id, ref, status, provider, category, order_kind, parent_order_id,
+  payment_method, payment_label,
   payment_reference, payment_submitted_at,
   fulfillment_status, fulfillment_updated_at, fulfillment_updated_by,
   amount_total, contact_name, contact_email, contact_phone, items,
@@ -106,6 +114,8 @@ function mapOrder(row: FulfillmentOrderRow): FulfillmentOrder {
     paymentLabel: row.payment_label,
     paymentReference: row.payment_reference,
     category: toCategory(row.category),
+    orderKind: row.order_kind ?? 'purchase',
+    parentRef: null,
     fulfillmentStatus: row.fulfillment_status,
     fulfillmentUpdatedAt: row.fulfillment_updated_at,
     fulfillmentUpdatedBy: row.fulfillment_updated_by,
@@ -183,7 +193,22 @@ export async function getFulfillmentOrders(
   const { data, error } = await query.order('created_at', { ascending: false }).limit(limit)
 
   if (error) throw new Error(error.message)
-  return ((data ?? []) as FulfillmentOrderRow[]).map(mapOrder)
+  const rows = (data ?? []) as FulfillmentOrderRow[]
+
+  // Resolve each top-up's parent ref so the row can say which order it added
+  // capacity to. Separate read rather than a PostgREST embed: parent_order_id is
+  // a self-referencing FK and the embed syntax depends on the constraint name.
+  const parentIds = [...new Set(rows.map((r) => r.parent_order_id).filter((id): id is string => Boolean(id)))]
+  const refById = new Map<string, string>()
+  if (parentIds.length > 0) {
+    const { data: parents } = await supabase.from('invitation_orders').select('id, ref').in('id', parentIds)
+    for (const parent of (parents ?? []) as { id: string; ref: string }[]) refById.set(parent.id, parent.ref)
+  }
+
+  return rows.map((row) => ({
+    ...mapOrder(row),
+    parentRef: row.parent_order_id ? refById.get(row.parent_order_id) ?? null : null,
+  }))
 }
 
 /** Totals for the KPI tiles — independent of the current filter/search. */

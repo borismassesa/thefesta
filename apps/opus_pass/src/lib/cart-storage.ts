@@ -103,6 +103,13 @@ export type StoredOrder = {
    *  lib/payments/orders.ts); a locally-built optimistic snapshot won't have
    *  it yet, which currentStageIndex() treats the same as 'not_started'. */
   fulfillmentStatus?: FulfillmentStatus
+  /** 'topup' = extra digital cards bought against an order that was already
+   *  designed and released. Shown as its own line under that parent rather than
+   *  as a separate purchase, because it produced no new card. */
+  orderKind?: 'purchase' | 'topup'
+  /** For a top-up: the ref of the purchase it was added to, so the orders list
+   *  can group them without a second lookup. */
+  parentRef?: string | null
   contact: StoredOrderContact
   items: StoredOrderItem[]
   subtotal: number

@@ -12,6 +12,9 @@ import { cn } from '@/lib/utils'
 import { getAdminAccessRole, hasPermission, isAdminDashboardRole } from '@/lib/admin-auth'
 import { Kpi, Detail } from '../../finance/_components/primitives'
 import { formatDate } from '../../finance/_components/format'
+import DigitalCardsNavTabs from '../digital-cards/DigitalCardsNavTabs'
+import SetDigitalCardsHeading from '../digital-cards/SetDigitalCardsHeading'
+import CustomCardStudioTabs from './CustomCardStudioTabs'
 import { assignCommission } from './actions'
 import {
   ACCEPT_SLA_HOURS,
@@ -26,8 +29,13 @@ import {
 export const dynamic = 'force-dynamic'
 
 /**
- * The Ops work queue for custom card commissions.
+ * The Ops work queue for the Custom Card Studio.
  * Specs: OP-CCS-PRD-001 §7.4 (solves P2).
+ *
+ * Navigated as the bespoke fulfilment path INSIDE Digital Cards, so it carries
+ * that section's heading and tabs. The route is unchanged; only the navigation
+ * moved. The database, the status enum and the money ledger stay entirely
+ * separate from the catalogue path — consolidating the IA does not merge them.
  *
  * P2 was "how do we know this work is assigned to a given designer" — the
  * answer is this page rather than an email thread. It reads top-down as "what
@@ -60,14 +68,19 @@ export default async function CommissionQueuePage(props: {
     capacity.pressure >= 1 ? 'alert' : capacity.pressure >= 0.7 ? 'warn' : 'ok'
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Commission studio</h1>
-        <p className="mt-1 max-w-2xl text-sm text-gray-600">
-          Every bespoke card in production, with who is holding it and how long is left. Unassigned
-          work sorts first, then whatever is closest to missing its first-draft promise.
-        </p>
-      </header>
+    <>
+      <SetDigitalCardsHeading />
+      <DigitalCardsNavTabs />
+      <CustomCardStudioTabs />
+      <div className="space-y-6 px-8 pt-6 pb-6">
+      {/* No <h1> here any more: "Digital Cards" is the page heading in the
+          shared header, and the tab bars above say which part of it this is.
+          The sentence stays, because "what am I looking at" still needs
+          answering once the title stops doing it. */}
+      <p className="max-w-2xl text-sm text-gray-600">
+        Every bespoke card in production, with who is holding it and how long is left. Unassigned
+        work sorts first, then whatever is closest to missing its first-draft promise.
+      </p>
 
       {searchParams.done && (
         <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -158,7 +171,8 @@ export default async function CommissionQueuePage(props: {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </>
   )
 }
 

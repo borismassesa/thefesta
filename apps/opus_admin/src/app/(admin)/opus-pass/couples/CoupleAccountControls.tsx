@@ -419,10 +419,11 @@ function DeleteCoupleModal({
   // Confirm against the name the server will check, which is derived from the
   // profile — not the list's display name, which can fall back to an event name.
   const expectedName = impact?.coupleName ?? couple.coupleName
-  // One login can run a wedding and a storefront at once. Deleting the login
-  // would take the storefront with it, so for these the wedding side is removed
-  // on its own and the sign-in stays. The wording changes throughout to say so.
-  const sharedWithVendor = (impact?.vendors ?? 0) > 0
+  // One login can run a wedding and a storefront at once, and deleting the login
+  // takes the storefront with it. Typing the couple name is the only
+  // confirmation, so when that is about to happen the dialog names exactly which
+  // storefronts go rather than letting them disappear unannounced.
+  const storefronts = impact?.vendorStorefronts ?? []
 
   function submit() {
     setError(null)
@@ -443,7 +444,7 @@ function DeleteCoupleModal({
   if (notice) {
     return (
       <Modal
-        title={sharedWithVendor ? 'Wedding side removed, one thing to note' : 'Account deleted, one thing to note'}
+        title="Account deleted, one thing to note"
         busy={false}
         onClose={onDeleted}
       >
@@ -466,23 +467,14 @@ function DeleteCoupleModal({
 
   return (
     <Modal
-      title={sharedWithVendor ? 'Remove the wedding side' : 'Delete couple account'}
+      title="Delete couple account"
       tone="danger"
       subtitle={
-        sharedWithVendor ? (
-          <>
-            Permanently removes everything they built on the wedding side: events, guest lists, RSVPs, pledges, gift
-            registry, guestbook and their wedding website. Their sign-in and their vendor storefront are kept, because
-            the same login runs both. This cannot be undone. Paid orders are kept and returned to the unattributed list
-            on this page.
-          </>
-        ) : (
-          <>
-            Permanently removes this account and everything they built: events, guest lists, RSVPs, pledges, gift
-            registry, guestbook and their wedding website. Their sign-in login is deleted too, so the email is freed up.
-            This cannot be undone. Paid orders are kept and returned to the unattributed list on this page.
-          </>
-        )
+        <>
+          Permanently removes this account and everything they built: events, guest lists, RSVPs, pledges, gift
+          registry, guestbook and their wedding website. Their sign-in login is deleted too, so the email is freed up.
+          This cannot be undone. Paid orders are kept and returned to the unattributed list on this page.
+        </>
       }
       busy={pending}
       onClose={onClose}
@@ -523,14 +515,14 @@ function DeleteCoupleModal({
               </p>
             ) : null}
 
-            {sharedWithVendor ? (
-              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+            {storefronts.length > 0 ? (
+              <p className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-xs text-rose-900">
                 <span className="font-semibold">
-                  This login also runs {impact.vendors} vendor {impact.vendors === 1 ? 'storefront' : 'storefronts'}
+                  The same login also runs {storefronts.length === 1 ? 'a vendor storefront' : `${storefronts.length} vendor storefronts`}, which
+                  this deletes too
                 </span>
-                , so only the wedding side is removed. The sign-in stays live, the storefront and everything on it is
-                untouched, and the email is not freed up. Delete the storefront from Operations, Vendors if the whole
-                account should go.
+                : {storefronts.map((v) => v.businessName).join(', ')}. Their listings, portfolio, bookings, reviews and
+                verification documents all go with the account. There is no way to keep them.
               </p>
             ) : null}
           </>
@@ -565,7 +557,7 @@ function DeleteCoupleModal({
           className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          {sharedWithVendor ? 'Remove wedding side' : 'Delete permanently'}
+          Delete permanently
         </button>
       </div>
     </Modal>

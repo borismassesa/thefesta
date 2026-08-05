@@ -4,23 +4,23 @@ import { randomBytes } from 'node:crypto'
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import {
-  getCallerEmail,
-  requireAdminRole,
-  requirePermission,
-  type AdminAccessRole,
-} from '@/lib/admin-auth'
+import { getCallerEmail, getCallerEmployeeId, requirePermission } from '@/lib/admin-auth'
 import { releaseApprovedDesign } from '@/lib/cms/release-card'
 import { logReleaseFailure } from '@/lib/cms/release-log'
 import { orderStageFor, type DesignStatus } from '@/lib/cms/order-stage'
 import { mergeCardDesignerValues } from '@/lib/cms/card-designer-values'
 import { decideStageAfterSave, isReleasedDesign } from '@/lib/cms/design-save-stage'
+import { resolveAssignableEmployee } from '@/lib/cms/card-assignee'
 import { checkSelfReview } from '@/lib/cms/card-review-authorization'
 import { sendCardReviewRequest } from '@/lib/card-review-email'
 import { readOrderLine, type OrderLineItem } from '@/lib/cms/order-add-ons'
 import { requestableFields, type CardFieldBinding } from '@opusfesta/lib'
 
-const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
+// Every gate here is a permission key. The three actions below that used to
+// take a role allowlist (start a job, request info, save values) are the same
+// grade of work as submitting for review, which was already digitalcards.write
+// — so a single key now covers the whole designer surface, and releasing
+// remains the one thing that needs a second, stronger key.
 
 /**
  * `warning` is for a transition that SUCCEEDED but whose side effect did not:
@@ -67,10 +67,21 @@ async function resolveAuthor(): Promise<{ ok: true; author: string } | { ok: fal
  * so a later edit to the order can't silently change a print run already
  * underway. The order's own fulfillment_status moves to 'in_progress', which is
  * the 'In design' step the couple already sees on their dashboard.
+ *
+ * The starter becomes the assignee. Nothing wrote assigned_to before, so the
+ * column was permanently null, the queue could never say who was holding a
+ * card, and — worse — the two-eyes rule in approveAndRelease compares the
+ * approver against the assignee, so a null assignee meant the check passed for
+ * everyone. Whoever picks the work up owns it, which is both the honest default
+ * and what makes that gate real without anyone having to remember a step.
  */
 export async function startDesignJob(orderId: string, lineIndex: number): Promise<Result> {
-  await requireAdminRole(DESIGNER_ROLES)
+  await requirePermission('digitalcards.write')
   const supabase = createSupabaseAdminClient()
+  // Null for an owner or admin who was never added to the employee directory.
+  // That is a legitimate account shape, so it must not block starting work — it
+  // just leaves the job unassigned, exactly as every job was before this.
+  const callerEmployeeId = await getCallerEmployeeId()
 
   const { data: order, error: orderError } = await supabase
     .from('invitation_orders')
@@ -98,6 +109,26 @@ export async function startDesignJob(orderId: string, lineIndex: number): Promis
 
   const quantities = readOrderLine(item)
 
+  // A row is no longer proof the job has been started: the couple creates one
+  // by sending their card content from their dashboard before anyone opens it.
+  // So "already underway" is read from started_at, and starting an existing
+  // unstarted row is an UPDATE rather than a skipped insert.
+  const { data: existing, error: existingError } = await supabase
+    .from('invitation_card_designs')
+    .select('started_at')
+    .eq('order_id', orderId)
+    .eq('line_index', lineIndex)
+    .maybeSingle<{ started_at: string | null }>()
+  if (existingError) return { ok: false, error: existingError.message }
+
+  // Idempotent: double-clicking "Start" must not reset a job already in
+  // progress, and a second person pressing Start does NOT take it off whoever
+  // is holding it.
+  if (existing?.started_at) {
+    revalidatePath('/opus-pass/digital-cards/designer')
+    return { ok: true }
+  }
+
   const { error: insertError } = await supabase.from('invitation_card_designs').upsert(
     {
       order_id: orderId,
@@ -107,10 +138,13 @@ export async function startDesignJob(orderId: string, lineIndex: number): Promis
       digital_qty: quantities.digitalCards,
       print_qty: quantities.printedCards,
       status: 'awaiting_info',
+      assigned_to: callerEmployeeId,
+      started_at: new Date().toISOString(),
+      // field_values is deliberately absent. Whatever the couple has already
+      // sent is the reason a designer is opening this job, and naming the
+      // column here — even as {} — would wipe it on the way in.
     },
-    // Idempotent: double-clicking "Start" must not create a second job or
-    // reset one already in progress.
-    { onConflict: 'order_id,line_index', ignoreDuplicates: true },
+    { onConflict: 'order_id,line_index' },
   )
   if (insertError) return { ok: false, error: insertError.message }
 
@@ -251,6 +285,100 @@ type DesignRow = {
 const DESIGN_SELECT = 'id, order_id, status, assigned_to, product_name'
 
 /**
+ * Set (or clear) who is holding a card.
+ *
+ * `employeeId === null` releases it back to the queue.
+ *
+ * Assignment is deliberately NOT a precondition for doing the work: an
+ * unassigned job can still be edited and submitted, exactly as before. What it
+ * changes is who may APPROVE. approveAndRelease refuses the assignee, so
+ * claiming a card is how a designer takes themselves out of the running to sign
+ * off their own work. Making it mandatory would strand every job created before
+ * this existed, and would block an owner with no employee row from ever
+ * starting one.
+ *
+ * A released card can still be reassigned. Republishing a correction goes
+ * through the same two-eyes rule, so ownership stays meaningful after release.
+ */
+export async function setDesignAssignee(
+  designId: string,
+  employeeId: string | null,
+): Promise<Result> {
+  await requirePermission('digitalcards.write')
+  const supabase = createSupabaseAdminClient()
+  const caller = await resolveAuthor()
+  if (!caller.ok) return caller
+  const author = caller.author
+
+  const { data: design, error: readError } = await supabase
+    .from('invitation_card_designs')
+    .select('id, status, assigned_to')
+    .eq('id', designId)
+    .maybeSingle<{ id: string; status: string; assigned_to: string | null }>()
+  if (readError) return { ok: false, error: readError.message }
+  if (!design) return { ok: false, error: 'Design job not found.' }
+  if (design.assigned_to === employeeId) return { ok: true }
+
+  // Resolve the name BEFORE writing, so a bad id is rejected rather than
+  // stored. assigned_to is a FK, so Postgres would refuse an unknown id anyway
+  // — but with a constraint-violation string, not something a person can act
+  // on, and it would not catch an employee who simply has no admin access.
+  let assigneeName = 'nobody'
+  if (employeeId) {
+    const assignable = await resolveAssignableEmployee(supabase, employeeId)
+    if (!assignable.ok) return assignable
+    assigneeName = assignable.name
+  }
+
+  // Compare-and-set on the previous holder: two people pressing Take at the
+  // same moment must not both believe they got it. The loser is told to refresh
+  // rather than silently overwriting the winner.
+  //
+  // Split rather than chained, because a null previous holder needs `.is()` and
+  // a non-null one needs `.eq()` — PostgREST's eq never matches NULL.
+  const write = supabase
+    .from('invitation_card_designs')
+    .update({ assigned_to: employeeId })
+    .eq('id', designId)
+  const { data: written, error } = await (design.assigned_to === null
+    ? write.is('assigned_to', null)
+    : write.eq('assigned_to', design.assigned_to)
+  )
+    .select('id')
+    .maybeSingle<{ id: string }>()
+  if (error) return { ok: false, error: error.message }
+  if (!written) {
+    return {
+      ok: false,
+      error: 'Somebody else picked this card up while you were looking at it. Refresh to see who.',
+    }
+  }
+
+  await recordDesignEvent(supabase, {
+    designId,
+    author,
+    body: employeeId ? `Assigned to ${assigneeName}` : 'Released back to the queue',
+  })
+
+  revalidatePath('/opus-pass/digital-cards/designer')
+  revalidatePath(`/opus-pass/digital-cards/designer/${designId}`)
+  return { ok: true }
+}
+
+/** Take a card. The common case, and the one that makes two-eyes meaningful. */
+export async function claimDesignJob(designId: string): Promise<Result> {
+  const employeeId = await getCallerEmployeeId()
+  if (!employeeId) {
+    return {
+      ok: false,
+      error:
+        'Your account is not linked to an employee record, so a card cannot be assigned to you. Ask an owner to add you to the directory.',
+    }
+  }
+  return setDesignAssignee(designId, employeeId)
+}
+
+/**
  * Hand a finished card to a reviewer.
  *
  * Deliberately NOT a generic status setter. The old `setDesignStatus` accepted
@@ -259,7 +387,7 @@ const DESIGN_SELECT = 'id, order_id, status, assigned_to, product_name'
  * wedding card cannot be recalled, so the second pair of eyes is the point.
  */
 export async function submitForReview(designId: string): Promise<Result> {
-  await requirePermission('cms.write')
+  await requirePermission('digitalcards.write')
   const supabase = createSupabaseAdminClient()
   const caller = await resolveAuthor()
   if (!caller.ok) return caller
@@ -329,7 +457,7 @@ export async function submitForReview(designId: string): Promise<Result> {
  *                  this stage exists.
  */
 export async function approveAndRelease(designId: string): Promise<Result> {
-  await requirePermission('cms.publish')
+  await requirePermission('digitalcards.publish')
   const supabase = createSupabaseAdminClient()
   const caller = await resolveAuthor()
   if (!caller.ok) return caller
@@ -385,7 +513,7 @@ export async function approveAndRelease(designId: string): Promise<Result> {
  * to read a history.
  */
 export async function requestChanges(designId: string, note: string): Promise<Result> {
-  await requirePermission('cms.publish')
+  await requirePermission('digitalcards.publish')
   const trimmed = note.trim()
   if (!trimmed) return { ok: false, error: 'Say what needs changing.' }
 
@@ -438,7 +566,7 @@ export async function requestChanges(designId: string, note: string): Promise<Re
  * decision, so it does not need a reviewer.
  */
 export async function markDelivered(designId: string): Promise<Result> {
-  await requirePermission('cms.write')
+  await requirePermission('digitalcards.write')
   const supabase = createSupabaseAdminClient()
   const caller = await resolveAuthor()
   if (!caller.ok) return caller
@@ -487,7 +615,7 @@ export async function requestDesignInfo(
   designId: string,
   roles: string[],
 ): Promise<Result> {
-  await requireAdminRole(DESIGNER_ROLES)
+  await requirePermission('digitalcards.write')
   const supabase = createSupabaseAdminClient()
 
   const { data: design, error } = await supabase
@@ -558,7 +686,7 @@ export async function saveDesignFieldValues(
   designId: string,
   values: Record<string, string>,
 ): Promise<Result> {
-  await requireAdminRole(DESIGNER_ROLES)
+  await requirePermission('digitalcards.write')
   const supabase = createSupabaseAdminClient()
 
   const { data: design, error } = await supabase
@@ -641,7 +769,7 @@ export async function saveAndPublishReleasedDesign(
   designId: string,
   values: Record<string, string>,
 ): Promise<Result> {
-  await requirePermission('cms.publish')
+  await requirePermission('digitalcards.publish')
   const supabase = createSupabaseAdminClient()
   const caller = await resolveAuthor()
   if (!caller.ok) return caller

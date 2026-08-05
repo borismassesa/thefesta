@@ -33,7 +33,6 @@ import {
   Newspaper,
   Package,
   PanelLeftClose,
-  Palette,
   PanelLeftOpen,
   PanelTop,
   Plane,
@@ -152,30 +151,49 @@ const sections: NavSection[] = [
     requiredPermission: "cms.read",
     items: [
       { icon: Home, label: "Homepage", href: "/cms/opus-pass/homepage", requiredPermission: "cms.read" },
-      { icon: FileText, label: "Digital Cards Pages", href: "/cms/opus-pass/digital-cards", requiredPermission: "cms.read" },
+      // "Digital Cards Website", not "Digital Cards Pages": this edits the
+      // storefront's marketing copy, and the near-identical old name collided
+      // with the Digital Cards PRODUCT area under OpusPass below.
+      { icon: FileText, label: "Digital Cards Website", href: "/cms/opus-pass/digital-cards", requiredPermission: "cms.read" },
       { icon: UserCheck, label: "Guests & RSVPs", href: "/cms/opus-pass/guests-rsvps", requiredPermission: "cms.read" },
       { icon: Globe2, label: "Wedding Website", href: "/cms/opus-pass/wedding-website", requiredPermission: "cms.read" },
-      { icon: LayoutDashboard, label: "OpusPass Dashboard", href: "/cms/opus-pass/dashboard", requiredPermission: "cms.read" },
+      { icon: LayoutDashboard, label: "Dashboard Content", href: "/cms/opus-pass/dashboard", requiredPermission: "cms.read" },
       { icon: PanelTop, label: "Site UI", href: "/cms/opus-pass/site-ui/navbar", requiredPermission: "cms.read" },
     ],
   },
   {
+    // OpusPass is the PRODUCT: the four things staff work on that a couple or
+    // a guest experiences. It deliberately holds no finance route.
+    //
+    // It used to hold five (/finance/payments, /finance/orders,
+    // /finance/commissions, /finance/commissions/refunds, /finance/payouts).
+    // Those are ledgers with a finance persona and a finance permission; a
+    // payment originating in OpusPass does not make approving it an OpusPass
+    // job. They now live in the Finance section, which is where someone
+    // holding finance.read looks for them.
     id: "opus-pass",
     label: "OpusPass",
     icon: CreditCard,
     items: [
-      { icon: Mail, label: "Digital Cards", href: "/opus-pass/digital-cards", requiredPermission: "cms.read" },
-      { icon: Palette, label: "Commission Studio", href: "/opus-pass/commissions", exact: true, requiredPermission: "commissions.read" },
-      { icon: BarChart3, label: "Commission Analytics", href: "/opus-pass/commissions/analytics", requiredPermission: "commissions.read" },
+      {
+        icon: Mail,
+        label: "Digital Cards",
+        href: "/opus-pass/digital-cards",
+        // Custom Card Studio is a tab INSIDE Digital Cards but still lives at
+        // /opus-pass/commissions, so the rail has to be told that those paths
+        // belong to this entry.
+        activePaths: ["/opus-pass/commissions"],
+        // Two fulfilment paths, two permissions. A catalogue admin holds
+        // cms.read; a studio operator holds commissions.read. Either one is a
+        // reason to see this entry, and the root route sends each of them to
+        // the tab they can actually open.
+        requiredAnyPermission: ["cms.read", "commissions.read"],
+      },
       { icon: Users, label: "Couple Accounts", href: "/opus-pass/couples", requiredPermission: "opuspass.couples.read" },
+      // Route still lives under /operations. Check-in closes the OpusPass guest
+      // journey (invitation, RSVP, pass, QR, admission), so it is navigated as
+      // product; moving the route to /opus-pass/check-in is follow-up work.
       { icon: QrCode, label: "Event Check-in", href: "/operations/checkin", requiredPermission: "opuspass.checkin" },
-      { icon: CreditCard, label: "Payments", href: "/finance/payments", requiredPermission: "finance.read" },
-      // Separate from Payments above: commissions are a two-instalment ledger
-      // with its own review queue, not single-payment card orders.
-      { icon: ReceiptText, label: "Commission Payments", href: "/finance/commissions", exact: true, requiredPermission: "finance.read" },
-      { icon: Undo2, label: "Commission Refunds", href: "/finance/commissions/refunds", requiredPermission: "finance.read" },
-      { icon: Package, label: "Order Fulfilment", href: "/finance/orders", requiredPermission: "finance.read" },
-      { icon: Wallet, label: "Vendor Payouts", href: "/finance/payouts", requiredPermission: "finance.read" },
       { icon: HandHeart, label: "Pledge Concierge", href: "/opus-pass/pledges", requiredPermission: "opuspass.pledges.read" },
     ],
   },
@@ -245,6 +263,19 @@ const sections: NavSection[] = [
     // module). The per-item gates still apply below.
     requiredPermission: undefined,
     items: [
+      // The five OpusPass ledgers, moved here from the OpusPass section. Their
+      // routes never moved; only the navigation did.
+      { icon: CreditCard, label: "Payments", href: "/finance/payments", requiredPermission: "finance.read" },
+      { icon: Package, label: "Orders & Fulfilment", href: "/finance/orders", requiredPermission: "finance.read" },
+      // Separate from Payments above: custom cards are a two-instalment
+      // (deposit + balance) ledger with its own review queue, not the
+      // single-payment catalogue card orders.
+      { icon: ReceiptText, label: "Custom Card Payments", href: "/finance/commissions", exact: true, requiredPermission: "finance.read" },
+      { icon: Undo2, label: "Custom Card Refunds", href: "/finance/commissions/refunds", requiredPermission: "finance.read" },
+      // NOTE: also listed in the Vendors Portal section (line ~216) under
+      // finance.write. Same route, two entries, two gates — left as-is here
+      // rather than silently changing who can see it from the Vendors rail.
+      { icon: Wallet, label: "Vendor Payouts", href: "/finance/payouts", requiredPermission: "finance.read" },
       { icon: Receipt, label: "Invoices", href: "/finance/invoices", requiredPermission: "finance.read" },
       { icon: Receipt, label: "Expenses", href: "/finance/expenses", requiredPermission: "finance.read" },
       { icon: Wallet, label: "Payroll", href: "/finance/payroll", requiredPermission: "workforce.payroll" },

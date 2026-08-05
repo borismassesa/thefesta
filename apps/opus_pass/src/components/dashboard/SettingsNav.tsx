@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
-import { User, Lock, Heart, ShieldCheck, Link2, type LucideIcon } from 'lucide-react'
+import { User, Lock, ShieldCheck, Link2, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type NavRow =
@@ -21,12 +21,6 @@ function useSettingsGroups(): NavGroup[] {
       rows: [
         { kind: 'link', href: '/my/dashboard/settings', label: 'Information', icon: User, exact: true },
         { kind: 'action', label: 'Password and security', icon: Lock, onClick: () => openUserProfile() },
-      ],
-    },
-    {
-      title: 'Your wedding',
-      rows: [
-        { kind: 'link', href: '/my/dashboard/wedding-settings', label: 'Wedding details', icon: Heart },
       ],
     },
     {

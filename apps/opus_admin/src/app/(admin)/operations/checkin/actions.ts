@@ -3,10 +3,10 @@
 import { revalidatePath } from 'next/cache'
 import { requirePermission, getCallerEmail } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { generateEntryPassQrDataUrl, generateScannerAccessToken } from '@/lib/checkin-tokens'
+import { generateScannerAccessToken } from '@/lib/checkin-tokens'
 import { accessCodeExpiry, type AccessCodeValidity } from '@/lib/checkin-code'
-import { renderGuestTicketSvg, ticketIntroLabel, formatTicketDate, type TicketLanguage } from '@/lib/ticket-render'
-import { MAX_IMPORT_ROWS, parseGuestRows } from '@/lib/guest-csv'
+import { isEmailConfigured, sendEmail } from '@/lib/email'
+import { composeAccessCodeEmail } from '@/lib/checkin-access-email'
 
 export interface AttendantAssignment {
   id: string
@@ -19,10 +19,113 @@ export interface AttendantAssignment {
 }
 
 export type AssignAttendantResult =
-  | { ok: true; token: string; link: string; expiresAt: string; linkWarning?: string }
+  | { ok: true; token: string; link: string; expiresAt: string; linkWarning?: string; delivery?: DeliveryResult }
   | { ok: false; error: string }
 
 export type RevokeAttendantResult = { ok: true } | { ok: false; error: string }
+
+/** Outcome of handing the code to the coordinator, reported alongside the
+ *  code itself so the admin knows whether they still need to relay it. */
+export type DeliveryResult =
+  | { channel: 'email'; sent: true; to: string }
+  | { channel: 'email'; sent: false; to: string; error: string }
+
+export type SendAccessCodeResult = { ok: true } | { ok: false; error: string }
+
+/** Deliberately loose: real addresses this rejects are worse than odd ones it
+ *  lets through, since Resend reports a hard failure either way. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+interface AccessCodeDelivery {
+  eventId: string
+  to: string
+  recipientName: string | null
+  doorLabel: string
+  code: string
+  expiresAt: string
+  link: string
+}
+
+/**
+ * Email a door code to the person working that door.
+ *
+ * The raw token is never stored (only its hash), so it can only travel from
+ * the caller who just minted it — which is why `code` is a parameter rather
+ * than something this can look up. That makes the permission check the whole
+ * of the authorization story: anyone who can call this already holds a code
+ * they were shown, and can only send it onward.
+ */
+async function deliverAccessCode(d: AccessCodeDelivery): Promise<DeliveryResult> {
+  const to = d.to.trim()
+  if (!isEmailConfigured()) {
+    return { channel: 'email', sent: false, to, error: 'Email is not configured (RESEND_API_KEY is unset)' }
+  }
+
+  const supabase = createSupabaseAdminClient()
+  const { data: event } = await supabase
+    .from('wedding_events')
+    .select('name, starts_at, venue_name, city')
+    .eq('id', d.eventId)
+    .maybeSingle<{ name: string; starts_at: string | null; venue_name: string | null; city: string | null }>()
+
+  const message = composeAccessCodeEmail({
+    recipientName: d.recipientName,
+    eventName: event?.name ?? 'your event',
+    eventDate: event?.starts_at
+      ? new Date(event.starts_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      : null,
+    venue: [event?.venue_name, event?.city].filter(Boolean).join(', ') || null,
+    doorLabel: d.doorLabel,
+    code: d.code,
+    expiresAt: d.expiresAt,
+    link: d.link,
+  })
+
+  const result = await sendEmail({ to, subject: message.subject, html: message.html, text: message.text })
+  const callerEmail = await getCallerEmail()
+  // The code itself is never logged — only that a delivery was attempted,
+  // to whom, and by whom.
+  console.warn('[opuspass-checkin] access code delivery', {
+    eventId: d.eventId,
+    to,
+    door: d.doorLabel,
+    sent: result.sent,
+    by: callerEmail,
+  })
+
+  return result.sent
+    ? { channel: 'email', sent: true, to }
+    : { channel: 'email', sent: false, to, error: result.error ?? result.reason }
+}
+
+/**
+ * Send an already-minted code on to a coordinator. Used by the reveal card
+ * when the address wasn't known at assign time, or the first send bounced.
+ */
+export async function sendAccessCode(input: {
+  eventId: string
+  to: string
+  attendantName: string
+  doorLabel: string
+  code: string
+  expiresAt: string
+  link: string
+}): Promise<SendAccessCodeResult> {
+  await requirePermission('opuspass.checkin')
+  const to = input.to.trim()
+  if (!EMAIL_RE.test(to)) return { ok: false, error: 'Enter a valid email address' }
+
+  const delivery = await deliverAccessCode({
+    eventId: input.eventId,
+    to,
+    recipientName: input.attendantName,
+    doorLabel: input.doorLabel,
+    code: input.code,
+    expiresAt: input.expiresAt,
+    link: input.link,
+  })
+  return delivery.sent ? { ok: true } : { ok: false, error: delivery.error }
+}
 
 /**
  * Assign a named attendant to an OpusPass event's door and mint their
@@ -43,10 +146,16 @@ export async function assignAttendant(
   attendantName: string,
   doorLabel: string,
   validity: AccessCodeValidity = 'event',
+  /** Optional: email the code straight to the coordinator working this door. */
+  deliverToEmail?: string,
 ): Promise<AssignAttendantResult> {
   await requirePermission('opuspass.checkin')
   const name = attendantName.trim()
   if (!name) return { ok: false, error: 'Attendant name is required' }
+  const deliverTo = deliverToEmail?.trim() || ''
+  // Validated before the token is minted: a typo should cost nothing, not
+  // leave a live unusable credential on the event.
+  if (deliverTo && !EMAIL_RE.test(deliverTo)) return { ok: false, error: 'Enter a valid email address' }
 
   const supabase = createSupabaseAdminClient()
 
@@ -82,21 +191,40 @@ export async function assignAttendant(
   // can build the link by hand from the code), but surface the missing
   // config clearly rather than a link that silently doesn't work.
   const scannerOrigin = (process.env.NEXT_PUBLIC_OPUS_SCANNER_URL || '').replace(/\/$/, '')
+  const link = scannerOrigin ? `${scannerOrigin}/event/${eventId}?token=${encodeURIComponent(rawToken)}` : ''
   if (!scannerOrigin) {
     console.error('[opuspass-checkin] NEXT_PUBLIC_OPUS_SCANNER_URL is not set — cannot build an absolute scanner link')
-    revalidatePath(`/operations/checkin/${eventId}`)
-    return {
-      ok: true,
-      token: rawToken,
-      link: '',
-      expiresAt,
-      linkWarning: 'NEXT_PUBLIC_OPUS_SCANNER_URL is not configured — share the code manually, or set that env var and reassign.',
-    }
   }
-  const link = `${scannerOrigin}/event/${eventId}?token=${encodeURIComponent(rawToken)}`
+
+  // Delivery failure never fails the assignment: the code is already minted
+  // and valid, and the reveal card can still hand it over. The outcome rides
+  // back so the admin knows whether they still have to relay it themselves.
+  const delivery = deliverTo
+    ? await deliverAccessCode({
+        eventId,
+        to: deliverTo,
+        recipientName: name,
+        doorLabel: doorLabel.trim() || 'Main Gate',
+        code: rawToken,
+        expiresAt,
+        link,
+      })
+    : undefined
 
   revalidatePath(`/operations/checkin/${eventId}`)
-  return { ok: true, token: rawToken, link, expiresAt }
+  return {
+    ok: true,
+    token: rawToken,
+    link,
+    expiresAt,
+    delivery,
+    ...(scannerOrigin
+      ? {}
+      : {
+          linkWarning:
+            'NEXT_PUBLIC_OPUS_SCANNER_URL is not configured — share the code manually, or set that env var and reassign.',
+        }),
+  }
 }
 
 export async function listAttendants(eventId: string): Promise<AttendantAssignment[]> {
@@ -131,188 +259,4 @@ export async function revokeAttendant(tokenId: string, eventId: string): Promise
   if (error) return { ok: false, error: error.message }
   revalidatePath(`/operations/checkin/${eventId}`)
   return { ok: true }
-}
-
-// ---------------------------------------------------------------- Guest import + tickets
-
-export interface ImportedGuestTicket {
-  invitationId: string
-  guestContactId: string
-  fullName: string
-  partySize: number
-  groupTag: string | null
-  isNewGuest: boolean
-  /** Entry-pass QR as a data: URL — same format the guest would see on
-   * their own RSVP confirmation page if they'd RSVP'd themselves. */
-  qrDataUrl: string
-  /** Full stamped ticket artwork (SVG markup) — couple names/date/venue +
-   * this guest's QR, ready to render inline or print. */
-  ticketSvg: string
-}
-
-export type ImportGuestsResult =
-  | { ok: true; imported: ImportedGuestTicket[]; skipped: { line: string; reason: string }[] }
-  | { ok: false; error: string }
-
-/**
- * Bulk-import a list of guests who are already known to be attending (e.g.
- * a paper/offline guest list, or a couple who RSVP'd guests outside
- * OpusPass) and pre-generate their entry-pass QR tickets, ready to be
- * printed/shared before the event — no self-serve RSVP step required.
- *
- * One line per guest: `Full Name, email-or-phone, party size, group`
- * (only the name is required). Existing guests are matched by
- * case-insensitive full-name lookup within the event's couple (scoped by
- * user_id, same as everywhere else in this table) to avoid duplicate
- * guest_contacts rows on repeat imports; the per-event invitation is
- * upserted on the (guest_contact_id, event_id) unique constraint so
- * re-running an import (e.g. to fix a typo) is safe.
- */
-export async function importGuestsWithTickets(eventId: string, rawText: string): Promise<ImportGuestsResult> {
-  await requirePermission('opuspass.tickets')
-  const supabase = createSupabaseAdminClient()
-
-  const { data: event, error: eventErr } = await supabase
-    .from('wedding_events')
-    .select('id, user_id, name, event_type, ticket_language, venue_name, address, city, starts_at')
-    .eq('id', eventId)
-    .maybeSingle<{
-      id: string
-      user_id: string
-      name: string
-      event_type: string | null
-      ticket_language: string | null
-      venue_name: string | null
-      address: string | null
-      city: string | null
-      starts_at: string | null
-    }>()
-  if (eventErr) return { ok: false, error: eventErr.message }
-  if (!event) return { ok: false, error: 'Event not found' }
-
-  const { data: couple } = await supabase
-    .from('couple_profiles')
-    .select('partner1_name, partner2_name, invite_host_name')
-    .eq('user_id', event.user_id)
-    .maybeSingle<{ partner1_name: string | null; partner2_name: string | null; invite_host_name: string | null }>()
-
-  // Same labels, precedence and formats as apps/opus_pass's
-  // getEntrancePassData(), so a manually-admitted guest's ticket reads
-  // exactly like the WhatsApp-sent pass: confirmed host name > partner names
-  // > event name; the category intro line and date honor the event's ticket
-  // language. Date only — the ticket never carries a time.
-  const lang: TicketLanguage = event.ticket_language === 'sw' ? 'sw' : 'en'
-  const hostOverride = couple?.invite_host_name?.trim() || null
-  const partnerNames = [couple?.partner1_name, couple?.partner2_name].filter(Boolean)
-  const startsAt = event.starts_at ? new Date(event.starts_at) : null
-  const hasValidDate = startsAt !== null && !Number.isNaN(startsAt.getTime())
-  const ticketBaseFields = {
-    introLabel: ticketIntroLabel(event.event_type || 'other', lang),
-    coupleName: hostOverride ?? (partnerNames.length ? partnerNames.join(' & ') : event.name),
-    dateLabel: hasValidDate ? formatTicketDate(startsAt, lang) : '',
-    // Venue name on the first ticket row, the city on its own second row —
-    // matches apps/opus_pass's getEntrancePassData. The event's free-form
-    // `address` is intentionally left off the ticket (not part of the
-    // ticket-details form the couple edits).
-    venue: event.venue_name || '',
-    city: event.city || '',
-    ticketLanguage: lang,
-  }
-
-  if (!rawText.trim()) return { ok: false, error: 'Paste or upload at least one guest row' }
-  const { rows: parsed, skipped } = parseGuestRows(rawText)
-  if (parsed.length + skipped.length > MAX_IMPORT_ROWS) {
-    return {
-      ok: false,
-      error: `Too many rows (${parsed.length + skipped.length}) — import in batches of ${MAX_IMPORT_ROWS} or fewer`,
-    }
-  }
-  if (parsed.length === 0) return { ok: false, error: 'No valid guest rows found (every row was missing a name)' }
-
-  // Case-insensitive dedupe against this couple's existing roster.
-  const { data: existing } = await supabase
-    .from('guest_contacts')
-    .select('id, full_name')
-    .eq('user_id', event.user_id)
-    .returns<{ id: string; full_name: string }[]>()
-  const existingByName = new Map<string, string>()
-  for (const g of existing ?? []) existingByName.set(g.full_name.trim().toLowerCase(), g.id)
-
-  const imported: ImportedGuestTicket[] = []
-  for (const row of parsed) {
-    const key = row.fullName.trim().toLowerCase()
-    let guestContactId = existingByName.get(key)
-    let isNewGuest = false
-
-    if (!guestContactId) {
-      const isEmail = row.contact?.includes('@') ?? false
-      const { data: created, error: createErr } = await supabase
-        .from('guest_contacts')
-        .insert({
-          user_id: event.user_id,
-          full_name: row.fullName,
-          email: isEmail ? row.contact : null,
-          phone: !isEmail ? row.contact : null,
-          group_tag: row.groupTag,
-          max_party_size: row.partySize,
-        })
-        .select('id')
-        .single<{ id: string }>()
-      if (createErr || !created) {
-        skipped.push({ line: row.fullName, reason: createErr?.message ?? 'Could not create guest record' })
-        continue
-      }
-      guestContactId = created.id
-      isNewGuest = true
-      existingByName.set(key, guestContactId)
-    }
-
-    const { data: invitation, error: inviteErr } = await supabase
-      .from('guest_invitations')
-      .upsert(
-        {
-          user_id: event.user_id,
-          guest_contact_id: guestContactId,
-          event_id: eventId,
-          rsvp_status: 'attending',
-          party_size: row.partySize,
-          responded_at: new Date().toISOString(),
-        },
-        { onConflict: 'guest_contact_id,event_id' },
-      )
-      .select('id')
-      .single<{ id: string }>()
-    if (inviteErr || !invitation) {
-      skipped.push({ line: row.fullName, reason: inviteErr?.message ?? 'Could not create invitation' })
-      continue
-    }
-
-    const qrDataUrl = await generateEntryPassQrDataUrl(guestContactId, invitation.id)
-    const ticketSvg = renderGuestTicketSvg({
-      ...ticketBaseFields,
-      partySize: row.partySize,
-      qrDataUrl,
-    })
-    imported.push({
-      invitationId: invitation.id,
-      guestContactId,
-      fullName: row.fullName,
-      partySize: row.partySize,
-      groupTag: row.groupTag,
-      isNewGuest,
-      qrDataUrl,
-      ticketSvg,
-    })
-  }
-
-  const callerEmail = await getCallerEmail()
-  console.warn('[opuspass-tickets] admin imported guests with tickets', {
-    eventId,
-    imported: imported.length,
-    skipped: skipped.length,
-    by: callerEmail,
-  })
-
-  revalidatePath(`/operations/checkin/${eventId}`)
-  return { ok: true, imported, skipped }
 }

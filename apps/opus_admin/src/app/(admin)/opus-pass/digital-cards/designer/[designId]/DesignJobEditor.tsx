@@ -15,6 +15,7 @@ import {
   requestDesignInfo,
   saveAndPublishReleasedDesign,
   saveDesignFieldValues,
+  setDesignAssignee,
   submitForReview,
 } from '../actions'
 import { DESIGN_STATUS_LABELS } from '../types'
@@ -74,7 +75,12 @@ export default function DesignJobEditor({
   submittedBy,
   submittedForReviewAt,
   releasedAt,
+  changeRequestedAt,
   isAssignee,
+  assignedTo,
+  assigneeName,
+  assignableDesigners,
+  myEmployeeId,
   events,
 }: {
   designId: string
@@ -106,8 +112,17 @@ export default function DesignJobEditor({
   submittedBy: string
   submittedForReviewAt: string | null
   releasedAt: string | null
+  /** Set when the couple has asked for a correction to the released card. */
+  changeRequestedAt: string | null
   /** The caller is assigned to this job, so they may not approve their own work. */
   isAssignee: boolean
+  /** workforce_employees.id of the current holder, or null if unassigned. */
+  assignedTo: string | null
+  assigneeName: string | null
+  /** Everyone with dashboard access, for the reassignment picker. */
+  assignableDesigners: { id: string; name: string }[]
+  /** Null when the caller has no employee row, so nothing can be theirs. */
+  myEmployeeId: string | null
   events: DesignEvent[]
 }) {
   const router = useRouter()
@@ -146,7 +161,7 @@ export default function DesignJobEditor({
 
   useSetPageHeading({
     title: productName,
-    back: { href: LIST, label: 'Card Designer' },
+    back: { href: LIST, label: 'Personalisation Queue' },
   })
 
   useEffect(() => {
@@ -388,6 +403,45 @@ export default function DesignJobEditor({
           {submittedBy ? ` by ${submittedBy}` : ''}
         </p>
       )}
+
+      {/* Ownership sits with the status because the two decide each other:
+          whoever holds this card is the one person who cannot approve it. */}
+      <div className="border-t border-gray-100 pt-1.5">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+          Assigned to
+        </p>
+        {canWrite ? (
+          <select
+            value={assignedTo ?? ''}
+            disabled={pending}
+            onChange={(event) => {
+              const next = event.target.value || null
+              if (next === (assignedTo ?? null)) return
+              run(
+                () => setDesignAssignee(designId, next),
+                next ? 'Assigned.' : 'Released back to the queue.',
+              )
+            }}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-medium text-gray-800 disabled:opacity-50"
+          >
+            <option value="">Nobody (back to the queue)</option>
+            {assignableDesigners.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.id === myEmployeeId ? `${person.name} (you)` : person.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="mt-0.5 text-xs font-medium text-gray-700">
+            {assigneeName ?? 'Nobody'}
+          </p>
+        )}
+        {isAssignee && (
+          <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+            This card is yours, so another publisher has to release it.
+          </p>
+        )}
+      </div>
     </div>
   )
 
@@ -397,7 +451,16 @@ export default function DesignJobEditor({
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-gray-100 bg-white p-4">
           <div className="min-w-0">
             <p className="truncate font-semibold text-gray-900">{coupleName ?? 'Unnamed couple'}</p>
-            <p className="text-xs text-gray-500">{orderRef}</p>
+            {/* Same link as the mapped header below. A job blocked on its
+                artwork is exactly when someone asks "was this even paid for",
+                so the route to the order matters here at least as much. */}
+            <Link
+              href={`/finance/orders?q=${encodeURIComponent(orderRef)}`}
+              className="text-xs text-gray-500 hover:text-[#7E5896] hover:underline"
+              title="Open this order in Orders & Fulfilment"
+            >
+              <span className="font-mono">{orderRef}</span>
+            </Link>
           </div>
           {statusControl}
         </div>
@@ -410,13 +473,18 @@ export default function DesignJobEditor({
               </h2>
               <p className="text-sm text-amber-800">
                 <strong>{productName}</strong> hasn&apos;t had its artwork layers matched to card
-                fields, so there is nothing to ask the couple for. Map it under Templates first.
+                fields, so there is nothing to ask the couple for. Map it on the card&apos;s
+                Artwork &amp; fields tab first.
               </p>
+              {/* Straight to THIS card's artwork tab. This used to point at
+                  /templates, which is now a redirect to the catalogue list, so
+                  a designer following it landed on every card rather than the
+                  one blocking them and had to find it again by name. */}
               <Link
-                href="/opus-pass/digital-cards/templates"
+                href={`/opus-pass/digital-cards/cards/${productId}/artwork`}
                 className="inline-flex rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100"
               >
-                Go to Templates
+                Map this card&apos;s artwork
               </Link>
             </div>
           </div>
@@ -452,8 +520,21 @@ export default function DesignJobEditor({
                   {coupleName ?? 'Unnamed couple'}
                 </p>
                 {/* The card name was only ever in the page heading, so the
-                    thumbnail sat there unexplained. */}
-                <p className="mt-0.5 truncate text-sm text-gray-500">{productName}</p>
+                    thumbnail sat there unexplained.
+
+                    Now also the way BACK to the catalogue entry. A designer
+                    working a job constantly needs the card behind it — its
+                    artwork, its layer mapping, its fonts — and there was no
+                    link in either direction between a job and the card it is
+                    personalising. The only route was the catalogue list and a
+                    search by name. */}
+                <Link
+                  href={`/opus-pass/digital-cards/cards/${productId}`}
+                  className="mt-0.5 block truncate text-sm text-gray-500 hover:text-[#7E5896] hover:underline"
+                  title="Open this card in the catalogue"
+                >
+                  {productName}
+                </Link>
 
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <Pill icon={<Mail className="h-3 w-3" />}>
@@ -467,10 +548,18 @@ export default function DesignJobEditor({
                 </div>
 
                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                  <span className="flex items-center gap-1.5">
+                  {/* The order is where the money and the fulfilment stage
+                      live. A designer asking "has this been paid for" or "why
+                      is the couple's tracker showing that" had no route to it
+                      from here except retyping the reference into Finance. */}
+                  <Link
+                    href={`/finance/orders?q=${encodeURIComponent(orderRef)}`}
+                    className="flex items-center gap-1.5 hover:text-[#7E5896] hover:underline"
+                    title="Open this order in Orders & Fulfilment"
+                  >
                     <Receipt className="h-3 w-3 shrink-0 text-gray-400" />
                     <span className="font-mono">{orderRef}</span>
-                  </span>
+                  </Link>
                   {eventDate && (
                     <span className="flex items-center gap-1.5">
                       <Calendar className="h-3 w-3 shrink-0 text-gray-400" />
@@ -600,6 +689,32 @@ export default function DesignJobEditor({
                 Sent back{reviewedBy ? ` by ${reviewedBy}` : ''}
               </p>
               <p className="mt-0.5 whitespace-pre-line text-sm text-amber-800">{reviewNote}</p>
+            </div>
+          </div>
+        )}
+
+        {/* The couple has told us a card they already have is wrong.
+            Loud, and above everything else on the job, because the status still
+            reads Ready or Delivered — the release is deliberately untouched, so
+            nothing else on this page says anything is outstanding. Their exact
+            words are the newest entry in the history below. */}
+        {changeRequestedAt && (
+          <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+            <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-rose-900">
+                The couple asked for a change on{' '}
+                {new Date(changeRequestedAt).toLocaleDateString('en-GB', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </p>
+              <p className="mt-0.5 text-sm text-rose-800">
+                Their words are in the history below. Guests still have the released card. Correct
+                the values and publish an update to replace the couple&apos;s copy, which is what
+                clears this notice.
+              </p>
             </div>
           </div>
         )}

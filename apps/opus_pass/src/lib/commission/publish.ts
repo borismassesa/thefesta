@@ -107,6 +107,10 @@ export async function publishSettledOrder(orderId: string): Promise<PublishResul
       print_qty: 0,
       status: 'delivered',
       field_values: (approved.layer_schema as Record<string, unknown>) ?? {},
+      // The commission was designed and delivered through its own pipeline, so
+      // the mirror row is started and finished the moment it is written. Left
+      // null it would read as an unstarted job on the designer queue.
+      started_at: new Date().toISOString(),
       delivered_at: new Date().toISOString(),
     },
     { onConflict: 'order_id,line_index', ignoreDuplicates: true },

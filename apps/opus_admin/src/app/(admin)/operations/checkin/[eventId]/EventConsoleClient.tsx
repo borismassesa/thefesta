@@ -2,14 +2,21 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, QrCode, Ticket, Users2 } from 'lucide-react'
+import { FileText, QrCode } from 'lucide-react'
 import { useSetPageHeading } from '@/components/PageHeading'
+import { HeaderBadgeSlot } from '@/components/HeaderPortals'
 import { cn } from '@/lib/utils'
+import { eventLifecycle, LIFECYCLE_LABEL, LIFECYCLE_TONE } from '@/lib/checkin-event-status'
 import CheckinEventClient, { type CheckinBaseline } from './CheckinEventClient'
-import TicketGenerationClient from './TicketGenerationClient'
+import CheckinReportClient, { type CheckinReport } from './CheckinReportClient'
 import type { AttendantAssignment } from '../actions'
 
-type ConsoleTab = 'checkin' | 'tickets'
+type ConsoleTab = 'checkin' | 'report'
+
+const TABS: { key: ConsoleTab; label: string; Icon: typeof QrCode }[] = [
+  { key: 'checkin', label: 'Door staff', Icon: QrCode },
+  { key: 'report', label: 'Report', Icon: FileText },
+]
 
 function formatEventDate(iso: string | null) {
   if (!iso) return 'No date set'
@@ -19,85 +26,100 @@ function formatEventDate(iso: string | null) {
 export default function EventConsoleClient({
   eventId,
   baseline,
+  report,
   initialAttendants,
   initialTab,
-  canCheckin,
-  canTickets,
 }: {
   eventId: string
   baseline: CheckinBaseline
+  report: CheckinReport
   initialAttendants: AttendantAssignment[]
   initialTab: ConsoleTab
-  canCheckin: boolean
-  canTickets: boolean
 }) {
   const router = useRouter()
   const [tab, setTab] = useState<ConsoleTab>(initialTab)
 
+  // Per-render snapshot — this is a client-only route, so there is no
+  // SSR/hydration split for the lifecycle badge to desync against.
+  // eslint-disable-next-line react-hooks/purity -- lifecycle is time-relative by definition
+  const nowMs = Date.now()
+  const lifecycle = eventLifecycle(baseline.event?.startsAt ?? null, baseline.event?.endsAt ?? null, nowMs)
+  const venue = [baseline.event?.venueName, baseline.event?.city].filter(Boolean).join(', ')
+
+  // The event identity lives in the global header rather than being echoed in
+  // the page body. No `back` link: this console is reachable from the sidebar
+  // and the back arrow would displace the event name it exists to introduce.
   useSetPageHeading({
     title: baseline.event?.name ?? 'Event',
-    back: { href: '/operations/checkin', label: tab === 'tickets' ? 'Ticket Generation' : 'Event Check-in' },
+    subtitle: [
+      baseline.event?.eventType?.replace(/_/g, ' '),
+      formatEventDate(baseline.event?.startsAt ?? null),
+      venue || null,
+    ]
+      .filter(Boolean)
+      .join(' · '),
   })
 
   function selectTab(next: ConsoleTab) {
     setTab(next)
     // Keep the URL in sync so refresh/share/back preserves which tab was open.
-    router.replace(next === 'tickets' ? `/operations/checkin/${eventId}?tab=tickets` : `/operations/checkin/${eventId}`, {
+    router.replace(next === 'report' ? `/operations/checkin/${eventId}?tab=report` : `/operations/checkin/${eventId}`, {
       scroll: false,
     })
   }
 
   return (
-    // Padding comes from operations/layout.tsx — adding p-6 here stacked on
-    // top of it, pushing the content 24px in and down from the page header.
-    <div className="space-y-5">
-      {/* Event header — the global page header hides the event name while
-          "back" mode is active, so without this the admin has no on-page
-          confirmation of which event they're managing. */}
-      <div className="print:hidden">
-        <h1 className="text-xl font-bold text-gray-900">{baseline.event?.name ?? 'Event'}</h1>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
-          {baseline.event?.eventType ? <span className="capitalize">{baseline.event.eventType.replace(/_/g, ' ')}</span> : null}
-          {baseline.event?.coupleName ? (
-            <span className="flex items-center gap-1">
-              <Users2 className="h-3.5 w-3.5" /> {baseline.event.coupleName}
-            </span>
-          ) : null}
-          <span className="flex items-center gap-1">
-            <CalendarDays className="h-3.5 w-3.5" /> {formatEventDate(baseline.event?.startsAt ?? null)}
-          </span>
-        </div>
+    // Horizontal padding comes from operations/layout.tsx — adding p-6 here
+    // stacked on top of it, pushing the content 24px in and down from the page
+    // header. The negative top margin trims that layout's lg:py-10 to the 24px
+    // the events list and the other OpusPass consoles sit at. (The admin shell
+    // is desktop-only, so only the lg step matters.)
+    <div className="space-y-5 lg:-mt-4">
+      {/* Lifecycle pill rides next to the event name in the global header. */}
+      <HeaderBadgeSlot>
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold',
+            LIFECYCLE_TONE[lifecycle],
+          )}
+        >
+          <span
+            className={cn(
+              'h-1.5 w-1.5 rounded-full',
+              lifecycle === 'live' ? 'animate-pulse bg-[#3d6b1f]' : 'bg-current opacity-50',
+            )}
+          />
+          {LIFECYCLE_LABEL[lifecycle]}
+        </span>
+      </HeaderBadgeSlot>
+
+      {/* Underline tabs rather than a segmented control: this console is
+          expected to grow (devices, audit), which a pill group stops scaling
+          for well past three items. */}
+      <div className="flex items-center gap-6 border-b border-gray-200 print:hidden">
+        {TABS.map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => selectTab(key)}
+            aria-current={tab === key ? 'page' : undefined}
+            className={cn(
+              'inline-flex items-center gap-1.5 border-b-2 pb-2.5 text-sm font-semibold transition-colors',
+              tab === key
+                ? 'border-[#7E5896] text-[#7E5896]'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800',
+            )}
+          >
+            <Icon className="h-4 w-4" /> {label}
+          </button>
+        ))}
       </div>
 
-      {canCheckin && canTickets ? (
-        <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1 print:hidden w-fit">
-          <button
-            type="button"
-            onClick={() => selectTab('checkin')}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
-              tab === 'checkin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
-            )}
-          >
-            <QrCode className="h-3.5 w-3.5" /> Door staff &amp; check-in
-          </button>
-          <button
-            type="button"
-            onClick={() => selectTab('tickets')}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
-              tab === 'tickets' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
-            )}
-          >
-            <Ticket className="h-3.5 w-3.5" /> Ticket generation
-          </button>
-        </div>
-      ) : null}
-
-      {tab === 'checkin' && canCheckin ? (
+      {tab === 'checkin' ? (
         <CheckinEventClient eventId={eventId} baseline={baseline} initialAttendants={initialAttendants} />
-      ) : null}
-      {tab === 'tickets' && canTickets ? <TicketGenerationClient eventId={eventId} /> : null}
+      ) : (
+        <CheckinReportClient baseline={baseline} report={report} attendants={initialAttendants} />
+      )}
     </div>
   )
 }

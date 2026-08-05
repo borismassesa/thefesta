@@ -2,13 +2,16 @@
 
 import { createHash } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
-import { normaliseFontKey } from '@opusfesta/lib'
+import { normaliseFontKey, type FontMetrics } from '@opusfesta/lib'
 import { requireAdminRole, type AdminAccessRole } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { parseFontFile } from '@/lib/cms/font-metadata'
+import { extractFontMetrics, parseFontFile } from '@/lib/cms/font-metadata'
 
 const BUCKET = 'card-fonts'
-const LIST_PATH = '/opus-pass/digital-cards/templates'
+// The catalogue list. Was '/opus-pass/digital-cards/templates', which is now a
+// redirect, so registering or removing a font revalidated a page that renders
+// nothing and left the real one stale.
+const LIST_PATH = '/opus-pass/digital-cards/cards'
 
 /**
  * The font library needs a table and a storage bucket that only exist once
@@ -85,11 +88,20 @@ export type CardFontRow = {
   is_italic: boolean
   glyph_count: number
   match_keys: string[]
+  /** Content address of the font file, so a release can name the exact bytes. */
+  content_sha256: string
   fs_type_no_embedding: boolean
   fs_type_view_only: boolean
   licence_status: LicenceStatus
   licence_note: string
   embeddable: boolean
+  /**
+   * Advance widths, or null for a face registered before extraction existed.
+   * Null is not an error: it means this face cannot be LAID OUT, which the
+   * fitter reports as 'unmeasurable' and which blocks a release rather than
+   * being guessed at. `npx tsx scripts/backfill-card-font-metrics.ts` fills it.
+   */
+  metrics: FontMetrics | null
   created_at: string
 }
 
@@ -121,7 +133,7 @@ export async function listCardFonts(): Promise<CardFontLibrary> {
   const { data, error } = await supabase
     .from('card_fonts')
     .select(
-      'id, storage_path, original_filename, size_bytes, format, family_name, subfamily_name, full_name, postscript_name, weight_class, is_italic, glyph_count, match_keys, fs_type_no_embedding, fs_type_view_only, licence_status, licence_note, embeddable, created_at',
+      'id, storage_path, original_filename, size_bytes, content_sha256, format, family_name, subfamily_name, full_name, postscript_name, weight_class, is_italic, glyph_count, match_keys, fs_type_no_embedding, fs_type_view_only, licence_status, licence_note, embeddable, metrics, created_at',
     )
     .order('family_name', { ascending: true })
     .order('weight_class', { ascending: true })
@@ -218,6 +230,7 @@ export async function registerCardFont(input: {
     return { ok: false, error: parsed.reason }
   }
   const font = parsed.font
+  const metrics = extractFontMetrics(bytes)
   const contentSha256 = createHash('sha256').update(bytes).digest('hex')
 
   // The same font arrives with many designs. Recognise it rather than storing
@@ -259,6 +272,13 @@ export async function registerCardFont(input: {
       fs_type_no_embedding: font.fsTypeNoEmbedding,
       fs_type_view_only: font.fsTypeViewOnly,
       fs_type_no_subsetting: font.fsTypeNoSubsetting,
+      // Read now rather than at layout time: the binary is in hand here, and
+      // the Studio and the server both need the SAME numbers to agree on
+      // whether a name fits. A face that will not yield metrics still
+      // registers — it renders fine, it just cannot be laid out, and the
+      // fitter reports 'unmeasurable' instead of guessing.
+      metrics,
+      metrics_extracted_at: metrics ? new Date().toISOString() : null,
       // licence_status defaults to 'unknown', so a newly registered font is
       // visible in the library and in the readout but is never embedded until
       // somebody with the authority to say so attests it.

@@ -8,6 +8,7 @@ import QRCode from 'qrcode'
 import { toast } from 'sonner'
 import { useBodyLock } from '@/hooks/useBodyLock'
 import { InvitationVisual } from '@/components/guests/InvitationVisual'
+import TopUpDrawer from './TopUpDrawer'
 import {
   MessageCircle,
   Smartphone,
@@ -38,6 +39,7 @@ import {
   CalendarDays,
   MapPin,
   Users,
+  AlertTriangle,
 } from 'lucide-react'
 import {
   enableInviteSharing,
@@ -297,9 +299,13 @@ export default function SendInvitesView({
   const [rowEdit, setRowEdit] = useState<{ id: string; name: string; phone: string; askDelete: boolean } | null>(null)
   const [newGuest, setNewGuest] = useState<{ name: string; phone: string } | null>(null)
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  // Adding capacity to the released card. It opens over the console rather than
+  // navigating away, so a couple who runs out mid-send comes back to exactly
+  // where they were.
+  const [topUpOpen, setTopUpOpen] = useState(false)
   // Any full-screen overlay open — freeze the page behind it so scrolling
   // over the (fixed-position) dim backdrop doesn't also scroll the page.
-  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress))
+  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress || topUpOpen))
   // The selected event owns partner names, category and location. The preview
   // chooses a REAL guest so its message and image can never drift apart.
   const hostName = data.sendSettings.hostName
@@ -573,6 +579,13 @@ export default function SendInvitesView({
     })
   }, [guests, effectiveFilter, search, sendTab, ticketFilter, entranceSentIds])
   const pct = quota.purchased > 0 ? Math.min(100, Math.round((quota.used / quota.purchased) * 100)) : 0
+  // A refund or a revoked adjustment can drop the active entitlement below what
+  // has already been sent. The numbers are real and stay real in the database —
+  // but rendering them raw produces "83 of 71 used", which reads as a bug and
+  // tells the couple nothing. Show what is true instead: 83 sent, 0 available,
+  // and an explicit warning that usage now exceeds the active entitlement.
+  const quotaOverdrawn = quota.used > quota.purchased
+  const entranceOverdrawn = entranceQuota.used > entranceQuota.purchased
   const epct = entranceQuota.purchased > 0 ? Math.min(100, Math.round((entranceQuota.used / entranceQuota.purchased) * 100)) : 0
 
   // The webhook flips statuses (delivered, viewed, RSVP taps) server-side;
@@ -1825,11 +1838,21 @@ export default function SendInvitesView({
                   <div className="equota">
                     <div className="top">
                       <span>{strings.entrance_quota_label}</span>
-                      <span>
-                        <b>{entranceQuota.used}</b> {fmt(strings.quota_used_suffix, { m: entranceQuota.purchased })} · {fmt(strings.quota_remaining, { n: entranceQuota.remaining })}
-                      </span>
+                      {/* Same guard as the invitation quota: the two pools share
+                          one purchased count, so a refund overdraws both. */}
+                      {entranceOverdrawn ? (
+                        <span>
+                          {strings.quota_used_label} <b>{entranceQuota.used}</b>
+                          {' · '}
+                          {strings.quota_available_label} <b>0</b>
+                        </span>
+                      ) : (
+                        <span>
+                          <b>{entranceQuota.used}</b> {fmt(strings.quota_used_suffix, { m: entranceQuota.purchased })} · {fmt(strings.quota_remaining, { n: entranceQuota.remaining })}
+                        </span>
+                      )}
                     </div>
-                    <div className="bar"><i style={{ width: `${epct}%` }} /></div>
+                    <div className="bar"><i style={{ width: `${entranceOverdrawn ? 100 : epct}%` }} /></div>
                   </div>
                 ) : null}
                 {attendingCount === 0 ? (
@@ -2189,10 +2212,30 @@ export default function SendInvitesView({
           <div className="fc"><div className="fcicon"><CheckCheck size={13} /></div><div className="n">{funnel.delivered}</div><div className="l"><span className="ar">→</span> {strings.funnel_delivered}</div></div>
           <div className="fc"><div className="fcicon"><Eye size={13} /></div><div className="n">{funnel.viewed}</div><div className="l"><span className="ar">→</span> {strings.funnel_viewed}</div></div>
           <div className="fc"><div className="fcicon"><CalendarCheck size={13} /></div><div className="n">{funnel.rsvpd}</div><div className="l"><span className="ar">→</span> {strings.funnel_rsvpd}</div></div>
-          <div className="fc quota">
-            <div className="top"><span>{strings.quota_label}</span><span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span></div>
-            <div className="bar"><i style={{ width: `${pct}%` }} /></div>
-            <div className="ft">{fmt(strings.quota_remaining, { n: quota.remaining })} · <Link href={cardDesignHref}>{strings.quota_topup}</Link></div>
+          <div className={`fc quota${quotaOverdrawn ? ' over' : ''}`}>
+            <div className="top">
+              <span>{strings.quota_label}</span>
+              {quotaOverdrawn ? (
+                <span>
+                  {strings.quota_used_label} <b>{quota.used}</b>
+                  {' · '}
+                  {strings.quota_available_label} <b>0</b>
+                </span>
+              ) : (
+                <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
+              )}
+            </div>
+            <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
+            <div className="ft">
+              {quotaOverdrawn ? (
+                <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
+              ) : (
+                <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
+              )}
+              <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
+                {strings.quota_topup}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -2936,6 +2979,17 @@ export default function SendInvitesView({
         </div>
       ) : null}
 
+      {/* Add-more-invitations drawer. Mounted only while open so its candidate
+          fetch happens on demand, not on every send-console render. */}
+      {topUpOpen && eventId ? (
+        <TopUpDrawer
+          eventId={eventId}
+          quota={quota}
+          unassignedGuests={unassignedOrders.reduce((sum, o) => sum + o.purchasedGuests, 0)}
+          onClose={() => setTopUpOpen(false)}
+        />
+      ) : null}
+
       {/* Send report drawer */}
       {report ? (
         <div className="ovl right" onClick={() => setReport(null)}>
@@ -3205,8 +3259,22 @@ const css = `
 .si .quota .top b{ color:var(--ink); }
 .si .bar{ height:7px; background:var(--lav-soft); border-radius:999px; overflow:hidden; }
 .si .bar i{ display:block; height:100%; background:linear-gradient(90deg,var(--purple),var(--lav)); }
-.si .quota .ft{ font-size:11px; color:var(--muted); margin-top:9px; }
-.si .quota .ft a{ color:var(--purple); font-weight:600; text-decoration:none; }
+/* Footer holds the remaining count on the left and the top-up action on the
+   right. It was a text link buried in an 11px line; buying more capacity is a
+   real action the couple takes mid-send, so it gets the same outline pill every
+   other secondary action on this page uses. */
+.si .quota .ft{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+  flex-wrap:wrap; font-size:11px; color:var(--muted); margin-top:11px; }
+.si .quota .ft .topup{ flex:none; display:inline-flex; align-items:center; gap:5px; cursor:pointer;
+  padding:6px 13px; border:1px solid var(--line); border-radius:999px; background:#fff;
+  color:var(--purple-d); font-size:11.5px; font-weight:700; text-decoration:none; font-family:inherit;
+  transition:border-color .12s, background .12s, transform .08s; }
+.si .quota .ft .topup:hover{ border-color:var(--purple); background:var(--lav-soft); transform:translateY(-1px); }
+.si .quota .ft .topup:focus-visible{ outline:2px solid var(--purple); outline-offset:2px; }
+/* Overdrawn: a refund took the entitlement below what has already been sent.
+   The bar is full and amber rather than showing a nonsense percentage. */
+.si .quota.over .bar i{ background:linear-gradient(90deg,#D89B1C,#F0C46A); }
+.si .quota .ft .overwarn{ display:inline-flex; align-items:center; gap:5px; color:#8A6100; font-weight:600; }
 .si .tstats{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
 .si .tstat{ display:inline-flex; align-items:baseline; gap:7px; padding:8px 14px; border-radius:12px;
   border:1px solid var(--line); background:#fff; cursor:pointer; transition:border-color .15s ease, background .15s ease; }

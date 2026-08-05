@@ -22,29 +22,32 @@ export default async function PublicCardDetailsPage({
   params: Promise<{ token: string }>
 }) {
   const { token } = await params
-  const request = await getCardDetailRequestByToken(token)
+  const card = await getCardDetailRequestByToken(token)
   // A wrong or revoked token is a 404, not an error page — it shouldn't
   // confirm whether the token ever existed.
-  if (!request) notFound()
+  if (!card) notFound()
 
-  // Nothing outstanding. The couple still lands here whenever they re-open the
-  // link, so show what we hold rather than a bare dead end — a wrong venue or
-  // a misspelt name is expensive once it is printed, and this is their only
-  // chance to notice it.
-  if (request.requested.length === 0) {
+  // The card is already with their guests, so there is nothing left to change.
+  // They still land here whenever they re-open the link, so show what we
+  // printed rather than a bare dead end.
+  if (card.locked) {
     return (
       <PublicShell>
-        <CardDetailsReceipt request={request} />
+        <CardDetailsReceipt request={card} />
       </PublicShell>
     )
   }
 
+  // Everything the artwork can hold, not just what was chased. The couple keeps
+  // re-opening this link, and it is their only chance to catch a misspelt name
+  // or a wrong venue before it is printed on every card.
   return (
     <PublicShell>
       <CardDetailsForm
-        requests={[request]}
+        cards={[card]}
         save={saveByToken.bind(null, token)}
-        intro={`Our designers need a few details before they can finish your ${request.cardName}. What you type here goes straight onto the card.`}
+        token={token}
+        intro={`Type what should be printed on your ${card.cardName}. What you send here goes straight onto the card.`}
       />
     </PublicShell>
   )

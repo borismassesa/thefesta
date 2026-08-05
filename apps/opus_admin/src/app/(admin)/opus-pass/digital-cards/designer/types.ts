@@ -74,12 +74,27 @@ export type DesignJob = {
    */
   sla: JobSla | null
 
-  /** Null until a designer starts the job. */
+  /**
+   * Null until SOMETHING has been written for this line.
+   *
+   * No longer a proxy for "a designer has started": the couple can send their
+   * card content first, which creates the row. Read `startedAt` for that.
+   */
   designId: string | null
+
+  /**
+   * When the couple last asked for a change to the released card. The request
+   * itself is a note in the job's history; this is the flag that lets the queue
+   * surface it without reading the event log for every row.
+   */
+  changeRequestedAt: string | null
+  /** When a designer took the job on. Null means unstarted. */
+  startedAt: string | null
   status: DesignStatus
   assignedTo: string | null
   assigneeName: string | null
   requestedFields: string[]
+  /** How many fields are filled in — the couple's answers plus any override. */
   fieldValueCount: number
 }
 
@@ -111,6 +126,8 @@ export type DesignQueueSummary = {
   overdueCount: number
   /** Still on the clock with under a quarter of the window left. */
   dueSoonCount: number
+  /** Released cards whose couple has asked for a correction. */
+  changeRequestedCount: number
 }
 
 export function summariseQueue(jobs: DesignJob[]): DesignQueueSummary {
@@ -128,6 +145,7 @@ export function summariseQueue(jobs: DesignJob[]): DesignQueueSummary {
     digitalCards: jobs.reduce((n, j) => n + j.digitalQty, 0),
     printedCards: jobs.reduce((n, j) => n + j.printQty, 0),
     inferredCount: jobs.filter((j) => j.inferred).length,
+    changeRequestedCount: jobs.filter((j) => j.changeRequestedAt !== null).length,
     overdueCount: onClock.filter((j) => slaState(j.approvedAt)?.tone === 'overdue').length,
     dueSoonCount: onClock.filter((j) => slaState(j.approvedAt)?.tone === 'due_soon').length,
   }

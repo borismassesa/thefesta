@@ -391,6 +391,14 @@ function PaymentCard({
             <h2 className="text-lg font-semibold text-gray-900">{payment.ref}</h2>
             <StatusBadge status={payment.status} />
             <CategoryBadge category={payment.category} />
+            {/* Approving a top-up releases it on the spot and briefs no
+                designer, so reviewers can see which kind they are approving
+                before they click. */}
+            {payment.orderKind === 'topup' && (
+              <span className="inline-flex items-center rounded-full bg-[#9FE870]/30 px-2.5 py-0.5 text-[11px] font-semibold text-[#3f6b1f]">
+                Top-up · no design work
+              </span>
+            )}
           </div>
           {(() => {
             const t = dateTimeParts(payment.paymentSubmittedAt ?? payment.createdAt)

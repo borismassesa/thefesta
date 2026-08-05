@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
-import { getCallerEmail, hasPermission } from '@/lib/admin-auth'
+import { getCallerEmail, getCallerEmployeeId, hasPermission } from '@/lib/admin-auth'
+import { getAssignableDesigners } from '../queries'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { requestableFields, type CardFieldBinding } from '@opusfesta/lib'
 import { resolveOpusPassAssetUrl } from '@/lib/cms/opus-pass-asset-url'
@@ -17,6 +18,7 @@ type DesignRow = {
   submitted_for_review_at: string | null
   submitted_by: string | null
   released_at: string | null
+  change_requested_at: string | null
   release_svg_path: string | null
   line_index: number
   product_id: string
@@ -37,14 +39,14 @@ export default async function DesignJobPage({
 }: {
   params: Promise<{ designId: string }>
 }) {
-  if (!(await hasPermission('cms.read'))) redirect('/')
+  if (!(await hasPermission('digitalcards.read'))) redirect('/')
   const { designId } = await params
 
   const supabase = createSupabaseAdminClient()
   const { data: design, error } = await supabase
     .from('invitation_card_designs')
     .select(
-      'id, order_id, line_index, product_id, product_name, digital_qty, print_qty, status, field_values, requested_fields, notes, info_requested_at, info_received_at, share_token, assigned_to, review_note, reviewed_by, reviewed_at, submitted_for_review_at, submitted_by, released_at, release_svg_path',
+      'id, order_id, line_index, product_id, product_name, digital_qty, print_qty, status, field_values, requested_fields, notes, info_requested_at, info_received_at, share_token, assigned_to, review_note, reviewed_by, reviewed_at, submitted_for_review_at, submitted_by, released_at, release_svg_path, change_requested_at',
     )
     .eq('id', designId)
     .maybeSingle<DesignRow>()
@@ -72,22 +74,31 @@ export default async function DesignJobPage({
         artwork_svg_url: string | null
         category: string | null
       }>(),
-    hasPermission('cms.write'),
-    hasPermission('cms.publish'),
+    hasPermission('digitalcards.write'),
+    hasPermission('digitalcards.publish'),
   ])
 
   // Whether the caller is the assignee decides if they may approve. Resolved
   // here because assigned_to is an employee id while the caller is an email.
   const callerEmail = (await getCallerEmail())?.trim().toLowerCase() ?? ''
   let isAssignee = false
-  if (design.assigned_to && callerEmail) {
+  let assigneeName: string | null = null
+  if (design.assigned_to) {
     const { data: assignee } = await supabase
       .from('workforce_employees')
-      .select('email')
+      .select('email, full_name')
       .eq('id', design.assigned_to)
-      .maybeSingle<{ email: string | null }>()
-    isAssignee = (assignee?.email ?? '').trim().toLowerCase() === callerEmail
+      .maybeSingle<{ email: string | null; full_name: string | null }>()
+    assigneeName = assignee?.full_name?.trim() || null
+    isAssignee =
+      callerEmail.length > 0 && (assignee?.email ?? '').trim().toLowerCase() === callerEmail
   }
+
+  // Only needed to populate the reassignment picker, which only a writer sees.
+  const [assignableDesigners, myEmployeeId] = await Promise.all([
+    canWrite ? getAssignableDesigners() : Promise.resolve([]),
+    getCallerEmployeeId(),
+  ])
 
   const { data: eventRows } = await supabase
     .from('invitation_card_design_events')
@@ -139,7 +150,12 @@ export default async function DesignJobPage({
       submittedBy={design.submitted_by ?? ''}
       submittedForReviewAt={design.submitted_for_review_at}
       releasedAt={design.released_at}
+      changeRequestedAt={design.change_requested_at}
       isAssignee={isAssignee}
+      assignedTo={design.assigned_to}
+      assigneeName={assigneeName}
+      assignableDesigners={assignableDesigners}
+      myEmployeeId={myEmployeeId}
       events={events}
     />
   )

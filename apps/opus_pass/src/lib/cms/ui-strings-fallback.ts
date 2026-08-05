@@ -728,6 +728,7 @@ export interface DashboardChromeStrings {
   nav_website: string
   nav_seating: string
   nav_guestbook: string
+  nav_my_orders: string
   nav_cards: string
   nav_card_details: string
   // Sidebar + drawer controls (titles / aria-labels)
@@ -985,6 +986,11 @@ export interface DashboardSendStrings {
   quota_used_suffix: string // {m} (rendered after a bold used-count)
   quota_remaining: string // {n}
   quota_topup: string
+  /** Shown instead of "x of y used" when a refund has dropped the active
+   *  entitlement below what has already been sent. */
+  quota_used_label: string
+  quota_available_label: string
+  quota_overdrawn: string
   // Public invite link (Broadcast) mode
   broadcast_tag: string
   broadcast_title: string
@@ -1890,6 +1896,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     nav_website: 'Wedding website',
     nav_seating: 'Seat collection',
     nav_guestbook: 'Guestbook',
+    nav_my_orders: 'My Orders',
     nav_cards: 'My cards',
     nav_card_details: 'Card details',
     collapse_expand: 'Expand sidebar',
@@ -2116,7 +2123,10 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     quota_label: 'Paid invitations',
     quota_used_suffix: 'of {m} used',
     quota_remaining: '{n} remaining',
-    quota_topup: 'Top up',
+    quota_topup: 'Add more cards',
+    quota_used_label: 'Used',
+    quota_available_label: 'Available',
+    quota_overdrawn: 'Usage exceeds your active entitlement.',
     broadcast_tag: 'Broadcast',
     broadcast_title: 'Public invite link',
     broadcast_desc:

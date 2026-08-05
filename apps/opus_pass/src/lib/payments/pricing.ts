@@ -75,6 +75,18 @@ export async function priceOrder(items: InitiateItem[]): Promise<PricingResult> 
       return { ...item, quantity: qty, pricePerGuest: unit, total: serverTotal }
     }
 
+    // A top-up must never be priced here. Its rate comes from the parent order
+    // (resolveTopup), which this function has no access to, and its quantity
+    // rules are not the catalogue's. Pricing it at 0 fails the order closed at
+    // the caller's `amountTotal <= 0` check rather than silently charging the
+    // client's own number — so a top-up line smuggled into the normal checkout
+    // cannot buy capacity.
+    if (item.kind === 'topup') {
+      fullyTrusted = false
+      adjustments.push({ id: item.id, clientTotal, serverTotal: 0 })
+      return { ...item, total: 0 }
+    }
+
     // Flat-price line (a single card-template unlock, not a guest-tier
     // invitation) — the price is a fixed constant, never the client's number.
     if (item.kind === 'template_unlock') {

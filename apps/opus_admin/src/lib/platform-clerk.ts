@@ -139,10 +139,55 @@ export async function createPlatformClerkLogin(input: {
   }
 }
 
+/** DELETE one Clerk id. `gone` means the id does not exist in this instance,
+ *  which is the caller's cue to look harder rather than to celebrate. */
+async function deleteClerkUserById(
+  secret: string,
+  clerkId: string,
+): Promise<{ ok: true; deleted: boolean } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${CLERK_API_BASE}/users/${clerkId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${secret}` },
+    })
+    if (res.ok) return { ok: true, deleted: true }
+    if (res.status === 404) return { ok: true, deleted: false }
+    return { ok: false, error: `Clerk login deletion failed (${res.status}): ${await clerkErrorText(res)}` }
+  } catch (err) {
+    return {
+      ok: false,
+      error: `Clerk login deletion error: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+}
+
 /**
- * Remove a login so the email is freed for a fresh sign-up. Resolves the id
- * from `clerkId` when we have it, otherwise by email (covers admin-created
- * accounts whose users row was never linked).
+ * Remove a login so the email is freed for a fresh sign-up.
+ *
+ * WHY THIS IS NOT JUST "DELETE users.clerk_id".
+ *
+ * `users.clerk_id` and the live Clerk login drift apart. A row can carry an id
+ * minted by a different Clerk instance (an admin running against production data
+ * with test keys is the common way), or one left over from a login that was
+ * rebuilt. When it does, DELETE by that id returns 404 — and 404 previously
+ * short-circuited to `{ ok: true }` on the reasoning that the login was already
+ * gone. That reasoning is wrong whenever the id is merely WRONG rather than
+ * deleted, and the failure is invisible: the account row is removed, the real
+ * login survives, and the next page load re-provisions the row through
+ * `ON CONFLICT (clerk_id) DO NOTHING` in opus_pass's dashboard auth. Staff then
+ * delete the same account over and over while nothing changes. That is a real
+ * production symptom, not a hypothetical — admin@opusfesta.com sat in this loop.
+ *
+ * So a 404 by id now falls through to the email lookup instead of ending the
+ * story. Three outcomes, all reported honestly:
+ *
+ *   deleted by id            → ok
+ *   404, email finds a login → delete that one, ok
+ *   404, email finds nothing → ok WITH A WARNING. Genuinely already gone and
+ *                              "wrong Clerk instance entirely" are
+ *                              indistinguishable from here, and the second one
+ *                              means the login is still live somewhere. Saying
+ *                              so is the only way staff can tell.
  *
  * A missing secret returns `{ ok: true, warning }` rather than an error: a
  * platform config gap must not block a deletion the admin asked for. The
@@ -160,27 +205,50 @@ export async function deletePlatformClerkLogin(input: {
     }
   }
 
-  let clerkId = input.clerkId?.trim() || null
-  if (!clerkId && input.email) {
-    const lookup = await findPlatformClerkUserId(input.email)
-    if (!lookup.ok) return { ok: false, error: lookup.error }
-    clerkId = lookup.clerkId
-  }
-  // Nothing to remove — an account that never signed in.
-  if (!clerkId) return { ok: true }
+  const storedId = input.clerkId?.trim() || null
+  const email = input.email?.trim() || null
 
-  try {
-    const res = await fetch(`${CLERK_API_BASE}/users/${clerkId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${secret}` },
-    })
-    // 404 = already gone in Clerk; treat as success so we don't wedge.
-    if (res.ok || res.status === 404) return { ok: true }
-    return { ok: false, error: `Clerk login deletion failed (${res.status}): ${await clerkErrorText(res)}` }
-  } catch (err) {
+  if (storedId) {
+    const byId = await deleteClerkUserById(secret, storedId)
+    if (!byId.ok) return byId
+    if (byId.deleted) return { ok: true }
+    // Fell through: the stored id is not in this instance. Keep going.
+  }
+
+  // Either there was no stored id (an account that never signed in), or the
+  // stored one was stale. The email is the durable identifier, so ask by that.
+  if (!email) {
+    return storedId
+      ? {
+          ok: true,
+          warning: `The sign-in login could not be removed: this account's stored Clerk id (${storedId}) does not exist in the platform Clerk instance, and the account has no email to search by. If that id belongs to a different Clerk instance, the login is still live and the account may come back.`,
+        }
+      : { ok: true }
+  }
+
+  const lookup = await findPlatformClerkUserId(email)
+  if (!lookup.ok) return { ok: false, error: lookup.error }
+  if (!lookup.clerkId) {
+    return storedId
+      ? {
+          ok: true,
+          warning: `The sign-in login was NOT removed: neither this account's stored Clerk id (${storedId}) nor ${email} exists in the platform Clerk instance this app is configured against. Either the login was already deleted, or this environment points at a different Clerk instance from the one the account really lives in — in which case the login is still live and the account will reappear the next time they open OpusPass.`,
+        }
+      : { ok: true }
+  }
+
+  const byEmail = await deleteClerkUserById(secret, lookup.clerkId)
+  if (!byEmail.ok) return byEmail
+  if (!byEmail.deleted) {
     return {
-      ok: false,
-      error: `Clerk login deletion error: ${err instanceof Error ? err.message : String(err)}`,
+      ok: true,
+      warning: `The sign-in login for ${email} disappeared between lookup and deletion, so it may not have been removed.`,
     }
   }
+  return storedId && storedId !== lookup.clerkId
+    ? {
+        ok: true,
+        warning: `The sign-in login for ${email} was removed, but the account's stored Clerk id (${storedId}) did not match the live one (${lookup.clerkId}). Worth checking whether this environment is pointed at the right Clerk instance.`,
+      }
+    : { ok: true }
 }

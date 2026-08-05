@@ -9,6 +9,9 @@ type EventRow = {
   name: string
   event_type: string
   starts_at: string | null
+  ends_at: string | null
+  venue_name: string | null
+  city: string | null
   user_id: string
 }
 
@@ -28,7 +31,7 @@ export default async function CheckinEventsPage() {
 
   const { data: events } = await admin
     .from('wedding_events')
-    .select('id, name, event_type, starts_at, user_id')
+    .select('id, name, event_type, starts_at, ends_at, venue_name, city, user_id')
     .order('starts_at', { ascending: false })
     .limit(500)
     .returns<EventRow[]>()
@@ -88,6 +91,8 @@ export default async function CheckinEventsPage() {
       name: e.name,
       eventType: e.event_type,
       startsAt: e.starts_at,
+      endsAt: e.ends_at,
+      venue: [e.venue_name, e.city].filter(Boolean).join(', ') || null,
       coupleName: owner?.name ?? owner?.email ?? 'Unknown couple',
       activeAdminAttendants: activeAdminByEvent.get(e.id) ?? 0,
       activeAttendantsTotal: activeAnyByEvent.get(e.id) ?? 0,

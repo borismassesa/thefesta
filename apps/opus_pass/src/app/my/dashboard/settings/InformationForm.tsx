@@ -11,8 +11,7 @@ import type { CoupleProfileLite } from '@/lib/dashboard/queries'
 export default function InformationForm({ profile }: { profile: CoupleProfileLite | null }) {
   const { user, isLoaded } = useUser()
   // This is a couple's account, so "your information" is the two partners'
-  // names (couple_profiles), not a single account holder. Same field the
-  // Wedding details page edits — both write couple_profiles.
+  // names (couple_profiles), not a single account holder.
   const [partner1, setPartner1] = useState(profile?.partner1_name ?? '')
   const [partner2, setPartner2] = useState(profile?.partner2_name ?? '')
   const [pending, startTransition] = useTransition()

@@ -15,7 +15,7 @@ import {
   type JobSla,
   type QueueView,
 } from './types'
-import { startDesignJob } from './actions'
+import { claimDesignJob, startDesignJob } from './actions'
 
 const BASE = '/opus-pass/digital-cards/designer'
 
@@ -123,25 +123,60 @@ function TierPill({ tier, tierId }: { tier: string | null; tierId: string | null
 const STATUS_CHIP =
   'inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold'
 
+/**
+ * The couple has asked for a correction to a card that is already out.
+ *
+ * Deliberately loud, and deliberately not a status: the card stays 'ready' or
+ * 'delivered' because guests are still being served the released version, so
+ * without a chip the request would be invisible on a job that looks finished
+ * and has dropped off everyone's list.
+ */
+function ChangeRequestedChip({ at }: { at: string | null }) {
+  if (!at) return null
+  return (
+    <span
+      className={cn(STATUS_CHIP, 'gap-1 bg-rose-100 text-rose-800')}
+      title={`The couple asked for a change on ${new Date(at).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })}. Their words are in the job's history.`}
+    >
+      <AlertTriangle className="h-3 w-3" />
+      Change requested
+    </span>
+  )
+}
+
 export default function DesignQueueClient({
   jobs,
   summary,
   activeStatus,
   view,
   canWrite,
+  myEmployeeId,
+  initialQuery = '',
 }: {
   jobs: DesignJob[]
   summary: DesignQueueSummary
   activeStatus: string
   view: QueueView
   canWrite: boolean
+  /** Null when the caller has no employee record, so nothing can be theirs. */
+  myEmployeeId: string | null
+  /**
+   * Seeds the search box from `?q=`, so a link from another surface can land
+   * on one order's jobs. Only a seed: typing owns the box afterwards, and the
+   * URL is deliberately not rewritten as it changes.
+   */
+  initialQuery?: string
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [busyKey, setBusyKey] = useState<string | null>(null)
 
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
 
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>()
@@ -188,13 +223,18 @@ export default function DesignQueueClient({
           // Only captioned when there is something to act on. "All within the
           // window" is a line that says nothing is wrong, which is noise.
           caption={
-            summary.overdueCount > 0
-              ? `${summary.overdueCount} past the ${DESIGN_SLA_HOURS}h deadline`
-              : summary.dueSoonCount > 0
-                ? `${summary.dueSoonCount} due soon`
-                : undefined
+            // A change request leads. It is on a card the couple already has,
+            // so it is the only one of these where somebody is holding a card
+            // they have told us is wrong.
+            summary.changeRequestedCount > 0
+              ? `${summary.changeRequestedCount} correction${summary.changeRequestedCount === 1 ? '' : 's'} requested`
+              : summary.overdueCount > 0
+                ? `${summary.overdueCount} past the ${DESIGN_SLA_HOURS}h deadline`
+                : summary.dueSoonCount > 0
+                  ? `${summary.dueSoonCount} due soon`
+                  : undefined
           }
-          tone={summary.overdueCount > 0 ? 'alert' : undefined}
+          tone={summary.overdueCount > 0 || summary.changeRequestedCount > 0 ? 'alert' : undefined}
         />
         <Kpi
           label="Digital cards"
@@ -279,7 +319,7 @@ export default function DesignQueueClient({
             : 'No cards match this search or filter.'}
         </p>
       ) : view === 'table' ? (
-        <JobTable jobs={visible} canWrite={canWrite} busyKey={busyKey} pending={pending} run={run} />
+        <JobTable jobs={visible} canWrite={canWrite} busyKey={busyKey} pending={pending} run={run} myEmployeeId={myEmployeeId} />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
           <ul className="divide-y divide-gray-100">
@@ -302,13 +342,33 @@ export default function DesignQueueClient({
                       <span className={cn(STATUS_CHIP, STATUS_TONE[job.status])}>
                         {DESIGN_STATUS_LABELS[job.status]}
                       </span>
+                      <ChangeRequestedChip at={job.changeRequestedAt} />
                       <SlaRing sla={job.sla} />
+                      {/* Only worth saying before the job is opened. Once a
+                          designer is in it they can see the values themselves,
+                          and this is the one thing that changes how they'd
+                          pick: a card whose content is already in can be
+                          started and finished in one sitting. */}
+                      {job.startedAt === null && job.fieldValueCount > 0 && (
+                        <span
+                          className="inline-flex items-center rounded-full bg-[#9FE870] px-2 py-0.5 text-[11px] font-semibold text-[#1a3d0a]"
+                          title="The couple filled these in from their dashboard"
+                        >
+                          {job.fieldValueCount} details in
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 truncate text-xs text-gray-500">
                       {job.coupleName ?? 'Unnamed couple'} · {job.orderRef}
                       {job.eventDate ? ` · ${job.eventDate}` : ''}
-                      {job.assigneeName ? ` · ${job.assigneeName}` : ''}
                     </p>
+                    <AssigneeLine
+                      job={job}
+                      myEmployeeId={myEmployeeId}
+                      canWrite={canWrite}
+                      busy={busy}
+                      onClaim={() => run(key, () => claimDesignJob(job.designId as string))}
+                    />
 
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       <Pill>{job.digitalQty.toLocaleString('en-US')} digital</Pill>
@@ -400,6 +460,64 @@ function ViewToggle({ activeStatus, view }: { activeStatus: string; view: QueueV
  * changed on the job itself now, which is also where the context for that
  * decision lives.
  */
+/**
+ * Who is holding this card, and a one-click way to take it.
+ *
+ * Promoted out of the meta line, where the assignee used to be the last of four
+ * dot-separated fragments and truncated away first. Ownership is what the queue
+ * is FOR — it is the difference between a list of work and a board — and it
+ * also decides who may approve, since a card cannot be signed off by the person
+ * assigned to it.
+ *
+ * Nothing renders for a job that has not been started: there is no row to
+ * assign to yet, and Start assigns it to whoever presses it.
+ */
+function AssigneeLine({
+  job,
+  myEmployeeId,
+  canWrite,
+  busy,
+  onClaim,
+}: {
+  job: DesignJob
+  myEmployeeId: string | null
+  canWrite: boolean
+  busy: boolean
+  onClaim: () => void
+}) {
+  // Nobody can hold a job that hasn't been started, even if a row exists
+  // because the couple sent their content ahead of a designer opening it.
+  if (job.startedAt === null) return null
+
+  const mine = myEmployeeId !== null && job.assignedTo === myEmployeeId
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+      <Users className="h-3 w-3 shrink-0 text-gray-400" />
+      {job.assignedTo === null ? (
+        <span className="font-semibold text-amber-700">Unassigned</span>
+      ) : (
+        <span className={mine ? 'font-semibold text-[#7E5896]' : 'text-gray-600'}>
+          {mine ? 'Yours' : (job.assigneeName ?? 'Unknown')}
+        </span>
+      )}
+      {/* Offered only while nobody holds it. Taking a card off a colleague is a
+          deliberate act that belongs on the job itself, next to the history
+          that records it — not behind a button in a list. */}
+      {canWrite && job.assignedTo === null && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onClaim}
+          className="inline-flex items-center gap-1 rounded-full border border-gray-300 px-2 py-0.5 text-[11px] font-semibold text-gray-700 transition-colors hover:border-[#7E5896] hover:text-[#7E5896] disabled:opacity-50"
+        >
+          {busy && <Loader2 className="h-3 w-3 animate-spin" />}
+          Take
+        </button>
+      )}
+    </p>
+  )
+}
+
 function RowAction({
   job,
   busy,
@@ -411,7 +529,10 @@ function RowAction({
 }) {
   const shared =
     'inline-flex w-[104px] items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors'
-  if (job.designId === null) {
+  // Gated on startedAt, not on the row: a couple who filled in their card
+  // details before anyone opened the job has created the row already, and that
+  // must still read as work waiting to be picked up.
+  if (job.startedAt === null) {
     return (
       <button
         type="button"
@@ -510,18 +631,40 @@ function Kpi({
  * easier to scan one job at a time, the table easier to compare many, so this
  * is a display choice rather than a different feature.
  */
+/** Compact assignee for the table. No Take button — the row is already dense. */
+function AssigneeCell({
+  job,
+  myEmployeeId,
+}: {
+  job: DesignJob
+  myEmployeeId: string | null
+}) {
+  if (job.startedAt === null) return <span className="text-gray-300">—</span>
+  if (job.assignedTo === null) {
+    return <span className="text-xs font-semibold text-amber-700">Unassigned</span>
+  }
+  const mine = myEmployeeId !== null && job.assignedTo === myEmployeeId
+  return (
+    <span className={cn('text-xs', mine ? 'font-semibold text-[#7E5896]' : 'text-gray-600')}>
+      {mine ? 'Yours' : (job.assigneeName ?? 'Unknown')}
+    </span>
+  )
+}
+
 function JobTable({
   jobs,
   canWrite,
   busyKey,
   pending,
   run,
+  myEmployeeId,
 }: {
   jobs: DesignJob[]
   canWrite: boolean
   busyKey: string | null
   pending: boolean
   run: (key: string, fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => void
+  myEmployeeId: string | null
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
@@ -537,6 +680,9 @@ function JobTable({
             <th className="px-4 py-2.5 text-left min-w-[170px]">Add-ons</th>
             <th className="px-4 py-2.5 text-left whitespace-nowrap">Due</th>
             <th className="px-4 py-2.5 text-left">Status</th>
+            {/* The table view exists to compare many jobs at once, which is
+                exactly the question "who is holding what" needs. */}
+            <th className="px-4 py-2.5 text-left whitespace-nowrap">Assignee</th>
             <th className="w-[140px] px-4 py-2.5 text-right">Actions</th>
           </tr>
         </thead>
@@ -611,6 +757,9 @@ function JobTable({
                   <span className={cn(STATUS_CHIP, STATUS_TONE[job.status])}>
                     {DESIGN_STATUS_LABELS[job.status]}
                   </span>
+                </td>
+                <td className="px-4 py-2.5 whitespace-nowrap">
+                  <AssigneeCell job={job} myEmployeeId={myEmployeeId} />
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   {canWrite && <RowAction job={job} busy={busy} onStart={() => run(key, () => startDesignJob(job.orderId, job.lineIndex))} />}

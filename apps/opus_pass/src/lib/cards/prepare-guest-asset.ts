@@ -1,12 +1,20 @@
 import {
   assertGuestSubstituted,
+  buildMetricsIndex,
+  lookupMetrics,
   matchCardFonts,
   pinCardFonts,
+  planIsReleasable,
   readRequiredFonts,
   renderCardForGuest,
+  renderPlanToSvg,
+  resolveCardLayout,
   resolveRasterFonts,
   type CardFieldBinding,
   type CardFontFace,
+  type CardLayout,
+  type CardRenderResult,
+  type FontMetrics,
   type PinnableFace,
   type RasterErrorCode,
   type RasterFontCandidate,
@@ -60,6 +68,15 @@ export const PREPARE_FAILURE_CODES = [
   'RELEASE_SVG_MISSING',
   'GUEST_NAME_MISSING',
   'GUEST_ROLE_UNMAPPED',
+  /**
+   * This guest's actual name will not fit the box the release was frozen with.
+   *
+   * The freeze gate stress-tests a long name, but no design-level check can
+   * prove that EVERY future guest fits: names arrive after the card is
+   * approved. So the guarantee is made here, per guest, against the real value.
+   * A release stays perfectly valid while one exceptional guest needs a human.
+   */
+  'GUEST_NAME_UNFITTABLE',
   'FONT_UNRESOLVED',
   'FONT_FORMAT_UNSUPPORTED',
   'FONT_NOT_LICENSED',
@@ -126,6 +143,15 @@ type ReleaseRow = {
   design_id: string
   svg_storage_path: string
   superseded_at: string | null
+  /**
+   * The layout this release was frozen against.
+   *
+   * Read from the RELEASE, never from the product row. Editing a card's layout
+   * in the Studio today must not re-lay-out cards that went to two hundred
+   * guests last week — the same rule, for the same reason, as renderCardForGuest
+   * refusing to re-apply any binding other than the guest one.
+   */
+  layout_snapshot: unknown
 }
 
 type AssetRow = {
@@ -190,7 +216,7 @@ export async function prepareGuestCardAsset(
   // ── The release, which must still be the one this asset is bound to ──
   const { data: release } = await supabase
     .from('invitation_card_design_releases')
-    .select('id, design_id, svg_storage_path, superseded_at')
+    .select('id, design_id, svg_storage_path, superseded_at, layout_snapshot')
     .eq('id', input.designReleaseId)
     .maybeSingle<ReleaseRow>()
   if (!release) return fail('RELEASE_NOT_FOUND')
@@ -241,6 +267,13 @@ export async function prepareGuestCardAsset(
   const frozenSvg = await svgBlob.text()
   if (!frozenSvg.trim()) return markFailed('RELEASE_SVG_MISSING')
 
+  // ── Fonts, read from the FROZEN svg rather than the source artwork ──
+  //
+  // Loaded before the render because the layout path needs their MEASUREMENTS
+  // to decide whether this guest's name fits, not only their bytes to raster.
+  const library = await loadFontLibrary(supabase)
+  const byId = new Map(library.map((row) => [row.id, row]))
+
   // ── Guest substitution, proved from the renderer's own metadata ──
   const bindings = await loadBindings(supabase, release.design_id)
   const guestBindings = bindings.filter((b) => b.role === 'guest_name')
@@ -248,7 +281,53 @@ export async function prepareGuestCardAsset(
   if (guestBindings.length !== 1) return markFailed('GUEST_ROLE_UNMAPPED')
   if (guestBindings[0].rasterised) return markFailed('GUEST_ROLE_UNMAPPED')
 
-  const rendered = renderCardForGuest(frozenSvg, bindings, guestName)
+  // ── This guest's name, against the layout the release was frozen with ──
+  //
+  // The freeze gate stress-tested a long name; it could not test THIS one,
+  // because the guest list arrives after the card is approved. So the promise
+  // is kept here, on the real value, and a guest whose name cannot be made to
+  // fit is refused rather than delivered clipped. The release itself stays
+  // valid: one exceptional guest is an exception, not a broken card.
+  const layoutSnapshot = asGuestLayout(release.layout_snapshot)
+  let rendered: CardRenderResult
+
+  if (layoutSnapshot) {
+    const metrics = buildMetricsIndex(
+      matchCardFonts(readRequiredFonts(frozenSvg), toFaces(library)).map((match) => ({
+        primary: match.required.primary,
+        weight: match.required.weight,
+        italic: match.required.italic,
+        metrics: match.face ? (byId.get(match.face.id)?.metrics ?? null) : null,
+      })),
+    )
+
+    const plan = resolveCardLayout({
+      layout: layoutSnapshot,
+      state: 'active',
+      values: { guest_name: guestName },
+      metricsFor: (field) =>
+        lookupMetrics(metrics, field.font.families, field.font.weight, field.font.italic),
+      guestId: input.guestId,
+    })
+
+    if (!planIsReleasable(plan)) {
+      // The diagnostics name the guest, the value and the constraint, which is
+      // what turns "a card did not send" into something an operator can act on.
+      console.warn(
+        `[card-asset] guest name will not fit release=${input.designReleaseId} guest=${input.guestId}: ${plan.blockers
+          .map((issue) => issue.message)
+          .join(' ')}`,
+      )
+      return markFailed('GUEST_NAME_UNFITTABLE')
+    }
+
+    // Only the guest bindings are offered, exactly as renderCardForGuest does:
+    // the frozen file already carries every order-scope value, and re-applying
+    // them would re-read mutable form data into a card already sent.
+    rendered = renderPlanToSvg(frozenSvg, plan, guestBindings, { guest_name: guestName })
+  } else {
+    rendered = renderCardForGuest(frozenSvg, bindings, guestName)
+  }
   const appliedGuest = rendered.applied.filter((role) => role === 'guest_name').length
   // Exactly once. Zero means the layer was skipped, which renderCardForGuest
   // reports rather than throwing; more than once should be impossible and would
@@ -263,9 +342,7 @@ export async function prepareGuestCardAsset(
     return markFailed('GUEST_ROLE_UNMAPPED')
   }
 
-  // ── Fonts, read from the FROZEN svg rather than the source artwork ──
-  const required = readRequiredFonts(frozenSvg)
-  const library = await loadFontLibrary(supabase)
+  const required = readRequiredFonts(rendered.svg)
   const candidates = buildCandidates(required, library)
 
   const resolution = resolveRasterFonts(
@@ -557,6 +634,55 @@ type FontRow = {
   match_keys: string[]
   embeddable: boolean
   fs_type_no_embedding: boolean
+  /** Null for a face registered before metrics existed; that blocks layout. */
+  metrics: FontMetrics | null
+}
+
+/**
+ * The guest-name half of a frozen layout, or null.
+ *
+ * Everything except guest_name is already written into the frozen file, so the
+ * layout is narrowed to that one role before it is resolved. Offering the rest
+ * would let a plan re-place values the reviewer already approved.
+ *
+ * Returns null — meaning "use the in-place renderer" — for every release frozen
+ * before layouts existed, which is exactly what those releases were frozen with.
+ */
+function asGuestLayout(value: unknown): CardLayout | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const layout = value as Partial<CardLayout>
+  if (!layout.fields) return null
+
+  const fields = Object.fromEntries(
+    Object.entries(layout.fields).filter(([, field]) => field?.role === 'guest_name'),
+  )
+  if (Object.keys(fields).length === 0) return null
+
+  return {
+    version: layout.version ?? 1,
+    canvas: layout.canvas ?? null,
+    fields,
+    elements: [],
+    // Groups are dropped with them: a group re-stacks its members against each
+    // other, and the other members are frozen into the file where they are.
+    groups: [],
+    safeZones: layout.safeZones ?? [],
+    provenance: layout.provenance ?? null,
+  }
+}
+
+function toFaces(library: FontRow[]): CardFontFace[] {
+  return library.map((row) => ({
+    id: row.id,
+    familyName: row.family_name,
+    subfamilyName: row.subfamily_name,
+    postscriptName: row.postscript_name,
+    weightClass: row.weight_class,
+    isItalic: row.is_italic,
+    matchKeys: row.match_keys,
+    embeddable: row.embeddable,
+    restricted: row.fs_type_no_embedding,
+  }))
 }
 
 async function loadFontLibrary(
@@ -565,7 +691,7 @@ async function loadFontLibrary(
   const { data } = await supabase
     .from('card_fonts')
     .select(
-      'id, storage_path, format, family_name, subfamily_name, postscript_name, weight_class, is_italic, match_keys, embeddable, fs_type_no_embedding',
+      'id, storage_path, format, family_name, subfamily_name, postscript_name, weight_class, is_italic, match_keys, embeddable, fs_type_no_embedding, metrics',
     )
   return (data ?? []) as FontRow[]
 }
