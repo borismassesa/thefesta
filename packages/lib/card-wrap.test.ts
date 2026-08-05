@@ -89,6 +89,17 @@ test('breaks after a hyphen rather than inventing one', () => {
   assert.deepEqual(lines, ['Doe-', 'Mwakatobe'])
 })
 
+test('never inserts a space between two pieces of one hyphenated word', () => {
+  // Two pieces of a three-piece name can share a line even though the whole
+  // word could not, and the joiner in `greedy` would put a space between them.
+  // On an invitation that cannot be recalled, 'Jean- Baptiste-' is a misspelt
+  // guest, so the pieces carry a marker that suppresses it.
+  // 160 is inside the window that shows it: wide enough for 'Jean-Baptiste-'
+  // (150 at this size) to share a line, too narrow for the whole word (230).
+  const { lines } = wrap('Jean-Baptiste-Alexandre', 160)
+  assert.deepEqual(lines, ['Jean-Baptiste-', 'Alexandre'])
+})
+
 test('breaks an unbreakable word by grapheme, never mid-surrogate', () => {
   const { lines } = wrap('Mwakipesilembeya', 60, { breakMode: 'word-then-grapheme' })
   assert.ok(lines.length > 1)

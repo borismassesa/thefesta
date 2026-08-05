@@ -121,7 +121,18 @@ const WORD = /^(?:[^\s]|\u00A0)+/
 const BREAKING_WS = /^[^\S\u00A0]+/
 
 /** A token, and whether a line may end after it. */
-type Token = { text: string; breakAfter: boolean; forcedBreak: boolean }
+type Token = {
+  text: string
+  breakAfter: boolean
+  forcedBreak: boolean
+  /**
+   * This token is the continuation of the one before it, not a new word, so no
+   * space goes between them when both land on the same line. Set only by
+   * `splitOverlong`, which is the only thing that turns one word into several
+   * tokens. Optional because every other producer makes whole words.
+   */
+  joinsLeft?: boolean
+}
 
 /**
  * Split a value into the smallest units a line may end on.
@@ -218,7 +229,7 @@ function greedy(tokens: Token[], width: (value: string) => number, maxWidth: num
   let current = ''
 
   for (const token of tokens) {
-    const joiner = current && !current.endsWith(NBSP) ? ' ' : ''
+    const joiner = current && !current.endsWith(NBSP) && !token.joinsLeft ? ' ' : ''
     const candidate = current ? `${current}${joiner}${token.text}` : token.text
     if (!current || width(candidate) <= maxWidth) {
       current = candidate
@@ -298,8 +309,11 @@ function splitOverlong(
     pieces.forEach((piece, index) => {
       out.push({
         text: piece,
-        // Pieces of one word rejoin without a space, which `greedy` handles by
-        // treating them as separate tokens only when a break is needed.
+        // Pieces of one word must rejoin without a space when a line happens to
+        // hold two of them. `greedy` inserts a space between any two tokens
+        // otherwise, which on a three-piece name like 'Jean-Baptiste-Alexandre'
+        // would print 'Jean- Baptiste-' onto an invitation nobody can recall.
+        joinsLeft: index > 0,
         breakAfter: index === pieces.length - 1 ? token.breakAfter : false,
         forcedBreak: index === pieces.length - 1 ? token.forcedBreak : false,
       })
