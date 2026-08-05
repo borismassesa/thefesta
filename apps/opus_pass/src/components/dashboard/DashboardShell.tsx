@@ -12,7 +12,7 @@ import {
   Send,
   Globe,
   Armchair,
-  Receipt,
+  Package,
   Settings,
   Menu,
   ExternalLink,
@@ -23,8 +23,6 @@ import {
   ChevronUp,
   BookHeart,
   Gift,
-  Sparkles,
-  PenLine,
   type LucideIcon,
 } from 'lucide-react'
 import Logo from '@/components/ui/Logo'
@@ -54,7 +52,18 @@ type NavItem = {
   labelKey?: string
   label?: string
   external?: boolean
+  /** Extra routes this entry owns — sub-pages that live behind its tab bar
+   *  rather than in the sidebar, so the entry stays lit while you're on them. */
+  alsoActiveOn?: string[]
 }
+
+// Pages reachable through a tab bar rather than the sidebar. They still belong
+// in the search dropdown, so a couple can jump straight to one by name.
+const TAB_PAGES: { href: string; labelKey: string }[] = [
+  { href: '/my/dashboard/orders', labelKey: 'nav_orders' },
+  { href: '/my/dashboard/cards', labelKey: 'nav_cards' },
+  { href: '/my/dashboard/card-details', labelKey: 'nav_card_details' },
+]
 
 const NAV: NavItem[] = [
   { href: '/my/dashboard', labelKey: 'nav_overview', icon: LayoutDashboard },
@@ -62,14 +71,19 @@ const NAV: NavItem[] = [
   { href: '/my/dashboard/pledges', labelKey: 'nav_pledges', icon: HandCoins },
   { href: '/my/dashboard/guests', labelKey: 'nav_guests', icon: Users },
   { href: '/my/dashboard/invitations', labelKey: 'nav_invitations', icon: Send },
-  { href: '/my/dashboard/cards', labelKey: 'nav_cards', icon: Sparkles },
-  // Reachable at last: this existed only behind a WhatsApp token link.
-  { href: '/my/dashboard/card-details', labelKey: 'nav_card_details', icon: PenLine },
-  { href: '/my/dashboard/orders', labelKey: 'nav_orders', icon: Receipt },
-  { href: '/my/dashboard/website', labelKey: 'nav_website', icon: Globe },
+  // An order, the details our designers still need for it, and the finished
+  // cards it produced are one job, so they share a single entry. The tab bar
+  // inside (CardsTabs) switches between the three.
+  {
+    href: '/my/dashboard/orders',
+    labelKey: 'nav_my_orders',
+    icon: Package,
+    alsoActiveOn: ['/my/dashboard/cards', '/my/dashboard/card-details'],
+  },
   { href: '/my/dashboard/guestbook', labelKey: 'nav_guestbook', icon: BookHeart },
   { href: '/my/dashboard/gift-registry', label: 'Gift registry', icon: Gift },
   { href: '/my/dashboard/seating', labelKey: 'nav_seating', icon: Armchair },
+  { href: '/my/dashboard/website', labelKey: 'nav_website', icon: Globe },
 ]
 
 function NavLinks({
@@ -86,7 +100,12 @@ function NavLinks({
       {NAV.map((item) => {
         const { href, icon: Icon, external } = item
         const label = item.label ?? t(item.labelKey as string)
-        const active = !external && (href === '/my/dashboard' ? pathname === href : pathname.startsWith(href))
+        const owned = [href, ...(item.alsoActiveOn ?? [])]
+        const active =
+          !external &&
+          (href === '/my/dashboard'
+            ? pathname === href
+            : owned.some((p) => pathname.startsWith(p)))
         const className = cn(
           'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
           collapsed && 'justify-center px-0',
@@ -154,8 +173,15 @@ export default function DashboardShell({
   const isDesktop = useIsDesktop()
   const t = useT('dashboard-chrome')
 
-  // Resolved nav labels feed the search dropdown's "Pages" group.
-  const navPages = NAV.map((item) => ({ label: item.label ?? t(item.labelKey as string), href: item.href }))
+  // Resolved nav labels feed the search dropdown's "Pages" group. Tabbed
+  // sub-pages join them so they stay findable by name after leaving the sidebar.
+  const navPages = [
+    ...NAV.map((item) => ({ label: item.label ?? t(item.labelKey as string), href: item.href })),
+    ...TAB_PAGES.filter((item) => !NAV.some((n) => n.href === item.href)).map((item) => ({
+      label: t(item.labelKey),
+      href: item.href,
+    })),
+  ]
 
   function toggleCollapsed() {
     setCollapsed((prev) => {

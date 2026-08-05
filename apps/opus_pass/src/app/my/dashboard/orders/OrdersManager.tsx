@@ -6,7 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Receipt, Download, Check, Clock, Wallet, ArrowRight, Ticket, Search, LayoutGrid, List } from 'lucide-react'
 import { InvitationVisual } from '@/components/guests/InvitationVisual'
-import { getOrders, setLastOrder, type StoredOrder, type StoredOrderItem } from '@/lib/cart-storage'
+import { setLastOrder, type StoredOrder, type StoredOrderItem } from '@/lib/cart-storage'
 import { downloadInvoice } from '@/lib/invoice'
 import { ORDER_STAGES, currentStageIndex, stageTone, type OrderStatusTone } from '@/lib/order-status'
 import type { StatusResponse } from '@/lib/payments/types'
@@ -21,19 +21,6 @@ const fmt = (t: string, v: Record<string, string | number>) =>
 
 function formatTzs(n: number): string {
   return `TZS ${n.toLocaleString('en-US')}`
-}
-
-/** Combine the server's orders (authoritative — covers every device) with
- *  this browser's localStorage cache (may know about a just-submitted order
- *  a beat before the server snapshot picked it up). Same ref wins to the
- *  server copy, since its status is the current source of truth. */
-function mergeOrders(serverOrders: StoredOrder[], localOrders: StoredOrder[]): StoredOrder[] {
-  const byRef = new Map<string, StoredOrder>()
-  for (const o of localOrders) byRef.set(o.ref, o)
-  for (const o of serverOrders) byRef.set(o.ref, o)
-  return Array.from(byRef.values()).sort(
-    (a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime(),
-  )
 }
 
 function formatDate(iso: string): string {
@@ -145,6 +132,46 @@ function OrderTracker({ activeIndex }: { activeIndex: number }) {
           </Fragment>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * A top-up, listed under the purchase it belongs to.
+ *
+ * Deliberately not an OrderCard: a top-up has no design, no production stages
+ * and nothing to preview, so the full card would be mostly empty chrome and
+ * would read as a second card the couple does not have. One row carrying the
+ * quantity, the money and the payment state is the whole story.
+ */
+function TopUpRow({ order, standalone = false }: { order: StoredOrder; standalone?: boolean }) {
+  const cards = order.items.reduce((sum, i) => sum + (i.guests ?? 0), 0)
+  const cleared = order.paymentStatus === 'paid'
+  return (
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-black/[0.06] border-l-2 border-l-[#D7BDE8] bg-black/[0.015] px-4 py-3',
+        standalone ? '' : 'ml-4 sm:ml-8',
+      )}
+    >
+      <span className={cn(META_PILL, GREEN_PILL)}>
+        Top-up{standalone && order.parentRef ? ` · added to #${order.parentRef}` : ''}
+      </span>
+      <span className="text-sm font-semibold text-[#1A1A1A]">+{cards} digital cards</span>
+      <span className="text-xs text-[#1A1A1A]/50">#{order.ref}</span>
+      <span className="text-xs text-[#1A1A1A]/50">{formatDate(order.paidAt)}</span>
+      <span
+        className={cn(
+          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
+          cleared ? TONE_PILL.emerald : TONE_PILL.amber,
+        )}
+      >
+        {cleared ? <Check className="size-3" /> : <Clock className="size-3" />}
+        {cleared ? 'Added' : 'Verifying payment'}
+      </span>
+      <span className="ml-auto text-sm font-bold text-[#1A1A1A] tabular-nums">
+        {formatTzs(order.total)}
+      </span>
     </div>
   )
 }
@@ -393,7 +420,12 @@ function OrderTable({
                 onClick={() => onSelect(order)}
                 className="cursor-pointer border-t border-black/[0.05] hover:bg-black/[0.02]"
               >
-                <td className="whitespace-nowrap px-4 py-3 font-semibold text-[#1A1A1A]">#{order.ref}</td>
+                <td className="whitespace-nowrap px-4 py-3 font-semibold text-[#1A1A1A]">
+                  #{order.ref}
+                  {order.orderKind === 'topup' && (
+                    <span className={cn(META_PILL, GREEN_PILL, 'ml-2')}>Top-up</span>
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-[#1A1A1A]/60">{formatDate(order.paidAt)}</td>
                 <td className="max-w-[220px] truncate px-4 py-3 text-[#1A1A1A]/80">{names}</td>
                 <td className="px-4 py-3">
@@ -440,12 +472,12 @@ export default function OrdersManager({
   const router = useRouter()
   const [orders, setOrders] = useState<StoredOrder[]>(initialOrders)
 
-  // initialOrders is stable, deterministic server data — safe to render on
-  // first paint. This effect only enriches it with this browser's
-  // localStorage cache (e.g. an order just submitted here, a beat ahead of
-  // the server snapshot), so it never causes a hydration mismatch.
+  // Only orders that exist in the database are ever listed here. The browser's
+  // localStorage cart cache is deliberately NOT merged in: it survives sign-out
+  // and account switches, so it used to show other people's (or abandoned)
+  // checkouts as if they were this couple's real purchases.
   useEffect(() => {
-    setOrders(mergeOrders(initialOrders, getOrders()))
+    setOrders(initialOrders)
   }, [initialOrders])
 
   // Orders are fetched server-side (the real source of truth, including any
@@ -524,6 +556,36 @@ export default function OrdersManager({
     })
   }, [orders, query, statusFilter])
 
+  /**
+   * Top-ups sit under the purchase they were added to, not in their own place
+   * in the date order.
+   *
+   * A top-up bought no card — it added capacity to one that already exists — so
+   * listing it as a peer of real purchases makes the couple look like they own
+   * more designs than they do. A top-up whose parent is filtered out (or is
+   * older than the list's window) falls back to standing on its own rather than
+   * disappearing.
+   */
+  const grouped = useMemo(() => {
+    const purchases = filtered.filter((o) => o.orderKind !== 'topup')
+    const byParent = new Map<string, StoredOrder[]>()
+    const orphans: StoredOrder[] = []
+    const purchaseRefs = new Set(purchases.map((p) => p.ref))
+
+    for (const o of filtered) {
+      if (o.orderKind !== 'topup') continue
+      if (o.parentRef && purchaseRefs.has(o.parentRef)) {
+        byParent.set(o.parentRef, [...(byParent.get(o.parentRef) ?? []), o])
+      } else {
+        orphans.push(o)
+      }
+    }
+    return [
+      ...purchases.map((order) => ({ order, topups: byParent.get(order.ref) ?? [] })),
+      ...orphans.map((order) => ({ order, topups: [] as StoredOrder[] })),
+    ]
+  }, [filtered])
+
   const kpis = [
     {
       label: 'Total spent',
@@ -550,13 +612,6 @@ export default function OrdersManager({
 
   return (
     <div className="space-y-8">
-      <header className="dash-header-safe border-b border-black/[0.06] pb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-[#1A1A1A] sm:text-3xl">
-          {strings.header_title}
-        </h1>
-        <p className="mt-2 text-sm text-[#1A1A1A]/65 sm:text-base">{strings.header_subtitle}</p>
-      </header>
-
       {orders.length === 0 ? (
         <EmptyState
           icon={<Receipt className="h-7 w-7" />}
@@ -657,9 +712,22 @@ export default function OrdersManager({
             <OrderTable orders={filtered} strings={strings} onSelect={setSelectedOrder} />
           ) : (
             <div className="space-y-4">
-              {filtered.map((order) => (
-                <OrderCard key={order.ref} order={order} strings={strings} />
-              ))}
+              {grouped.map(({ order, topups }) =>
+                // A top-up commissions no design work, so it must never render as
+                // an OrderCard: that card carries the production timeline and the
+                // "ready within 48-72 hours" promise, neither of which is true of
+                // capacity added to a card that was finished weeks ago.
+                order.orderKind === 'topup' ? (
+                  <TopUpRow key={order.ref} order={order} standalone />
+                ) : (
+                  <div key={order.ref} className="space-y-2">
+                    <OrderCard order={order} strings={strings} />
+                    {topups.map((t) => (
+                      <TopUpRow key={t.ref} order={t} />
+                    ))}
+                  </div>
+                ),
+              )}
             </div>
           )}
         </>

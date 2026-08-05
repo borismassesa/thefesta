@@ -18,7 +18,7 @@ export default function PublicShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-[#FDFDFD]">
       <header className="border-b border-gray-100 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10">
           <Link href="/" aria-label="OpusPass home">
             <Logo />
           </Link>
@@ -29,7 +29,7 @@ export default function PublicShell({ children }: { children: ReactNode }) {
       <main className="flex-1">{children}</main>
 
       <footer className="border-t border-gray-100 bg-white">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-5">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-5 sm:px-6 lg:px-10">
           <p className="text-xs text-gray-500">
             Digital cards, guest lists and RSVPs for Tanzanian celebrations.
           </p>

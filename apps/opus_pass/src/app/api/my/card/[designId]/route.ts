@@ -24,8 +24,9 @@ function filenameFor(cardName: string, orderRef: string): string {
 async function serve(
   designId: string,
   disposition: 'inline' | 'attachment',
+  releaseId?: string | null,
 ): Promise<NextResponse> {
-  const file = await getReleasedCardFile(designId)
+  const file = await getReleasedCardFile(designId, releaseId)
   // One response for "not yours" and "does not exist": distinguishing them
   // would confirm to a stranger that a given design id is real.
   if (!file) return new NextResponse('Not found', { status: 404 })
@@ -42,18 +43,26 @@ async function serve(
   return new NextResponse(file.svg, { headers })
 }
 
+// `?release=<id>` asks for one specific version instead of the current one, so
+// the version list on the card's page can be looked through. The id is checked
+// against this design before anything is served; without the param the response
+// is byte-identical to what it always was.
+function releaseParam(request: Request): string | null {
+  return new URL(request.url).searchParams.get('release')
+}
+
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ designId: string }> },
 ) {
   const { designId } = await params
-  return serve(designId, 'inline')
+  return serve(designId, 'inline', releaseParam(request))
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ designId: string }> },
 ) {
   const { designId } = await params
-  return serve(designId, 'attachment')
+  return serve(designId, 'attachment', releaseParam(request))
 }

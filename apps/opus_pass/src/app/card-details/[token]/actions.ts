@@ -10,9 +10,9 @@ import { submitCardDetailsByToken } from '@/lib/dashboard/card-details'
  */
 export async function saveByToken(
   token: string,
-  _designId: string,
+  _target: { orderId: string; lineIndex: number },
   answers: Record<string, string>,
-): Promise<{ ok: true; remaining: number } | { ok: false; error: string }> {
+): Promise<{ ok: true; filled: number } | { ok: false; error: string }> {
   const result = await submitCardDetailsByToken(token, answers)
   if (result.ok) revalidatePath(`/card-details/${token}`)
   return result
