@@ -1147,6 +1147,60 @@ export interface DashboardSendStrings {
   test_send: string
   test_sent: string
   test_failed: string
+  // Per-guest review drawer (Preview & Send)
+  review_title_invite: string
+  review_title_pass: string
+  review_sending_to: string
+  review_channel_whatsapp: string
+  review_shared_number: string // {names}
+  review_edit_guest: string
+  review_card_legend: string
+  review_pass_legend: string
+  review_preparing: string // {name}
+  review_card_missing: string
+  review_open_full: string
+  review_fact_guest: string
+  review_fact_ticket: string
+  review_fact_passid: string
+  review_message_legend: string
+  review_approved_tag: string
+  review_checks_ready: string
+  review_checks_blocked: string
+  review_check_phone: string
+  review_check_card: string
+  review_check_settings: string
+  review_check_credit: string
+  review_check_live: string
+  review_check_attending: string
+  review_check_pass: string
+  review_fix_edit_guest: string
+  review_fix_open_cards: string
+  review_fix_settings: string
+  review_credit_one: string
+  review_credit_free: string
+  review_send_invite: string
+  review_send_pass: string
+  review_send_test: string
+  review_sending: string
+  review_dryrun: string
+  review_sent_invite: string
+  review_sent_pass: string
+  review_sent_to: string // {phone}
+  review_sent_at: string // {time}
+  review_done: string
+  review_error_title_invite: string
+  review_error_title_pass: string
+  review_error_quota: string
+  review_error_skipped: string
+  review_error_failed: string
+  review_topup: string
+  row_preview_send: string
+  row_preview_send_pass: string
+  row_preview: string
+  row_resend_menu: string
+  row_resend_now: string
+  row_resend_preview: string
+  row_copy_link: string
   // Bulk-send confirm dialog
   confirm_title: string
   confirm_entrance_title: string
@@ -2286,6 +2340,59 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     test_send: 'Send test',
     test_sent: 'Test sent. Check your WhatsApp.',
     test_failed: 'Test could not be sent',
+    review_title_invite: 'Review invitation',
+    review_title_pass: 'Review entrance pass',
+    review_sending_to: 'Sending to',
+    review_channel_whatsapp: 'WhatsApp',
+    review_shared_number: 'This number is also used by {names}',
+    review_edit_guest: 'Guest details incorrect? Edit guest',
+    review_card_legend: 'Invitation card',
+    review_pass_legend: 'Entrance pass',
+    review_preparing: 'Preparing {name}',
+    review_card_missing: 'No released invitation card yet',
+    review_open_full: 'Open full preview',
+    review_fact_guest: 'Guest',
+    review_fact_ticket: 'Ticket',
+    review_fact_passid: 'Pass ID',
+    review_message_legend: 'WhatsApp message',
+    review_approved_tag: 'Approved template',
+    review_checks_ready: 'Ready to send',
+    review_checks_blocked: 'Cannot send yet',
+    review_check_phone: 'Phone number available',
+    review_check_card: 'Invitation card released',
+    review_check_settings: 'Sending settings confirmed',
+    review_check_credit: 'Invitation credit available',
+    review_check_live: 'WhatsApp sending is live',
+    review_check_attending: 'Guest has confirmed attending',
+    review_check_pass: 'Entrance pass generated',
+    review_fix_edit_guest: 'Edit guest',
+    review_fix_open_cards: 'Open card details',
+    review_fix_settings: 'Review settings',
+    review_credit_one: '1 invitation credit will be used',
+    review_credit_free: 'Re-send. No invitation credit is used.',
+    review_send_invite: 'Send invitation',
+    review_send_pass: 'Send entrance pass',
+    review_send_test: 'Run test send',
+    review_sending: 'Sending...',
+    review_dryrun: 'Test mode. No WhatsApp message will be delivered.',
+    review_sent_invite: 'Invitation sent',
+    review_sent_pass: 'Entrance pass sent',
+    review_sent_to: 'Sent to {phone}',
+    review_sent_at: 'Today at {time}',
+    review_done: 'Done',
+    review_error_title_invite: 'Invitation not sent',
+    review_error_title_pass: 'Entrance pass not sent',
+    review_error_quota: 'Your invitation allowance changed while you were reviewing. Top up to continue.',
+    review_error_skipped: 'This guest could not be sent to.',
+    review_error_failed: 'WhatsApp did not accept the message. Try again in a moment.',
+    review_topup: 'Top up invitations',
+    row_preview_send: 'Preview & Send',
+    row_preview_send_pass: 'Preview & Send Pass',
+    row_preview: 'Preview',
+    row_resend_menu: 'Resend',
+    row_resend_now: 'Resend now',
+    row_resend_preview: 'Preview before resending',
+    row_copy_link: 'Copy invitation link',
     confirm_title: 'Ready to send?',
     confirm_entrance_title: 'Send entrance passes?',
     confirm_recipients: '{n} guests will receive your invitation card on WhatsApp.',

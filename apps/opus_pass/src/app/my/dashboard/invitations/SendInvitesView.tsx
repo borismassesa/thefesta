@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { useBodyLock } from '@/hooks/useBodyLock'
 import { InvitationVisual } from '@/components/guests/InvitationVisual'
 import TopUpDrawer from './TopUpDrawer'
+import ReviewSendDrawer, { type ReviewCheck } from './ReviewSendDrawer'
 import {
   MessageCircle,
   Smartphone,
@@ -40,6 +41,7 @@ import {
   MapPin,
   Users,
   AlertTriangle,
+  ChevronDown,
 } from 'lucide-react'
 import {
   enableInviteSharing,
@@ -276,6 +278,19 @@ export default function SendInvitesView({
   // messages to real guests, not a cosmetic glitch.
   const sendBusyRef = useRef(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  // The per-guest review drawer. A single send used to fire straight at Meta
+  // from the row button, which made an accidental click unrecoverable — this
+  // is the confidence checkpoint that click now goes through.
+  const [review, setReview] = useState<{ guest: SendGuestRow; mode: 'invite' | 'pass' } | null>(null)
+  const [resendMenuId, setResendMenuId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!resendMenuId) return
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('[data-resend-menu]')) setResendMenuId(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [resendMenuId])
   const [testPhone, setTestPhone] = useState(data.testPhone ?? '')
   const [testSending, setTestSending] = useState(false)
   const [phoneEdit, setPhoneEdit] = useState<{ id: string; value: string } | null>(null)
@@ -305,7 +320,7 @@ export default function SendInvitesView({
   const [topUpOpen, setTopUpOpen] = useState(false)
   // Any full-screen overlay open — freeze the page behind it so scrolling
   // over the (fixed-position) dim backdrop doesn't also scroll the page.
-  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress || topUpOpen))
+  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress || topUpOpen || review))
   // The selected event owns partner names, category and location. The preview
   // chooses a REAL guest so its message and image can never drift apart.
   const hostName = data.sendSettings.hostName
@@ -672,13 +687,21 @@ export default function SendInvitesView({
   // image route 404s for anyone not yet confirmed attending, so this must
   // be an actual guest, not a made-up sample name.
   const entrancePreviewGuest = guests.find((g) => g.status === 'attending') ?? null
-  const entrancePreviewBody = ENTRANCE_PASS_TEMPLATE.body
-    .replace('{{1}}', entrancePreviewGuest ? fullNameOf(entrancePreviewGuest.name) : 'Amina')
-    .replace('{{2}}', event.eventCategorySw)
-    .replace('{{3}}', event.entranceCoupleName)
-    .replace('{{4}}', event.entranceDateLabel)
-    .replace('{{5}}', event.entranceTimeLabel)
-    .replace('{{6}}', event.entranceVenue)
+
+  /** The entrance-pass template body for one guest, interpolated exactly as
+   *  sendEntrancePasses does. {{1}} is formatInviteGuestName, NOT fullNameOf:
+   *  the real send keeps the guest's title, so stripping it here would show
+   *  the couple a name their guest never receives. */
+  const entrancePassBodyFor = (name: string | null) =>
+    ENTRANCE_PASS_TEMPLATE.body
+      .replace('{{1}}', formatInviteGuestName(name, 'Amina'))
+      .replace('{{2}}', event.eventCategorySw)
+      .replace('{{3}}', event.entranceCoupleName)
+      .replace('{{4}}', event.entranceDateLabel)
+      .replace('{{5}}', event.entranceTimeLabel)
+      .replace('{{6}}', event.entranceVenue)
+
+  const entrancePreviewBody = entrancePassBodyFor(entrancePreviewGuest?.name ?? null)
 
   /** Switch which event this page is scoped to — a fresh server fetch of the
    *  design/quota/guest-statuses for that event (not client-side filtering,
@@ -1152,34 +1175,85 @@ export default function SendInvitesView({
     return g.channel
   }
 
-  /** Per-row send on the Pass Ticket tab — the guest's entrance-pass ticket,
-   *  NOT the invite template the same button position sends on invite tabs. */
-  function sendPassRow(g: SendGuestRow) {
-    const first = firstNameOf(g.name)
-    setSendingRow(g.id)
-    startTransition(async () => {
-      try {
-        const res = await sendEntrancePasses([g.id], eventId)
-        if (res.sent > 0) setEntranceSentIds((prev) => new Set(prev).add(g.id))
-        if (res.sent > 0 && res.dryRun) toast.success(`1 ${strings.send_verb_dryrun}`)
-        else if (res.sent > 0) toast.success(fmt(strings.toast_pass_sent, { name: first }))
-        else if (res.blocked > 0) toast.error(fmt(strings.send_over_quota, { n: res.blocked }))
-        else if (res.skipped > 0) toast.error(fmt(strings.send_no_phone, { n: res.skipped }))
-        else {
-          const detail = res.results[0]?.error
-          toast.error(
-            detail
-              ? `${fmt(strings.toast_send_failed, { name: first })} (${detail})`
-              : fmt(strings.toast_send_failed, { name: first }),
-          )
-        }
-        router.refresh()
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : fmt(strings.toast_send_failed, { name: first }))
-      } finally {
-        setSendingRow(null)
-      }
-    })
+  /** Seats this guest's ticket covers, in the sold ticket's own language. */
+  function partyLabelFor(g: SendGuestRow, mode: 'invite' | 'pass'): string | null {
+    // Party size is clamped 1..2 on write, and the rest of this console reads
+    // it the same way — anything above one is the Double ticket.
+    const seats = mode === 'pass' ? (g.rsvpPartySize ?? g.assignedPartySize) : g.assignedPartySize
+    if (!seats) return null
+    return seats >= 2 ? strings.party_double : strings.party_single
+  }
+
+  /**
+   * What has to be true before this guest's message can go out.
+   *
+   * Every blocking failure carries the way to fix it — a bare "something is
+   * missing" leaves the couple stuck on a screen whose only other button is
+   * Cancel. The checks mirror the gates the server enforces anyway; they exist
+   * to say WHICH gate will stop the send, before it is attempted.
+   */
+  function reviewChecksFor(g: SendGuestRow, mode: 'invite' | 'pass'): ReviewCheck[] {
+    const closeThen = (fn: () => void) => () => { setReview(null); fn() }
+    const editGuest = {
+      label: strings.review_fix_edit_guest,
+      onClick: closeThen(() =>
+        setRowEdit({ id: g.id, name: g.name, phone: g.phone ?? g.whatsappPhone ?? '', askDelete: false }),
+      ),
+    }
+    const live: ReviewCheck = {
+      key: 'live',
+      label: strings.review_check_live,
+      ok: whatsappLive,
+      blocking: false,
+    }
+
+    if (mode === 'pass') {
+      return [
+        { key: 'phone', label: strings.review_check_phone, ok: hasPhone(g) && effectiveChannel(g) === 'whatsapp', blocking: true, fix: editGuest },
+        { key: 'attending', label: strings.review_check_attending, ok: g.status === 'attending', blocking: true },
+        { key: 'pass', label: strings.review_check_pass, ok: Boolean(g.entrancePassUrl), blocking: true },
+        {
+          key: 'credit',
+          label: strings.review_check_credit,
+          // Re-sending a ticket the guest already has is free; only a first
+          // ticket draws on the entrance pool.
+          ok: ticketSent(g) || entranceQuota.remaining > 0,
+          blocking: true,
+          fix: { label: strings.review_topup, onClick: closeThen(() => setTopUpOpen(true)) },
+        },
+        live,
+      ]
+    }
+
+    return [
+      { key: 'phone', label: strings.review_check_phone, ok: hasPhone(g), blocking: true, fix: editGuest },
+      {
+        key: 'card',
+        label: strings.review_check_card,
+        ok: Boolean(event.releasedCardPreviewUrl),
+        blocking: true,
+        fix: { label: strings.review_fix_open_cards, href: '/my/dashboard/card-details' },
+      },
+      {
+        key: 'settings',
+        label: strings.review_check_settings,
+        ok: data.sendSettings.confirmed && settingsValid,
+        blocking: true,
+        fix: {
+          label: strings.review_fix_settings,
+          onClick: closeThen(() => { setSendTab('cards'); setEditingSettings(true) }),
+        },
+      },
+      {
+        key: 'credit',
+        label: strings.review_check_credit,
+        // A re-send to an already-invited guest costs nothing.
+        ok: g.status !== 'none' || quota.remaining > 0,
+        blocking: true,
+        fix: { label: strings.review_topup, onClick: closeThen(() => setTopUpOpen(true)) },
+      },
+      live,
+    ]
   }
 
   function rowShare(g: SendGuestRow, channel: 'whatsapp' | 'sms' | 'copy') {
@@ -2644,13 +2718,13 @@ export default function SendInvitesView({
                             <button
                               className="ia send pass"
                               disabled={pending || !hasPhone(g) || passUnavailable}
-                              title={passUnavailable ? strings.entrance_needs_whatsapp : strings.row_send_pass}
+                              title={passUnavailable ? strings.entrance_needs_whatsapp : strings.row_preview_send_pass}
                               onClick={() => {
                                 if (passUnavailable) {
                                   toast.error(strings.entrance_needs_whatsapp)
                                   return
                                 }
-                                sendPassRow(g)
+                                setReview({ guest: g, mode: 'pass' })
                               }}
                             >
                               {sendingRow === g.id ? (
@@ -2658,26 +2732,103 @@ export default function SendInvitesView({
                               ) : (
                                 <Ticket size={14} />
                               )}
-                              {strings.row_send_pass}
+                              {strings.row_preview_send_pass}
                             </button>
                           )
-                        })() : (
-                          <button
-                            className="ia send"
-                            disabled={pending || !hasPhone(g)}
-                            title={effectiveChannel(g) === 'whatsapp' ? strings.row_whatsapp : strings.row_sms}
-                            onClick={() => rowShare(g, effectiveChannel(g))}
-                          >
-                            {sendingRow === g.id ? (
-                              <Loader2 size={14} className="spin" />
-                            ) : g.status === 'none' ? (
-                              <Send size={13} />
-                            ) : (
-                              <RotateCcw size={13} />
-                            )}
-                            {g.status === 'none' ? strings.row_send : strings.row_resend}
-                          </button>
-                        )}
+                        })() : (() => {
+                          // The review drawer reviews the APPROVED WhatsApp
+                          // template. SMS and the dry-run path don't send
+                          // anything on click — they open a compose window the
+                          // couple reads before hitting send — so they keep the
+                          // direct action rather than gaining a second step.
+                          const reviewable = effectiveChannel(g) === 'whatsapp' && whatsappLive
+                          if (!reviewable) {
+                            return (
+                              <button
+                                className="ia send"
+                                disabled={pending || !hasPhone(g)}
+                                title={effectiveChannel(g) === 'whatsapp' ? strings.row_whatsapp : strings.row_sms}
+                                onClick={() => rowShare(g, effectiveChannel(g))}
+                              >
+                                {sendingRow === g.id ? (
+                                  <Loader2 size={14} className="spin" />
+                                ) : g.status === 'none' ? (
+                                  <Send size={13} />
+                                ) : (
+                                  <RotateCcw size={13} />
+                                )}
+                                {g.status === 'none' ? strings.row_send : strings.row_resend}
+                              </button>
+                            )
+                          }
+                          if (g.status === 'none') {
+                            return (
+                              <button
+                                className="ia send"
+                                disabled={pending || !hasPhone(g)}
+                                title={strings.row_preview_send}
+                                onClick={() => setReview({ guest: g, mode: 'invite' })}
+                              >
+                                <Eye size={13} /> {strings.row_preview_send}
+                              </button>
+                            )
+                          }
+                          // Already invited. A duplicate WhatsApp message to a
+                          // real guest is worse than one extra click, so the
+                          // immediate re-send lives inside the menu and review
+                          // keeps the plain button.
+                          return (
+                            <>
+                              <button
+                                className="ia"
+                                disabled={pending}
+                                title={strings.row_preview}
+                                onClick={() => setReview({ guest: g, mode: 'invite' })}
+                              >
+                                <Eye size={13} /> {strings.row_preview}
+                              </button>
+                              <div className="rsmenu" data-resend-menu>
+                                <button
+                                  className="ia"
+                                  disabled={pending || !hasPhone(g)}
+                                  aria-haspopup="menu"
+                                  aria-expanded={resendMenuId === g.id}
+                                  title={strings.row_resend_menu}
+                                  onClick={() => setResendMenuId(resendMenuId === g.id ? null : g.id)}
+                                >
+                                  {sendingRow === g.id ? (
+                                    <Loader2 size={14} className="spin" />
+                                  ) : (
+                                    <RotateCcw size={13} />
+                                  )}
+                                  {strings.row_resend_menu} <ChevronDown size={13} />
+                                </button>
+                                {resendMenuId === g.id ? (
+                                  <div className="rsmenupop" role="menu">
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => { setResendMenuId(null); rowShare(g, 'whatsapp') }}
+                                    >
+                                      <Send size={13} /> {strings.row_resend_now}
+                                    </button>
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => { setResendMenuId(null); setReview({ guest: g, mode: 'invite' }) }}
+                                    >
+                                      <Eye size={13} /> {strings.row_resend_preview}
+                                    </button>
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => { setResendMenuId(null); rowShare(g, 'copy') }}
+                                    >
+                                      <Copy size={13} /> {strings.row_copy_link}
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </>
+                          )
+                        })()}
                         <button className="ia" disabled={pending} title={strings.row_copy} onClick={() => rowShare(g, 'copy')}><Copy size={15} /></button>
                         <button
                           className="ia"
@@ -2977,6 +3128,74 @@ export default function SendInvitesView({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {/* Per-guest review before sending. Mounted only while open so each
+          opening prepares a fresh, guest-specific preview — a card prepared
+          for whoever was reviewed last must never be what gets approved.
+          Keyed by guest so switching rows remounts rather than reusing state. */}
+      {review && eventId ? (
+        <ReviewSendDrawer
+          key={`${review.mode}:${review.guest.id}`}
+          mode={review.mode}
+          guest={review.guest}
+          eventId={eventId}
+          phone={review.guest.whatsappPhone ?? review.guest.phone ?? ''}
+          partyLabel={partyLabelFor(review.guest, review.mode)}
+          message={
+            review.mode === 'pass'
+              ? {
+                  body: entrancePassBodyFor(review.guest.name),
+                  footer: ENTRANCE_PASS_TEMPLATE.footer,
+                  buttons: [],
+                }
+              : {
+                  body: INVITE_TEMPLATE.body
+                    .replace('{{1}}', formatInviteGuestName(review.guest.name, 'Amina'))
+                    .replace('{{2}}', hostName.trim() || event.coupleName)
+                    .replace('{{3}}', eventCat.trim() || event.eventCategorySw),
+                  footer: INVITE_TEMPLATE.footer,
+                  buttons: INVITE_TEMPLATE.buttons.map((b) => b.label),
+                }
+          }
+          artwork={
+            review.mode === 'pass'
+              ? { kind: 'static', url: review.guest.entrancePassUrl }
+              : { kind: 'prepare' }
+          }
+          checks={reviewChecksFor(review.guest, review.mode)}
+          creditNote={
+            review.mode === 'pass'
+              ? null
+              : review.guest.status === 'none'
+                ? strings.review_credit_one
+                : strings.review_credit_free
+          }
+          dryRun={!whatsappLive}
+          strings={strings}
+          onSend={() =>
+            review.mode === 'pass'
+              ? sendEntrancePasses([review.guest.id], eventId)
+              : sendWhatsAppInvites([review.guest.id], eventId)
+          }
+          onSent={() => {
+            if (review.mode === 'pass') setEntranceSentIds((prev) => new Set(prev).add(review.guest.id))
+            // Soft refresh: the row reconciles with the server's own ledger
+            // without a page reload.
+            router.refresh()
+          }}
+          onEditGuest={() => {
+            setReview(null)
+            setRowEdit({
+              id: review.guest.id,
+              name: review.guest.name,
+              phone: review.guest.phone ?? review.guest.whatsappPhone ?? '',
+              askDelete: false,
+            })
+          }}
+          onTopUp={() => { setReview(null); setTopUpOpen(true) }}
+          onClose={() => setReview(null)}
+        />
       ) : null}
 
       {/* Add-more-invitations drawer. Mounted only while open so its candidate
@@ -3376,6 +3595,17 @@ const css = `
 .si .ia.send.pass:hover{ filter:brightness(1.06); background:var(--wa); }
 .si .ia.danger{ color:var(--bad-tx); }
 .si .ia.danger:hover{ border-color:var(--bad-tx); background:var(--bad-bg); }
+/* Resend menu on an already-invited row. Deliberately NOT the filled green
+   send button: an accidental duplicate message costs a real guest's trust,
+   so the immediate action sits one click inside a neutral menu. */
+.si .rsmenu{ position:relative; }
+.si .rsmenupop{ position:absolute; right:0; top:calc(100% + 6px); z-index:20; min-width:210px;
+  background:#fff; border:1px solid var(--line); border-radius:12px; padding:5px;
+  box-shadow:0 10px 28px rgba(20,18,30,.14); display:flex; flex-direction:column; }
+.si .rsmenupop button{ display:flex; align-items:center; gap:9px; width:100%; border:none; background:none;
+  padding:9px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--ink);
+  cursor:pointer; text-align:left; }
+.si .rsmenupop button:hover{ background:var(--hover); }
 .si .einp{ width:100%; max-width:220px; border:1px solid var(--lav); border-radius:8px; padding:6px 9px; font-size:13px; background:#fff; }
 .si .einp:focus{ outline:none; border-color:var(--purple); }
 .si .ck{ width:15px; height:15px; accent-color:var(--purple); }
