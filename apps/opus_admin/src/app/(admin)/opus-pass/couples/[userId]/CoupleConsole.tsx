@@ -547,7 +547,7 @@ function OrdersTab({
             Invitation Payments
           </Link>
           <Link href="/finance/orders" className="text-[#7E5896] hover:text-[#5d3a78]">
-            Order Fulfilment
+            Orders &amp; Fulfilment
           </Link>
         </div>
       </Card>

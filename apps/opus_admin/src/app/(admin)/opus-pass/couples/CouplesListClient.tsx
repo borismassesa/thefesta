@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Download, Search, Store, Users } from 'lucide-react'
+import { Download, Search, Users } from 'lucide-react'
 import type { CoupleAccountRow } from './queries'
 import { toDateInputValue, type CoupleEditable } from './editable'
 import { CoupleRowActions, DeleteDormantButton, NewCoupleButton } from './CoupleAccountControls'
@@ -82,7 +82,6 @@ const CSV_COLUMNS: { header: string; get: (c: CoupleAccountRow) => string | numb
   { header: 'Lifetime spend TZS', get: (c) => c.lifetimeSpendTzs },
   { header: 'Pledges', get: (c) => c.pledgeCount },
   { header: 'Last activity', get: (c) => c.lastActivityAt },
-  { header: 'Also a vendor', get: (c) => c.vendorStorefronts.map((v) => v.businessName).join('; ') },
 ]
 
 /** Built from rows already in the browser, so there is no export endpoint to
@@ -263,23 +262,6 @@ export default function CouplesListClient({
                         {couple.clerkLinked ? '' : ' · no sign-in'}
                       </span>
                     </Link>
-                    {/* Same login, two workspaces. Shown rather than hidden so
-                        staff know before they act on the account: deleting the
-                        login would take the storefront with it. */}
-                    {couple.vendorStorefronts.length > 0 ? (
-                      <Link
-                        href="/operations/vendors"
-                        className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-[#9FE870] px-2 py-0.5 text-[11px] font-semibold text-[#14532D] transition hover:bg-[#8FD95F]"
-                        title={`Also a vendor: ${couple.vendorStorefronts.map((v) => v.businessName).join(', ')}`}
-                      >
-                        <Store className="h-3 w-3 shrink-0" />
-                        <span className="truncate">
-                          {couple.vendorStorefronts.length === 1
-                            ? couple.vendorStorefronts[0].businessName
-                            : `${couple.vendorStorefronts.length} storefronts`}
-                        </span>
-                      </Link>
-                    ) : null}
                   </td>
                   <td className="px-3 py-3">
                     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_CLASS[couple.status]}`}>

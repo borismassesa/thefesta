@@ -57,11 +57,14 @@ export interface CoupleAccountRow {
   guestbookCount: number
   lastActivityAt: string | null
   status: CoupleAccountStatus
-  /** Vendor storefronts owned by this same login. One person may be both a
-   *  couple and a vendor — they are separate workspaces on one identity — so
-   *  this is surfaced deliberately rather than left invisible. */
-  vendorStorefronts: { id: string; businessName: string }[]
 }
+
+// NO VENDOR FIELDS ON THIS ROW, deliberately. One person may be both a couple
+// and a vendor, but this is the couple surface: it carries what they built on
+// the wedding side and nothing about their business. Storefronts are read here
+// only to decide who belongs on the list (below), and are named in exactly one
+// other place — the delete dialog, which has to say what it is about to destroy.
+// Vendor data belongs to Operations, Vendors.
 
 type UserRow = {
   id: string
@@ -272,7 +275,6 @@ export async function getCoupleAccounts(): Promise<CoupleAccountRow[]> {
       guestbookCount: s.guestbook_count,
       lastActivityAt: s.last_activity_at,
       status: s.paid_order_count > 0 ? 'paying' : hasActivity ? 'active' : 'dormant',
-      vendorStorefronts: vendorsByUser.get(user.id) ?? [],
     }
   })
 }
@@ -316,6 +318,11 @@ export interface UnlinkedOrder {
   /** The account whose email matches, if any — the link action's target. */
   matchedUserId: string | null
   matchedCoupleName: string | null
+  /** Set once staff confirmed it will never be attached. Dismissed orders are
+   *  excluded from the banner by default and only fetched on request. */
+  dismissedAt: string | null
+  dismissedBy: string | null
+  dismissedReason: string | null
 }
 
 type OrphanOrderRow = {
@@ -327,6 +334,9 @@ type OrphanOrderRow = {
   amount_total: number | string | null
   currency: string | null
   created_at: string
+  unattributed_dismissed_at: string | null
+  unattributed_dismissed_by: string | null
+  unattributed_dismissed_reason: string | null
 }
 
 /**
@@ -342,18 +352,30 @@ type OrphanOrderRow = {
  * wedding, say) is still the right link target, and attaching the order is what
  * creates their workspace: `invitation_orders` carries an AFTER UPDATE OF
  * user_id trigger for exactly this path (migration 20260730030000).
+ *
+ * Attaching is not the only exit. Some of these will never belong to an
+ * account — a guest who never signed up, a duplicate, an order left behind by
+ * a deleted couple — and staff dismiss those (migration 20260804190000). A
+ * dismissed order is hidden here, not deleted: it keeps its status and stays in
+ * every revenue total, because these are settled payments that reconcile
+ * against Selcom. Pass `includeDismissed` to get them back for review.
  */
-export async function getUnlinkedOrders(): Promise<UnlinkedOrder[]> {
+export async function getUnlinkedOrders(includeDismissed = false): Promise<UnlinkedOrder[]> {
   const supabase = createSupabaseAdminClient()
 
   const [{ data: orders, error: ordersErr }, { data: users, error: usersErr }, { data: profiles, error: profilesErr }] =
     await Promise.all([
-      supabase
-        .from('invitation_orders')
-        .select('id, ref, status, contact_name, contact_email, amount_total, currency, created_at')
-        .is('user_id', null)
-        .order('created_at', { ascending: false })
-        .returns<OrphanOrderRow[]>(),
+      (() => {
+        const q = supabase
+          .from('invitation_orders')
+          .select(
+            'id, ref, status, contact_name, contact_email, amount_total, currency, created_at, unattributed_dismissed_at, unattributed_dismissed_by, unattributed_dismissed_reason',
+          )
+          .is('user_id', null)
+        return (includeDismissed ? q : q.is('unattributed_dismissed_at', null))
+          .order('created_at', { ascending: false })
+          .returns<OrphanOrderRow[]>()
+      })(),
       supabase.from('users').select('id, name, email').returns<Pick<UserRow, 'id' | 'name' | 'email'>[]>(),
       supabase.from('couple_profiles').select('user_id, partner1_name, partner2_name').returns<ProfileRow[]>(),
     ])
@@ -388,6 +410,9 @@ export async function getUnlinkedOrders(): Promise<UnlinkedOrder[]> {
       createdAt: order.created_at,
       matchedUserId: match?.id ?? null,
       matchedCoupleName: matchedName,
+      dismissedAt: order.unattributed_dismissed_at,
+      dismissedBy: order.unattributed_dismissed_by,
+      dismissedReason: order.unattributed_dismissed_reason,
     }
   })
 }

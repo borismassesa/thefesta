@@ -10,7 +10,8 @@ import {
   platformClerkSecret,
 } from '@/lib/platform-clerk'
 import { COUPLE_STAFF_TOKEN_TTL_MINUTES, signCoupleStaffToken } from '@/lib/couple-staff-session'
-import { isCoupleSideLogin } from './queries'
+import { listVendorsOwnedBy, purgeVendorRecord } from '@/lib/vendor-teardown'
+import { getUnlinkedOrders, isCoupleSideLogin, type UnlinkedOrder } from './queries'
 
 // Account lifecycle for OpusPass couples: create, edit, provision a login,
 // open their dashboard, delete. The narrower per-couple actions (linking
@@ -530,16 +531,18 @@ export interface CoupleDeletionImpact {
   /** Paid orders — kept, but detached back to the unattributed banner. */
   paidOrders: number
   lifetimeSpendTzs: number
-  /** Vendor storefronts owned by this same login. Non-zero means the login is
-   *  shared, so only the couple side can be removed — see deleteCoupleAccount. */
-  vendors: number
+  /** Vendor storefronts owned by this same login, which the delete destroys
+   *  along with the account. Named, not just counted, because typing the couple
+   *  name is the only confirmation and staff must see what else goes with it. */
+  vendorStorefronts: { id: string; businessName: string }[]
   canSignIn: boolean
 }
 
 /**
  * What deleting this account destroys. Counted live rather than from the
  * couple_account_stats view alone, because the view has no notion of the rows
- * that make a delete unsafe (vendor storefronts) or recoverable (orders).
+ * that ride along on the same login (vendor storefronts) or that survive it
+ * (paid orders, detached back to the unattributed banner).
  */
 export async function getCoupleDeletionImpact(userId: string): Promise<Result<{ impact: CoupleDeletionImpact }>> {
   await requirePermission('opuspass.couples.read')
@@ -605,7 +608,7 @@ export async function getCoupleDeletionImpact(userId: string): Promise<Result<{ 
       .select('website_doc')
       .eq('user_id', userId)
       .maybeSingle<{ website_doc: unknown }>(),
-    countBy('vendors'),
+    listVendorsOwnedBy(supabase, userId),
   ])
 
   const s = stats.data
@@ -632,14 +635,14 @@ export async function getCoupleDeletionImpact(userId: string): Promise<Result<{ 
       websites: website.data?.website_doc ? 1 : 0,
       paidOrders,
       lifetimeSpendTzs: Number(s?.lifetime_spend_tzs) || 0,
-      vendors,
+      vendorStorefronts: vendors,
       canSignIn: Boolean(user.clerk_id),
     },
   }
 }
 
 /**
- * Permanently delete a couple account.
+ * Permanently delete a couple account and everything on the login behind it.
  *
  * Order, and why:
  *  1. Detach paid orders. `invitation_orders.user_id` has no foreign key, so the
@@ -648,18 +651,20 @@ export async function getCoupleDeletionImpact(userId: string): Promise<Result<{ 
  *     banner on this page, where they can be re-linked. This runs before the
  *     irreversible steps on purpose: if a later step fails, the orders are
  *     merely un-attributed, which is a state the banner already handles.
- *  2. Remove the Clerk login, so the email is free for a fresh sign-up. A
- *     genuine Clerk failure aborts before the account row is deleted.
- *  3. Delete the `users` row; every couple-side child table CASCADEs.
+ *  2. Tear down any vendor storefront this same login owns. A login may own a
+ *     couple workspace and a storefront at once (migration 20260730030000), and
+ *     `vendors.user_id` is ON DELETE CASCADE, so step 4 destroys the storefront
+ *     either way. Doing it explicitly first is what makes that cascade complete
+ *     rather than silent: purgeVendorRecord also removes the vendors-portal
+ *     Clerk login and purges the storefront's KYC scans and portfolio media,
+ *     none of which a database cascade can reach.
+ *  3. Remove the platform Clerk login, so the email is free for a fresh
+ *     sign-up. A genuine Clerk failure aborts before the account row is deleted.
+ *  4. Delete the `users` row; every remaining child table CASCADEs.
  *
- * SHARED LOGINS take a different path. A login may own a couple workspace and a
- * vendor storefront at once (migration 20260730030000) — the create flow above
- * deliberately adopts such a login rather than refusing it. `vendors.user_id`
- * CASCADEs from `users`, so steps 2 and 3 would destroy a live vendor business.
- * For those, only the couple side is removed: delete_couple_workspace() tears
- * down the workspace and its planning data in one transaction, and the login,
- * its sign-in and its storefront stay exactly as they were. The vendor is
- * deleted from /operations/vendors and nowhere else.
+ * There is deliberately no partial "remove the wedding side only" path. Deleting
+ * a couple from this page deletes the person's whole presence on the platform,
+ * which is what the confirmation says it does.
  *
  * `confirmName` must match the displayed couple name exactly, which is what
  * makes this safe to expose in a list row.
@@ -679,7 +684,6 @@ export async function deleteCoupleAccount(userId: string, confirmName: string): 
     }
   }
 
-  const sharedWithVendor = impact.vendors > 0
   const supabase = createSupabaseAdminClient()
   const { data: user, error: userErr } = await supabase
     .from('users')
@@ -702,43 +706,93 @@ export async function deleteCoupleAccount(userId: string, confirmName: string): 
     }
   }
 
-  let clerkWarning: string | undefined
-  if (sharedWithVendor) {
-    const { error: workspaceErr } = await supabase.rpc('delete_couple_workspace', { p_user_id: userId })
-    if (workspaceErr) {
-      return { ok: false, error: `Could not remove the wedding side of this account: ${workspaceErr.message}` }
+  // Each storefront is torn down irreversibly and individually, so a failure on
+  // the second one leaves the first genuinely destroyed. That partial state gets
+  // its own audit entry and is named in the error: the account surviving must
+  // never be read as "nothing happened".
+  const warnings: string[] = []
+  const destroyed: string[] = []
+  for (const storefront of impact.vendorStorefronts) {
+    const purge = await purgeVendorRecord(supabase, storefront.id)
+    if (!purge.ok) {
+      await recordAuditEvent({
+        eventType: 'opuspass.couple_delete_failed',
+        severity: 'critical',
+        message:
+          `Deleting couple account ${impact.coupleName} <${user.email ?? 'no email'}> failed on the ` +
+          `“${storefront.businessName}” storefront: ${purge.error}. The account and its login still exist` +
+          (destroyed.length > 0
+            ? `, but these storefronts on the same login were already destroyed and cannot be recovered: ${destroyed.join(', ')}`
+            : ' and nothing was destroyed'),
+        targetResource: `users:${userId}`,
+        metadata: { user_id: userId, email: user.email, failed_vendor: storefront, destroyed_vendors: destroyed },
+      })
+      revalidatePath('/operations/vendors')
+      return {
+        ok: false,
+        error:
+          `Could not delete the “${storefront.businessName}” storefront on this login, so the account is still here: ${purge.error}` +
+          (destroyed.length > 0
+            ? ` Note that ${destroyed.join(' and ')} on the same login ${destroyed.length === 1 ? 'was' : 'were'} already deleted and cannot be brought back.`
+            : ' Nothing was deleted.'),
+      }
     }
-  } else {
-    const clerkRes = await deletePlatformClerkLogin({ clerkId: user.clerk_id, email: user.email })
-    if (!clerkRes.ok) {
-      return { ok: false, error: clerkRes.error ?? 'Could not remove the couple’s sign-in login.' }
-    }
-    clerkWarning = clerkRes.warning
-
-    const { error: deleteErr } = await supabase.from('users').delete().eq('id', userId)
-    if (deleteErr) {
-      return { ok: false, error: `Could not delete the account: ${deleteErr.message}` }
-    }
+    destroyed.push(storefront.businessName)
+    if (purge.warning) warnings.push(purge.warning)
   }
 
+  // Same rule past this point: the storefronts are already gone, so a failure
+  // here is a partial delete and has to be reported as one, not as a no-op.
+  const abort = async (error: string): Promise<Result> => {
+    if (destroyed.length > 0) {
+      await recordAuditEvent({
+        eventType: 'opuspass.couple_delete_failed',
+        severity: 'critical',
+        message:
+          `Deleting couple account ${impact.coupleName} <${user.email ?? 'no email'}> failed after its ` +
+          `storefronts were destroyed: ${error}. Destroyed and unrecoverable: ${destroyed.join(', ')}`,
+        targetResource: `users:${userId}`,
+        metadata: { user_id: userId, email: user.email, destroyed_vendors: destroyed },
+      })
+      revalidatePath('/operations/vendors')
+      return {
+        ok: false,
+        error: `${error} ${destroyed.join(' and ')} on the same login ${destroyed.length === 1 ? 'was' : 'were'} already deleted and cannot be brought back, so this account is now half removed. Try again.`,
+      }
+    }
+    return { ok: false, error }
+  }
+
+  const clerkRes = await deletePlatformClerkLogin({ clerkId: user.clerk_id, email: user.email })
+  if (!clerkRes.ok) {
+    return abort(clerkRes.error ?? 'Could not remove the couple’s sign-in login.')
+  }
+  if (clerkRes.warning) warnings.push(clerkRes.warning)
+
+  const { error: deleteErr } = await supabase.from('users').delete().eq('id', userId)
+  if (deleteErr) {
+    return abort(`Could not delete the account: ${deleteErr.message}`)
+  }
+
+  const storefrontNames = impact.vendorStorefronts.map((v) => v.businessName)
   await recordAuditEvent({
-    eventType: sharedWithVendor ? 'opuspass.couple_workspace_deleted' : 'opuspass.couple_deleted',
+    eventType: 'opuspass.couple_deleted',
     severity: 'critical',
-    message: sharedWithVendor
-      ? `Removed the wedding side of ${impact.coupleName} <${user.email ?? 'no email'}>: ${impact.events} events, ${impact.guests} guests, ${impact.invitations} invitations. ${impact.paidOrders} paid orders detached. The login and its ${impact.vendors} vendor ${impact.vendors === 1 ? 'storefront' : 'storefronts'} were kept`
-      : `Deleted couple account ${impact.coupleName} <${user.email ?? 'no email'}>: ${impact.events} events, ${impact.guests} guests, ${impact.invitations} invitations. ${impact.paidOrders} paid orders detached`,
+    message:
+      `Deleted couple account ${impact.coupleName} <${user.email ?? 'no email'}>: ` +
+      `${impact.events} events, ${impact.guests} guests, ${impact.invitations} invitations. ` +
+      `${impact.paidOrders} paid orders detached` +
+      (storefrontNames.length > 0
+        ? `. The same login's vendor ${storefrontNames.length === 1 ? 'storefront' : 'storefronts'} were deleted with it: ${storefrontNames.join(', ')}`
+        : ''),
     targetResource: `users:${userId}`,
-    metadata: { user_id: userId, email: user.email, impact, couple_side_only: sharedWithVendor },
+    metadata: { user_id: userId, email: user.email, impact, deleted_vendors: storefrontNames },
   })
 
   revalidateCouples(userId)
   revalidatePath('/finance/payments')
-  return {
-    ok: true,
-    warning: sharedWithVendor
-      ? `The wedding side is gone. This login also runs ${impact.vendors === 1 ? 'a vendor storefront' : `${impact.vendors} vendor storefronts`}, so the sign-in and the storefront were kept and ${user.email ?? 'the email'} still works. Delete those from Operations, Vendors if the whole account should go.`
-      : clerkWarning,
-  }
+  revalidatePath('/operations/vendors')
+  return { ok: true, warning: warnings.length > 0 ? warnings.join(' ') : undefined }
 }
 
 // ------------------------------------------------------------- dormant clean-up
@@ -890,4 +944,91 @@ export async function deleteDormantCoupleAccounts(userIds: string[]): Promise<Re
   }
 
   return { ok: true, result }
+}
+
+// ------------------------------------------------- unattributed order dismissal
+
+/**
+ * Clear an unattached order off the banner without touching the payment.
+ *
+ * Guest checkout leaves `invitation_orders.user_id` NULL, and the banner lists
+ * every one of those so revenue is never lost track of. Its only exit used to
+ * be attaching the order to an account, so the ones that will never be attached
+ * — a buyer who never signed up, a duplicate, an order left behind by a deleted
+ * couple — accumulated until the warning was permanent and therefore ignored.
+ *
+ * This is the second exit. It writes three columns and nothing else: the order
+ * keeps its status, stays in Finance, and still reconciles against Selcom.
+ * Deleting it instead would make settled revenue disappear from an admin list
+ * view, which is not a thing this screen is allowed to do.
+ *
+ * Reversible via restoreUnattributedOrder below, so a wrong dismiss costs a
+ * click rather than a payment record.
+ */
+export async function dismissUnattributedOrder(orderId: string, reason: string): Promise<Result> {
+  await requirePermission('opuspass.couples.write')
+  if (!orderId) return { ok: false, error: 'Missing order.' }
+
+  const supabase = createSupabaseAdminClient()
+  const { data: order, error: orderErr } = await supabase
+    .from('invitation_orders')
+    .select('ref, user_id, amount_total, contact_email')
+    .eq('id', orderId)
+    .maybeSingle<{ ref: string; user_id: string | null; amount_total: number | string | null; contact_email: string | null }>()
+  if (orderErr) return { ok: false, error: orderErr.message }
+  if (!order) return { ok: false, error: 'That order no longer exists.' }
+  // An attached order is not on the banner, so dismissing it would only hide a
+  // flag nobody raised. Refuse rather than write a misleading marker.
+  if (order.user_id) {
+    return { ok: false, error: 'That order is already attached to an account, so there is nothing to dismiss.' }
+  }
+
+  const adminEmail = (await getCallerEmail()) ?? 'admin'
+  const { error } = await supabase
+    .from('invitation_orders')
+    .update({
+      unattributed_dismissed_at: new Date().toISOString(),
+      unattributed_dismissed_by: adminEmail,
+      unattributed_dismissed_reason: reason.trim() || 'No reason given',
+    })
+    .eq('id', orderId)
+  if (error) return { ok: false, error: `Could not dismiss the order: ${error.message}` }
+
+  await recordAuditEvent({
+    eventType: 'opuspass.unattributed_order_dismissed',
+    severity: 'info',
+    message: `Dismissed unattached order ${order.ref} (TZS ${Number(order.amount_total) || 0}, ${order.contact_email ?? 'no email'}) from the couples banner: ${reason.trim() || 'no reason given'}. The order and its revenue are unchanged`,
+    targetResource: `invitation_orders:${orderId}`,
+    metadata: { order_id: orderId, ref: order.ref, reason: reason.trim() },
+  })
+
+  revalidateCouples()
+  return { ok: true }
+}
+
+/** Undo a dismissal: the order goes back on the banner needing a decision. */
+export async function restoreUnattributedOrder(orderId: string): Promise<Result> {
+  await requirePermission('opuspass.couples.write')
+  if (!orderId) return { ok: false, error: 'Missing order.' }
+
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase
+    .from('invitation_orders')
+    .update({
+      unattributed_dismissed_at: null,
+      unattributed_dismissed_by: null,
+      unattributed_dismissed_reason: null,
+    })
+    .eq('id', orderId)
+  if (error) return { ok: false, error: `Could not restore the order: ${error.message}` }
+
+  revalidateCouples()
+  return { ok: true }
+}
+
+/** The dismissed pile, for the banner's "show dismissed" view. */
+export async function getDismissedUnattributedOrders(): Promise<Result<{ orders: UnlinkedOrder[] }>> {
+  await requirePermission('opuspass.couples.read')
+  const all = await getUnlinkedOrders(true)
+  return { ok: true, orders: all.filter((o) => o.dismissedAt) }
 }
