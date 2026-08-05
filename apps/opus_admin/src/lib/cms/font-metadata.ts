@@ -194,6 +194,108 @@ export function parseFontFile(input: Buffer | Uint8Array): ParseFontResult {
 }
 
 /**
+ * The code points a card's metrics table covers.
+ *
+ * Not the face's whole character set: a CJK font would produce a table of tens
+ * of thousands of entries, shipped to the browser on every Studio load, to
+ * measure text that is always Swahili or English. These ranges cover Latin,
+ * the accented letters those two languages and the names in them use, and the
+ * punctuation and currency marks that appear on invitations.
+ *
+ * A character outside them measures at `fallbackAdvance` and is reported as a
+ * gap, so the answer degrades to "we cannot promise this fits" rather than to a
+ * confident wrong number.
+ */
+const METRIC_RANGES: readonly (readonly [number, number])[] = [
+  [0x20, 0x7e], // Basic Latin
+  [0xa0, 0xff], // Latin-1 Supplement
+  [0x100, 0x17f], // Latin Extended-A
+  [0x2010, 0x201f], // dashes and the quotes Illustrator smartens
+  [0x2020, 0x2022], // dagger, double dagger, bullet
+  [0x2026, 0x2026], // ellipsis, which the overflow policy writes
+  [0x20a0, 0x20bf], // currency, for cards that price a contribution
+]
+
+/**
+ * Advance widths for a face, in font design units.
+ *
+ * This is what makes a Studio preview honest. Both the browser and the server
+ * measure text by reading this table and doing arithmetic, rather than each
+ * asking a different renderer how wide a run is — see card-font-metrics.ts in
+ * @opusfesta/lib for why that matters and what it deliberately does not model.
+ *
+ * Design units rather than pixels, so one extraction serves every size the face
+ * is ever set at.
+ */
+export function extractFontMetrics(input: Buffer | Uint8Array): FontMetricsTable | null {
+  let font: FontkitFace
+  try {
+    font = fontkit.create(input instanceof Buffer ? input : Buffer.from(input)) as FontkitFace
+  } catch {
+    return null
+  }
+
+  const unitsPerEm = typeof font.unitsPerEm === 'number' ? font.unitsPerEm : 0
+  // Without an em size every advance is meaningless, and a guessed one would
+  // scale the whole card's measurements by an arbitrary factor.
+  if (!Number.isFinite(unitsPerEm) || unitsPerEm <= 0) return null
+  if (typeof font.glyphForCodePoint !== 'function') return null
+
+  const advanceFor = (codePoint: number): number | null => {
+    try {
+      const advance = font.glyphForCodePoint!(codePoint)?.advanceWidth
+      return typeof advance === 'number' && Number.isFinite(advance) ? advance : null
+    } catch {
+      return null
+    }
+  }
+
+  const advances: Record<string, number> = {}
+  for (const [from, to] of METRIC_RANGES) {
+    for (let code = from; code <= to; code++) {
+      if (font.hasGlyphForCodePoint?.(code) === false) continue
+      const advance = advanceFor(code)
+      if (advance !== null) advances[String(code)] = advance
+    }
+  }
+
+  return {
+    unitsPerEm,
+    ascender: numberOr(font.ascent, unitsPerEm * 0.8),
+    descender: numberOr(font.descent, -unitsPerEm * 0.2),
+    lineGap: numberOr(font.lineGap, 0),
+    advances,
+    // The space's advance is the least wrong stand-in for an unknown glyph: it
+    // is the width of the character a fallback face is most likely to draw.
+    fallbackAdvance: advances['32'] ?? unitsPerEm * 0.5,
+  }
+}
+
+/** The metrics shape stored on card_fonts.metrics, mirroring @opusfesta/lib. */
+export type FontMetricsTable = {
+  unitsPerEm: number
+  ascender: number
+  descender: number
+  lineGap: number
+  advances: Record<string, number>
+  fallbackAdvance: number
+}
+
+/** The slice of fontkit's face this module uses, since it ships no types we can narrow to. */
+type FontkitFace = {
+  unitsPerEm?: number
+  ascent?: number
+  descent?: number
+  lineGap?: number
+  glyphForCodePoint?: (codePoint: number) => { advanceWidth?: number } | null
+  hasGlyphForCodePoint?: (codePoint: number) => boolean
+}
+
+function numberOr(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+/**
  * Which of these code points the face cannot draw.
  *
  * Worth checking at registration rather than at render, because a missing glyph

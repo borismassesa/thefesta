@@ -2,14 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { requireAdminRole, type AdminAccessRole } from '@/lib/admin-auth'
+import { requirePermission } from '@/lib/admin-auth'
 import {
   CARD_FIELD_ROLE_KEYS,
   type CardFieldBinding,
 } from '@opusfesta/lib'
 
-// Same allowlist as the card editor — mapping a card's fields is catalogue work.
-const DESIGNER_ROLES: AdminAccessRole[] = ['owner', 'admin', 'editor']
+// Same gate as the card editor — mapping a card's fields is catalogue work.
 
 type SaveResult = { ok: true; mapped: number } | { ok: false; error: string }
 type ArtworkUrlResult = { ok: true } | { ok: false; error: string }
@@ -25,7 +24,7 @@ export async function saveCardFieldBindings(
   productId: string,
   bindings: CardFieldBinding[],
 ): Promise<SaveResult> {
-  await requireAdminRole(DESIGNER_ROLES)
+  await requirePermission('digitalcards.write')
 
   if (!productId.trim()) return { ok: false, error: 'Missing card id.' }
   if (!Array.isArray(bindings)) return { ok: false, error: 'Malformed mapping.' }
@@ -75,8 +74,9 @@ export async function saveCardFieldBindings(
 
   if (error) return { ok: false, error: error.message || 'Could not save the mapping.' }
 
-  revalidatePath('/opus-pass/digital-cards/templates')
-  revalidatePath(`/opus-pass/digital-cards/templates/${productId}`)
+  // The two /templates paths that used to be revalidated here are now pure
+  // redirects, so revalidating them refreshed nothing. The catalogue list is
+  // what carries the "Ready for orders" badge this mapping decides.
   revalidatePath('/opus-pass/digital-cards/cards')
   revalidatePath(`/opus-pass/digital-cards/cards/${productId}/artwork`)
   return { ok: true, mapped: clean.length }
@@ -86,7 +86,7 @@ export async function setCardArtworkSvgUrl(
   productId: string,
   artworkSvgUrl: string,
 ): Promise<ArtworkUrlResult> {
-  await requireAdminRole(DESIGNER_ROLES)
+  await requirePermission('digitalcards.write')
 
   const id = productId.trim()
   const url = artworkSvgUrl.trim()

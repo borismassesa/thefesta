@@ -85,7 +85,7 @@ export function parseFontFamilyList(value: string): string[] {
 }
 
 /** CSS font-weight to a number. Illustrator emits both '700' and 'bold'. */
-function parseWeight(value: string | undefined, inherited: number): number {
+export function parseWeight(value: string | undefined, inherited: number): number {
   if (!value) return inherited
   const word = value.trim().toLowerCase()
   if (word === 'normal') return 400
@@ -97,7 +97,7 @@ function parseWeight(value: string | undefined, inherited: number): number {
   return Number.isFinite(numeric) ? numeric : inherited
 }
 
-function parseItalic(value: string | undefined, inherited: boolean): boolean {
+export function parseItalic(value: string | undefined, inherited: boolean): boolean {
   if (!value) return inherited
   const word = value.trim().toLowerCase()
   if (word === 'normal') return false
@@ -109,7 +109,7 @@ const XML_ENTITIES: Record<string, string> = {
 }
 
 /** Entities must be decoded before counting glyphs: '&amp;' needs '&', not 'a'. */
-function decodeEntities(text: string): string {
+export function decodeEntities(text: string): string {
   return text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (whole, body: string) => {
     if (body.startsWith('#x') || body.startsWith('#X')) {
       const code = Number.parseInt(body.slice(2), 16)
@@ -131,14 +131,14 @@ function decodeEntities(text: string): string {
  * non-word character. That single character is the difference between reading
  * an element's inline style and reading its italic flag.
  */
-function attribute(attrs: string, name: string): string | undefined {
+export function attribute(attrs: string, name: string): string | undefined {
   return (
     new RegExp(`(?:^|[^\\w-])${name}\\s*=\\s*"([^"]*)"`, 'i').exec(attrs)?.[1]?.trim() || undefined
   )
 }
 
 /** One property, resolved across the three declaration sites in priority order. */
-function resolveProperty(
+export function resolveProperty(
   attrs: string,
   cssProperty: string,
   fromClass: string | undefined,

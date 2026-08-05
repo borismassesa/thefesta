@@ -14,10 +14,18 @@ import { toast } from 'sonner'
  *     Content-Disposition response to the browser's own download manager,
  *     which works even in old WebViews.
  */
-export async function downloadReleasedCard(designId: string, cardName: string): Promise<void> {
+export async function downloadReleasedCard(
+  designId: string,
+  cardName: string,
+  releaseId?: string | null,
+): Promise<void> {
   if (typeof document === 'undefined') return
 
-  const endpoint = `/api/my/card/${encodeURIComponent(designId)}`
+  // `release` names one specific version; without it the couple gets the
+  // current one, which is what every existing caller wants.
+  const endpoint =
+    `/api/my/card/${encodeURIComponent(designId)}` +
+    (releaseId ? `?release=${encodeURIComponent(releaseId)}` : '')
   const filename = `OpusFesta-${cardName.replace(/[^A-Za-z0-9_-]+/g, '-') || 'card'}.svg`
 
   const isTouch =

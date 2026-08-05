@@ -139,7 +139,7 @@ export default function LayerMapper({
 
   useSetPageHeading({
     title: productName,
-    back: { href: LIST, label: 'All cards' },
+    back: { href: LIST, label: 'Catalogue' },
   })
 
   const presentLayerIds = useMemo(
@@ -706,7 +706,7 @@ export default function LayerMapper({
           href={LIST}
           className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
         >
-          Back to all cards
+          Back to the catalogue
         </Link>
       </div>
     )
