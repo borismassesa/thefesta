@@ -7,8 +7,10 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  Copy,
   Loader2,
   MessageCircle,
+  Smartphone,
   Pencil,
   Ticket,
   X,
@@ -49,6 +51,16 @@ type Props = {
   /** Which delivery moment this is. They are separate messages, separate
    *  templates and separate sends — never merged into one review. */
   mode: 'invite' | 'pass'
+  /**
+   * Which pipe this send uses.
+   *
+   * 'sms' is not a lesser WhatsApp: it carries no image and no template, so the
+   * drawer shows the plain text the guest will actually read rather than a card
+   * and quick-reply buttons they will never see. Nothing is sent by us on this
+   * channel — the couple's own handset sends it — so the footer offers copy and
+   * compose rather than a Send that would be a lie.
+   */
+  channel: 'whatsapp' | 'sms'
   guest: SendGuestRow
   eventId: string
   /** Display number the message goes to. */
@@ -67,11 +79,25 @@ type Props = {
   creditNote: string | null
   /** No live Meta credentials: the send is stubbed and nothing reaches a guest. */
   dryRun: boolean
+  /**
+   * The same invitation as plain SMS text, for guests WhatsApp will not carry.
+   * Null when the card has no details to compose from.
+   *
+   * Shown as a fallback the couple copies and sends from their own phone. That
+   * is the point rather than a limitation: a person-to-person SMS is not a
+   * business template, so the pacing that blocked WhatsApp does not apply.
+   */
+  smsFallback: string | null
+  /** True when WhatsApp has already refused this guest — the fallback opens
+   *  expanded, because for them it is the only route left. */
+  deliveryFailed?: boolean
   strings: DashboardSendStrings
   /** The EXISTING production send path. This drawer only decides when it runs;
    *  it never builds a payload of its own. */
   onSend: () => Promise<WhatsAppSendSummary>
   onEditGuest: () => void
+  /** Open the handset's SMS composer, pre-filled. SMS only. */
+  onOpenSms?: () => void
   onTopUp?: () => void
   onSent: () => void
   onClose: () => void
@@ -99,6 +125,7 @@ function waText(text: string) {
 
 export default function ReviewSendDrawer({
   mode,
+  channel,
   guest,
   eventId,
   phone,
@@ -106,11 +133,14 @@ export default function ReviewSendDrawer({
   message,
   artwork,
   checks,
+  smsFallback,
+  deliveryFailed = false,
   creditNote,
   dryRun,
   strings,
   onSend,
   onEditGuest,
+  onOpenSms,
   onTopUp,
   onSent,
   onClose,
@@ -119,6 +149,7 @@ export default function ReviewSendDrawer({
   const [cardError, setCardError] = useState<string | null>(null)
   const [cardLoading, setCardLoading] = useState(artwork.kind === 'prepare')
   const [gate, setGate] = useState<SendPreview | null>(null)
+  const [smsCopied, setSmsCopied] = useState(false)
   const [sending, setSending] = useState(false)
   const [sentAt, setSentAt] = useState<string | null>(null)
   const [sendError, setSendError] = useState<{ message: string; canTopUp: boolean } | null>(null)
@@ -242,6 +273,10 @@ export default function ReviewSendDrawer({
   }
 
   const isPass = mode === 'pass'
+  // SMS carries text only. There is no template, no header image and no
+  // quick-reply buttons, so showing the WhatsApp card here would preview
+  // something the guest never receives.
+  const isSms = channel === 'sms'
   const sendLabel = dryRun
     ? strings.review_send_test
     : isPass
@@ -264,7 +299,7 @@ export default function ReviewSendDrawer({
             <b className="rname">{guest.name}</b>
             <div className="rmeta">
               {partyLabel ? <span>{partyLabel}</span> : null}
-              <span>{strings.review_channel_whatsapp}</span>
+              <span>{isSms ? strings.review_channel_sms : strings.review_channel_whatsapp}</span>
               <span className="rphone">{phone}</span>
             </div>
           </div>
@@ -289,7 +324,7 @@ export default function ReviewSendDrawer({
                 <div className="rto">
                   <b>{guest.name}</b>
                   <span>{phone}</span>
-                  <span className="rmuted">{strings.review_channel_whatsapp}</span>
+                  <span className="rmuted">{isSms ? strings.review_channel_sms : strings.review_channel_whatsapp}</span>
                 </div>
                 {sharedNumber ? (
                   <div className="rwarn">
@@ -312,7 +347,9 @@ export default function ReviewSendDrawer({
                 </button>
               </section>
 
-              {/* Artwork */}
+              {/* Artwork. WhatsApp only: an SMS carries no image, so previewing
+                  a card here would show something the guest never receives. */}
+              {!isSms ? (
               <section className="rsec">
                 <div className="rlegend">{isPass ? strings.review_pass_legend : strings.review_card_legend}</div>
                 <div className="rart">
@@ -348,8 +385,12 @@ export default function ReviewSendDrawer({
                   </div>
                 ) : null}
               </section>
+              ) : null}
 
-              {/* The approved template, verbatim */}
+              {/* The approved template, verbatim. WhatsApp only: SMS has no
+                  template and no buttons, and showing them would preview
+                  something the guest never receives. */}
+              {!isSms ? (
               <section className="rsec">
                 <div className="rlegend">
                   {strings.review_message_legend}
@@ -363,6 +404,34 @@ export default function ReviewSendDrawer({
                   <div key={label} className="rbbtn">↩ {label}</div>
                 ))}
               </section>
+              ) : null}
+
+              {smsFallback ? (
+                <section className="rsec">
+                  <div className="rlegend">
+                    {isSms ? strings.review_sms_message_title : strings.review_sms_title}
+                    {!isSms && deliveryFailed ? (
+                      <span className="rtag bad">{strings.review_sms_needed}</span>
+                    ) : null}
+                  </div>
+                  <p className="rmuted rsmsnote">
+                    {isSms ? strings.review_sms_message_note : strings.review_sms_note}
+                  </p>
+                  <pre className="rsms">{smsFallback}</pre>
+                  <button
+                    type="button"
+                    className="rbtn copy"
+                    onClick={() => {
+                      navigator.clipboard.writeText(smsFallback)
+                      setSmsCopied(true)
+                      window.setTimeout(() => setSmsCopied(false), 2000)
+                    }}
+                  >
+                    {smsCopied ? <Check size={14} /> : <Copy size={14} />}
+                    {smsCopied ? strings.review_sms_copied : strings.review_sms_copy}
+                  </button>
+                </section>
+              ) : null}
 
               {/* Readiness */}
               <section className="rsec">
@@ -411,7 +480,9 @@ export default function ReviewSendDrawer({
           ) : (
             <>
               <div className="rfnote">
-                {dryRun ? (
+                {isSms ? (
+                  <span>{strings.review_sms_manual_note}</span>
+                ) : dryRun ? (
                   <span className="rdry">{strings.review_dryrun}</span>
                 ) : creditNote ? (
                   <span>{creditNote}</span>
@@ -419,13 +490,22 @@ export default function ReviewSendDrawer({
               </div>
               <div className="rfacts-row">
                 <button className="rbtn ghost" onClick={onClose} disabled={sending}>{strings.confirm_cancel}</button>
-                <button className="rbtn send" disabled={!canSend} onClick={runSend}>
-                  {sending ? (
-                    <><Loader2 size={15} className="spin" /> {strings.review_sending}</>
-                  ) : (
-                    <>{isPass ? <Ticket size={15} /> : <MessageCircle size={15} />} {sendLabel}</>
-                  )}
-                </button>
+                {isSms ? (
+                  // Nothing is sent from here. The handset's own composer opens
+                  // pre-filled and the couple presses send there, which is what
+                  // makes it an ordinary person-to-person SMS.
+                  <button className="rbtn send" disabled={!onOpenSms} onClick={() => onOpenSms?.()}>
+                    <Smartphone size={15} /> {strings.review_open_sms}
+                  </button>
+                ) : (
+                  <button className="rbtn send" disabled={!canSend} onClick={runSend}>
+                    {sending ? (
+                      <><Loader2 size={15} className="spin" /> {strings.review_sending}</>
+                    ) : (
+                      <>{isPass ? <Ticket size={15} /> : <MessageCircle size={15} />} {sendLabel}</>
+                    )}
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -472,6 +552,19 @@ export default function ReviewSendDrawer({
         .rto b{ font-weight:650; color:#1c1b1f }
         .rto span{ color:#5f5b66; font-variant-numeric:tabular-nums }
         .rmuted{ color:#8b8790 !important }
+        /* The tag turns red when WhatsApp has already refused this guest: for
+           them the SMS is not an alternative, it is the only route left. */
+        .rtag.bad{ background:#fcecec; color:#c0392b; }
+        .rsmsnote{ margin:0 0 9px; font-size:12px; line-height:1.5; }
+        /* Monospace and pre-wrap so the couple sees the exact line breaks the
+           guest will get, including the Entrance Pass ID on its own line. */
+        .rsms{ margin:0; padding:12px 13px; border:1px solid #ededf0; border-radius:11px;
+          background:#faf8fc; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+          font-size:11.5px; line-height:1.55; color:#1c1b1f; white-space:pre-wrap;
+          word-break:break-word; max-height:260px; overflow-y:auto; }
+        .rbtn.copy{ margin-top:10px; width:100%; justify-content:center; background:#fff;
+          border:1px solid #D7BDE8; color:#4A2870; }
+        .rbtn.copy:hover{ background:#F6EEFB; border-color:#6B3FA0; }
 
         .rwarn{ display:flex; align-items:flex-start; gap:8px; background:#FFFBEB; border:1px solid #FBE8B0;
           color:#8a6d1a; border-radius:10px; padding:9px 11px; font-size:12.5px; line-height:1.45; }

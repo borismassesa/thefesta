@@ -77,6 +77,7 @@ import {
   saveDateUrl,
 } from '@/lib/dashboard/share'
 import { formatInviteGuestName, INVITE_TEMPLATE, ENTRANCE_PASS_TEMPLATE } from '@/lib/whatsapp/types'
+import { buildSmsInvite } from '@/lib/dashboard/sms-invite'
 import { EVENT_TYPE_LABELS } from '@/lib/dashboard/types'
 import type { EventType, TicketLanguage } from '@/lib/dashboard/types'
 import type { SendInvitesData, SendGuestRow } from '@/lib/dashboard/queries'
@@ -1253,7 +1254,11 @@ export default function SendInvitesView({
    * Cancel. The checks mirror the gates the server enforces anyway; they exist
    * to say WHICH gate will stop the send, before it is attempted.
    */
-  function reviewChecksFor(g: SendGuestRow, mode: 'invite' | 'pass'): ReviewCheck[] {
+  function reviewChecksFor(
+    g: SendGuestRow,
+    mode: 'invite' | 'pass',
+    channel: 'whatsapp' | 'sms' = 'whatsapp',
+  ): ReviewCheck[] {
     const closeThen = (fn: () => void) => () => { setReview(null); fn() }
     const editGuest = {
       label: strings.review_fix_edit_guest,
@@ -1283,6 +1288,23 @@ export default function SendInvitesView({
           fix: { label: strings.review_topup, onClick: closeThen(() => setTopUpOpen(true)) },
         },
         live,
+      ]
+    }
+
+    // SMS goes out from the couple's own handset, so the WhatsApp entitlement
+    // does not apply to it: no invitation credit is drawn and the Meta
+    // connection is irrelevant. The released card still matters, because the
+    // message text is composed from that card's details.
+    if (channel === 'sms') {
+      return [
+        { key: 'phone', label: strings.review_check_phone, ok: hasPhone(g), blocking: true, fix: editGuest },
+        {
+          key: 'card',
+          label: strings.review_check_card,
+          ok: Boolean(event.cardFields),
+          blocking: true,
+          fix: { label: strings.review_fix_open_cards, href: '/my/dashboard/card-details' },
+        },
       ]
     }
 
@@ -2265,27 +2287,33 @@ export default function SendInvitesView({
             <aside className={`quota band${quotaOverdrawn ? ' over' : ''}`}>
               <div className="top">
                 <span>{strings.quota_label}</span>
-                {quotaOverdrawn ? (
-                  <span>
-                    {strings.quota_used_label} <b>{quota.used}</b>
-                    {' · '}
-                    {strings.quota_available_label} <b>0</b>
-                  </span>
-                ) : (
-                  <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
-                )}
-              </div>
-              <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
-              <div className="ft">
-                {quotaOverdrawn ? (
-                  <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
-                ) : (
-                  <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
-                )}
+                <span className="qright">
+                  {quotaOverdrawn ? (
+                    <>
+                      {strings.quota_used_label} <b>{quota.used}</b>
+                      {' · '}
+                      {strings.quota_available_label} <b>0</b>
+                    </>
+                  ) : (
+                    <>
+                      <b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}
+                      {' · '}
+                      {fmt(strings.quota_remaining, { n: quota.remaining })}
+                    </>
+                  )}
+                </span>
                 <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
                   {strings.quota_topup}
                 </button>
               </div>
+              <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
+              {/* Overdrawn keeps its own line: a refund can push usage past the
+                  entitlement, and "0 remaining" alone does not explain why. */}
+              {quotaOverdrawn ? (
+                <div className="ft">
+                  <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
+                </div>
+              ) : null}
             </aside>
           </div>
         ) : sendTab === 'ticket' && ticketForm ? (
@@ -2871,7 +2899,11 @@ export default function SendInvitesView({
                           // anything on click — they open a compose window the
                           // couple reads before hitting send — so they keep the
                           // direct action rather than gaining a second step.
-                          const reviewable = effectiveChannel(g) === 'whatsapp' && whatsappLive
+                          // Every channel is reviewable now. SMS previews the
+                          // plain text the guest actually reads (no template,
+                          // no image) and hands off to the handset's composer,
+                          // so the couple still sees it before it goes.
+                          const reviewable = hasPhone(g)
                           if (!reviewable) {
                             return (
                               <button
@@ -3292,7 +3324,28 @@ export default function SendInvitesView({
               ? { kind: 'static', url: reviewGuest.entrancePassUrl }
               : { kind: 'prepare' }
           }
-          checks={reviewChecksFor(reviewGuest, review.mode)}
+          channel={review.mode === 'pass' ? 'whatsapp' : effectiveChannel(reviewGuest)}
+          onOpenSms={() => { rowShare(reviewGuest, 'sms'); setReview(null) }}
+          checks={reviewChecksFor(
+            reviewGuest,
+            review.mode,
+            review.mode === 'pass' ? 'whatsapp' : effectiveChannel(reviewGuest),
+          )}
+          smsFallback={
+            // Composed from the CARD's details, which carry both venues, both
+            // times and the contacts. The event row holds only the reception,
+            // so composing from it would silently drop the ceremony.
+            review.mode === 'invite' && event.cardFields
+              ? buildSmsInvite({
+                  guestName: formatInviteGuestName(reviewGuest.name, 'Amina'),
+                  fields: event.cardFields,
+                  eventCategory: eventCat.trim() || event.eventCategorySw,
+                  passId: reviewGuest.passId,
+                  partySize: reviewGuest.assignedPartySize,
+                })
+              : null
+          }
+          deliveryFailed={reviewGuest.delivery?.state === 'failed'}
           creditNote={
             review.mode === 'pass'
               ? null
@@ -3454,11 +3507,28 @@ const css = `
 /* Bottom-right of the card, as its own boxed panel. margin-left:auto is what
    pushes it to the right edge; the width keeps it from stretching into a band
    across a wide screen. */
-.si .quota.band{ flex:none; width:250px; background:#fff;
-  border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:var(--soft); }
-.si .quota.band .top{ display:block; margin-bottom:8px; }
-.si .quota.band .top span:first-child{ display:block; font-size:12px; color:var(--muted); }
-.si .quota.band .top span + span{ display:block; margin-top:2px; font-size:14px; color:var(--ink); }
+/* Same meter as the entrance-pass pool: label left, counts right, bar under.
+   Grows into whatever width the reminder chip leaves rather than sitting as a
+   fixed narrow box. */
+.si .quota.band{ flex:1 1 320px; min-width:260px; max-width:520px; padding:10px 12px;
+  border:1px solid var(--line); border-radius:12px; background:#fff; }
+.si .quota.band .top{ display:flex; align-items:baseline; gap:12px;
+  font-size:12px; color:var(--muted); margin-bottom:7px; }
+.si .quota.band .top b{ color:var(--ink); }
+/* The counts take the middle: flex:1 lets them centre between the label and
+   Top up, and nowrap keeps "132" from breaking away from "of 176 used". */
+.si .quota.band .qright{ flex:1; text-align:center; white-space:nowrap; }
+/* Solid brand purple. It moved out of .ft, which carried the old outline
+   styling, and topping up is the one thing in this meter you can act on — a
+   bare button read as broken. */
+.si .quota.band .topup{ flex:none; display:inline-flex; align-items:center; gap:5px; cursor:pointer;
+  padding:6px 14px; border:1px solid var(--purple); border-radius:999px;
+  background:var(--purple); color:#fff; font-size:11.5px; font-weight:700;
+  font-family:inherit; text-decoration:none;
+  transition:filter .12s, transform .08s; }
+.si .quota.band .topup:hover{ filter:brightness(1.1); transform:translateY(-1px); }
+.si .quota.band .topup:focus-visible{ outline:2px solid var(--purple); outline-offset:2px; }
+.si .quota.band .ft{ margin-top:7px; }
 /* Full width once the card stacks, rather than a narrow panel pinned to one
    edge of a narrow screen. */
 @media (max-width:900px){

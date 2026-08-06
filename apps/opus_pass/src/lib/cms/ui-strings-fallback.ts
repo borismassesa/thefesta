@@ -1242,6 +1242,17 @@ export interface DashboardSendStrings {
   delivery_none: string
   filter_undelivered: string
   funnel_undelivered: string
+  // SMS fallback for guests WhatsApp will not carry
+  review_sms_title: string
+  review_sms_needed: string
+  review_sms_note: string
+  review_sms_copy: string
+  review_sms_copied: string
+  review_channel_sms: string
+  review_sms_message_title: string
+  review_sms_message_note: string
+  review_sms_manual_note: string
+  review_open_sms: string
   entrance_needs_whatsapp: string
   entrance_status_sent: string
   entrance_status_notsent: string
@@ -2438,6 +2449,16 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     delivery_none: 'Not sent',
     filter_undelivered: 'Not delivered',
     funnel_undelivered: 'Not delivered',
+    review_sms_title: 'Send by SMS instead',
+    review_sms_needed: 'WhatsApp failed',
+    review_sms_note: 'WhatsApp will not carry this one. Copy this and send it from your own phone: a personal SMS is not a business template, so it arrives.',
+    review_sms_copy: 'Copy SMS message',
+    review_sms_copied: 'Copied',
+    review_channel_sms: 'SMS',
+    review_sms_message_title: 'Message',
+    review_sms_message_note: 'Exactly what this guest will read. SMS carries no card image, so the Entrance Pass ID is what gets them through the door.',
+    review_sms_manual_note: 'Opens your own messaging app. You press send there.',
+    review_open_sms: 'Open SMS app',
     entrance_needs_whatsapp: 'Entrance passes are sent by WhatsApp only — add a WhatsApp number for this guest',
     entrance_status_sent: 'Sent',
     entrance_status_notsent: 'Not sent',
