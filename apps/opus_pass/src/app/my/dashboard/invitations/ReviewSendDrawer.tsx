@@ -324,7 +324,7 @@ export default function ReviewSendDrawer({
                 <div className="rto">
                   <b>{guest.name}</b>
                   <span>{phone}</span>
-                  <span className="rmuted">{strings.review_channel_whatsapp}</span>
+                  <span className="rmuted">{isSms ? strings.review_channel_sms : strings.review_channel_whatsapp}</span>
                 </div>
                 {sharedNumber ? (
                   <div className="rwarn">

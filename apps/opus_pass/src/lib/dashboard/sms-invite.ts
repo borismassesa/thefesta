@@ -105,7 +105,20 @@ function dateLine(f: CardInviteFields): string {
   const monthIndex = SWAHILI_MONTHS.findIndex((m) => m.toLowerCase() === month.toLowerCase())
   const dayNum = Number(day)
   const yearNum = Number(year)
-  if (monthIndex < 0 || !Number.isFinite(dayNum) || !Number.isFinite(yearNum)) return raw
+  // A two-digit year is the trap here. Date.UTC(26, …) is 1926, not 2026, and
+  // the weekday it yields is wrong while looking entirely authoritative — a
+  // guest reads "Jumapili" for a Saturday wedding. Fall back to the card's own
+  // text instead: a date without its weekday beats a confidently wrong one.
+  if (
+    monthIndex < 0 ||
+    !Number.isFinite(dayNum) ||
+    !Number.isFinite(yearNum) ||
+    yearNum < 1000 ||
+    dayNum < 1 ||
+    dayNum > 31
+  ) {
+    return raw
+  }
 
   // Built in UTC purely to read the weekday. No timezone shifting is wanted:
   // the card's date is already the local wedding date.
@@ -205,7 +218,12 @@ export function buildSmsInvite(input: SmsInviteInput): string {
   if (contacts.length > 0) {
     lines.push('')
     lines.push('📞 Mawasiliano')
-    for (const c of contacts) lines.push(c.phone ? `${c.name}: ${c.phone}` : c.name)
+    // A card often carries a bare number with no name against it. "": +255…"
+    // with a dangling colon is worse than just the number.
+    for (const c of contacts) {
+      if (c.name && c.phone) lines.push(`${c.name}: ${c.phone}`)
+      else lines.push(c.phone || c.name)
+    }
   }
 
   // What gets a guest through the door when there is no QR to scan.
