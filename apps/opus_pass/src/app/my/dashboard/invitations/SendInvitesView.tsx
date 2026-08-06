@@ -1254,7 +1254,11 @@ export default function SendInvitesView({
    * Cancel. The checks mirror the gates the server enforces anyway; they exist
    * to say WHICH gate will stop the send, before it is attempted.
    */
-  function reviewChecksFor(g: SendGuestRow, mode: 'invite' | 'pass'): ReviewCheck[] {
+  function reviewChecksFor(
+    g: SendGuestRow,
+    mode: 'invite' | 'pass',
+    channel: 'whatsapp' | 'sms' = 'whatsapp',
+  ): ReviewCheck[] {
     const closeThen = (fn: () => void) => () => { setReview(null); fn() }
     const editGuest = {
       label: strings.review_fix_edit_guest,
@@ -1284,6 +1288,23 @@ export default function SendInvitesView({
           fix: { label: strings.review_topup, onClick: closeThen(() => setTopUpOpen(true)) },
         },
         live,
+      ]
+    }
+
+    // SMS goes out from the couple's own handset, so the WhatsApp entitlement
+    // does not apply to it: no invitation credit is drawn and the Meta
+    // connection is irrelevant. The released card still matters, because the
+    // message text is composed from that card's details.
+    if (channel === 'sms') {
+      return [
+        { key: 'phone', label: strings.review_check_phone, ok: hasPhone(g), blocking: true, fix: editGuest },
+        {
+          key: 'card',
+          label: strings.review_check_card,
+          ok: Boolean(event.cardFields),
+          blocking: true,
+          fix: { label: strings.review_fix_open_cards, href: '/my/dashboard/card-details' },
+        },
       ]
     }
 
@@ -2878,7 +2899,11 @@ export default function SendInvitesView({
                           // anything on click — they open a compose window the
                           // couple reads before hitting send — so they keep the
                           // direct action rather than gaining a second step.
-                          const reviewable = effectiveChannel(g) === 'whatsapp' && whatsappLive
+                          // Every channel is reviewable now. SMS previews the
+                          // plain text the guest actually reads (no template,
+                          // no image) and hands off to the handset's composer,
+                          // so the couple still sees it before it goes.
+                          const reviewable = hasPhone(g)
                           if (!reviewable) {
                             return (
                               <button
@@ -3299,7 +3324,13 @@ export default function SendInvitesView({
               ? { kind: 'static', url: reviewGuest.entrancePassUrl }
               : { kind: 'prepare' }
           }
-          checks={reviewChecksFor(reviewGuest, review.mode)}
+          channel={review.mode === 'pass' ? 'whatsapp' : effectiveChannel(reviewGuest)}
+          onOpenSms={() => { rowShare(reviewGuest, 'sms'); setReview(null) }}
+          checks={reviewChecksFor(
+            reviewGuest,
+            review.mode,
+            review.mode === 'pass' ? 'whatsapp' : effectiveChannel(reviewGuest),
+          )}
           smsFallback={
             // Composed from the CARD's details, which carry both venues, both
             // times and the contacts. The event row holds only the reception,

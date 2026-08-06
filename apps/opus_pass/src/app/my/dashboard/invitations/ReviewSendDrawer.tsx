@@ -10,6 +10,7 @@ import {
   Copy,
   Loader2,
   MessageCircle,
+  Smartphone,
   Pencil,
   Ticket,
   X,
@@ -50,6 +51,16 @@ type Props = {
   /** Which delivery moment this is. They are separate messages, separate
    *  templates and separate sends — never merged into one review. */
   mode: 'invite' | 'pass'
+  /**
+   * Which pipe this send uses.
+   *
+   * 'sms' is not a lesser WhatsApp: it carries no image and no template, so the
+   * drawer shows the plain text the guest will actually read rather than a card
+   * and quick-reply buttons they will never see. Nothing is sent by us on this
+   * channel — the couple's own handset sends it — so the footer offers copy and
+   * compose rather than a Send that would be a lie.
+   */
+  channel: 'whatsapp' | 'sms'
   guest: SendGuestRow
   eventId: string
   /** Display number the message goes to. */
@@ -85,6 +96,8 @@ type Props = {
    *  it never builds a payload of its own. */
   onSend: () => Promise<WhatsAppSendSummary>
   onEditGuest: () => void
+  /** Open the handset's SMS composer, pre-filled. SMS only. */
+  onOpenSms?: () => void
   onTopUp?: () => void
   onSent: () => void
   onClose: () => void
@@ -112,6 +125,7 @@ function waText(text: string) {
 
 export default function ReviewSendDrawer({
   mode,
+  channel,
   guest,
   eventId,
   phone,
@@ -126,6 +140,7 @@ export default function ReviewSendDrawer({
   strings,
   onSend,
   onEditGuest,
+  onOpenSms,
   onTopUp,
   onSent,
   onClose,
@@ -258,6 +273,10 @@ export default function ReviewSendDrawer({
   }
 
   const isPass = mode === 'pass'
+  // SMS carries text only. There is no template, no header image and no
+  // quick-reply buttons, so showing the WhatsApp card here would preview
+  // something the guest never receives.
+  const isSms = channel === 'sms'
   const sendLabel = dryRun
     ? strings.review_send_test
     : isPass
@@ -280,7 +299,7 @@ export default function ReviewSendDrawer({
             <b className="rname">{guest.name}</b>
             <div className="rmeta">
               {partyLabel ? <span>{partyLabel}</span> : null}
-              <span>{strings.review_channel_whatsapp}</span>
+              <span>{isSms ? strings.review_channel_sms : strings.review_channel_whatsapp}</span>
               <span className="rphone">{phone}</span>
             </div>
           </div>
@@ -328,7 +347,9 @@ export default function ReviewSendDrawer({
                 </button>
               </section>
 
-              {/* Artwork */}
+              {/* Artwork. WhatsApp only: an SMS carries no image, so previewing
+                  a card here would show something the guest never receives. */}
+              {!isSms ? (
               <section className="rsec">
                 <div className="rlegend">{isPass ? strings.review_pass_legend : strings.review_card_legend}</div>
                 <div className="rart">
@@ -364,8 +385,12 @@ export default function ReviewSendDrawer({
                   </div>
                 ) : null}
               </section>
+              ) : null}
 
-              {/* The approved template, verbatim */}
+              {/* The approved template, verbatim. WhatsApp only: SMS has no
+                  template and no buttons, and showing them would preview
+                  something the guest never receives. */}
+              {!isSms ? (
               <section className="rsec">
                 <div className="rlegend">
                   {strings.review_message_legend}
@@ -379,14 +404,19 @@ export default function ReviewSendDrawer({
                   <div key={label} className="rbbtn">↩ {label}</div>
                 ))}
               </section>
+              ) : null}
 
               {smsFallback ? (
                 <section className="rsec">
                   <div className="rlegend">
-                    {strings.review_sms_title}
-                    {deliveryFailed ? <span className="rtag bad">{strings.review_sms_needed}</span> : null}
+                    {isSms ? strings.review_sms_message_title : strings.review_sms_title}
+                    {!isSms && deliveryFailed ? (
+                      <span className="rtag bad">{strings.review_sms_needed}</span>
+                    ) : null}
                   </div>
-                  <p className="rmuted rsmsnote">{strings.review_sms_note}</p>
+                  <p className="rmuted rsmsnote">
+                    {isSms ? strings.review_sms_message_note : strings.review_sms_note}
+                  </p>
                   <pre className="rsms">{smsFallback}</pre>
                   <button
                     type="button"
@@ -450,7 +480,9 @@ export default function ReviewSendDrawer({
           ) : (
             <>
               <div className="rfnote">
-                {dryRun ? (
+                {isSms ? (
+                  <span>{strings.review_sms_manual_note}</span>
+                ) : dryRun ? (
                   <span className="rdry">{strings.review_dryrun}</span>
                 ) : creditNote ? (
                   <span>{creditNote}</span>
@@ -458,13 +490,22 @@ export default function ReviewSendDrawer({
               </div>
               <div className="rfacts-row">
                 <button className="rbtn ghost" onClick={onClose} disabled={sending}>{strings.confirm_cancel}</button>
-                <button className="rbtn send" disabled={!canSend} onClick={runSend}>
-                  {sending ? (
-                    <><Loader2 size={15} className="spin" /> {strings.review_sending}</>
-                  ) : (
-                    <>{isPass ? <Ticket size={15} /> : <MessageCircle size={15} />} {sendLabel}</>
-                  )}
-                </button>
+                {isSms ? (
+                  // Nothing is sent from here. The handset's own composer opens
+                  // pre-filled and the couple presses send there, which is what
+                  // makes it an ordinary person-to-person SMS.
+                  <button className="rbtn send" disabled={!onOpenSms} onClick={() => onOpenSms?.()}>
+                    <Smartphone size={15} /> {strings.review_open_sms}
+                  </button>
+                ) : (
+                  <button className="rbtn send" disabled={!canSend} onClick={runSend}>
+                    {sending ? (
+                      <><Loader2 size={15} className="spin" /> {strings.review_sending}</>
+                    ) : (
+                      <>{isPass ? <Ticket size={15} /> : <MessageCircle size={15} />} {sendLabel}</>
+                    )}
+                  </button>
+                )}
               </div>
             </>
           )}
