@@ -2279,10 +2279,10 @@ export default function SendInvitesView({
                       {fmt(strings.quota_remaining, { n: quota.remaining })}
                     </>
                   )}
-                  <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
-                    {strings.quota_topup}
-                  </button>
                 </span>
+                <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
+                  {strings.quota_topup}
+                </button>
               </div>
               <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
               {/* Overdrawn keeps its own line: a refund can push usage past the
@@ -3465,10 +3465,22 @@ const css = `
    fixed narrow box. */
 .si .quota.band{ flex:1 1 320px; min-width:260px; max-width:520px; padding:10px 12px;
   border:1px solid var(--line); border-radius:12px; background:#fff; }
-.si .quota.band .top{ display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+.si .quota.band .top{ display:flex; align-items:baseline; gap:12px;
   font-size:12px; color:var(--muted); margin-bottom:7px; }
 .si .quota.band .top b{ color:var(--ink); }
-.si .quota.band .qright{ display:inline-flex; align-items:baseline; gap:10px; white-space:nowrap; }
+/* The counts take the middle: flex:1 lets them centre between the label and
+   Top up, and nowrap keeps "132" from breaking away from "of 176 used". */
+.si .quota.band .qright{ flex:1; text-align:center; white-space:nowrap; }
+/* Solid brand purple. It moved out of .ft, which carried the old outline
+   styling, and topping up is the one thing in this meter you can act on — a
+   bare button read as broken. */
+.si .quota.band .topup{ flex:none; display:inline-flex; align-items:center; gap:5px; cursor:pointer;
+  padding:6px 14px; border:1px solid var(--purple); border-radius:999px;
+  background:var(--purple); color:#fff; font-size:11.5px; font-weight:700;
+  font-family:inherit; text-decoration:none;
+  transition:filter .12s, transform .08s; }
+.si .quota.band .topup:hover{ filter:brightness(1.1); transform:translateY(-1px); }
+.si .quota.band .topup:focus-visible{ outline:2px solid var(--purple); outline-offset:2px; }
 .si .quota.band .ft{ margin-top:7px; }
 /* Full width once the card stacks, rather than a narrow panel pinned to one
    edge of a narrow screen. */
