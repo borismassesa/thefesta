@@ -1999,10 +1999,11 @@ export default function SendInvitesView({
                   {event.cardName ? (
                     <span className="fact"><i>{strings.fact_design}</i>{event.cardName}</span>
                   ) : null}
-                  <span className="fact">
-                    <i>{strings.fact_invites_paid}</i>
-                    {fmt(strings.fact_to_share, { n: quota.purchased })}
-                  </span>
+                  {/* No "invites paid" fact here. The allowance rail beside
+                      this row already states the same purchased count, and
+                      states it usefully (used, remaining, top up). The
+                      production-lock branch below keeps its copy, since the
+                      rail does not render while an order is still in design. */}
                 </div>
 
                 {event.addOns.length > 0 ? (
@@ -2048,10 +2049,10 @@ export default function SendInvitesView({
               facts say what was bought, this says what is left of it. Only on
               the card tabs, since the entrance pool has its own meter. */}
           {isCardSendTab && event.hasPaidOrder ? (
-            <aside className={`quota rail${quotaOverdrawn ? ' over' : ''}`}>
-              {/* The card's own actions sit above the meter rather than beside
-                  the heading: they act on this package, and the heading row was
-                  crowding them against a name that can be two lines long. */}
+            <div className="railcol">
+              {/* Above the allowance card, not inside it: these act on the
+                  package as a whole, while the card below is only about how
+                  much of the allowance is left. */}
               {!editingSettings ? (
                 <div className="railacts">
                   <button className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
@@ -2062,6 +2063,7 @@ export default function SendInvitesView({
                   </button>
                 </div>
               ) : null}
+            <aside className={`quota rail${quotaOverdrawn ? ' over' : ''}`}>
               <div className="top">
                 <span>{strings.quota_label}</span>
                 {quotaOverdrawn ? (
@@ -2086,6 +2088,7 @@ export default function SendInvitesView({
                 </button>
               </div>
             </aside>
+            </div>
           ) : null}
 
           {/* Production tracker — a full-bleed band under the identity block,
@@ -3447,23 +3450,22 @@ const css = `
 /* Invitation allowance as the card's right rail. Fixed width so the identity
    block keeps the space it needs and the meter never stretches to half the
    card on a wide screen. */
-.si .quota.rail{ flex:none; width:250px; align-self:center; background:#fff;
+.si .railcol{ flex:none; width:250px; align-self:center; display:flex; flex-direction:column; gap:10px; }
+.si .quota.rail{ width:100%; background:#fff;
   border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:var(--soft); }
-/* Full-width so the two actions split the rail evenly instead of hugging one
-   edge, with a rule under them separating "act on this package" from "how much
-   of it is left". */
-.si .quota.rail .railacts{ display:flex; gap:8px; margin:0 0 12px; padding-bottom:12px;
-  border-bottom:1px solid var(--line); }
-.si .quota.rail .railacts .btn{ flex:1; justify-content:center; padding:8px 10px; font-size:12.5px;
-  background:var(--lav-soft); color:var(--purple-d); border:1px solid var(--lav); }
-.si .quota.rail .railacts .btn:hover{ background:#f0e5f8; border-color:var(--purple); }
+/* Split the width evenly and keep each label on one line — "Preview invite"
+   was wrapping to two and making the pair twice as tall as they need to be. */
+.si .railacts{ display:flex; gap:8px; }
+.si .railacts .btn{ flex:1; justify-content:center; padding:8px 6px; font-size:12.5px;
+  white-space:nowrap; background:var(--lav-soft); color:var(--purple-d); border:1px solid var(--lav); }
+.si .railacts .btn:hover{ background:#f0e5f8; border-color:var(--purple); }
 .si .quota.rail .top{ display:block; margin-bottom:8px; }
 .si .quota.rail .top span:first-child{ display:block; font-size:12px; color:var(--muted); }
 .si .quota.rail .top span + span{ display:block; margin-top:2px; font-size:14px; color:var(--ink); }
 /* Below the identity block rather than beside it once the row wraps, so the
    meter never ends up in a 250px column next to a squeezed heading. */
 @media (max-width:900px){
-  .si .quota.rail{ width:100%; }
+  .si .railcol{ width:100%; }
 }
 /* Production state: the art and the identity sit side by side at the top,
    the tracker spans both columns underneath. Top-aligned, so a short info
