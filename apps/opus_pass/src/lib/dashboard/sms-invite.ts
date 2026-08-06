@@ -22,6 +22,8 @@
  * venue is worse than one that omits it, because the guest acts on it.
  */
 
+import { paletteNames } from './color-names'
+
 /** The card's filled-in details. Every value is optional: a design can be
  *  released with only some fields set, and half a line is worse than none. */
 export interface CardInviteFields {
@@ -41,6 +43,13 @@ export interface CardInviteFields {
   venue_2_time?: string | null
   contact_1?: string | null
   contact_2?: string | null
+  /** Palette swatches, stored as hex. Named for the SMS — a guest choosing
+   *  what to wear cannot act on "#B08A80". */
+  palette_1?: string | null
+  palette_2?: string | null
+  palette_3?: string | null
+  palette_4?: string | null
+  palette_5?: string | null
 }
 
 export interface SmsInviteInput {
@@ -110,6 +119,14 @@ export function buildSmsInvite(input: SmsInviteInput): string {
     lines.push('')
     if (venue1) lines.push(venue1)
     if (venue2) lines.push(venue2)
+  }
+
+  // The card's swatches, named. Approximate by nature, so kept coarse: a guest
+  // needs "Dusty Rose", not a precise shade they cannot buy anyway.
+  const colours = paletteNames([f.palette_1, f.palette_2, f.palette_3, f.palette_4, f.palette_5])
+  if (colours.length > 0) {
+    lines.push('')
+    lines.push(`RANGI ZA SHEREHE: ${colours.join(', ')}`)
   }
 
   const contacts = [clean(f.contact_1), clean(f.contact_2)].filter(Boolean)
