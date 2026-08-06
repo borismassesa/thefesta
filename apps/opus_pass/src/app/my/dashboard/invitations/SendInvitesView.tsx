@@ -2265,27 +2265,33 @@ export default function SendInvitesView({
             <aside className={`quota band${quotaOverdrawn ? ' over' : ''}`}>
               <div className="top">
                 <span>{strings.quota_label}</span>
-                {quotaOverdrawn ? (
-                  <span>
-                    {strings.quota_used_label} <b>{quota.used}</b>
-                    {' · '}
-                    {strings.quota_available_label} <b>0</b>
-                  </span>
-                ) : (
-                  <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
-                )}
+                <span className="qright">
+                  {quotaOverdrawn ? (
+                    <>
+                      {strings.quota_used_label} <b>{quota.used}</b>
+                      {' · '}
+                      {strings.quota_available_label} <b>0</b>
+                    </>
+                  ) : (
+                    <>
+                      <b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}
+                      {' · '}
+                      {fmt(strings.quota_remaining, { n: quota.remaining })}
+                    </>
+                  )}
+                  <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
+                    {strings.quota_topup}
+                  </button>
+                </span>
               </div>
               <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
-              <div className="ft">
-                {quotaOverdrawn ? (
+              {/* Overdrawn keeps its own line: a refund can push usage past the
+                  entitlement, and "0 remaining" alone does not explain why. */}
+              {quotaOverdrawn ? (
+                <div className="ft">
                   <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
-                ) : (
-                  <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
-                )}
-                <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
-                  {strings.quota_topup}
-                </button>
-              </div>
+                </div>
+              ) : null}
             </aside>
           </div>
         ) : sendTab === 'ticket' && ticketForm ? (
@@ -3454,11 +3460,16 @@ const css = `
 /* Bottom-right of the card, as its own boxed panel. margin-left:auto is what
    pushes it to the right edge; the width keeps it from stretching into a band
    across a wide screen. */
-.si .quota.band{ flex:none; width:250px; background:#fff;
-  border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:var(--soft); }
-.si .quota.band .top{ display:block; margin-bottom:8px; }
-.si .quota.band .top span:first-child{ display:block; font-size:12px; color:var(--muted); }
-.si .quota.band .top span + span{ display:block; margin-top:2px; font-size:14px; color:var(--ink); }
+/* Same meter as the entrance-pass pool: label left, counts right, bar under.
+   Grows into whatever width the reminder chip leaves rather than sitting as a
+   fixed narrow box. */
+.si .quota.band{ flex:1 1 320px; min-width:260px; max-width:520px; padding:10px 12px;
+  border:1px solid var(--line); border-radius:12px; background:#fff; }
+.si .quota.band .top{ display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+  font-size:12px; color:var(--muted); margin-bottom:7px; }
+.si .quota.band .top b{ color:var(--ink); }
+.si .quota.band .qright{ display:inline-flex; align-items:baseline; gap:10px; white-space:nowrap; }
+.si .quota.band .ft{ margin-top:7px; }
 /* Full width once the card stacks, rather than a narrow panel pinned to one
    edge of a narrow screen. */
 @media (max-width:900px){
