@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { CalendarHeart, MapPin, Clock, Check, PartyPopper, Heart, ImagePlus, Download, Phone, Ticket } from 'lucide-react'
 import Image from 'next/image'
 import Logo from '@/components/ui/Logo'
+import { LocaleToggle } from '@/components/LocaleToggle'
 import { useT } from '@/components/providers/UIStringsProvider'
 import { submitPublicRsvp, type PublicRsvpResponse, type PublicRsvpAnswerInput } from '@/lib/dashboard/actions'
 import { eventTypeLabel, type RsvpStatus, type RsvpQuestion } from '@/lib/dashboard/types'
@@ -285,15 +286,20 @@ export default function PublicRsvpForm({
             {t('eyebrow')}
           </p>
         ) : null}
-        <h1 className={`${followupMode ? '' : 'mt-4'} font-serif text-4xl font-semibold leading-tight text-[#4F2877] sm:text-5xl`}>
-          {followupMode ? t('followup_title') : data.coupleName}
+        <h1 className={`${followupMode ? '' : 'mt-4'} leading-tight text-[#1A1A1A]`}>
+          <span
+            className="block text-[2rem] leading-none sm:text-4xl lg:text-5xl"
+            style={{ fontFamily: 'var(--font-dancing), cursive' }}
+          >
+            {followupMode ? t('followup_title') : data.coupleName}
+          </span>
         </h1>
-        <div className="mx-auto mt-3 flex w-28 items-center justify-center gap-2 text-[#C9A0DC]">
-          <span className="h-px flex-1 bg-current/40" />
-          <Heart className="h-3.5 w-3.5" fill="currentColor" />
-          <span className="h-px flex-1 bg-current/40" />
+        <div className="mx-auto mt-3 flex items-center justify-center gap-2.5 text-[#C9A0DC]" aria-hidden>
+          <span className="h-px w-8 bg-current/50" />
+          <Heart className="h-3 w-3 shrink-0" fill="currentColor" strokeWidth={0} />
+          <span className="h-px w-8 bg-current/50" />
         </div>
-        <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-[#1A1A1A]/55">
+        <p className="mx-auto mt-4 max-w-sm text-[15px] leading-relaxed text-[#1A1A1A]/55">
           {followupMode
             ? t('followup_greeting')
             : t('header_greeting', { name: guestFirstName })}
@@ -598,50 +604,41 @@ function Shell({
   return (
     <div className="min-h-screen bg-white text-[#1A1A1A] lg:grid lg:grid-cols-2">
       <Logo className="fixed left-4 top-4 z-10 drop-shadow-sm sm:left-6 sm:top-6" />
+      <LocaleToggle className="fixed right-4 top-4 z-10 shadow-sm sm:right-6 sm:top-6" />
 
-      <aside className="relative min-h-[360px] overflow-hidden bg-gradient-to-br from-[#F1F4EB] to-[#E6EADE] lg:sticky lg:top-0 lg:h-screen">
+      <aside className="flex items-center justify-center overflow-y-auto bg-gradient-to-br from-[#F1F4EB] to-[#EDF0E7] px-5 pb-8 pt-24 sm:px-10 sm:py-14 lg:sticky lg:top-0 lg:h-screen lg:min-h-0 lg:px-16 lg:py-16">
         {coverImageUrl ? (
-          <>
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={coverImageUrl}
-            alt={`${coupleName} photo`}
-            className="absolute inset-0 h-full w-full object-cover"
+            alt={coupleName}
+            className="max-h-[65vh] w-auto max-w-full rounded-2xl object-contain shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] sm:max-h-[75vh] lg:max-h-[calc(100vh-8rem)]"
           />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-white/10" />
-          </>
+        ) : cardUrl ? (
+          <div className="flex w-full max-w-[420px] flex-col items-center">
+            <Image
+              src={cardUrl}
+              alt={cardAlt}
+              width={760}
+              height={1064}
+              className="max-h-[65vh] w-auto max-w-full rounded-2xl object-contain shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] sm:max-h-[75vh] lg:max-h-[calc(100vh-10rem)]"
+              unoptimized
+              priority
+            />
+            <a
+              href={cardUrl}
+              download
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-[#4F2877] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3E1F5E]"
+            >
+              <Download className="h-4 w-4" /> {cardDownloadLabel}
+            </a>
+          </div>
         ) : (
-          <div className="relative flex h-full min-h-[360px] items-center justify-center px-6 py-12 lg:min-h-screen lg:px-12">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(201,160,220,0.16),transparent_32%),radial-gradient(circle_at_78%_76%,rgba(79,40,119,0.08),transparent_34%)]" />
-            {cardUrl ? (
-              <div className="relative w-full max-w-[380px]">
-                <Image
-                  src={cardUrl}
-                  alt={cardAlt}
-                  width={760}
-                  height={1064}
-                  className="h-auto w-full rounded-[20px] shadow-[0_28px_90px_-40px_rgba(65,42,78,0.55)]"
-                  unoptimized
-                  priority
-                />
-                <a
-                  href={cardUrl}
-                  download
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#8e57b3] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#7B439E]"
-                >
-                  <Download className="h-4 w-4" /> {cardDownloadLabel}
-                </a>
-              </div>
-            ) : (
-              // No photo and no card: a quiet panel. Never operator copy — a
-              // guest cannot act on "add a photo from the dashboard", and being
-              // told to reads as somebody else's half-built page.
-              <div className="relative flex flex-col items-center gap-3 text-[#7B439E]/70">
-                <Heart className="h-7 w-7" fill="currentColor" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">
-                  {coupleName}
-                </span>
-              </div>
-            )}
+          /* Neither photo nor card. A quiet mark, never operator copy: a guest
+             cannot act on "add a photo from the dashboard". */
+          <div className="flex flex-col items-center gap-3 text-[#7B439E]/60">
+            <Heart className="h-7 w-7" fill="currentColor" strokeWidth={0} />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">{coupleName}</span>
           </div>
         )}
       </aside>
