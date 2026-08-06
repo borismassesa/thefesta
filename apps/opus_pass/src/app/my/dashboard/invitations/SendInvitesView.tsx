@@ -2173,38 +2173,6 @@ export default function SendInvitesView({
           ) : null}
         </div>
 
-        {/* Closes the card, bottom right. Ordered last in CSS rather than moved
-            in the markup, so it stays next to the condition it shares with the
-            rest of the package block. */}
-        {isCardSendTab && event.hasPaidOrder ? (
-          <div className="ctxfoot">
-          <aside className={`quota band${quotaOverdrawn ? ' over' : ''}`}>
-            <div className="top">
-              <span>{strings.quota_label}</span>
-              {quotaOverdrawn ? (
-                <span>
-                  {strings.quota_used_label} <b>{quota.used}</b>
-                  {' · '}
-                  {strings.quota_available_label} <b>0</b>
-                </span>
-              ) : (
-                <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
-              )}
-            </div>
-            <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
-            <div className="ft">
-              {quotaOverdrawn ? (
-                <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
-              ) : (
-                <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
-              )}
-              <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
-                {strings.quota_topup}
-              </button>
-            </div>
-          </aside>
-          </div>
-        ) : null}
 
         {isCardSendTab && event.hasPaidOrder ? (
           <div className="ctxsend">
@@ -2292,6 +2260,33 @@ export default function SendInvitesView({
                 <span>{strings.dryrun_note}</span>
               </div>
             ) : null}
+            {/* Shares this row with the reminder chip: the chip is the one
+                thing left to do, the panel is what it will cost. */}
+            <aside className={`quota band${quotaOverdrawn ? ' over' : ''}`}>
+              <div className="top">
+                <span>{strings.quota_label}</span>
+                {quotaOverdrawn ? (
+                  <span>
+                    {strings.quota_used_label} <b>{quota.used}</b>
+                    {' · '}
+                    {strings.quota_available_label} <b>0</b>
+                  </span>
+                ) : (
+                  <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
+                )}
+              </div>
+              <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
+              <div className="ft">
+                {quotaOverdrawn ? (
+                  <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
+                ) : (
+                  <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
+                )}
+                <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
+                  {strings.quota_topup}
+                </button>
+              </div>
+            </aside>
           </div>
         ) : sendTab === 'ticket' && ticketForm ? (
           <div className="ctxsend">
@@ -3447,10 +3442,7 @@ const css = `
 .si .btn.dangerfill{ background:var(--bad-tx); color:#fff; }
 .si .spin{ animation:si-spin .8s linear infinite; }
 @keyframes si-spin{ to{ transform:rotate(360deg); } }
-/* A column, so the allowance foot can be ordered last without moving it in the
-   JSX — it renders before .ctxsend but must sit below the reminder chip. */
-.si .ctx{ position:relative; display:flex; flex-direction:column; background:#fff;
-  border:1px solid var(--line); border-radius:20px;
+.si .ctx{ position:relative; background:#fff; border:1px solid var(--line); border-radius:20px;
   padding:22px; margin:22px 0 18px; box-shadow:var(--soft); }
 .si .ctx.production{ padding:24px 26px; }
 .si .ctxhead{ display:flex; gap:8px; flex-wrap:wrap; }
@@ -3462,8 +3454,7 @@ const css = `
 /* Bottom-right of the card, as its own boxed panel. margin-left:auto is what
    pushes it to the right edge; the width keeps it from stretching into a band
    across a wide screen. */
-.si .ctxfoot{ order:99; display:flex; justify-content:flex-end; margin-top:16px; }
-.si .quota.band{ width:250px; background:#fff;
+.si .quota.band{ flex:none; width:250px; background:#fff;
   border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:var(--soft); }
 .si .quota.band .top{ display:block; margin-bottom:8px; }
 .si .quota.band .top span:first-child{ display:block; font-size:12px; color:var(--muted); }
@@ -3686,7 +3677,14 @@ const css = `
   padding:0 6px; background:rgba(0,0,0,.06); color:var(--muted); font-size:10.5px; font-weight:700; border-radius:999px; }
 .si .stb.on .stbcnt{ background:var(--ink); color:#fff; }
 .si .pipelinepanel{ margin-top:18px; }
-.si .ctxsend{ margin-top:18px; }
+.si .ctxsend{ margin-top:18px; display:flex; flex-wrap:wrap; align-items:center;
+  justify-content:space-between; gap:16px; }
+/* The settings editor and the dry-run notice are full-width blocks: they take
+   the whole row and push the panel onto the next line rather than being
+   squeezed beside it. */
+.si .ctxsend > .vars, .si .ctxsend > .connect{ flex:1 1 100%; }
+.si .ctxsend > .chips{ flex:0 1 auto; margin-top:0; }
+.si .ctxsend > .quota.band{ margin-left:auto; }
 .si .ctxsend .chips{ margin-top:0; }
 .si .chips{ display:flex; gap:9px; margin-top:16px; flex-wrap:wrap; align-items:center; }
 .si .chip{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); background:#fff;
