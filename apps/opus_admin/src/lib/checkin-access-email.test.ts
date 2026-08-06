@@ -6,6 +6,7 @@ const BASE: AccessCodeMessage = {
   recipientName: 'Asha Mwakalinga',
   eventName: 'Moses Seeta Wedding',
   eventDate: 'Saturday, 8 August 2026',
+  eventTime: '4:00 PM',
   venue: 'Nyumbani kwa Mama Seeta, Dar es salaam',
   doorLabel: 'Main Gate',
   code: 'M0W4J0KM',
@@ -51,6 +52,25 @@ test('a nameless recipient still gets a valid greeting', () => {
   const { text } = composeAccessCodeEmail({ ...BASE, recipientName: null })
   assert.ok(text.startsWith('Hello,'))
   assert.ok(!text.includes('Hi ,'))
+})
+
+test('the event details are listed one per line in both bodies', () => {
+  const { html, text } = composeAccessCodeEmail(BASE)
+  for (const value of [BASE.eventName, BASE.venue!, BASE.eventDate!, BASE.eventTime!]) {
+    assert.ok(html.includes(value), `html is missing ${value}`)
+    assert.ok(text.includes(value), `text is missing ${value}`)
+  }
+  // Four rows, each led by its own icon rather than a shared bullet.
+  assert.equal(html.match(/<tr>/g)?.length, 4)
+  assert.ok(['🎉', '📍', '📅', '🕒'].every((icon) => html.includes(icon)))
+})
+
+test('a detail nobody recorded is dropped, not shown blank', () => {
+  const { html, text } = composeAccessCodeEmail({ ...BASE, venue: null, eventTime: null })
+  assert.equal(html.match(/<tr>/g)?.length, 2)
+  assert.ok(!text.includes('Venue:'))
+  assert.ok(!text.includes('Time:'))
+  assert.ok(text.includes('Date: Saturday, 8 August 2026'))
 })
 
 test('recipient-supplied text is escaped rather than injected into the html', () => {

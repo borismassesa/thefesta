@@ -146,7 +146,7 @@ export async function POST(request: Request) {
 
   const { data: guest } = await supabase
     .from('guest_contacts')
-    .select('full_name, group_tag')
+    .select('full_name, group_tag, phone, whatsapp_phone')
     .eq('id', invitation.guest_contact_id)
     .maybeSingle()
 
@@ -161,9 +161,13 @@ export async function POST(request: Request) {
   const rsvpdPartySize = invitation.party_size ?? 1
   const alreadyIn = invitation.checked_in_party_size ?? 0
 
-  // Everything the attendant needs to decide, and nothing that would let a
-  // scanner harvest contact details: no phone number, no email, no address.
-  // The door needs to know WHO and WHETHER, not how to reach them.
+  // Everything the attendant needs to decide, and nothing more: no email, no
+  // address. The phone number is the one contact detail that IS a door
+  // decision — a manual admission has no scanned pass behind it, so when two
+  // guests share a name the number on the invitation is what separates them.
+  // It is released only for a guest already resolved by an identifier the
+  // person at the door was holding, and only to a scanner authorised for this
+  // event, so it cannot be used to walk the roster.
   return NextResponse.json({
     status: 'found',
     identifierType,
@@ -171,6 +175,7 @@ export async function POST(request: Request) {
     passId: invitation.pass_id,
     entryCode: invitation.entry_code,
     guestName: guest?.full_name ?? 'Guest',
+    guestPhone: guest?.whatsapp_phone?.trim() || guest?.phone?.trim() || null,
     groupTag,
     isVip: /vip/i.test(groupTag ?? ''),
     tableName: seatAssignment?.seating_tables?.name ?? null,

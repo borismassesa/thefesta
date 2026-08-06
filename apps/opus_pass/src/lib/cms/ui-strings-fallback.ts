@@ -1262,6 +1262,17 @@ export interface DashboardSendStrings {
   row_message_copied: string
   manual_card_downloaded: string
   manual_no_card: string
+  row_resend_held_back: string
+  manual_title: string
+  manual_intro: string
+  manual_preparing: string
+  manual_card_failed: string
+  manual_step_download: string
+  manual_step_open: string
+  manual_open_whatsapp: string
+  manual_attach_reminder: string
+  manual_share: string
+  manual_share_unavailable: string
   entrance_needs_whatsapp: string
   entrance_status_sent: string
   entrance_status_notsent: string
@@ -2476,6 +2487,17 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     row_message_copied: 'Message copied',
     manual_card_downloaded: 'The card has been downloaded. Attach it to the WhatsApp message before sending.',
     manual_no_card: 'WhatsApp is open, but the card could not be downloaded. The guest can still save it from the RSVP link in the message.',
+    row_resend_held_back: 'WhatsApp held this guest back. Meta asks for 24 hours before trying the template again.',
+    manual_title: 'Send manually',
+    manual_intro: 'WhatsApp would not deliver to {name}. Send it yourself in two steps.',
+    manual_preparing: 'Preparing the card',
+    manual_card_failed: 'The card could not be prepared',
+    manual_step_download: 'Save the card to this device',
+    manual_step_open: 'Open the chat and attach it',
+    manual_open_whatsapp: 'Open WhatsApp',
+    manual_attach_reminder: 'WhatsApp cannot attach the card for you. Add it from the attachment button before sending. If you forget, the guest can still download it from the RSVP link in the message.',
+    manual_share: 'Share card and message',
+    manual_share_unavailable: 'This device cannot share files directly. Use the two steps above.',
     entrance_needs_whatsapp: 'Entrance passes are sent by WhatsApp only — add a WhatsApp number for this guest',
     entrance_status_sent: 'Sent',
     entrance_status_notsent: 'Not sent',

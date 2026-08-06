@@ -2390,6 +2390,10 @@ export interface SendGuestRow {
    */
   delivery: {
     state: 'pending' | 'delivered' | 'read' | 'failed'
+    /** Meta's raw numeric code, for rules that depend on WHICH failure it was
+     *  (131049 carries a documented 24-hour wait before retrying). Null when
+     *  the failure carried no recognisable code. */
+    code: string | null
     /** When the send was made. The webhook updates the row in place, so this
      *  is the attempt time, not the delivery time. */
     at: string
@@ -2518,6 +2522,10 @@ export interface SendInvitesData {
    *  so their design/quota isn't invisible to every event. */
   unassignedOrders: PaidOrderSummary[]
   funnel: { invited: number; delivered: number; undelivered: number; viewed: number; rsvpd: number }
+  /** Server clock at render, ISO. Time-dependent UI rules (Meta's 24-hour wait
+   *  before re-attempting a held-back template) read this rather than calling
+   *  Date.now() during render, which is impure and re-renders inconsistently. */
+  now: string
   quota: { used: number; purchased: number; remaining: number; hasPaidOrder: boolean }
   /** Entrance-pass pool — same purchased size as the invite quota, consumed
    *  independently (first ticket per guest charges, re-sends are free). */
@@ -2622,6 +2630,7 @@ export async function getSendInvitesData(
       selectedEventId: null,
       unassignedOrders: unassignedOrdersFrom(releasedOrders),
       funnel: { invited: 0, delivered: 0, undelivered: 0, viewed: 0, rsvpd: 0 },
+      now: new Date().toISOString(),
       quota: { used: 0, purchased: 0, remaining: 0, hasPaidOrder: false },
       entranceQuota: { used: 0, purchased: 0, remaining: 0 },
       publicLink: { enabled: false, slug: null, url: null },
@@ -2691,8 +2700,10 @@ export async function getSendInvitesData(
           : row.status === 'delivered'
             ? 'delivered'
             : 'pending'
+    const code = state === 'failed' ? (row.error ?? '').match(/^(\d{6})/)?.[1] ?? null : null
     deliveryByGuest.set(row.guest_contact_id, {
       state,
+      code,
       at: row.created_at,
       reason: state === 'failed' ? describeDeliveryFailure(row.error) : null,
     })
@@ -2873,6 +2884,7 @@ export async function getSendInvitesData(
     selectedEventId,
     unassignedOrders: entitlement.unassignedOrders,
     funnel,
+    now: new Date().toISOString(),
     quota: {
       used: entitlement.used,
       purchased: entitlement.purchased,
