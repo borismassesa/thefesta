@@ -29,8 +29,14 @@ export interface RosterEntry {
   /** Free-text guest-list grouping the couple entered, e.g. "Bride's Family". */
   groupTag: string | null;
   /** The guest's own number, for telling two similar names apart on a manual
-   *  admission. WhatsApp number when there is one. Null when the couple never
-   *  recorded a number for them. */
+   *  admission. WhatsApp number when there is one.
+   *
+   *  NOT carried by the roster: /validate returns every attending guest at
+   *  once, and a personal field there would put the whole guest list's numbers
+   *  on the device for the shift. This is populated per guest from /lookup, so
+   *  it is null both when the couple recorded no number AND before the lookup
+   *  has resolved — see withGuestDetail. Screens that show it track that
+   *  difference themselves rather than reading "no number" from null. */
   phone: string | null;
   /** Heuristic: the couple wrote "VIP" in the group tag. Not a real tier. */
   isVip: boolean;

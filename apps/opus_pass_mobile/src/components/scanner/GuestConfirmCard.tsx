@@ -31,6 +31,11 @@ interface GuestConfirmCardProps {
    *  against a check-in the server never recorded. */
   error?: string | null;
   onCancel: () => void;
+  /** True while the guest's phone number is still being fetched. The roster
+   *  does not carry it, so a guest picked from the list arrives here without
+   *  one; showing "Not recorded" during that gap would state as fact the very
+   *  thing still being looked up. */
+  phonePending?: boolean;
   /** Fires once this card's modal has FINISHED dismissing (iOS only — the
    *  platform gives no such callback elsewhere). The caller needs it to avoid
    *  tearing down a modal stacked underneath in the same frame. */
@@ -56,6 +61,7 @@ export function GuestConfirmCard({
   guest: incomingGuest,
   busy = false,
   error = null,
+  phonePending = false,
   onCancel,
   onDismissed,
   onConfirm,
@@ -233,7 +239,7 @@ export function GuestConfirmCard({
               <DetailRow
                 icon="call-outline"
                 label="Phone number"
-                value={guest.phone ?? 'Not recorded'}
+                value={guest.phone ?? (phonePending ? 'Checking…' : 'Not recorded')}
               />
               {/* Named in the language the tickets are sold in — the guest is
                   holding a Single or a Double, not "1 ct". */}

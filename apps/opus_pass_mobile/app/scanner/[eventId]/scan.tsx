@@ -29,6 +29,9 @@ const RESCAN_COOLDOWN_MS = 2500;
 /** Side of the square scan target the corner brackets frame. */
 const RETICLE_SIZE = 256;
 
+/** A Pass ID is eight characters; a legacy entry code is six. */
+const PASS_ID_LENGTH = 8;
+
 const RESULT_STYLES: Record<
   CheckinScanResult['status'],
   { bg: string; icon: keyof typeof Ionicons.glyphMap; title: string }
@@ -242,14 +245,19 @@ export default function ScanScreen() {
    * so this resolves and returns; the confirm card then makes admission a
    * deliberate second tap.
    */
-  const lookupByPassId = useCallback(
-    async (passId: string): Promise<ManualLookupResult> => {
+  const lookupIdentifier = useCallback(
+    async (identifier: string): Promise<ManualLookupResult> => {
       if (!session) return { status: 'error', message: 'Session expired' };
       try {
         const found = await lookupAdmission({
           eventId: session.eventId,
           accessToken: session.accessToken,
-          passId,
+          // Sent under the right name for its shape. The sheet uses this for
+          // typed identifiers AND for a guest picked off the roster, whose
+          // resolvable identifier may be either kind.
+          ...(identifier.length === PASS_ID_LENGTH
+            ? { passId: identifier }
+            : { entryCode: identifier }),
         });
         // The server distinguishes "no such guest" from "I could not answer",
         // and so must the door: reporting a reachability failure as an unknown
@@ -796,7 +804,7 @@ export default function ScanScreen() {
         onRetry={() => void rosterQuery.refetch()}
         onAdmit={admitManually}
         onAdmitByCode={admitByCode}
-        onLookup={lookupByPassId}
+        onLookup={lookupIdentifier}
         onAdmitted={handleManualAdmitted}
       />
 

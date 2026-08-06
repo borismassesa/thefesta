@@ -103,15 +103,49 @@ export function ManualCheckinSheet({
   const [codeError, setCodeError] = useState<string | null>(null);
   /** Guest picked from the search results, awaiting confirmation. */
   const [confirming, setConfirming] = useState<RosterEntry | null>(null);
+  /** True while a picked guest's phone number is still being resolved. */
+  const [phonePending, setPhonePending] = useState(false);
 
   const codeInputRef = useRef<TextInput>(null);
   const nameInputRef = useRef<TextInput>(null);
+
+  /**
+   * Held in a ref, not in `admitting`, because two triggers can fire for the
+   * same code inside one tick: auto-submit when the eighth character lands,
+   * and the keyboard's return key. State does not update until the next
+   * render, so both would read `admitting` as null and both would go to the
+   * server. A ref closes that window synchronously.
+   */
+  const submitLock = useRef(false);
+
+  /**
+   * The admission waiting to be handed up, held while the modals go away.
+   *
+   * An admission ends with up to two stacked modals on screen (this sheet,
+   * and the confirm card inside it) and a full-screen result overlay to show
+   * underneath them. Dismissing both in one frame leaves iOS with a window
+   * that no longer draws but still takes touches: the attendant sees the
+   * green "Checked in" screen and the door stops responding entirely. So the
+   * teardown is sequenced — confirm card first, then this sheet, then the
+   * result — each step waiting for the last to actually finish.
+   */
+  const pendingResult = useRef<CheckinScanResult | null>(null);
+
 
   // Reset between openings — stale input from the last guest would be worse
   // than useless with a queue moving.
   useEffect(() => {
     if (visible) {
       setMode(initialMode);
+      // Cleared on OPEN, not on close. flushPending runs from a native
+      // callback, and a callback is a thing that can fail to arrive; left set,
+      // a stale result would make this sheet's next "Not this guest" close the
+      // whole sheet, a failure with no visible connection to the admission
+      // that caused it. It cannot be cleared on close: `visible` flips false
+      // the moment onClose is called, which is BEFORE the dismissal completes,
+      // so clearing there would throw away the very result being delivered.
+      pendingResult.current = null;
+      submitLock.current = false;
       return;
     }
     if (!visible) {
@@ -120,6 +154,7 @@ export function ManualCheckinSheet({
       setAdmitting(null);
       setCodeError(null);
       setConfirming(null);
+      setPhonePending(false);
     }
   }, [visible, initialMode]);
 
@@ -146,19 +181,6 @@ export function ManualCheckinSheet({
   // the last two empty.
   const slotCount = PASS_ID_LENGTH;
 
-  /**
-   * The admission waiting to be handed up, held while the modals go away.
-   *
-   * An admission ends with up to two stacked modals on screen (this sheet,
-   * and the confirm card inside it) and a full-screen result overlay to show
-   * underneath them. Dismissing both in one frame leaves iOS with a window
-   * that no longer draws but still takes touches: the attendant sees the
-   * green "Checked in" screen and the door stops responding entirely. So the
-   * teardown is sequenced — confirm card first, then this sheet, then the
-   * result — each step waiting for the last to actually finish.
-   */
-  const pendingResult = useRef<CheckinScanResult | null>(null);
-
   /** Hand the finished admission up, once nothing is left covering the screen. */
   const flushPending = () => {
     const result = pendingResult.current;
@@ -177,7 +199,8 @@ export function ManualCheckinSheet({
   };
 
   const submitCode = async (value: string) => {
-    if (admitting || !isCompleteIdentifier(value)) return;
+    if (submitLock.current || admitting || !isCompleteIdentifier(value)) return;
+    submitLock.current = true;
     setAdmitting('code');
     setCodeError(null);
     try {
@@ -230,6 +253,7 @@ export function ManualCheckinSheet({
       finish(result);
     } finally {
       setAdmitting(null);
+      submitLock.current = false;
     }
   };
 
@@ -244,6 +268,36 @@ export function ManualCheckinSheet({
     // enter by hand. A six-character legacy code is submitted with the button
     // below instead.
     if (cleaned.length === PASS_ID_LENGTH) void submitCode(cleaned);
+  };
+
+  /**
+   * Open the confirm card for a guest picked out of the search results, then
+   * fill in the phone number the roster does not carry.
+   *
+   * The card opens on the roster row straight away rather than waiting for
+   * the lookup: the attendant is identifying somebody standing in front of
+   * them, and a network round trip in front of every admission is the wrong
+   * trade. The number lands a moment later, or not at all.
+   */
+  const openConfirm = async (guest: RosterEntry) => {
+    setConfirming(guest);
+    const identifier = guest.passId ?? guest.entryCode;
+    if (!identifier || !onLookup) return;
+    setPhonePending(true);
+    try {
+      const found = await onLookup(identifier);
+      if (found.status !== 'found') return;
+      // Guard against a slow lookup landing after the attendant has moved on
+      // to another guest, which would show one guest's number on another's
+      // card — the exact confusion the number is here to prevent.
+      setConfirming((current) =>
+        current?.invitationId === found.guest.invitationId
+          ? { ...current, phone: found.guest.phone }
+          : current
+      );
+    } finally {
+      setPhonePending(false);
+    }
   };
 
   const admitGuest = async (guest: RosterEntry, arrived: number) => {
@@ -504,7 +558,7 @@ export function ManualCheckinSheet({
                         // to see who they are about to let in. Guests already
                         // inside stay tappable — the card is also how you check
                         // when and by which door they came through.
-                        onPress={() => setConfirming(item)}
+                        onPress={() => void openConfirm(item)}
                         className="mb-3 flex-row items-center gap-3 rounded-2xl border border-ed-outline-variant bg-ed-surface p-4"
                         style={{ opacity: arrived ? 0.6 : 1 }}
                       >
@@ -574,6 +628,7 @@ export function ManualCheckinSheet({
           visible={Boolean(confirming)}
           guest={confirming}
           busy={Boolean(admitting)}
+          phonePending={phonePending}
           onCancel={() => setConfirming(null)}
           onDismissed={handleConfirmCardDismissed}
           onConfirm={(guest, arrived) => void admitGuest(guest, arrived)}

@@ -22,11 +22,6 @@ export interface RosterEntry {
   checkedInBy: string | null
   /** Free-text guest-list grouping the couple entered, e.g. "Bride's Family". */
   groupTag: string | null
-  /** The guest's own number, shown on the manual confirm card so an attendant
-   *  admitting without a scanned pass has a second way to tell two similar
-   *  names apart. WhatsApp number first: it is the one OpusPass messages
-   *  reached them on, so it is the number they recognise. */
-  phone: string | null
   /** Heuristic only: the couple wrote "VIP" somewhere in the group tag.
    *  There is no dedicated VIP tier in OpusPass's data model. */
   isVip: boolean
@@ -49,6 +44,16 @@ export interface RosterEntry {
  * path sends `invitationId` instead — so nothing here needs the token, and
  * the blast radius of a stolen device stays limited to the door code itself,
  * which the couple can revoke.
+ *
+ * The same reasoning governs contact details, and it is the reason this route
+ * carries none. A roster is a bulk read: everything returned here lands on the
+ * device in one call, for every attending guest, and stays there for the
+ * shift. So it is limited to what the door needs to FIND a guest — the name
+ * and the couple's own grouping. Anything that identifies a guest personally,
+ * the phone number being the one the confirm card wants, is guest-specific
+ * detail and comes from /lookup, one resolved guest at a time. Adding a
+ * personal field here would widen a lost device from "the door code, which is
+ * revocable" to "the whole guest list's contact details, which are not".
  */
 export async function POST(request: Request) {
   const { eventId, token } = (await request.json().catch(() => ({}))) as {
@@ -99,7 +104,7 @@ export async function POST(request: Request) {
   const { data: invitations } = await supabase
     .from('guest_invitations')
     .select(
-      'id, guest_contact_id, entry_code, pass_id, party_size, checked_in_at, checked_in_party_size, checked_in_door, checked_in_by, guest_contacts(full_name, group_tag, phone, whatsapp_phone)'
+      'id, guest_contact_id, entry_code, pass_id, party_size, checked_in_at, checked_in_party_size, checked_in_door, checked_in_by, guest_contacts(full_name, group_tag)'
     )
     .eq('event_id', eventId)
     .eq('rsvp_status', 'attending')
@@ -122,8 +127,6 @@ export async function POST(request: Request) {
     const contact = inv.guest_contacts as unknown as {
       full_name: string
       group_tag: string | null
-      phone: string | null
-      whatsapp_phone: string | null
     } | null
     return {
       invitationId: inv.id,
@@ -137,7 +140,6 @@ export async function POST(request: Request) {
       checkedInBy: inv.checked_in_by,
       groupTag: contact?.group_tag ?? null,
       isVip: /vip/i.test(contact?.group_tag ?? ''),
-      phone: contact?.whatsapp_phone?.trim() || contact?.phone?.trim() || null,
       table: tableByGuest.get(inv.guest_contact_id) ?? null,
     }
   })

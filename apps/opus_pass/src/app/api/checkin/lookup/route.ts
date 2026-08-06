@@ -165,9 +165,14 @@ export async function POST(request: Request) {
   // address. The phone number is the one contact detail that IS a door
   // decision — a manual admission has no scanned pass behind it, so when two
   // guests share a name the number on the invitation is what separates them.
-  // It is released only for a guest already resolved by an identifier the
-  // person at the door was holding, and only to a scanner authorised for this
-  // event, so it cannot be used to walk the roster.
+  //
+  // This route is the ONLY one that returns it, and that is the boundary
+  // worth keeping: /validate reads the roster in bulk, this reads one guest
+  // the attendant has already resolved, /scan admits. Putting the number here
+  // means a device holds one guest's number at a time, for as long as that
+  // card is open, rather than the whole guest list's for the whole shift.
+  // Anything personal added to the roster route instead would undo that, so
+  // it belongs here even when the roster is the more convenient place.
   return NextResponse.json({
     status: 'found',
     identifierType,
