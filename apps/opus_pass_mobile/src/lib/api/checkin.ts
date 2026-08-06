@@ -1,3 +1,5 @@
+import Constants from 'expo-constants';
+import { resolveApiOrigin } from '@/lib/api/apiOrigin';
 import { publicOrigin } from '@/lib/share';
 import type {
   CheckinScanResult,
@@ -19,7 +21,12 @@ import type {
  */
 
 function checkinUrl(path: string): string {
-  return `${publicOrigin()}/api/checkin/${path}`;
+  const origin = resolveApiOrigin(
+    publicOrigin(),
+    Constants.expoConfig?.hostUri ?? '',
+    __DEV__
+  );
+  return `${origin}/api/checkin/${path}`;
 }
 
 /**
@@ -31,13 +38,36 @@ function checkinUrl(path: string): string {
  */
 const REQUEST_TIMEOUT_MS = 15000;
 
-async function postJson<T>(path: string, body: unknown): Promise<T> {
+/**
+ * Cap for calls that only READ.
+ *
+ * Longer than the writing one on purpose. The 15s cap is short because an
+ * admission that may or may not have committed has to be resolved quickly by
+ * a human; a lookup has nothing to resolve, so giving up early only costs the
+ * attendant a retype. The case that needs the headroom is a first request to a
+ * dev server, which compiles the route on demand and can sit well past 15s
+ * before answering — the door then sees a failure against a server that was
+ * about to reply.
+ */
+const READ_TIMEOUT_MS = 40000;
+
+interface PostOptions {
+  /** True when the call cannot change anything, so a timeout can promise
+   *  nothing was recorded. Never set this on an admission. */
+  readOnly?: boolean;
+}
+
+async function postJson<T>(path: string, body: unknown, options: PostOptions = {}): Promise<T> {
   const url = checkinUrl(path);
+  const readOnly = options.readOnly === true;
 
   // AbortController + timer rather than AbortSignal.timeout: the static
   // helper isn't in Hermes, and this file runs on-device.
   const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(
+    () => abort.abort(),
+    readOnly ? READ_TIMEOUT_MS : REQUEST_TIMEOUT_MS
+  );
 
   let response: Response;
   try {
@@ -53,8 +83,13 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     // may already have committed the check-in. Telling the attendant to look
     // before retrying is what stops a "why does it say already scanned".
     if (err instanceof Error && err.name === 'AbortError') {
+      // A read cannot have changed anything, so it must not raise the alarm a
+      // half-committed admission does. Telling an attendant to go and check a
+      // guest who was never admitted is its own kind of wrong answer.
       throw new Error(
-        `${hostOf(url)} took too long to answer. This may still have gone through — check the guest before scanning again.`
+        readOnly
+          ? `${hostOf(url)} took too long to answer. Nothing was recorded. Try again.`
+          : `${hostOf(url)} took too long to answer. This may still have gone through. Check the guest before scanning again.`
       );
     }
     // The request never landed: wrong network, server down, or a URL the
@@ -91,7 +126,7 @@ function hostOf(url: string): string {
 
 /** Exchange a typed access code for the event it belongs to. */
 export function resolveAccessCode(token: string): Promise<ResolveCodeResult> {
-  return postJson<ResolveCodeResult>('resolve', { token: token.trim() });
+  return postJson<ResolveCodeResult>('resolve', { token: token.trim() }, { readOnly: true });
 }
 
 /** Confirm the access code is still valid and fetch the event + guest roster. */
@@ -149,6 +184,8 @@ export type LookupResult =
       passId: string | null;
       entryCode: string | null;
       guestName: string;
+      /** Null when the couple never recorded a number for this guest. */
+      guestPhone: string | null;
       groupTag: string | null;
       isVip: boolean;
       tableName: string | null;
@@ -172,7 +209,7 @@ export type LookupResult =
  * the attendant makes after seeing who they are looking at.
  */
 export function lookupAdmission(input: LookupInput): Promise<LookupResult> {
-  return postJson<LookupResult>('lookup', input);
+  return postJson<LookupResult>('lookup', input, { readOnly: true });
 }
 
 export interface AmendPartySizeInput {

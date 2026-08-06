@@ -31,6 +31,7 @@ function guest(overrides: Partial<RosterEntry> & { fullName: string }): RosterEn
     checkedInBy: null,
     groupTag: null,
     isVip: false,
+    phone: null,
     table: null,
     ...overrides,
   };
@@ -41,6 +42,18 @@ test('initials take the first and last word, not the middle', () => {
   assert.equal(initialsOf('Asha Grace Mwakalinga'), 'AM');
   assert.equal(initialsOf('Aryeh'), 'A');
   assert.equal(initialsOf('   '), '?');
+});
+
+test('initials skip titles and joining words, not the name itself', () => {
+  // The case the avatar exists to tell apart: every married couple on the
+  // roster reduced to the same two letters before this.
+  assert.equal(initialsOf('Mr & Mrs Boris Massesa'), 'BM');
+  assert.equal(initialsOf('Mr and Mrs Boris Massesa'), 'BM');
+  assert.equal(initialsOf('Bwana na Bibi Juma Kileo'), 'JK');
+  assert.equal(initialsOf('Dr. Asha Mwakalinga'), 'AM');
+  assert.equal(initialsOf('The Massesa Family'), 'M');
+  // Nothing but titles still beats showing "?" next to a visible name.
+  assert.equal(initialsOf('Mr & Mrs'), 'MM');
 });
 
 test('avatar colour is stable for a key and varies across keys', () => {

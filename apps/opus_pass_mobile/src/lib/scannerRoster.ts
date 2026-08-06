@@ -27,12 +27,42 @@ const AVATAR_COLORS = [
   '#55703F',
 ] as const;
 
-/** First letter of the first two words — "Natasha Fernandes" reads as NF. */
+/**
+ * Salutations and joining words that are not part of anybody's name.
+ *
+ * Couples enter guests the way an invitation is addressed, so "Mr & Mrs Boris
+ * Massesa" is the normal shape of a row, not an edge case. Taking the first
+ * and last word of that gives MM — every married couple on the list collapses
+ * to the same two letters, which is exactly the case the avatar exists to tell
+ * apart. Swahili titles are here because the roster is bilingual.
+ */
+const NAME_NOISE = new Set([
+  'mr', 'mrs', 'ms', 'miss', 'mx', 'dr', 'prof', 'rev', 'sir', 'madam', 'chief',
+  'eng', 'engr', 'capt', 'hon', 'mzee', 'bwana', 'bi', 'bibi', 'ndugu',
+  'and', 'na', 'the', 'family',
+]);
+
+/** Is this word a real name part, rather than a title or a joining word? */
+function isNamePart(word: string): boolean {
+  const bare = word.replace(/[.,]/g, '').toLowerCase();
+  // Requires a letter, so "&", "+" and stray punctuation drop out too.
+  return /\p{L}/u.test(bare) && !NAME_NOISE.has(bare);
+}
+
+/**
+ * First letter of the first and last real name parts — "Natasha Fernandes"
+ * reads as NF, and "Mr & Mrs Boris Massesa" reads as BM rather than MM.
+ *
+ * Falls back to the raw words when a row is nothing but titles, because an
+ * avatar showing "?" beside a name that is plainly on screen looks broken.
+ */
 export function initialsOf(fullName: string): string {
   const words = fullName.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  const first = words[0][0] ?? '';
-  const last = words.length > 1 ? (words[words.length - 1][0] ?? '') : '';
+  const parts = words.filter(isNamePart);
+  const usable = parts.length > 0 ? parts : words;
+  if (usable.length === 0) return '?';
+  const first = usable[0][0] ?? '';
+  const last = usable.length > 1 ? (usable[usable.length - 1][0] ?? '') : '';
   return (first + last).toUpperCase();
 }
 

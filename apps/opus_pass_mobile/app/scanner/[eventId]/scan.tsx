@@ -19,7 +19,7 @@ import { arrivedHeads, clampArrived } from '@/lib/scannerRoster';
 import { useScannerSession } from '@/hooks/useScannerSession';
 import { useScannerTips } from '@/hooks/useScannerTips';
 import { useTheme } from '@/theme/useTheme';
-import type { CheckinScanResult, RosterEntry } from '@/types/checkin';
+import type { CheckinScanResult, ManualLookupResult, RosterEntry } from '@/types/checkin';
 
 /** Ignore repeat decodes of the same code for this long — a QR held in frame
  *  fires continuously, and without this every guest triggers a burst of
@@ -243,16 +243,20 @@ export default function ScanScreen() {
    * deliberate second tap.
    */
   const lookupByPassId = useCallback(
-    async (passId: string): Promise<RosterEntry | null> => {
-      if (!session) return null;
+    async (passId: string): Promise<ManualLookupResult> => {
+      if (!session) return { status: 'error', message: 'Session expired' };
       try {
         const found = await lookupAdmission({
           eventId: session.eventId,
           accessToken: session.accessToken,
           passId,
         });
-        if (found.status !== 'found') return null;
-        return {
+        // The server distinguishes "no such guest" from "I could not answer",
+        // and so must the door: reporting a reachability failure as an unknown
+        // Pass ID sends a guest with a valid ticket away.
+        if (found.status === 'error') return { status: 'error', message: found.message };
+        if (found.status !== 'found') return { status: 'not_found' };
+        const guest: RosterEntry = {
           invitationId: found.invitationId,
           fullName: found.guestName,
           entryCode: found.entryCode,
@@ -264,10 +268,14 @@ export default function ScanScreen() {
           checkedInBy: null,
           groupTag: found.groupTag,
           isVip: found.isVip,
+          phone: found.guestPhone,
           table: found.tableName,
         };
-      } catch {
-        return null;
+        return { status: 'found', guest };
+      } catch (err) {
+        // Names the host it could not reach, which is nearly always the actual
+        // problem (wrong network, server down, stale dev URL).
+        return { status: 'error', message: getErrorMessage(err, 'Network error') };
       }
     },
     [session],
@@ -788,7 +796,7 @@ export default function ScanScreen() {
         onRetry={() => void rosterQuery.refetch()}
         onAdmit={admitManually}
         onAdmitByCode={admitByCode}
-          onLookup={lookupByPassId}
+        onLookup={lookupByPassId}
         onAdmitted={handleManualAdmitted}
       />
 

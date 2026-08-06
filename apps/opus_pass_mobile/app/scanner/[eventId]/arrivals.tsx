@@ -40,18 +40,47 @@ function reportStamp(d: Date): string {
 
 /**
  * The attendant's audit label is built server-side as
- * "Asha (Main Gate) (manual: Phone battery dead)". The door is already shown
- * on its own, so strip the parenthesised parts to leave just the name.
+ * "Asha (Main Gate) [pass_id] (manual: Phone battery dead)". Everything after
+ * the name is shown separately or not at all, so strip both the parenthesised
+ * parts and the bracketed identifier to leave just the name.
  */
 function attendantOf(checkedInBy: string | null): string | null {
   if (!checkedInBy) return null;
-  const name = checkedInBy.replace(/\s*\([^)]*\)/g, '').trim();
+  const name = checkedInBy
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s*\[[^\]]*\]/g, '')
+    .trim();
   return name || null;
 }
 
 /** True when the admission came from the manual fallback rather than a scan. */
 function wasManual(checkedInBy: string | null): boolean {
   return /\(manual:/i.test(checkedInBy ?? '');
+}
+
+/**
+ * How this guest was identified, in words rather than the server's token.
+ *
+ * The audit label carries "[roster_pick]", "[pass_id]" and friends — names
+ * for the code that writes them, not for the person reading the arrivals log
+ * at 11pm. The distinction is worth keeping, though: "found in the guest
+ * list" and "read their Pass ID out" are different amounts of evidence that
+ * the right person walked in, which is exactly what someone auditing a manual
+ * admission is trying to weigh.
+ */
+function manualMethodOf(checkedInBy: string | null): string {
+  const match = /\[([a-z_]+)\]/i.exec(checkedInBy ?? '');
+  switch (match?.[1]) {
+    case 'roster_pick':
+      return 'Checked in from the guest list';
+    case 'pass_id':
+      return 'Checked in with a typed Pass ID';
+    case 'legacy_entry_code':
+      return 'Checked in with a typed ticket code';
+    default:
+      // Older admissions predate the identifier tag entirely.
+      return 'Checked in manually';
+  }
 }
 
 /** Group arrivals under a relative day heading so a long night stays readable. */
@@ -409,7 +438,7 @@ export default function ArrivalsScreen() {
                         color={editorial.onSurfaceVariant}
                       />
                       <Text className="font-work-sans text-[11px] text-ed-on-surface-variant">
-                        Checked in manually
+                        {manualMethodOf(item.checkedInBy)}
                       </Text>
                     </View>
                   ) : null}
