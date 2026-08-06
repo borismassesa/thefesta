@@ -654,6 +654,11 @@ export interface FormsRsvpStrings {
   submitted_title: string
   submitted_body: string
   submitted_change: string
+  // The guest's own card, shown so they can save it when the sender could not
+  // attach it to a message.
+  card_alt: string
+  card_download: string
+  card_pass_id: string
   // Event card
   dress_code_prefix: string // "Dress code:" — value appended in markup
   // RSVP status options
@@ -1936,6 +1941,9 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     submitted_title: 'Your details are saved',
     submitted_body: 'Thank you! You can update your details below if anything changes.',
     submitted_change: 'Change my response',
+    card_alt: 'Your invitation card',
+    card_download: 'Download invitation card',
+    card_pass_id: 'Entrance Pass ID',
     dress_code_prefix: 'Dress code:',
     status_attending: "I'll be there",
     status_maybe: 'Maybe',

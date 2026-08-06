@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { CalendarHeart, MapPin, Clock, Check, PartyPopper, Heart, ImagePlus } from 'lucide-react'
+import { CalendarHeart, MapPin, Clock, Check, PartyPopper, Heart, ImagePlus, Download, Phone, Ticket } from 'lucide-react'
+import Image from 'next/image'
 import Logo from '@/components/ui/Logo'
 import { useT } from '@/components/providers/UIStringsProvider'
 import { submitPublicRsvp, type PublicRsvpResponse, type PublicRsvpAnswerInput } from '@/lib/dashboard/actions'
@@ -287,6 +288,70 @@ export default function PublicRsvpForm({
             : t('header_greeting', { name: guestFirstName })}
         </p>
       </div>
+
+      {/* The guest's own card, and the Pass ID that admits them.
+          This is the safety net for the manual send: a wa.me link cannot carry
+          an attachment, so when the sender forgets, this is where the guest
+          still gets their card. It renders before the RSVP controls because a
+          guest who opened the link to see their invitation should see it
+          first. */}
+      {!followupMode
+        ? data.events.map((e) => {
+            const cardUrl = data.cardUrlByEvent[e.id]
+            const contacts = data.contactsByEvent[e.id] ?? []
+            const passId = (e.invitation as { pass_id?: string | null }).pass_id
+            if (!cardUrl && !passId && contacts.length === 0) return null
+            return (
+              <div key={`card-${e.id}`} className="mt-8 overflow-hidden rounded-2xl border border-black/[0.08] bg-white">
+                {cardUrl ? (
+                  <div className="bg-[#FAF7FC] p-4">
+                    <Image
+                      src={cardUrl}
+                      alt={t('card_alt')}
+                      width={760}
+                      height={1064}
+                      className="mx-auto h-auto w-full max-w-[340px] rounded-xl shadow-sm"
+                      unoptimized
+                      priority
+                    />
+                    {/* A plain anchor, not a fetch: same origin, so the browser
+                        saves straight to the guest's device with no JS. */}
+                    <a
+                      href={cardUrl}
+                      download
+                      className="mx-auto mt-4 flex w-full max-w-[340px] items-center justify-center gap-2 rounded-xl bg-[#8e57b3] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#7B439E]"
+                    >
+                      <Download className="h-4 w-4" /> {t('card_download')}
+                    </a>
+                  </div>
+                ) : null}
+                {passId || contacts.length > 0 ? (
+                  <div className="space-y-3 border-t border-black/[0.06] p-5">
+                    {passId ? (
+                      <div className="flex items-center gap-3">
+                        <Ticket className="h-4 w-4 flex-none text-[#8e57b3]" />
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1A1A1A]/45">
+                            {t('card_pass_id')}
+                          </div>
+                          <div className="font-mono text-base font-bold tracking-[0.12em] text-[#1A1A1A]">
+                            {passId}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                    {contacts.map((c) => (
+                      <div key={c} className="flex items-center gap-3">
+                        <Phone className="h-4 w-4 flex-none text-[#8e57b3]" />
+                        <span className="text-sm text-[#1A1A1A]/75">{c}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })
+        : null}
 
       {submitted ? (
         <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">

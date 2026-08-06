@@ -2,6 +2,12 @@ import 'server-only'
 import { createDashboardClient } from './supabase'
 import { getDashboardUser, requireDashboardUser } from './auth'
 import type { CardInviteFields } from './sms-invite'
+import { deriveAssetToken } from '@/lib/cards/asset-tokens'
+import { prepareGuestCardAsset } from '@/lib/cards/prepare-guest-asset'
+
+/** Must match the variant the send pipeline prepares, or the page would render
+ *  a second copy of every card under a different token. */
+const INVITE_CARD_VARIANT = 'whatsapp_header_v1'
 import { eatDateParts, eventInviteUrl, eventSlugBase, firstNameOf, formatLongDate, formatLongDateSw, formatSwahiliTime, formatTicketDate, hasEatTimeComponent, publicOrigin, slugBaseOf } from './share'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import { eventTypeLabel, eventTypeLabelSw, ticketIntroLabel } from './types'
@@ -860,6 +866,20 @@ export interface PublicRsvpData {
   generalQuestions: RsvpQuestion[]
   /** Prior answers keyed by guest_invitation_id -> question_id -> answer. */
   answers: Record<string, Record<string, RsvpAnswer>>
+  /**
+   * This guest's own personalised invitation card, keyed by event id.
+   *
+   * The safety net for the manual send: a wa.me link cannot attach the image,
+   * so when the sender forgets, this page is where the guest still gets it.
+   *
+   * Resolved entirely from the public RSVP token. The client never supplies or
+   * sees a guest id, a design id, a release id or a storage path — the value is
+   * the same token-derived public URL the WhatsApp header uses, which resolves
+   * to one card and cannot be walked to another guest's.
+   */
+  cardUrlByEvent: Record<string, string>
+  /** Somebody to ring, per event, from the card's own contact fields. */
+  contactsByEvent: Record<string, string[]>
 }
 
 export async function getPublicRsvpData(token: string): Promise<PublicRsvpData | null> {
@@ -899,6 +919,8 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
       questionsByEvent: {},
       generalQuestions: [],
       answers: {},
+      cardUrlByEvent: {},
+      contactsByEvent: {},
     }
   }
 
@@ -926,6 +948,45 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
       .order('created_at', { ascending: true }),
     supabase.from('rsvp_answers').select('*').in('guest_invitation_id', invitationIds),
   ])
+
+  // The guest's own card, per event. Resolved here rather than on the client:
+  // the page is public, so nothing that could address another guest's asset may
+  // cross the boundary.
+  const cardUrlByEvent: Record<string, string> = {}
+  const contactsByEvent: Record<string, string[]> = {}
+  const { data: designRows } = await supabase
+    .from('invitation_card_designs')
+    .select('current_release_id, field_values, released_at, invitation_orders!inner(event_id)')
+    .in('status', ['ready', 'delivered'])
+    .not('current_release_id', 'is', null)
+    .in('invitation_orders.event_id', eventIds)
+    .order('released_at', { ascending: false })
+
+  for (const row of (designRows ?? []) as unknown as {
+    current_release_id: string
+    field_values: CardInviteFields | null
+    invitation_orders: { event_id: string } | { event_id: string }[]
+  }[]) {
+    const order = Array.isArray(row.invitation_orders) ? row.invitation_orders[0] : row.invitation_orders
+    const eventId = order?.event_id
+    // Newest first, so the first release seen for an event is the current one.
+    if (!eventId || cardUrlByEvent[eventId]) continue
+
+    const contacts = [row.field_values?.contact_1, row.field_values?.contact_2]
+      .map((c) => (c ?? '').trim())
+      .filter(Boolean)
+    if (contacts.length) contactsByEvent[eventId] = contacts
+
+    const subject = {
+      designReleaseId: row.current_release_id,
+      guestId: guest.id,
+      renderVariant: INVITE_CARD_VARIANT,
+    }
+    const prepared = await prepareGuestCardAsset(subject)
+    if (!prepared.ok) continue
+    const token = deriveAssetToken(subject)
+    if (token) cardUrlByEvent[eventId] = `${publicOrigin()}/invite-card/${token}.png`
+  }
 
   const allQuestions = (questionRows ?? []).map((r) => toRsvpQuestion(r as Record<string, unknown>))
   const eventIdSet = new Set(eventIds)
@@ -968,6 +1029,8 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     questionsByEvent,
     generalQuestions,
     answers,
+    cardUrlByEvent,
+    contactsByEvent,
   }
 }
 
