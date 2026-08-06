@@ -23,6 +23,7 @@ import {
 import { Card } from '@/components/dashboard/primitives'
 import { Button, ConfirmDialog, Field, inputClass } from '@/components/dashboard/controls'
 import { cn } from '@/lib/utils'
+import { eatDateParts } from '@/lib/dashboard/share'
 import {
   createEvent,
   updateEvent,
@@ -94,22 +95,35 @@ const EMPTY_FORM: FormState = {
 
 // ------------------------------------------------------------------- helpers
 
+/**
+ * Event times are East Africa Time, always — never the editor's own timezone.
+ *
+ * These used to read and write in whatever timezone the browser happened to be
+ * in. Every consumer of starts_at disagrees: formatSwahiliTime and the
+ * entrance-pass vars read it through eatDateParts, and updateEventTicketDetails
+ * writes it anchored to +03:00. So the pair was consistent only while the
+ * person editing sat in EAT. Edit the same wedding from Toronto and "18:00"
+ * was stored as 18:00 EDT, which is 01:00 the next morning in Dar es Salaam —
+ * and that wrong hour is what goes out on the guest's entrance pass.
+ *
+ * The venue's clock is the only one that means anything to a guest standing at
+ * the gate, so both directions are pinned to it.
+ */
 function splitLocal(iso: string | null): { date: string; time: string } {
   if (!iso) return { date: '', time: '' }
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return { date: '', time: '' }
-  const off = d.getTimezoneOffset()
-  const local = new Date(d.getTime() - off * 60000)
-  const s = local.toISOString()
-  return { date: s.slice(0, 10), time: s.slice(11, 16) }
+  const { year, month, day, hour, minute } = eatDateParts(d)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return { date: `${year}-${pad(month)}-${pad(day)}`, time: `${pad(hour)}:${pad(minute)}` }
 }
 
 function combineLocal(date: string, time: string): string | null {
   if (!date) return null
   const t = time || '00:00'
-  const local = new Date(`${date}T${t}`)
-  if (Number.isNaN(local.getTime())) return null
-  return local.toISOString()
+  const eat = new Date(`${date}T${t}:00+03:00`)
+  if (Number.isNaN(eat.getTime())) return null
+  return eat.toISOString()
 }
 
 function fromEvent(e: WeddingEvent): FormState {

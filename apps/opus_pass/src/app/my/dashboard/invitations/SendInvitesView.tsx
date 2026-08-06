@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { useBodyLock } from '@/hooks/useBodyLock'
 import { InvitationVisual } from '@/components/guests/InvitationVisual'
 import TopUpDrawer from './TopUpDrawer'
+import ReviewSendDrawer, { type ReviewCheck } from './ReviewSendDrawer'
 import {
   MessageCircle,
   Smartphone,
@@ -37,9 +38,11 @@ import {
   Mail,
   Share2,
   CalendarDays,
+  Clock,
   MapPin,
   Users,
   AlertTriangle,
+  ChevronDown,
 } from 'lucide-react'
 import {
   enableInviteSharing,
@@ -104,6 +107,41 @@ const STATUS_CLASS: Record<SendGuestRow['status'], string> = {
   attending: 's-yes',
   declined: 's-no',
   maybe: 's-maybe',
+  undelivered: 's-undel',
+}
+
+const DELIVERY_CLASS: Record<'pending' | 'delivered' | 'read' | 'failed', string> = {
+  pending: 'd-wait',
+  delivered: 'd-ok',
+  read: 'd-read',
+  failed: 'd-bad',
+}
+
+const DELIVERY_LABEL = (s: DashboardSendStrings): Record<'pending' | 'delivered' | 'read' | 'failed', string> => ({
+  pending: s.delivery_pending,
+  delivered: s.delivery_delivered,
+  read: s.delivery_read,
+  failed: s.delivery_failed,
+})
+
+/**
+ * When a send happened, at a glance.
+ *
+ * Deliberately coarse. The couple is scanning a column for "did this land",
+ * not auditing timestamps, and an exact clock time on every row is noise. The
+ * full timestamp stays available as the cell's tooltip.
+ */
+function shortWhen(iso: string): string {
+  const then = new Date(iso)
+  if (Number.isNaN(then.getTime())) return ''
+  const mins = Math.floor((Date.now() - then.getTime()) / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return then.toLocaleDateString([], { day: 'numeric', month: 'short' })
 }
 
 /** Substitute `{var}` placeholders in a CMS template with runtime values. */
@@ -236,7 +274,7 @@ export default function SendInvitesView({
     : '/my/dashboard/thank-you'
 
   const [pending, startTransition] = useTransition()
-  const [filter, setFilter] = useState<'all' | 'notsent' | 'awaiting' | 'attending'>('all')
+  const [filter, setFilter] = useState<'all' | 'notsent' | 'awaiting' | 'attending' | 'undelivered'>('all')
   // Sub-filter within the (always-attending) Pass Ticket tab — separate from
   // `filter` above so switching tabs never leaks one tab's filter state into
   // the other.
@@ -276,6 +314,37 @@ export default function SendInvitesView({
   // messages to real guests, not a cosmetic glitch.
   const sendBusyRef = useRef(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  // The per-guest review drawer. A single send used to fire straight at Meta
+  // from the row button, which made an accidental click unrecoverable — this
+  // is the confidence checkpoint that click now goes through.
+  //
+  // Keyed to the selected event and holding only the guest's ID, never a copy
+  // of the row. This component stays mounted across an event switch (switchEvent
+  // is a client-side router.push), so a snapshot taken on click would survive
+  // into an event it was never reviewed against: status, entrancePassUrl and
+  // party size are all per-event, and the drawer would show one event's ticket
+  // while sending another's. Same trap the Ticket Details editor fell into.
+  // Reading the guest out of `guests` each render also keeps the drawer honest
+  // when the 25s poll lands an RSVP mid-review.
+  const [reviewState, setReviewState] = useState<{
+    eventId: string | null
+    value: { guestId: string; mode: 'invite' | 'pass' } | null
+  }>({ eventId: selectedEventId, value: null })
+  const review = reviewState.eventId === selectedEventId ? reviewState.value : null
+  const setReview = (value: { guestId: string; mode: 'invite' | 'pass' } | null) =>
+    setReviewState({ eventId: selectedEventId, value })
+  // A guest deleted (or filtered out of the roster) while the drawer is open
+  // closes it rather than leaving a drawer pointed at nothing.
+  const reviewGuest = review ? (guests.find((g) => g.id === review.guestId) ?? null) : null
+  const [resendMenuId, setResendMenuId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!resendMenuId) return
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('[data-resend-menu]')) setResendMenuId(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [resendMenuId])
   const [testPhone, setTestPhone] = useState(data.testPhone ?? '')
   const [testSending, setTestSending] = useState(false)
   const [phoneEdit, setPhoneEdit] = useState<{ id: string; value: string } | null>(null)
@@ -305,7 +374,7 @@ export default function SendInvitesView({
   const [topUpOpen, setTopUpOpen] = useState(false)
   // Any full-screen overlay open — freeze the page behind it so scrolling
   // over the (fixed-position) dim backdrop doesn't also scroll the page.
-  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress || topUpOpen))
+  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress || topUpOpen || reviewGuest))
   // The selected event owns partner names, category and location. The preview
   // chooses a REAL guest so its message and image can never drift apart.
   const hostName = data.sendSettings.hostName
@@ -521,6 +590,12 @@ export default function SendInvitesView({
   const notSentCount = useMemo(() => guests.filter((g) => g.status === 'none').length, [guests])
   const awaitingCount = useMemo(() => guests.filter((g) => isAwaiting(g.status)).length, [guests])
   const attendingCount = useMemo(() => guests.filter((g) => g.status === 'attending').length, [guests])
+  // Guests whose latest invitation WhatsApp refused to deliver. These read as
+  // "Sent" everywhere else, which is exactly why they need their own count.
+  const undeliveredCount = useMemo(
+    () => guests.filter((g) => g.delivery?.state === 'failed').length,
+    [guests],
+  )
   // Ticket-sent status is already tracked (entrancePassSent / entranceSentIds
   // — same real ledger the row badges already read from), just not yet
   // exposed as filter tabs the way invite status is.
@@ -567,6 +642,7 @@ export default function SendInvitesView({
       if (effectiveFilter === 'notsent' && g.status !== 'none') return false
       if (effectiveFilter === 'awaiting' && !isAwaiting(g.status)) return false
       if (effectiveFilter === 'attending' && g.status !== 'attending') return false
+      if (effectiveFilter === 'undelivered' && g.delivery?.state !== 'failed') return false
       if (sendTab === 'ticket') {
         const sent = g.entrancePassSent || entranceSentIds.has(g.id)
         if (ticketFilter === 'notsent' && sent) return false
@@ -672,13 +748,21 @@ export default function SendInvitesView({
   // image route 404s for anyone not yet confirmed attending, so this must
   // be an actual guest, not a made-up sample name.
   const entrancePreviewGuest = guests.find((g) => g.status === 'attending') ?? null
-  const entrancePreviewBody = ENTRANCE_PASS_TEMPLATE.body
-    .replace('{{1}}', entrancePreviewGuest ? fullNameOf(entrancePreviewGuest.name) : 'Amina')
-    .replace('{{2}}', event.eventCategorySw)
-    .replace('{{3}}', event.entranceCoupleName)
-    .replace('{{4}}', event.entranceDateLabel)
-    .replace('{{5}}', event.entranceTimeLabel)
-    .replace('{{6}}', event.entranceVenue)
+
+  /** The entrance-pass template body for one guest, interpolated exactly as
+   *  sendEntrancePasses does. {{1}} is formatInviteGuestName, NOT fullNameOf:
+   *  the real send keeps the guest's title, so stripping it here would show
+   *  the couple a name their guest never receives. */
+  const entrancePassBodyFor = (name: string | null) =>
+    ENTRANCE_PASS_TEMPLATE.body
+      .replace('{{1}}', formatInviteGuestName(name, 'Amina'))
+      .replace('{{2}}', event.eventCategorySw)
+      .replace('{{3}}', event.entranceCoupleName)
+      .replace('{{4}}', event.entranceDateLabel)
+      .replace('{{5}}', event.entranceTimeLabel)
+      .replace('{{6}}', event.entranceVenue)
+
+  const entrancePreviewBody = entrancePassBodyFor(entrancePreviewGuest?.name ?? null)
 
   /** Switch which event this page is scoped to — a fresh server fetch of the
    *  design/quota/guest-statuses for that event (not client-side filtering,
@@ -1152,34 +1236,85 @@ export default function SendInvitesView({
     return g.channel
   }
 
-  /** Per-row send on the Pass Ticket tab — the guest's entrance-pass ticket,
-   *  NOT the invite template the same button position sends on invite tabs. */
-  function sendPassRow(g: SendGuestRow) {
-    const first = firstNameOf(g.name)
-    setSendingRow(g.id)
-    startTransition(async () => {
-      try {
-        const res = await sendEntrancePasses([g.id], eventId)
-        if (res.sent > 0) setEntranceSentIds((prev) => new Set(prev).add(g.id))
-        if (res.sent > 0 && res.dryRun) toast.success(`1 ${strings.send_verb_dryrun}`)
-        else if (res.sent > 0) toast.success(fmt(strings.toast_pass_sent, { name: first }))
-        else if (res.blocked > 0) toast.error(fmt(strings.send_over_quota, { n: res.blocked }))
-        else if (res.skipped > 0) toast.error(fmt(strings.send_no_phone, { n: res.skipped }))
-        else {
-          const detail = res.results[0]?.error
-          toast.error(
-            detail
-              ? `${fmt(strings.toast_send_failed, { name: first })} (${detail})`
-              : fmt(strings.toast_send_failed, { name: first }),
-          )
-        }
-        router.refresh()
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : fmt(strings.toast_send_failed, { name: first }))
-      } finally {
-        setSendingRow(null)
-      }
-    })
+  /** Seats this guest's ticket covers, in the sold ticket's own language. */
+  function partyLabelFor(g: SendGuestRow, mode: 'invite' | 'pass'): string | null {
+    // Party size is clamped 1..2 on write, and the rest of this console reads
+    // it the same way — anything above one is the Double ticket.
+    const seats = mode === 'pass' ? (g.rsvpPartySize ?? g.assignedPartySize) : g.assignedPartySize
+    if (!seats) return null
+    return seats >= 2 ? strings.party_double : strings.party_single
+  }
+
+  /**
+   * What has to be true before this guest's message can go out.
+   *
+   * Every blocking failure carries the way to fix it — a bare "something is
+   * missing" leaves the couple stuck on a screen whose only other button is
+   * Cancel. The checks mirror the gates the server enforces anyway; they exist
+   * to say WHICH gate will stop the send, before it is attempted.
+   */
+  function reviewChecksFor(g: SendGuestRow, mode: 'invite' | 'pass'): ReviewCheck[] {
+    const closeThen = (fn: () => void) => () => { setReview(null); fn() }
+    const editGuest = {
+      label: strings.review_fix_edit_guest,
+      onClick: closeThen(() =>
+        setRowEdit({ id: g.id, name: g.name, phone: g.phone ?? g.whatsappPhone ?? '', askDelete: false }),
+      ),
+    }
+    const live: ReviewCheck = {
+      key: 'live',
+      label: strings.review_check_live,
+      ok: whatsappLive,
+      blocking: false,
+    }
+
+    if (mode === 'pass') {
+      return [
+        { key: 'phone', label: strings.review_check_phone, ok: hasPhone(g) && effectiveChannel(g) === 'whatsapp', blocking: true, fix: editGuest },
+        { key: 'attending', label: strings.review_check_attending, ok: g.status === 'attending', blocking: true },
+        { key: 'pass', label: strings.review_check_pass, ok: Boolean(g.entrancePassUrl), blocking: true },
+        {
+          key: 'credit',
+          label: strings.review_check_credit,
+          // Re-sending a ticket the guest already has is free; only a first
+          // ticket draws on the entrance pool.
+          ok: ticketSent(g) || entranceQuota.remaining > 0,
+          blocking: true,
+          fix: { label: strings.review_topup, onClick: closeThen(() => setTopUpOpen(true)) },
+        },
+        live,
+      ]
+    }
+
+    return [
+      { key: 'phone', label: strings.review_check_phone, ok: hasPhone(g), blocking: true, fix: editGuest },
+      {
+        key: 'card',
+        label: strings.review_check_card,
+        ok: Boolean(event.releasedCardPreviewUrl),
+        blocking: true,
+        fix: { label: strings.review_fix_open_cards, href: '/my/dashboard/card-details' },
+      },
+      {
+        key: 'settings',
+        label: strings.review_check_settings,
+        ok: data.sendSettings.confirmed && settingsValid,
+        blocking: true,
+        fix: {
+          label: strings.review_fix_settings,
+          onClick: closeThen(() => { setSendTab('cards'); setEditingSettings(true) }),
+        },
+      },
+      {
+        key: 'credit',
+        label: strings.review_check_credit,
+        // A re-send to an already-invited guest costs nothing.
+        ok: g.status !== 'none' || quota.remaining > 0,
+        blocking: true,
+        fix: { label: strings.review_topup, onClick: closeThen(() => setTopUpOpen(true)) },
+      },
+      live,
+    ]
   }
 
   function rowShare(g: SendGuestRow, channel: 'whatsapp' | 'sms' | 'copy') {
@@ -1765,16 +1900,7 @@ export default function SendInvitesView({
           <div className="cinfo">
             <div className="cinfo-head">
               <h3>{headingName}</h3>
-              {isCardSendTab && event.hasPaidOrder && !editingSettings ? (
-                <div className="ctxhead">
-                  <button className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
-                    <Pencil size={13} /> {strings.settings_edit}
-                  </button>
-                  <button className="btn ghost" disabled={guests.length === 0} onClick={() => setPreviewOpen(true)}>
-                    <Eye size={15} /> {strings.preview_button}
-                  </button>
-                </div>
-              ) : sendTab === 'ticket' ? (
+              {sendTab === 'ticket' ? (
                 <div className="ctxhead">
                   {data.event.ticketFields && !ticketForm ? (
                     <button className="btn ghost" disabled={pending} onClick={openTicketEditor}>
@@ -1873,10 +1999,11 @@ export default function SendInvitesView({
                   {event.cardName ? (
                     <span className="fact"><i>{strings.fact_design}</i>{event.cardName}</span>
                   ) : null}
-                  <span className="fact">
-                    <i>{strings.fact_invites_paid}</i>
-                    {fmt(strings.fact_to_share, { n: quota.purchased })}
-                  </span>
+                  {/* No "invites paid" fact here. The allowance rail beside
+                      this row already states the same purchased count, and
+                      states it usefully (used, remaining, top up). The
+                      production-lock branch below keeps its copy, since the
+                      rail does not render while an order is still in design. */}
                 </div>
 
                 {event.addOns.length > 0 ? (
@@ -1916,6 +2043,25 @@ export default function SendInvitesView({
               </>
             ) : null}
           </div>
+
+          {/* Package actions, held to the right of the identity block. They act
+              on the package as a whole, so they sit with it rather than in the
+              guest table's toolbar. */}
+          {isCardSendTab && event.hasPaidOrder ? (
+            <div className="railcol">
+              {!editingSettings ? (
+                <div className="railacts">
+                  <button className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
+                    <Pencil size={13} /> {strings.settings_edit}
+                  </button>
+                  <button className="btn ghost" disabled={guests.length === 0} onClick={() => setPreviewOpen(true)}>
+                    <Eye size={15} /> {strings.preview_button}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
 
           {/* Production tracker — a full-bleed band under the identity block,
               not a second rounded card inside this one. The left column tells
@@ -2027,6 +2173,7 @@ export default function SendInvitesView({
           ) : null}
         </div>
 
+
         {isCardSendTab && event.hasPaidOrder ? (
           <div className="ctxsend">
             {editingSettings && invitationForm ? (
@@ -2113,6 +2260,33 @@ export default function SendInvitesView({
                 <span>{strings.dryrun_note}</span>
               </div>
             ) : null}
+            {/* Shares this row with the reminder chip: the chip is the one
+                thing left to do, the panel is what it will cost. */}
+            <aside className={`quota band${quotaOverdrawn ? ' over' : ''}`}>
+              <div className="top">
+                <span>{strings.quota_label}</span>
+                {quotaOverdrawn ? (
+                  <span>
+                    {strings.quota_used_label} <b>{quota.used}</b>
+                    {' · '}
+                    {strings.quota_available_label} <b>0</b>
+                  </span>
+                ) : (
+                  <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
+                )}
+              </div>
+              <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
+              <div className="ft">
+                {quotaOverdrawn ? (
+                  <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
+                ) : (
+                  <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
+                )}
+                <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
+                  {strings.quota_topup}
+                </button>
+              </div>
+            </aside>
           </div>
         ) : sendTab === 'ticket' && ticketForm ? (
           <div className="ctxsend">
@@ -2210,33 +2384,23 @@ export default function SendInvitesView({
         <div className="funnel">
           <div className="fc"><div className="fcicon"><Send size={13} /></div><div className="n">{funnel.invited}</div><div className="l">{strings.funnel_invited}</div></div>
           <div className="fc"><div className="fcicon"><CheckCheck size={13} /></div><div className="n">{funnel.delivered}</div><div className="l"><span className="ar">→</span> {strings.funnel_delivered}</div></div>
+          {/* Only appears when something has actually failed, and it clicks
+              through to exactly those guests. A permanent zero tile would be
+              scenery; an alarm that goes off only when it means something is
+              the one people still trust on the day. */}
+          {funnel.undelivered > 0 ? (
+            <button
+              type="button"
+              className="fc bad"
+              onClick={() => { setSendTab('cards'); setFilter('undelivered') }}
+            >
+              <div className="fcicon"><AlertTriangle size={13} /></div>
+              <div className="n">{funnel.undelivered}</div>
+              <div className="l"><span className="ar">→</span> {strings.funnel_undelivered}</div>
+            </button>
+          ) : null}
           <div className="fc"><div className="fcicon"><Eye size={13} /></div><div className="n">{funnel.viewed}</div><div className="l"><span className="ar">→</span> {strings.funnel_viewed}</div></div>
           <div className="fc"><div className="fcicon"><CalendarCheck size={13} /></div><div className="n">{funnel.rsvpd}</div><div className="l"><span className="ar">→</span> {strings.funnel_rsvpd}</div></div>
-          <div className={`fc quota${quotaOverdrawn ? ' over' : ''}`}>
-            <div className="top">
-              <span>{strings.quota_label}</span>
-              {quotaOverdrawn ? (
-                <span>
-                  {strings.quota_used_label} <b>{quota.used}</b>
-                  {' · '}
-                  {strings.quota_available_label} <b>0</b>
-                </span>
-              ) : (
-                <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
-              )}
-            </div>
-            <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
-            <div className="ft">
-              {quotaOverdrawn ? (
-                <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
-              ) : (
-                <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
-              )}
-              <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
-                {strings.quota_topup}
-              </button>
-            </div>
-          </div>
         </div>
       ) : null}
 
@@ -2404,6 +2568,17 @@ export default function SendInvitesView({
                 <button className={`sg ${filter === 'awaiting' ? 'on' : ''}`} onClick={() => setFilter('awaiting')}>
                   {strings.filter_awaiting}{awaitingCount ? ` ${awaitingCount}` : ''}
                 </button>
+                {/* Only offered once something has actually failed. A chip
+                    reading "Not delivered 0" invites a click that shows an
+                    empty table and teaches the couple to ignore it. */}
+                {sendTab === 'cards' && undeliveredCount > 0 ? (
+                  <button
+                    className={`sg alert ${filter === 'undelivered' ? 'on' : ''}`}
+                    onClick={() => setFilter('undelivered')}
+                  >
+                    <AlertTriangle size={12} /> {strings.filter_undelivered} {undeliveredCount}
+                  </button>
+                ) : null}
               </div>
             ) : (
               <div className="seg" role="tablist" aria-label={strings.filter_aria}>
@@ -2455,7 +2630,12 @@ export default function SendInvitesView({
                 <tr>
                   <th style={{ width: 30 }}></th><th>{strings.th_guest}</th><th>{strings.th_contact}</th>
                   {sendTab !== 'saveDates' ? <th>{strings.th_ticket}</th> : null}
-                  <th>{strings.th_channel}</th><th>{strings.th_status}</th><th style={{ textAlign: 'right' }}>{strings.th_send}</th>
+                  <th>{strings.th_channel}</th><th>{strings.th_status}</th>
+                  {/* Delivery is the invite tabs' concern. The Pass Ticket tab
+                      has its own Sent/Not sent column, and Save the Dates are
+                      shared by hand, so neither has a WhatsApp receipt. */}
+                  {sendTab === 'cards' ? <th>{strings.th_delivery}</th> : null}
+                  <th style={{ textAlign: 'right' }}>{strings.th_send}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2628,6 +2808,30 @@ export default function SendInvitesView({
                         <span className={`status ${STATUS_CLASS[g.status]}`}>{g.statusLabel}</span>
                       )}
                     </td>
+                    {sendTab === 'cards' ? (
+                      <td className="delcell">
+                        {g.delivery ? (
+                          <>
+                            <div className="dtop">
+                              <span className={`dpill ${DELIVERY_CLASS[g.delivery.state]}`}>
+                                {DELIVERY_LABEL(strings)[g.delivery.state]}
+                              </span>
+                              <span className="delwhen" title={new Date(g.delivery.at).toLocaleString()}>
+                                <Clock size={11} /> {shortWhen(g.delivery.at)}
+                              </span>
+                            </div>
+                            {/* The reason is the whole point of the column: a
+                                bare "Failed" leaves the couple with nothing to
+                                do about it. */}
+                            {g.delivery.reason ? (
+                              <span className="delwhy" title={g.delivery.reason}>{g.delivery.reason}</span>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="delnone">{strings.delivery_none}</span>
+                        )}
+                      </td>
+                    ) : null}
                     <td>
                       <div className="ra">
                         {effectiveFilter === 'attending' ? (() => {
@@ -2644,41 +2848,117 @@ export default function SendInvitesView({
                             <button
                               className="ia send pass"
                               disabled={pending || !hasPhone(g) || passUnavailable}
-                              title={passUnavailable ? strings.entrance_needs_whatsapp : strings.row_send_pass}
+                              title={passUnavailable ? strings.entrance_needs_whatsapp : strings.row_preview_send_pass}
                               onClick={() => {
                                 if (passUnavailable) {
                                   toast.error(strings.entrance_needs_whatsapp)
                                   return
                                 }
-                                sendPassRow(g)
+                                setReview({ guestId: g.id, mode: 'pass' })
                               }}
                             >
-                              {sendingRow === g.id ? (
-                                <Loader2 size={14} className="spin" />
-                              ) : (
-                                <Ticket size={14} />
-                              )}
-                              {strings.row_send_pass}
+                              {/* No spinner: this button opens the review
+                                  drawer, it no longer sends. The send happens
+                                  inside the drawer, which shows its own
+                                  progress. */}
+                              <Ticket size={14} />
+                              {strings.row_preview_send_pass}
                             </button>
                           )
-                        })() : (
-                          <button
-                            className="ia send"
-                            disabled={pending || !hasPhone(g)}
-                            title={effectiveChannel(g) === 'whatsapp' ? strings.row_whatsapp : strings.row_sms}
-                            onClick={() => rowShare(g, effectiveChannel(g))}
-                          >
-                            {sendingRow === g.id ? (
-                              <Loader2 size={14} className="spin" />
-                            ) : g.status === 'none' ? (
-                              <Send size={13} />
-                            ) : (
-                              <RotateCcw size={13} />
-                            )}
-                            {g.status === 'none' ? strings.row_send : strings.row_resend}
-                          </button>
-                        )}
-                        <button className="ia" disabled={pending} title={strings.row_copy} onClick={() => rowShare(g, 'copy')}><Copy size={15} /></button>
+                        })() : (() => {
+                          // The review drawer reviews the APPROVED WhatsApp
+                          // template. SMS and the dry-run path don't send
+                          // anything on click — they open a compose window the
+                          // couple reads before hitting send — so they keep the
+                          // direct action rather than gaining a second step.
+                          const reviewable = effectiveChannel(g) === 'whatsapp' && whatsappLive
+                          if (!reviewable) {
+                            return (
+                              <button
+                                className="ia send"
+                                disabled={pending || !hasPhone(g)}
+                                title={effectiveChannel(g) === 'whatsapp' ? strings.row_whatsapp : strings.row_sms}
+                                onClick={() => rowShare(g, effectiveChannel(g))}
+                              >
+                                {sendingRow === g.id ? (
+                                  <Loader2 size={14} className="spin" />
+                                ) : g.status === 'none' ? (
+                                  <Send size={13} />
+                                ) : (
+                                  <RotateCcw size={13} />
+                                )}
+                                {g.status === 'none' ? strings.row_send : strings.row_resend}
+                              </button>
+                            )
+                          }
+                          if (g.status === 'none') {
+                            return (
+                              <button
+                                className="ia send"
+                                disabled={pending || !hasPhone(g)}
+                                title={strings.row_preview_send}
+                                onClick={() => setReview({ guestId: g.id, mode: 'invite' })}
+                              >
+                                <Send size={13} /> {strings.row_preview_send}
+                              </button>
+                            )
+                          }
+                          // Already invited. A duplicate WhatsApp message to a
+                          // real guest is worse than one extra click, so the
+                          // immediate re-send lives inside the menu and review
+                          // keeps the plain button.
+                          return (
+                            <>
+                              <button
+                                className="ia preview"
+                                disabled={pending}
+                                title={strings.row_preview}
+                                onClick={() => setReview({ guestId: g.id, mode: 'invite' })}
+                              >
+                                {strings.row_preview}
+                              </button>
+                              <div className="rsmenu" data-resend-menu>
+                                <button
+                                  className="ia resend"
+                                  disabled={pending || !hasPhone(g)}
+                                  aria-haspopup="menu"
+                                  aria-expanded={resendMenuId === g.id}
+                                  title={strings.row_resend_menu}
+                                  onClick={() => setResendMenuId(resendMenuId === g.id ? null : g.id)}
+                                >
+                                  {sendingRow === g.id ? (
+                                    <Loader2 size={16} className="spin" />
+                                  ) : (
+                                    <RotateCcw size={16} strokeWidth={2.4} />
+                                  )}
+                                  {strings.row_resend_menu} <ChevronDown size={13} />
+                                </button>
+                                {resendMenuId === g.id ? (
+                                  <div className="rsmenupop" role="menu">
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => { setResendMenuId(null); rowShare(g, 'whatsapp') }}
+                                    >
+                                      <Send size={13} /> {strings.row_resend_now}
+                                    </button>
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => { setResendMenuId(null); setReview({ guestId: g.id, mode: 'invite' }) }}
+                                    >
+                                      <Eye size={13} /> {strings.row_resend_preview}
+                                    </button>
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => { setResendMenuId(null); rowShare(g, 'copy') }}
+                                    >
+                                      <Copy size={13} /> {strings.row_copy_link}
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </>
+                          )
+                        })()}
                         <button
                           className="ia"
                           disabled={pending}
@@ -2979,6 +3259,74 @@ export default function SendInvitesView({
         </div>
       ) : null}
 
+      {/* Per-guest review before sending. Mounted only while open so each
+          opening prepares a fresh, guest-specific preview — a card prepared
+          for whoever was reviewed last must never be what gets approved.
+          Keyed by guest so switching rows remounts rather than reusing state. */}
+      {review && reviewGuest && eventId ? (
+        <ReviewSendDrawer
+          key={`${review.mode}:${reviewGuest.id}`}
+          mode={review.mode}
+          guest={reviewGuest}
+          eventId={eventId}
+          phone={reviewGuest.whatsappPhone ?? reviewGuest.phone ?? ''}
+          partyLabel={partyLabelFor(reviewGuest, review.mode)}
+          message={
+            review.mode === 'pass'
+              ? {
+                  body: entrancePassBodyFor(reviewGuest.name),
+                  footer: ENTRANCE_PASS_TEMPLATE.footer,
+                  buttons: [],
+                }
+              : {
+                  body: INVITE_TEMPLATE.body
+                    .replace('{{1}}', formatInviteGuestName(reviewGuest.name, 'Amina'))
+                    .replace('{{2}}', hostName.trim() || event.coupleName)
+                    .replace('{{3}}', eventCat.trim() || event.eventCategorySw),
+                  footer: INVITE_TEMPLATE.footer,
+                  buttons: INVITE_TEMPLATE.buttons.map((b) => b.label),
+                }
+          }
+          artwork={
+            review.mode === 'pass'
+              ? { kind: 'static', url: reviewGuest.entrancePassUrl }
+              : { kind: 'prepare' }
+          }
+          checks={reviewChecksFor(reviewGuest, review.mode)}
+          creditNote={
+            review.mode === 'pass'
+              ? null
+              : reviewGuest.status === 'none'
+                ? strings.review_credit_one
+                : strings.review_credit_free
+          }
+          dryRun={!whatsappLive}
+          strings={strings}
+          onSend={() =>
+            review.mode === 'pass'
+              ? sendEntrancePasses([reviewGuest.id], eventId)
+              : sendWhatsAppInvites([reviewGuest.id], eventId)
+          }
+          onSent={() => {
+            if (review.mode === 'pass') setEntranceSentIds((prev) => new Set(prev).add(reviewGuest.id))
+            // Soft refresh: the row reconciles with the server's own ledger
+            // without a page reload.
+            router.refresh()
+          }}
+          onEditGuest={() => {
+            setReview(null)
+            setRowEdit({
+              id: reviewGuest.id,
+              name: reviewGuest.name,
+              phone: reviewGuest.phone ?? reviewGuest.whatsappPhone ?? '',
+              askDelete: false,
+            })
+          }}
+          onTopUp={() => { setReview(null); setTopUpOpen(true) }}
+          onClose={() => setReview(null)}
+        />
+      ) : null}
+
       {/* Add-more-invitations drawer. Mounted only while open so its candidate
           fetch happens on demand, not on every send-console render. */}
       {topUpOpen && eventId ? (
@@ -3099,6 +3447,38 @@ const css = `
 .si .ctx.production{ padding:24px 26px; }
 .si .ctxhead{ display:flex; gap:8px; flex-wrap:wrap; }
 .si .ctxbody{ display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+/* Invitation allowance as the card's right rail. Fixed width so the identity
+   block keeps the space it needs and the meter never stretches to half the
+   card on a wide screen. */
+.si .railcol{ flex:none; align-self:flex-start; display:flex; flex-direction:column; gap:10px; }
+/* Bottom-right of the card, as its own boxed panel. margin-left:auto is what
+   pushes it to the right edge; the width keeps it from stretching into a band
+   across a wide screen. */
+.si .quota.band{ flex:none; width:250px; background:#fff;
+  border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:var(--soft); }
+.si .quota.band .top{ display:block; margin-bottom:8px; }
+.si .quota.band .top span:first-child{ display:block; font-size:12px; color:var(--muted); }
+.si .quota.band .top span + span{ display:block; margin-top:2px; font-size:14px; color:var(--ink); }
+/* Full width once the card stacks, rather than a narrow panel pinned to one
+   edge of a narrow screen. */
+@media (max-width:900px){
+  .si .quota.band{ width:100%; }
+}
+/* Split the width evenly and keep each label on one line — "Preview invite"
+   was wrapping to two and making the pair twice as tall as they need to be. */
+.si .railacts{ display:flex; gap:8px; }
+.si .railacts .btn{ flex:1; justify-content:center; padding:8px 6px; font-size:12.5px;
+  white-space:nowrap; background:var(--lav-soft); color:var(--purple-d); border:1px solid var(--lav); }
+.si .railacts .btn:hover{ background:#f0e5f8; border-color:var(--purple); }
+.si .quota.rail .top{ display:block; margin-bottom:8px; }
+.si .quota.rail .top span:first-child{ display:block; font-size:12px; color:var(--muted); }
+.si .quota.rail .top span + span{ display:block; margin-top:2px; font-size:14px; color:var(--ink); }
+/* Below the identity block rather than beside it once the row wraps, so the
+   meter never ends up in a 250px column next to a squeezed heading. */
+@media (max-width:900px){
+  .si .railcol{ width:100%; }
+  .si .railacts{ width:100%; }
+}
 /* Production state: the art and the identity sit side by side at the top,
    the tracker spans both columns underneath. Top-aligned, so a short info
    column never leaves the card art floating in the middle of dead space. */
@@ -3297,7 +3677,14 @@ const css = `
   padding:0 6px; background:rgba(0,0,0,.06); color:var(--muted); font-size:10.5px; font-weight:700; border-radius:999px; }
 .si .stb.on .stbcnt{ background:var(--ink); color:#fff; }
 .si .pipelinepanel{ margin-top:18px; }
-.si .ctxsend{ margin-top:18px; }
+.si .ctxsend{ margin-top:18px; display:flex; flex-wrap:wrap; align-items:center;
+  justify-content:space-between; gap:16px; }
+/* The settings editor and the dry-run notice are full-width blocks: they take
+   the whole row and push the panel onto the next line rather than being
+   squeezed beside it. */
+.si .ctxsend > .vars, .si .ctxsend > .connect{ flex:1 1 100%; }
+.si .ctxsend > .chips{ flex:0 1 auto; margin-top:0; }
+.si .ctxsend > .quota.band{ margin-left:auto; }
 .si .ctxsend .chips{ margin-top:0; }
 .si .chips{ display:flex; gap:9px; margin-top:16px; flex-wrap:wrap; align-items:center; }
 .si .chip{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); background:#fff;
@@ -3336,7 +3723,9 @@ const css = `
 .si tbody tr:hover td{ background:var(--hover); }
 .si .who{ font-weight:600; } .si .contact{ color:var(--muted); font-size:12px; }
 .si .addnum{ display:inline-flex; align-items:center; gap:5px; border:1px dashed var(--lav); background:var(--lav-soft);
-  color:var(--purple-d); font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:999px; cursor:pointer; }
+  color:var(--purple-d); font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:999px; cursor:pointer;
+  white-space:nowrap; flex:none; }
+.si .addnum svg{ flex:none; }
 .si .pedit{ display:inline-flex; align-items:center; gap:6px; }
 .si .pedit input{ width:130px; border:1px solid var(--lav); border-radius:8px; padding:5px 8px; font-size:12px; }
 .si .pedit input:focus{ outline:none; border-color:var(--purple); }
@@ -3358,7 +3747,38 @@ const css = `
 .si .chmenu-item:hover:not(:disabled){ background:var(--hover); }
 .si .chmenu-item.active{ background:var(--hover); }
 .si .chmenu-item:disabled{ opacity:.4; cursor:not-allowed; }
-.si .status{ display:inline-flex; align-items:center; font-size:11.5px; font-weight:600; padding:4px 11px; border-radius:999px; }
+.si .status{ display:inline-flex; align-items:center; font-size:11.5px; font-weight:600; padding:4px 11px;
+  border-radius:999px; white-space:nowrap; }
+/* A guest who received nothing must not look like a quiet neutral state. This
+   is the one row status that is a problem to act on, so it carries the same
+   red the failure pills use. */
+.si .status.s-undel{ background:var(--bad-bg); color:var(--bad-tx); }
+/* Delivery column */
+.si .delcell{ white-space:nowrap; }
+.si .dpill{ display:inline-flex; align-items:center; font-size:11px; font-weight:700; padding:3px 9px;
+  border-radius:999px; white-space:nowrap; }
+.si .dpill.d-ok{ background:var(--ok-bg); color:var(--ok-tx); }
+.si .dpill.d-read{ background:var(--green); color:var(--green-tx); }
+.si .dpill.d-wait{ background:var(--amber-bg); color:var(--amber-tx); }
+.si .dpill.d-bad{ background:var(--bad-bg); color:var(--bad-tx); }
+/* Pill and time share a line — the time qualifies the pill, so stacking them
+   made every delivered row three lines tall for no gain. */
+.si .delcell .dtop{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.si .delwhen{ display:inline-flex; align-items:center; gap:4px; font-size:11px;
+  color:var(--muted); white-space:nowrap; }
+.si .delwhen svg{ flex:none; opacity:.7; }
+/* The reason wraps rather than truncating: "Billing problem on the WhatsApp
+   account" is the actionable part, and an ellipsis hides exactly the words the
+   couple needs. Capped so one long reason cannot stretch the column. */
+.si .delwhy{ display:block; max-width:190px; white-space:normal; font-size:11px;
+  line-height:1.35; color:var(--bad-tx); margin-top:4px; }
+.si .delnone{ font-size:11.5px; color:var(--faint); }
+.si .sg.alert{ color:var(--bad-tx); }
+.si .sg.alert.on{ background:var(--bad-bg); color:var(--bad-tx); }
+.si button.fc{ text-align:left; font:inherit; cursor:pointer; }
+.si button.fc:hover{ border-color:var(--bad-tx); }
+.si .fc.bad .n{ color:var(--bad-tx); }
+.si .fc.bad .fcicon{ background:var(--bad-bg); color:var(--bad-tx); }
 .si .s-none{ background:#f3f2f5; color:var(--muted); }
 .si .s-sent{ background:var(--lav-soft); color:var(--purple); }
 .si .s-view{ background:#eef3ff; color:var(--sms); }
@@ -3366,7 +3786,7 @@ const css = `
 .si .s-no{ background:var(--bad-bg); color:var(--bad-tx); }
 .si .s-maybe{ background:#fff5e6; color:#b9791a; }
 .si .ra{ display:flex; gap:7px; justify-content:flex-end; align-items:center; }
-.si .ia{ height:32px; min-width:32px; padding:0 8px; border-radius:9px; border:1px solid var(--line); background:#fff; cursor:pointer;
+.si .ia{ height:32px; min-width:32px; padding:0 8px; white-space:nowrap; flex:none; border-radius:9px; border:1px solid var(--line); background:#fff; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:600; color:var(--ink); }
 .si .ia:hover{ background:var(--hover); border-color:var(--lav); }
 .si .ia:disabled{ opacity:.45; cursor:not-allowed; }
@@ -3374,8 +3794,30 @@ const css = `
 .si .ia.send:hover{ filter:brightness(1.06); background:var(--wa); }
 .si .ia.send.pass{ background:var(--wa); border-color:var(--wa); color:#fff; }
 .si .ia.send.pass:hover{ filter:brightness(1.06); background:var(--wa); }
+/* Preview reviews, it never sends — lavender, so it reads as "look" beside
+   the green "send". No icon: an eye at this size is a smudge, and the word
+   already says it. */
+.si .ia.preview{ background:var(--lav-soft); border-color:var(--lav); color:var(--purple-d); padding:0 14px; }
+.si .ia.preview:hover{ background:#f0e5f8; border-color:var(--purple); }
+/* Resend is amber, not green: it fires a real message at a real guest, so it
+   should read as "careful", never as the safe default. The icon carries the
+   meaning here, so it is full size and heavier than the rest. */
+.si .ia.resend{ background:var(--amber-bg); border-color:var(--amber-bd); color:var(--amber-tx); padding:0 12px; }
+.si .ia.resend:hover{ background:#fdf3d6; border-color:#E0B44E; }
+.si .ia.resend svg{ flex:none; }
 .si .ia.danger{ color:var(--bad-tx); }
 .si .ia.danger:hover{ border-color:var(--bad-tx); background:var(--bad-bg); }
+/* Resend menu on an already-invited row. Deliberately NOT the filled green
+   send button: an accidental duplicate message costs a real guest's trust,
+   so the immediate action sits one click inside a neutral menu. */
+.si .rsmenu{ position:relative; }
+.si .rsmenupop{ position:absolute; right:0; top:calc(100% + 6px); z-index:20; min-width:210px;
+  background:#fff; border:1px solid var(--line); border-radius:12px; padding:5px;
+  box-shadow:0 10px 28px rgba(20,18,30,.14); display:flex; flex-direction:column; }
+.si .rsmenupop button{ display:flex; align-items:center; gap:9px; width:100%; border:none; background:none;
+  padding:9px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--ink);
+  cursor:pointer; text-align:left; }
+.si .rsmenupop button:hover{ background:var(--hover); }
 .si .einp{ width:100%; max-width:220px; border:1px solid var(--lav); border-radius:8px; padding:6px 9px; font-size:13px; background:#fff; }
 .si .einp:focus{ outline:none; border-color:var(--purple); }
 .si .ck{ width:15px; height:15px; accent-color:var(--purple); }

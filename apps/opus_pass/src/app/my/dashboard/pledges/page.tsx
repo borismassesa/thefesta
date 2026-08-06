@@ -152,7 +152,7 @@ export default async function PledgesPage({
       copy={copy}
       whatsappLive={getWhatsAppProvider().live}
       emailLive={isEmailConfigured()}
-      smsLive={getSmsProvider().live}
+      smsLive={getSmsProvider('pledge').live}
     />
   )
 }

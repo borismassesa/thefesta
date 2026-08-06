@@ -157,7 +157,7 @@ export async function sendPledgeRequestForCouple(
   eventId?: string,
 ): Promise<AdminSendSummary> {
   const supabase = createDashboardClient()
-  const live = channel === 'whatsapp' ? getWhatsAppProvider().live : getSmsProvider().live
+  const live = channel === 'whatsapp' ? getWhatsAppProvider().live : getSmsProvider('admin_pledge').live
   const summary: AdminSendSummary = { sent: 0, failed: 0, skipped: 0, dryRun: !live }
   if (!guestIds.length) return summary
 
@@ -231,7 +231,7 @@ export async function sendPledgeRequestForCouple(
     return summary
   }
 
-  const provider = getSmsProvider()
+  const provider = getSmsProvider('admin_pledge')
   const link = pledgeUrl(publicOrigin(), token, resolvedEventId ?? undefined)
   for (const g of rows) {
     const to = normalizePhone(g.phone ?? g.whatsapp_phone)
@@ -264,7 +264,7 @@ export async function sendPledgeReminderForCouple(
   const supabase = createDashboardClient()
 
   if (channel === 'sms') {
-    const provider = getSmsProvider()
+    const provider = getSmsProvider('admin_pledge')
     const { data: pledge } = await supabase
       .from('event_pledges')
       .select('guest_contact_id')

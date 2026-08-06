@@ -1271,7 +1271,7 @@ export interface PledgeReminderSendResult {
 export async function sendPledgeReminderSms(pledgeId: string, message: string): Promise<PledgeReminderSendResult> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
-  const provider = getSmsProvider()
+  const provider = getSmsProvider('pledge')
 
   const { data: pledge } = await supabase
     .from('event_pledges')
@@ -4636,7 +4636,7 @@ export async function sendSmsPledgeRequests(
 ): Promise<PledgeLinkSendSummary> {
   const user = await requireDashboardUser()
   const supabase = createDashboardClient()
-  const provider = getSmsProvider()
+  const provider = getSmsProvider('pledge')
   const summary: PledgeLinkSendSummary = { sent: 0, failed: 0, skipped: 0, dryRun: !provider.live }
   if (!guestIds.length) return summary
 
