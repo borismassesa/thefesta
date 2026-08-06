@@ -106,6 +106,41 @@ const STATUS_CLASS: Record<SendGuestRow['status'], string> = {
   attending: 's-yes',
   declined: 's-no',
   maybe: 's-maybe',
+  undelivered: 's-undel',
+}
+
+const DELIVERY_CLASS: Record<'pending' | 'delivered' | 'read' | 'failed', string> = {
+  pending: 'd-wait',
+  delivered: 'd-ok',
+  read: 'd-read',
+  failed: 'd-bad',
+}
+
+const DELIVERY_LABEL = (s: DashboardSendStrings): Record<'pending' | 'delivered' | 'read' | 'failed', string> => ({
+  pending: s.delivery_pending,
+  delivered: s.delivery_delivered,
+  read: s.delivery_read,
+  failed: s.delivery_failed,
+})
+
+/**
+ * When a send happened, at a glance.
+ *
+ * Deliberately coarse. The couple is scanning a column for "did this land",
+ * not auditing timestamps, and an exact clock time on every row is noise. The
+ * full timestamp stays available as the cell's tooltip.
+ */
+function shortWhen(iso: string): string {
+  const then = new Date(iso)
+  if (Number.isNaN(then.getTime())) return ''
+  const mins = Math.floor((Date.now() - then.getTime()) / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return then.toLocaleDateString([], { day: 'numeric', month: 'short' })
 }
 
 /** Substitute `{var}` placeholders in a CMS template with runtime values. */
@@ -238,7 +273,7 @@ export default function SendInvitesView({
     : '/my/dashboard/thank-you'
 
   const [pending, startTransition] = useTransition()
-  const [filter, setFilter] = useState<'all' | 'notsent' | 'awaiting' | 'attending'>('all')
+  const [filter, setFilter] = useState<'all' | 'notsent' | 'awaiting' | 'attending' | 'undelivered'>('all')
   // Sub-filter within the (always-attending) Pass Ticket tab — separate from
   // `filter` above so switching tabs never leaks one tab's filter state into
   // the other.
@@ -554,6 +589,12 @@ export default function SendInvitesView({
   const notSentCount = useMemo(() => guests.filter((g) => g.status === 'none').length, [guests])
   const awaitingCount = useMemo(() => guests.filter((g) => isAwaiting(g.status)).length, [guests])
   const attendingCount = useMemo(() => guests.filter((g) => g.status === 'attending').length, [guests])
+  // Guests whose latest invitation WhatsApp refused to deliver. These read as
+  // "Sent" everywhere else, which is exactly why they need their own count.
+  const undeliveredCount = useMemo(
+    () => guests.filter((g) => g.delivery?.state === 'failed').length,
+    [guests],
+  )
   // Ticket-sent status is already tracked (entrancePassSent / entranceSentIds
   // — same real ledger the row badges already read from), just not yet
   // exposed as filter tabs the way invite status is.
@@ -600,6 +641,7 @@ export default function SendInvitesView({
       if (effectiveFilter === 'notsent' && g.status !== 'none') return false
       if (effectiveFilter === 'awaiting' && !isAwaiting(g.status)) return false
       if (effectiveFilter === 'attending' && g.status !== 'attending') return false
+      if (effectiveFilter === 'undelivered' && g.delivery?.state !== 'failed') return false
       if (sendTab === 'ticket') {
         const sent = g.entrancePassSent || entranceSentIds.has(g.id)
         if (ticketFilter === 'notsent' && sent) return false
@@ -2302,6 +2344,21 @@ export default function SendInvitesView({
         <div className="funnel">
           <div className="fc"><div className="fcicon"><Send size={13} /></div><div className="n">{funnel.invited}</div><div className="l">{strings.funnel_invited}</div></div>
           <div className="fc"><div className="fcicon"><CheckCheck size={13} /></div><div className="n">{funnel.delivered}</div><div className="l"><span className="ar">→</span> {strings.funnel_delivered}</div></div>
+          {/* Only appears when something has actually failed, and it clicks
+              through to exactly those guests. A permanent zero tile would be
+              scenery; an alarm that goes off only when it means something is
+              the one people still trust on the day. */}
+          {funnel.undelivered > 0 ? (
+            <button
+              type="button"
+              className="fc bad"
+              onClick={() => { setSendTab('cards'); setFilter('undelivered') }}
+            >
+              <div className="fcicon"><AlertTriangle size={13} /></div>
+              <div className="n">{funnel.undelivered}</div>
+              <div className="l"><span className="ar">→</span> {strings.funnel_undelivered}</div>
+            </button>
+          ) : null}
           <div className="fc"><div className="fcicon"><Eye size={13} /></div><div className="n">{funnel.viewed}</div><div className="l"><span className="ar">→</span> {strings.funnel_viewed}</div></div>
           <div className="fc"><div className="fcicon"><CalendarCheck size={13} /></div><div className="n">{funnel.rsvpd}</div><div className="l"><span className="ar">→</span> {strings.funnel_rsvpd}</div></div>
           <div className={`fc quota${quotaOverdrawn ? ' over' : ''}`}>
@@ -2496,6 +2553,17 @@ export default function SendInvitesView({
                 <button className={`sg ${filter === 'awaiting' ? 'on' : ''}`} onClick={() => setFilter('awaiting')}>
                   {strings.filter_awaiting}{awaitingCount ? ` ${awaitingCount}` : ''}
                 </button>
+                {/* Only offered once something has actually failed. A chip
+                    reading "Not delivered 0" invites a click that shows an
+                    empty table and teaches the couple to ignore it. */}
+                {sendTab === 'cards' && undeliveredCount > 0 ? (
+                  <button
+                    className={`sg alert ${filter === 'undelivered' ? 'on' : ''}`}
+                    onClick={() => setFilter('undelivered')}
+                  >
+                    <AlertTriangle size={12} /> {strings.filter_undelivered} {undeliveredCount}
+                  </button>
+                ) : null}
               </div>
             ) : (
               <div className="seg" role="tablist" aria-label={strings.filter_aria}>
@@ -2547,7 +2615,12 @@ export default function SendInvitesView({
                 <tr>
                   <th style={{ width: 30 }}></th><th>{strings.th_guest}</th><th>{strings.th_contact}</th>
                   {sendTab !== 'saveDates' ? <th>{strings.th_ticket}</th> : null}
-                  <th>{strings.th_channel}</th><th>{strings.th_status}</th><th style={{ textAlign: 'right' }}>{strings.th_send}</th>
+                  <th>{strings.th_channel}</th><th>{strings.th_status}</th>
+                  {/* Delivery is the invite tabs' concern. The Pass Ticket tab
+                      has its own Sent/Not sent column, and Save the Dates are
+                      shared by hand, so neither has a WhatsApp receipt. */}
+                  {sendTab === 'cards' ? <th>{strings.th_delivery}</th> : null}
+                  <th style={{ textAlign: 'right' }}>{strings.th_send}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2720,6 +2793,26 @@ export default function SendInvitesView({
                         <span className={`status ${STATUS_CLASS[g.status]}`}>{g.statusLabel}</span>
                       )}
                     </td>
+                    {sendTab === 'cards' ? (
+                      <td className="delcell">
+                        {g.delivery ? (
+                          <>
+                            <span className={`dpill ${DELIVERY_CLASS[g.delivery.state]}`}>
+                              {DELIVERY_LABEL(strings)[g.delivery.state]}
+                            </span>
+                            <span className="delwhen">{shortWhen(g.delivery.at)}</span>
+                            {/* The reason is the whole point of the column: a
+                                bare "Failed" leaves the couple with nothing to
+                                do about it. */}
+                            {g.delivery.reason ? (
+                              <span className="delwhy" title={g.delivery.reason}>{g.delivery.reason}</span>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="delnone">{strings.delivery_none}</span>
+                        )}
+                      </td>
+                    ) : null}
                     <td>
                       <div className="ra">
                         {effectiveFilter === 'attending' ? (() => {
@@ -3596,6 +3689,30 @@ const css = `
 .si .chmenu-item.active{ background:var(--hover); }
 .si .chmenu-item:disabled{ opacity:.4; cursor:not-allowed; }
 .si .status{ display:inline-flex; align-items:center; font-size:11.5px; font-weight:600; padding:4px 11px; border-radius:999px; }
+/* A guest who received nothing must not look like a quiet neutral state. This
+   is the one row status that is a problem to act on, so it carries the same
+   red the failure pills use. */
+.si .status.s-undel{ background:var(--bad-bg); color:var(--bad-tx); }
+/* Delivery column */
+.si .delcell{ white-space:nowrap; }
+.si .dpill{ display:inline-flex; align-items:center; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; }
+.si .dpill.d-ok{ background:var(--ok-bg); color:var(--ok-tx); }
+.si .dpill.d-read{ background:var(--green); color:var(--green-tx); }
+.si .dpill.d-wait{ background:var(--amber-bg); color:var(--amber-tx); }
+.si .dpill.d-bad{ background:var(--bad-bg); color:var(--bad-tx); }
+.si .delwhen{ display:block; font-size:11px; color:var(--faint); margin-top:3px; }
+/* The reason wraps rather than truncating: "Billing problem on the WhatsApp
+   account" is the actionable part, and an ellipsis hides exactly the words the
+   couple needs. Capped so one long reason cannot stretch the column. */
+.si .delwhy{ display:block; max-width:190px; white-space:normal; font-size:11px;
+  line-height:1.35; color:var(--bad-tx); margin-top:4px; }
+.si .delnone{ font-size:11.5px; color:var(--faint); }
+.si .sg.alert{ color:var(--bad-tx); }
+.si .sg.alert.on{ background:var(--bad-bg); color:var(--bad-tx); }
+.si button.fc{ text-align:left; font:inherit; cursor:pointer; }
+.si button.fc:hover{ border-color:var(--bad-tx); }
+.si .fc.bad .n{ color:var(--bad-tx); }
+.si .fc.bad .fcicon{ background:var(--bad-bg); color:var(--bad-tx); }
 .si .s-none{ background:#f3f2f5; color:var(--muted); }
 .si .s-sent{ background:var(--lav-soft); color:var(--purple); }
 .si .s-view{ background:#eef3ff; color:var(--sms); }

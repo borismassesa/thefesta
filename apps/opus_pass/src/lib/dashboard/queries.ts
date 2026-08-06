@@ -2302,7 +2302,18 @@ export async function releaseSendCredit(
 
 // ──────────────────────────── Send-invites page ────────────────────────────
 
-export type SendRowStatus = 'none' | 'sent' | 'viewed' | 'attending' | 'declined' | 'maybe'
+export type SendRowStatus =
+  | 'none'
+  | 'sent'
+  | 'viewed'
+  | 'attending'
+  | 'declined'
+  | 'maybe'
+  /** Accepted by Meta, then refused delivery. The guest received nothing.
+   *  Ranks BELOW any evidence of receipt (a read receipt or an RSVP), so a
+   *  guest who got the first invite and failed a later re-send still reads as
+   *  reached, which they were. */
+  | 'undelivered'
 
 export interface SendGuestRow {
   id: string
@@ -2347,6 +2358,51 @@ export interface SendGuestRow {
    *  Seat collection planner), so an usher can send an arrival to their seat.
    *  Null when the guest hasn't been seated yet. */
   tableName: string | null
+  /**
+   * What WhatsApp actually did with this guest's most recent invitation.
+   *
+   * Distinct from `status` above, which tracks the RSVP lifecycle and is
+   * written the moment a send is accepted. Meta returns 200 with a wamid and
+   * THEN refuses delivery for a whole class of reasons (billing, throttling,
+   * a number that isn't on WhatsApp), reporting the failure minutes later on
+   * the webhook. Until this field existed nothing surfaced that, so a guest
+   * who received nothing still read as "Sent" — an account-level outage once
+   * ran for 15 hours before anyone noticed.
+   *
+   * Null when this guest has never been sent an invitation for this event.
+   */
+  delivery: {
+    state: 'pending' | 'delivered' | 'read' | 'failed'
+    /** When the send was made. The webhook updates the row in place, so this
+     *  is the attempt time, not the delivery time. */
+    at: string
+    /** Plain-English reason, for `failed` only. Never a bare Meta code. */
+    reason: string | null
+  } | null
+}
+
+/**
+ * Meta's delivery failure codes, in words a couple can act on.
+ *
+ * The raw strings are things like "131026: Message undeliverable", which tells
+ * the couple nothing about whether to retry, top up, or pick up the phone.
+ * Unknown codes fall through to the provider's own text rather than a generic
+ * "something went wrong", because a specific unknown beats a vague known.
+ */
+const DELIVERY_FAILURE_REASONS: { code: string; reason: string }[] = [
+  { code: '131042', reason: 'Billing problem on the WhatsApp account' },
+  { code: '131049', reason: 'Held back by WhatsApp to protect delivery quality' },
+  { code: '131026', reason: "This number can't receive WhatsApp" },
+  { code: '130472', reason: 'WhatsApp is limiting messages to this number' },
+  { code: '131053', reason: 'The invitation card image failed to upload' },
+  { code: '131047', reason: 'WhatsApp needs a fresh conversation with this guest' },
+  { code: '131000', reason: 'WhatsApp had an internal error' },
+]
+
+export function describeDeliveryFailure(error: string | null): string | null {
+  if (!error) return null
+  const match = DELIVERY_FAILURE_REASONS.find((r) => error.startsWith(r.code))
+  return match ? match.reason : error
 }
 
 export interface SendInvitesData {
@@ -2429,7 +2485,7 @@ export interface SendInvitesData {
   /** Paid orders not yet assigned to any event — show a prompt to assign them
    *  so their design/quota isn't invisible to every event. */
   unassignedOrders: PaidOrderSummary[]
-  funnel: { invited: number; delivered: number; viewed: number; rsvpd: number }
+  funnel: { invited: number; delivered: number; undelivered: number; viewed: number; rsvpd: number }
   quota: { used: number; purchased: number; remaining: number; hasPaidOrder: boolean }
   /** Entrance-pass pool — same purchased size as the invite quota, consumed
    *  independently (first ticket per guest charges, re-sends are free). */
@@ -2530,7 +2586,7 @@ export async function getSendInvitesData(
       events: [],
       selectedEventId: null,
       unassignedOrders: unassignedOrdersFrom(releasedOrders),
-      funnel: { invited: 0, delivered: 0, viewed: 0, rsvpd: 0 },
+      funnel: { invited: 0, delivered: 0, undelivered: 0, viewed: 0, rsvpd: 0 },
       quota: { used: 0, purchased: 0, remaining: 0, hasPaidOrder: false },
       entranceQuota: { used: 0, purchased: 0, remaining: 0 },
       publicLink: { enabled: false, slug: null, url: null },
@@ -2568,6 +2624,44 @@ export async function getSendInvitesData(
   const readSet = new Set(
     (readRows ?? []).map((r) => r.guest_contact_id as string | null).filter((x): x is string => Boolean(x)),
   )
+
+  // Each guest's MOST RECENT invitation attempt for this event, so the console
+  // can show what WhatsApp actually did with it. Ordered oldest-first and
+  // written into the map unconditionally, so the last write per guest is the
+  // newest row — a re-send that succeeded must replace an earlier failure,
+  // otherwise a fixed guest would keep showing the old error forever.
+  const { data: deliveryRows } = await supabase
+    .from('whatsapp_messages')
+    .select('guest_contact_id, status, error, created_at')
+    .eq('user_id', user.id)
+    .eq('event_id', selectedEventId)
+    .eq('direction', 'out')
+    .eq('kind', 'invite')
+    .not('guest_contact_id', 'is', null)
+    .order('created_at', { ascending: true })
+  const deliveryByGuest = new Map<string, SendGuestRow['delivery']>()
+  for (const row of (deliveryRows ?? []) as {
+    guest_contact_id: string
+    status: string | null
+    error: string | null
+    created_at: string
+  }[]) {
+    // 'sent' means Meta accepted it and has not yet said what became of it.
+    // That is genuinely unknown, not success, so it reads as pending.
+    const state =
+      row.status === 'failed'
+        ? 'failed'
+        : row.status === 'read'
+          ? 'read'
+          : row.status === 'delivered'
+            ? 'delivered'
+            : 'pending'
+    deliveryByGuest.set(row.guest_contact_id, {
+      state,
+      at: row.created_at,
+      reason: state === 'failed' ? describeDeliveryFailure(row.error) : null,
+    })
+  }
   const sentSet = new Set(entitlement.alreadySentIds)
   const entranceSentSet = new Set(entitlement.entrancePassSentIds)
 
@@ -2609,6 +2703,11 @@ export async function getSendInvitesData(
     const wasSent = sentSet.has(g.id)
     const wasRead = readSet.has(g.id)
 
+    // Whether WhatsApp refused this guest's most recent invitation. Only a
+    // real 'failed' counts: a guest with no message row at all (a manual
+    // share, or an SMS) is unknown, not failed, and must not be accused.
+    const failedDelivery = deliveryByGuest.get(g.id)?.state === 'failed'
+
     let status: SendRowStatus = 'none'
     let statusLabel = 'Not sent'
     if (attending) {
@@ -2623,6 +2722,11 @@ export async function getSendInvitesData(
     } else if (wasRead) {
       status = 'viewed'
       statusLabel = 'Viewed'
+    } else if (failedDelivery) {
+      // The bug this replaces: these guests read as "Sent" while having
+      // received nothing, so a 15-hour account outage looked like success.
+      status = 'undelivered'
+      statusLabel = 'Not delivered'
     } else if (wasSent) {
       status = 'sent'
       statusLabel = 'Sent'
@@ -2649,13 +2753,20 @@ export async function getSendInvitesData(
       // The audit label is "Name (Door) (manual: reason)"; the couple only
       // needs the attendant's name — the door has its own column.
       checkedInBy: attending?.checked_in_by ? attending.checked_in_by.split(' (')[0].trim() || null : null,
+      delivery: deliveryByGuest.get(g.id) ?? null,
       tableName: tableNameByGuest.get(g.id) ?? null,
     }
   })
 
   const funnel = {
-    invited: roster.length,
-    delivered: rows.filter((r) => r.status !== 'none').length,
+    // Invited = actually attempted. Previously this was the whole roster, so a
+    // couple who had sent nothing still saw every guest counted as invited.
+    invited: rows.filter((r) => r.status !== 'none').length,
+    // Delivered = attempted and NOT known to have failed. Anything without a
+    // delivery receipt (a manual share, an SMS) is unknown rather than failed,
+    // so it still counts here: under-reporting would be its own false alarm.
+    delivered: rows.filter((r) => r.status !== 'none' && r.delivery?.state !== 'failed').length,
+    undelivered: rows.filter((r) => r.delivery?.state === 'failed').length,
     viewed: rows.filter((r) => r.status === 'viewed' || r.status === 'attending' || r.status === 'declined' || r.status === 'maybe').length,
     rsvpd: roster.filter((g) => g.invitations.some((i) => i.event_id === selectedEventId && i.responded_at)).length,
   }

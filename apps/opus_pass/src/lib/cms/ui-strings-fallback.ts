@@ -1233,6 +1233,15 @@ export interface DashboardSendStrings {
   row_send: string
   row_resend: string
   row_send_pass: string
+  // Delivery column: what WhatsApp actually did with the invitation
+  th_delivery: string
+  delivery_pending: string
+  delivery_delivered: string
+  delivery_read: string
+  delivery_failed: string
+  delivery_none: string
+  filter_undelivered: string
+  funnel_undelivered: string
   entrance_needs_whatsapp: string
   entrance_status_sent: string
   entrance_status_notsent: string
@@ -2421,6 +2430,14 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     row_send: 'Send Invites',
     row_resend: 'Resend',
     row_send_pass: 'Send Pass',
+    th_delivery: 'Delivery',
+    delivery_pending: 'Awaiting',
+    delivery_delivered: 'Delivered',
+    delivery_read: 'Opened',
+    delivery_failed: 'Not delivered',
+    delivery_none: 'Not sent',
+    filter_undelivered: 'Not delivered',
+    funnel_undelivered: 'Not delivered',
     entrance_needs_whatsapp: 'Entrance passes are sent by WhatsApp only — add a WhatsApp number for this guest',
     entrance_status_sent: 'Sent',
     entrance_status_notsent: 'Not sent',
