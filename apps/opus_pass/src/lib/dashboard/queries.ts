@@ -662,12 +662,13 @@ export async function getPublicPledgeCouple(token: string, eventId: string | nul
   const { data: profile } = await supabase
     .from('couple_profiles')
     .select(
-      'partner1_name, partner2_name, wedding_date, city, pledge_payment_instructions, pledge_payment_methods, pledge_page',
+      'partner1_name, partner2_name, invite_host_name, wedding_date, city, pledge_payment_instructions, pledge_payment_methods, pledge_page',
     )
     .eq('user_id', owner.id)
     .maybeSingle<{
       partner1_name: string | null
       partner2_name: string | null
+      invite_host_name: string | null
       wedding_date: string | null
       city: string | null
       pledge_payment_instructions: string | null
@@ -675,12 +676,12 @@ export async function getPublicPledgeCouple(token: string, eventId: string | nul
       pledge_page: PledgePageConfig | null
     }>()
 
-  // Guests see the pledge page as a personal ask from the couple, not a legal
-  // document — first names read warmer than full names here.
-  const names = [profile?.partner1_name, profile?.partner2_name].filter(Boolean).map((n) => firstNameOf(n!))
-  const coupleName = names.length ? names.join(' & ') : await fallbackCoupleNameFromEvent(supabase, owner.id)
   const storedPage = profile?.pledge_page ?? {}
   const resolvedEventId = await resolveEventIdOrDefault(owner.id, eventId)
+  // The guest is being asked to support the celebrants of THIS event, so the
+  // event's own partner names win over the account's profile names (an account
+  // co-ordinating several couples' events has generic profile names).
+  const coupleName = await pledgeCoupleName(supabase, owner.id, resolvedEventId, profile ?? null)
   return {
     coupleName,
     weddingDate: profile?.wedding_date ?? null,
@@ -692,21 +693,37 @@ export async function getPublicPledgeCouple(token: string, eventId: string | nul
   }
 }
 
-/** No partner names on the profile? Fall back to the couple's earliest event's
- *  own title (e.g. "Asha & Juma's Wedding") before the generic placeholder. */
-export async function fallbackCoupleNameFromEvent(
+/** Whose pledge page the guest is looking at. Same precedence as the entrance
+ *  pass (see entranceCoupleName): the event's own partner names, then the
+ *  host-name override, then the profile's partner names, then the event title
+ *  (e.g. "Asha & Juma's Wedding") before the generic placeholder. Guests read
+ *  this as a personal ask, so structured names are shortened to first names. */
+async function pledgeCoupleName(
   supabase: ReturnType<typeof createDashboardClient>,
   userId: string,
+  eventId: string | null,
+  profile: { partner1_name: string | null; partner2_name: string | null; invite_host_name: string | null } | null,
 ): Promise<string> {
-  const { data: primaryEvent } = await supabase
-    .from('wedding_events')
-    .select('name')
-    .eq('user_id', userId)
-    .order('sort_order', { ascending: true })
-    .order('starts_at', { ascending: true, nullsFirst: false })
-    .limit(1)
-    .maybeSingle<{ name: string | null }>()
-  return primaryEvent?.name?.trim() || 'The Couple'
+  const { data: event } = eventId
+    ? await supabase
+        .from('wedding_events')
+        .select('name, partner1_name, partner2_name')
+        .eq('user_id', userId)
+        .eq('id', eventId)
+        .maybeSingle<{ name: string | null; partner1_name: string | null; partner2_name: string | null }>()
+    : { data: null }
+
+  if (event) {
+    return entranceCoupleName(
+      { name: event.name?.trim() || 'The Couple', partner1_name: event.partner1_name, partner2_name: event.partner2_name },
+      profile,
+    )
+  }
+
+  const hostOverride = profile?.invite_host_name?.trim()
+  if (hostOverride) return hostOverride
+  const profileNames = [profile?.partner1_name, profile?.partner2_name].filter(Boolean) as string[]
+  return profileNames.length ? profileNames.map(firstNameOf).join(' & ') : 'The Couple'
 }
 
 /** The signed-in couple's saved pledge-page config, with the cover resolved
@@ -1014,7 +1031,14 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     .filter((x): x is WeddingEvent & { invitation: GuestInvitation } => x !== null)
     .sort((a, b) => a.sort_order - b.sort_order)
 
-  const names = [profile?.partner1_name, profile?.partner2_name].filter(Boolean).map((n) => firstNameOf(n!))
+  // The EVENT's own partner names first, the account profile only as a
+  // fallback. A coordinator or agency account carries the agency's name on the
+  // profile, and the guest was invited to a specific wedding — being greeted by
+  // "Co-ordinator & OpusPass" tells them nothing and reads as a broken page.
+  const primary = merged[0]
+  const eventNames = [primary?.partner1_name, primary?.partner2_name].filter(Boolean) as string[]
+  const profileNames = [profile?.partner1_name, profile?.partner2_name].filter(Boolean) as string[]
+  const names = (eventNames.length ? eventNames : profileNames).map((n) => firstNameOf(n))
   return {
     guest: {
       id: guest.id,

@@ -68,13 +68,18 @@ function multipleChoiceAnswerText(q: RsvpQuestion, a: QAnswer): string {
 
 function formatWhen(value: string | null, tbc: string): string {
   if (!value) return tbc
+  // Pinned to the venue's clock. Without this the browser's own timezone wins,
+  // so a guest (or the couple) reading from abroad saw 18:00 EAT as 08:00 —
+  // a wrong arrival time, stated with complete confidence.
   return new Date(value).toLocaleString('en-GB', {
+    timeZone: 'Africa/Nairobi',
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hourCycle: 'h23',
   })
 }
 
@@ -238,6 +243,9 @@ export default function PublicRsvpForm({
     return (
       <Shell
         coupleName={data.coupleName}
+        cardUrl={data.cardUrlByEvent[data.events[0]?.id ?? ''] ?? null}
+        cardAlt={t('card_alt')}
+        cardDownloadLabel={t('card_download')}
         coverImageUrl={data.coverImageUrl}
       >
         <div className="text-center">
@@ -266,6 +274,9 @@ export default function PublicRsvpForm({
   return (
     <Shell
       coupleName={data.coupleName}
+      cardUrl={followupMode ? null : (data.cardUrlByEvent[data.events[0]?.id ?? ''] ?? null)}
+      cardAlt={t('card_alt')}
+      cardDownloadLabel={t('card_download')}
       coverImageUrl={followupMode ? null : data.coverImageUrl}
     >
       <div className="text-center">
@@ -289,65 +300,34 @@ export default function PublicRsvpForm({
         </p>
       </div>
 
-      {/* The guest's own card, and the Pass ID that admits them.
-          This is the safety net for the manual send: a wa.me link cannot carry
-          an attachment, so when the sender forgets, this is where the guest
-          still gets their card. It renders before the RSVP controls because a
-          guest who opened the link to see their invitation should see it
-          first. */}
+      {/* Pass ID and who to ring. The card itself sits in the panel beside
+          this (above it on a phone), so it is not repeated here. */}
       {!followupMode
         ? data.events.map((e) => {
-            const cardUrl = data.cardUrlByEvent[e.id]
             const contacts = data.contactsByEvent[e.id] ?? []
             const passId = (e.invitation as { pass_id?: string | null }).pass_id
-            if (!cardUrl && !passId && contacts.length === 0) return null
+            if (!passId && contacts.length === 0) return null
             return (
-              <div key={`card-${e.id}`} className="mt-8 overflow-hidden rounded-2xl border border-black/[0.08] bg-white">
-                {cardUrl ? (
-                  <div className="bg-[#FAF7FC] p-4">
-                    <Image
-                      src={cardUrl}
-                      alt={t('card_alt')}
-                      width={760}
-                      height={1064}
-                      className="mx-auto h-auto w-full max-w-[340px] rounded-xl shadow-sm"
-                      unoptimized
-                      priority
-                    />
-                    {/* A plain anchor, not a fetch: same origin, so the browser
-                        saves straight to the guest's device with no JS. */}
-                    <a
-                      href={cardUrl}
-                      download
-                      className="mx-auto mt-4 flex w-full max-w-[340px] items-center justify-center gap-2 rounded-xl bg-[#8e57b3] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#7B439E]"
-                    >
-                      <Download className="h-4 w-4" /> {t('card_download')}
-                    </a>
+              <div key={`facts-${e.id}`} className="mt-8 space-y-3 rounded-2xl border border-black/[0.08] bg-white p-5">
+                {passId ? (
+                  <div className="flex items-center gap-3">
+                    <Ticket className="h-4 w-4 flex-none text-[#8e57b3]" />
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1A1A1A]/45">
+                        {t('card_pass_id')}
+                      </div>
+                      <div className="font-mono text-base font-bold tracking-[0.12em] text-[#1A1A1A]">
+                        {passId}
+                      </div>
+                    </div>
                   </div>
                 ) : null}
-                {passId || contacts.length > 0 ? (
-                  <div className="space-y-3 border-t border-black/[0.06] p-5">
-                    {passId ? (
-                      <div className="flex items-center gap-3">
-                        <Ticket className="h-4 w-4 flex-none text-[#8e57b3]" />
-                        <div>
-                          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1A1A1A]/45">
-                            {t('card_pass_id')}
-                          </div>
-                          <div className="font-mono text-base font-bold tracking-[0.12em] text-[#1A1A1A]">
-                            {passId}
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-                    {contacts.map((c) => (
-                      <div key={c} className="flex items-center gap-3">
-                        <Phone className="h-4 w-4 flex-none text-[#8e57b3]" />
-                        <span className="text-sm text-[#1A1A1A]/75">{c}</span>
-                      </div>
-                    ))}
+                {contacts.map((c) => (
+                  <div key={c} className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 flex-none text-[#8e57b3]" />
+                    <span className="text-sm text-[#1A1A1A]/75">{c}</span>
                   </div>
-                ) : null}
+                ))}
               </div>
             )
           })
@@ -601,10 +581,18 @@ function QuestionField({
 function Shell({
   children,
   coupleName,
+  cardUrl,
+  cardAlt,
+  cardDownloadLabel,
   coverImageUrl,
 }: {
   children: React.ReactNode
   coupleName: string
+  /** The guest's own card. Fills the panel a cover photo would otherwise, and
+   *  is the thing they opened the link to see. */
+  cardUrl?: string | null
+  cardAlt: string
+  cardDownloadLabel: string
   coverImageUrl?: string | null
 }) {
   return (
@@ -622,28 +610,38 @@ function Shell({
             <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-white/10" />
           </>
         ) : (
-          <div className="relative flex h-full min-h-[360px] items-end px-6 pb-10 pt-24 lg:min-h-screen lg:px-12 lg:pb-14">
+          <div className="relative flex h-full min-h-[360px] items-center justify-center px-6 py-12 lg:min-h-screen lg:px-12">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(201,160,220,0.16),transparent_32%),radial-gradient(circle_at_78%_76%,rgba(79,40,119,0.08),transparent_34%)]" />
-            <div className="relative w-full max-w-[460px]">
-              <div className="aspect-[4/5] w-full rounded-[26px] border border-dashed border-[#C9A0DC]/45 bg-white/25 p-3 shadow-[0_28px_90px_-56px_rgba(65,42,78,0.45)]">
-                <div className="flex h-full items-center justify-center rounded-[20px] bg-white/25">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#C9A0DC]/30 bg-white/60 text-[#7B439E]">
-                    <ImagePlus className="h-5 w-5" />
-                  </span>
-                </div>
+            {cardUrl ? (
+              <div className="relative w-full max-w-[380px]">
+                <Image
+                  src={cardUrl}
+                  alt={cardAlt}
+                  width={760}
+                  height={1064}
+                  className="h-auto w-full rounded-[20px] shadow-[0_28px_90px_-40px_rgba(65,42,78,0.55)]"
+                  unoptimized
+                  priority
+                />
+                <a
+                  href={cardUrl}
+                  download
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#8e57b3] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#7B439E]"
+                >
+                  <Download className="h-4 w-4" /> {cardDownloadLabel}
+                </a>
               </div>
-              <div className="mt-5 max-w-sm text-left">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8e57b3]">
-                  Couple photo
-                </p>
-                <h2 className="mt-2 text-lg font-semibold leading-snug text-[#1A1A1A]">
-                  Add a photo from the dashboard
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-[#1A1A1A]/55">
-                  This space will show the couple&apos;s uploaded photo once it is added.
-                </p>
+            ) : (
+              // No photo and no card: a quiet panel. Never operator copy — a
+              // guest cannot act on "add a photo from the dashboard", and being
+              // told to reads as somebody else's half-built page.
+              <div className="relative flex flex-col items-center gap-3 text-[#7B439E]/70">
+                <Heart className="h-7 w-7" fill="currentColor" />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">
+                  {coupleName}
+                </span>
               </div>
-            </div>
+            )}
           </div>
         )}
       </aside>
