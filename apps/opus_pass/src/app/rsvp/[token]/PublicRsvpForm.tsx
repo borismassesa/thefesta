@@ -281,12 +281,7 @@ export default function PublicRsvpForm({
       coverImageUrl={followupMode ? null : data.coverImageUrl}
     >
       <div className="text-center">
-        {!followupMode ? (
-          <p className="inline-flex rounded-full border border-[#C9A0DC]/35 bg-[#F7EFFB] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7B439E]">
-            {t('eyebrow')}
-          </p>
-        ) : null}
-        <h1 className={`${followupMode ? '' : 'mt-4'} leading-tight text-[#1A1A1A]`}>
+        <h1 className="leading-tight text-[#1A1A1A]">
           <span
             className="block text-[2rem] leading-none sm:text-4xl lg:text-5xl"
             style={{ fontFamily: 'var(--font-dancing), cursive' }}
@@ -636,17 +631,21 @@ function Shell({
         ) : (
           /* Neither photo nor card. A quiet mark, never operator copy: a guest
              cannot act on "add a photo from the dashboard". */
-          <div className="flex flex-col items-center gap-3 text-[#7B439E]/60">
-            <Heart className="h-7 w-7" fill="currentColor" strokeWidth={0} />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">{coupleName}</span>
+          <div className="flex flex-col items-center text-[#7B439E]/45">
+            <Heart className="h-8 w-8" fill="currentColor" strokeWidth={0} />
           </div>
         )}
       </aside>
 
-      <main className="flex justify-center px-5 py-8 sm:px-8 sm:py-10 lg:min-h-screen lg:px-14 lg:py-16">
+      {/* A column, so the credit can be pushed to the foot of the page with
+          mt-auto rather than trailing whatever the content happens to end on.
+          On a phone there is no spare height to push into, so it simply
+          follows the content, which is where a footer belongs there anyway. */}
+      <main className="flex flex-col items-center px-5 py-8 sm:px-8 sm:py-10 lg:min-h-screen lg:px-14 lg:py-16">
         <div className="w-full max-w-lg">
           {children}
-          <footer className="mt-8 flex justify-center text-center">
+        </div>
+          <footer className="mt-auto flex justify-center pt-12 text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-4 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-[#1A1A1A]/45 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.35)]">
               <span>Powered</span>
               <span>with</span>
@@ -655,7 +654,6 @@ function Shell({
               <span className="font-semibold text-[#5d2f83]">OpusPass</span>
             </span>
           </footer>
-        </div>
       </main>
     </div>
   )
