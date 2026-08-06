@@ -2062,36 +2062,6 @@ export default function SendInvitesView({
             </div>
           ) : null}
 
-          {/* Invitation allowance, closing the card. It answers "how much is
-              left", which is what a couple asks after reading what they bought
-              — so it belongs after the package facts, not beside them. */}
-          {isCardSendTab && event.hasPaidOrder ? (
-            <aside className={`quota band${quotaOverdrawn ? ' over' : ''}`}>
-              <div className="top">
-                <span>{strings.quota_label}</span>
-                {quotaOverdrawn ? (
-                  <span>
-                    {strings.quota_used_label} <b>{quota.used}</b>
-                    {' · '}
-                    {strings.quota_available_label} <b>0</b>
-                  </span>
-                ) : (
-                  <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
-                )}
-              </div>
-              <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
-              <div className="ft">
-                {quotaOverdrawn ? (
-                  <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
-                ) : (
-                  <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
-                )}
-                <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
-                  {strings.quota_topup}
-                </button>
-              </div>
-            </aside>
-          ) : null}
 
           {/* Production tracker — a full-bleed band under the identity block,
               not a second rounded card inside this one. The left column tells
@@ -2202,6 +2172,39 @@ export default function SendInvitesView({
             </div>
           ) : null}
         </div>
+
+        {/* Closes the card, bottom right. Ordered last in CSS rather than moved
+            in the markup, so it stays next to the condition it shares with the
+            rest of the package block. */}
+        {isCardSendTab && event.hasPaidOrder ? (
+          <div className="ctxfoot">
+          <aside className={`quota band${quotaOverdrawn ? ' over' : ''}`}>
+            <div className="top">
+              <span>{strings.quota_label}</span>
+              {quotaOverdrawn ? (
+                <span>
+                  {strings.quota_used_label} <b>{quota.used}</b>
+                  {' · '}
+                  {strings.quota_available_label} <b>0</b>
+                </span>
+              ) : (
+                <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
+              )}
+            </div>
+            <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
+            <div className="ft">
+              {quotaOverdrawn ? (
+                <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
+              ) : (
+                <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
+              )}
+              <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
+                {strings.quota_topup}
+              </button>
+            </div>
+          </aside>
+          </div>
+        ) : null}
 
         {isCardSendTab && event.hasPaidOrder ? (
           <div className="ctxsend">
@@ -3444,7 +3447,10 @@ const css = `
 .si .btn.dangerfill{ background:var(--bad-tx); color:#fff; }
 .si .spin{ animation:si-spin .8s linear infinite; }
 @keyframes si-spin{ to{ transform:rotate(360deg); } }
-.si .ctx{ position:relative; background:#fff; border:1px solid var(--line); border-radius:20px;
+/* A column, so the allowance foot can be ordered last without moving it in the
+   JSX — it renders before .ctxsend but must sit below the reminder chip. */
+.si .ctx{ position:relative; display:flex; flex-direction:column; background:#fff;
+  border:1px solid var(--line); border-radius:20px;
   padding:22px; margin:22px 0 18px; box-shadow:var(--soft); }
 .si .ctx.production{ padding:24px 26px; }
 .si .ctxhead{ display:flex; gap:8px; flex-wrap:wrap; }
@@ -3456,7 +3462,8 @@ const css = `
 /* Bottom-right of the card, as its own boxed panel. margin-left:auto is what
    pushes it to the right edge; the width keeps it from stretching into a band
    across a wide screen. */
-.si .quota.band{ margin:16px 0 0 auto; width:250px; background:#fff;
+.si .ctxfoot{ order:99; display:flex; justify-content:flex-end; margin-top:16px; }
+.si .quota.band{ width:250px; background:#fff;
   border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:var(--soft); }
 .si .quota.band .top{ display:block; margin-bottom:8px; }
 .si .quota.band .top span:first-child{ display:block; font-size:12px; color:var(--muted); }
@@ -3464,7 +3471,7 @@ const css = `
 /* Full width once the card stacks, rather than a narrow panel pinned to one
    edge of a narrow screen. */
 @media (max-width:900px){
-  .si .quota.band{ width:100%; margin-left:0; }
+  .si .quota.band{ width:100%; }
 }
 /* Split the width evenly and keep each label on one line — "Preview invite"
    was wrapping to two and making the pair twice as tall as they need to be. */
