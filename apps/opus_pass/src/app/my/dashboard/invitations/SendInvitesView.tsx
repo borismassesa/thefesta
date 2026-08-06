@@ -2044,15 +2044,11 @@ export default function SendInvitesView({
             ) : null}
           </div>
 
-          {/* Invitation allowance, as a right rail rather than a tile in the
-              stat row. It belongs with the package facts it qualifies: the
-              facts say what was bought, this says what is left of it. Only on
-              the card tabs, since the entrance pool has its own meter. */}
+          {/* Package actions, held to the right of the identity block. They act
+              on the package as a whole, so they sit with it rather than in the
+              guest table's toolbar. */}
           {isCardSendTab && event.hasPaidOrder ? (
             <div className="railcol">
-              {/* Above the allowance card, not inside it: these act on the
-                  package as a whole, while the card below is only about how
-                  much of the allowance is left. */}
               {!editingSettings ? (
                 <div className="railacts">
                   <button className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
@@ -2063,7 +2059,14 @@ export default function SendInvitesView({
                   </button>
                 </div>
               ) : null}
-            <aside className={`quota rail${quotaOverdrawn ? ' over' : ''}`}>
+            </div>
+          ) : null}
+
+          {/* Invitation allowance, closing the card. It answers "how much is
+              left", which is what a couple asks after reading what they bought
+              — so it belongs after the package facts, not beside them. */}
+          {isCardSendTab && event.hasPaidOrder ? (
+            <aside className={`quota band${quotaOverdrawn ? ' over' : ''}`}>
               <div className="top">
                 <span>{strings.quota_label}</span>
                 {quotaOverdrawn ? (
@@ -2088,7 +2091,6 @@ export default function SendInvitesView({
                 </button>
               </div>
             </aside>
-            </div>
           ) : null}
 
           {/* Production tracker — a full-bleed band under the identity block,
@@ -3450,9 +3452,20 @@ const css = `
 /* Invitation allowance as the card's right rail. Fixed width so the identity
    block keeps the space it needs and the meter never stretches to half the
    card on a wide screen. */
-.si .railcol{ flex:none; width:250px; align-self:center; display:flex; flex-direction:column; gap:10px; }
-.si .quota.rail{ width:100%; background:#fff;
+.si .railcol{ flex:none; align-self:flex-start; display:flex; flex-direction:column; gap:10px; }
+/* Bottom-right of the card, as its own boxed panel. margin-left:auto is what
+   pushes it to the right edge; the width keeps it from stretching into a band
+   across a wide screen. */
+.si .quota.band{ margin:16px 0 0 auto; width:250px; background:#fff;
   border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:var(--soft); }
+.si .quota.band .top{ display:block; margin-bottom:8px; }
+.si .quota.band .top span:first-child{ display:block; font-size:12px; color:var(--muted); }
+.si .quota.band .top span + span{ display:block; margin-top:2px; font-size:14px; color:var(--ink); }
+/* Full width once the card stacks, rather than a narrow panel pinned to one
+   edge of a narrow screen. */
+@media (max-width:900px){
+  .si .quota.band{ width:100%; margin-left:0; }
+}
 /* Split the width evenly and keep each label on one line — "Preview invite"
    was wrapping to two and making the pair twice as tall as they need to be. */
 .si .railacts{ display:flex; gap:8px; }
@@ -3466,6 +3479,7 @@ const css = `
    meter never ends up in a 250px column next to a squeezed heading. */
 @media (max-width:900px){
   .si .railcol{ width:100%; }
+  .si .railacts{ width:100%; }
 }
 /* Production state: the art and the identity sit side by side at the top,
    the tracker spans both columns underneath. Top-aligned, so a short info
