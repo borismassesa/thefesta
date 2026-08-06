@@ -308,7 +308,7 @@ async function dispatchOne(row: OutboxRow): Promise<'sent' | 'failed' | 'dead'> 
       template: message.whatsappTemplate,
       error: result.error,
     })
-    const sms = await getSmsProvider().sendText(targets[0], message.body)
+    const sms = await getSmsProvider('commission').sendText(targets[0], message.body)
     if (sms.ok) {
       await markSent(row.id, 'sms-fallback')
       return 'sent'
@@ -318,7 +318,7 @@ async function dispatchOne(row: OutboxRow): Promise<'sent' | 'failed' | 'dead'> 
 
   // ── SMS ─────────────────────────────────────────────────────────────────
   if (row.channel === 'sms') {
-    const sms = await getSmsProvider().sendText(targets[0], message.body)
+    const sms = await getSmsProvider('commission').sendText(targets[0], message.body)
     if (sms.ok) {
       await markSent(row.id, sms.dryRun ? 'dry-run' : undefined)
       return 'sent'

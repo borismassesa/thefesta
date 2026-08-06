@@ -184,8 +184,28 @@ export default function ReviewSendDrawer({
   const sharedNumber = (gate?.repeatedRecipients ?? []).find((r) =>
     r.guests.length > 1 && r.guests.some((n) => n === guest.name),
   )
-  const blockingFailures = checks.filter((c) => c.blocking && !c.ok)
-  const canSend = blockingFailures.length === 0 && !serverSkip && !cardLoading && !sending && !sentAt
+  // The caller can only tell us a released card EXISTS for this event. Whether
+  // THIS guest's personalised card actually rendered is known only here, after
+  // the prepare call — and that is the fact that matters, because the prepared
+  // asset IS the header image the guest receives. Approving a send while the
+  // artwork frame shows an error is precisely what this drawer exists to stop,
+  // so a failed prepare fails the card check and names the reason.
+  const artworkFailed = artwork.kind === 'prepare' && !cardLoading && !cardUrl
+  // The row carries the render error as its label, because "Invitation card
+  // released" struck through would be actively misleading: the card IS
+  // released, it is this guest's copy that would not render. The caller's fix
+  // link is dropped for the same reason — pointing at My Cards does nothing
+  // about a token or render fault, and a wrong instruction is worse than none.
+  const effectiveChecks = artworkFailed
+    ? checks.map((c) =>
+        c.key === 'card' ? { ...c, ok: false, label: cardError ?? c.label, fix: undefined } : c,
+      )
+    : checks
+  const blockingFailures = effectiveChecks.filter((c) => c.blocking && !c.ok)
+  // `artworkFailed` is also tested directly: a caller that ships prepare-artwork
+  // without a 'card' check would otherwise slip past the mapping above.
+  const canSend =
+    blockingFailures.length === 0 && !artworkFailed && !serverSkip && !cardLoading && !sending && !sentAt
 
   async function runSend() {
     if (sendBusyRef.current || !canSend) return
@@ -350,7 +370,7 @@ export default function ReviewSendDrawer({
                   {blockingFailures.length > 0 ? strings.review_checks_blocked : strings.review_checks_ready}
                 </div>
                 <ul className="rchecks">
-                  {checks.map((c) => (
+                  {effectiveChecks.map((c) => (
                     <li key={c.key} className={c.ok ? 'ok' : c.blocking ? 'bad' : 'warn'}>
                       <span className="rmark">{c.ok ? <Check size={13} /> : <X size={13} />}</span>
                       <div className="rcbody">
