@@ -77,6 +77,7 @@ import {
   saveDateUrl,
 } from '@/lib/dashboard/share'
 import { formatInviteGuestName, INVITE_TEMPLATE, ENTRANCE_PASS_TEMPLATE } from '@/lib/whatsapp/types'
+import { buildSmsInvite } from '@/lib/dashboard/sms-invite'
 import { EVENT_TYPE_LABELS } from '@/lib/dashboard/types'
 import type { EventType, TicketLanguage } from '@/lib/dashboard/types'
 import type { SendInvitesData, SendGuestRow } from '@/lib/dashboard/queries'
@@ -3299,6 +3300,21 @@ export default function SendInvitesView({
               : { kind: 'prepare' }
           }
           checks={reviewChecksFor(reviewGuest, review.mode)}
+          smsFallback={
+            // Composed from the CARD's details, which carry both venues, both
+            // times and the contacts. The event row holds only the reception,
+            // so composing from it would silently drop the ceremony.
+            review.mode === 'invite' && event.cardFields
+              ? buildSmsInvite({
+                  guestName: formatInviteGuestName(reviewGuest.name, 'Amina'),
+                  fields: event.cardFields,
+                  eventCategory: eventCat.trim() || event.eventCategorySw,
+                  passId: reviewGuest.passId,
+                  partySize: reviewGuest.assignedPartySize,
+                })
+              : null
+          }
+          deliveryFailed={reviewGuest.delivery?.state === 'failed'}
           creditNote={
             review.mode === 'pass'
               ? null

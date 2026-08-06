@@ -1,6 +1,7 @@
 import 'server-only'
 import { createDashboardClient } from './supabase'
 import { getDashboardUser, requireDashboardUser } from './auth'
+import type { CardInviteFields } from './sms-invite'
 import { eatDateParts, eventInviteUrl, eventSlugBase, firstNameOf, formatLongDate, formatLongDateSw, formatSwahiliTime, formatTicketDate, hasEatTimeComponent, publicOrigin, slugBaseOf } from './share'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import { eventTypeLabel, eventTypeLabelSw, ticketIntroLabel } from './types'
@@ -1820,6 +1821,8 @@ export interface WhatsAppEntitlement {
    *  only: real WhatsApp sends intentionally continue using `cardImageUrl`
    *  until the per-guest delivery switch lands. */
   releasedCardPreviewUrl: string | null
+  /** The card's filled-in details, for the SMS fallback. */
+  cardFields: CardInviteFields | null
   /** Visual treatment — fallback thumbnail when the card has no hero image. */
   cardTreatment: Treatment | null
   /** The paid card's tier (e.g. "Signature"), for the "card purchased" badge. */
@@ -2161,10 +2164,14 @@ export async function getWhatsAppEntitlement(
   // too, and switching that field here would prematurely change real outgoing
   // WhatsApp media before the per-guest delivery path is ready.
   let releasedCardPreviewUrl: string | null = null
+  // The card's own filled-in details (both venues, both times, the contacts).
+  // The SMS fallback composes from these rather than from the event row, which
+  // holds only the reception and would silently drop the ceremony.
+  let cardFields: CardInviteFields | null = null
   if (options.includeReleasedCardPreview && orders.length > 0) {
     const { data: releasedDesigns } = await supabase
       .from('invitation_card_designs')
-      .select('id, order_id, released_at')
+      .select('id, order_id, released_at, field_values')
       .in('order_id', orders.map((order) => order.id))
       .in('status', ['ready', 'delivered'])
       .not('release_svg_path', 'is', null)
@@ -2173,15 +2180,24 @@ export async function getWhatsAppEntitlement(
     // Orders are newest-first. Prefer the newest released design belonging to
     // the same order that supplies the displayed package/name metadata.
     const newestDesignByOrder = new Map<string, string>()
-    for (const design of (releasedDesigns ?? []) as { id: string; order_id: string }[]) {
+    const fieldsByDesign = new Map<string, CardInviteFields>()
+    for (const design of (releasedDesigns ?? []) as {
+      id: string
+      order_id: string
+      field_values: CardInviteFields | null
+    }[]) {
       if (!newestDesignByOrder.has(design.order_id)) {
         newestDesignByOrder.set(design.order_id, design.id)
       }
+      if (design.field_values) fieldsByDesign.set(design.id, design.field_values)
     }
     const designId = orders
       .map((order) => newestDesignByOrder.get(order.id))
       .find((id): id is string => Boolean(id))
-    if (designId) releasedCardPreviewUrl = `/api/my/card/${encodeURIComponent(designId)}`
+    if (designId) {
+      releasedCardPreviewUrl = `/api/my/card/${encodeURIComponent(designId)}`
+      cardFields = fieldsByDesign.get(designId) ?? null
+    }
   }
 
   // Paid orders that exist but aren't attached to ANY event yet — surfaced so
@@ -2239,6 +2255,7 @@ export async function getWhatsAppEntitlement(
     hasPaidOrder: orders.length > 0,
     cardImageUrl,
     releasedCardPreviewUrl,
+    cardFields,
     cardTreatment,
     cardTier,
     cardName,
@@ -2463,6 +2480,8 @@ export interface SendInvitesData {
     /** The couple's frozen released artwork for the visible card in the Send
      *  Invites header. Kept distinct from outgoing WhatsApp media. */
     releasedCardPreviewUrl: string | null
+    /** The card's filled-in details, for the SMS fallback. */
+    cardFields: CardInviteFields | null
     /** Visual treatment — fallback thumbnail when the card has no hero image. */
     cardTreatment: Treatment | null
     /** Save the Date template selected for this event. Separate from the
@@ -2563,6 +2582,9 @@ export async function getSendInvitesData(
         eventName: null,
         eventTypeLabel: null,
         eventCategorySw: 'sherehe',
+        // No event selected means no released card, so nothing to compose an
+        // SMS from either.
+        cardFields: null,
         dateLabel: null,
         venue: null,
         entranceDateLabel: 'Tarehe itatangazwa hivi karibuni',
@@ -2750,8 +2772,13 @@ export async function getSendInvitesData(
       rsvpPartySize: attending ? Math.max(1, attending.party_size ?? 1) : null,
       checkedInAt: attending?.checked_in_at ?? null,
       checkedInDoor: attending?.checked_in_door ?? null,
-      // Already fetched: the roster query selects '*' from guest_invitations.
-      passId: (attending as { pass_id?: string | null } | undefined)?.pass_id ?? null,
+      // Every invitation carries a pass ID from the moment it is created, not
+      // only once the guest RSVPs — so read it from this event's invitation
+      // rather than from the attending one. Reading it off `attending` hid the
+      // ID for everyone who had not yet replied, which is exactly the group an
+      // SMS fallback has to quote it to.
+      passId:
+        ((attending ?? invs[0]) as { pass_id?: string | null } | undefined)?.pass_id ?? null,
       checkedInPartySize: attending?.checked_in_party_size ?? null,
       // The audit label is "Name (Door) (manual: reason)"; the couple only
       // needs the attendant's name — the door has its own column.
@@ -2820,6 +2847,7 @@ export async function getSendInvitesData(
       cardName: entitlement.cardName,
       cardImageUrl: entitlement.cardImageUrl,
       releasedCardPreviewUrl: entitlement.releasedCardPreviewUrl,
+      cardFields: entitlement.cardFields,
       cardTreatment: entitlement.cardTreatment,
       saveDateTemplateId: saveDateTemplate?.id ?? null,
       saveDateTemplateName: saveDateTemplate?.name ?? null,

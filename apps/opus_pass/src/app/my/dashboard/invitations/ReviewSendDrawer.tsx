@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  Copy,
   Loader2,
   MessageCircle,
   Pencil,
@@ -67,6 +68,18 @@ type Props = {
   creditNote: string | null
   /** No live Meta credentials: the send is stubbed and nothing reaches a guest. */
   dryRun: boolean
+  /**
+   * The same invitation as plain SMS text, for guests WhatsApp will not carry.
+   * Null when the card has no details to compose from.
+   *
+   * Shown as a fallback the couple copies and sends from their own phone. That
+   * is the point rather than a limitation: a person-to-person SMS is not a
+   * business template, so the pacing that blocked WhatsApp does not apply.
+   */
+  smsFallback: string | null
+  /** True when WhatsApp has already refused this guest — the fallback opens
+   *  expanded, because for them it is the only route left. */
+  deliveryFailed?: boolean
   strings: DashboardSendStrings
   /** The EXISTING production send path. This drawer only decides when it runs;
    *  it never builds a payload of its own. */
@@ -106,6 +119,8 @@ export default function ReviewSendDrawer({
   message,
   artwork,
   checks,
+  smsFallback,
+  deliveryFailed = false,
   creditNote,
   dryRun,
   strings,
@@ -119,6 +134,7 @@ export default function ReviewSendDrawer({
   const [cardError, setCardError] = useState<string | null>(null)
   const [cardLoading, setCardLoading] = useState(artwork.kind === 'prepare')
   const [gate, setGate] = useState<SendPreview | null>(null)
+  const [smsCopied, setSmsCopied] = useState(false)
   const [sending, setSending] = useState(false)
   const [sentAt, setSentAt] = useState<string | null>(null)
   const [sendError, setSendError] = useState<{ message: string; canTopUp: boolean } | null>(null)
@@ -364,6 +380,29 @@ export default function ReviewSendDrawer({
                 ))}
               </section>
 
+              {smsFallback ? (
+                <section className="rsec">
+                  <div className="rlegend">
+                    {strings.review_sms_title}
+                    {deliveryFailed ? <span className="rtag bad">{strings.review_sms_needed}</span> : null}
+                  </div>
+                  <p className="rmuted rsmsnote">{strings.review_sms_note}</p>
+                  <pre className="rsms">{smsFallback}</pre>
+                  <button
+                    type="button"
+                    className="rbtn copy"
+                    onClick={() => {
+                      navigator.clipboard.writeText(smsFallback)
+                      setSmsCopied(true)
+                      window.setTimeout(() => setSmsCopied(false), 2000)
+                    }}
+                  >
+                    {smsCopied ? <Check size={14} /> : <Copy size={14} />}
+                    {smsCopied ? strings.review_sms_copied : strings.review_sms_copy}
+                  </button>
+                </section>
+              ) : null}
+
               {/* Readiness */}
               <section className="rsec">
                 <div className={`rlegend${blockingFailures.length > 0 ? ' bad' : ''}`}>
@@ -472,6 +511,19 @@ export default function ReviewSendDrawer({
         .rto b{ font-weight:650; color:#1c1b1f }
         .rto span{ color:#5f5b66; font-variant-numeric:tabular-nums }
         .rmuted{ color:#8b8790 !important }
+        /* The tag turns red when WhatsApp has already refused this guest: for
+           them the SMS is not an alternative, it is the only route left. */
+        .rtag.bad{ background:#fcecec; color:#c0392b; }
+        .rsmsnote{ margin:0 0 9px; font-size:12px; line-height:1.5; }
+        /* Monospace and pre-wrap so the couple sees the exact line breaks the
+           guest will get, including the Entrance Pass ID on its own line. */
+        .rsms{ margin:0; padding:12px 13px; border:1px solid #ededf0; border-radius:11px;
+          background:#faf8fc; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+          font-size:11.5px; line-height:1.55; color:#1c1b1f; white-space:pre-wrap;
+          word-break:break-word; max-height:260px; overflow-y:auto; }
+        .rbtn.copy{ margin-top:10px; width:100%; justify-content:center; background:#fff;
+          border:1px solid #D7BDE8; color:#4A2870; }
+        .rbtn.copy:hover{ background:#F6EEFB; border-color:#6B3FA0; }
 
         .rwarn{ display:flex; align-items:flex-start; gap:8px; background:#FFFBEB; border:1px solid #FBE8B0;
           color:#8a6d1a; border-radius:10px; padding:9px 11px; font-size:12.5px; line-height:1.45; }
