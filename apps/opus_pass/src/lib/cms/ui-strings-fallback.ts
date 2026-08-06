@@ -1253,6 +1253,15 @@ export interface DashboardSendStrings {
   review_sms_message_note: string
   review_sms_manual_note: string
   review_open_sms: string
+  // Recovery actions for a guest WhatsApp refused
+  row_recover_menu: string
+  row_send_manually: string
+  row_download_card: string
+  row_copy_message: string
+  row_send_sms: string
+  row_message_copied: string
+  manual_card_downloaded: string
+  manual_no_card: string
   entrance_needs_whatsapp: string
   entrance_status_sent: string
   entrance_status_notsent: string
@@ -2459,6 +2468,14 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     review_sms_message_note: 'Exactly what this guest will read. SMS carries no card image, so the Entrance Pass ID is what gets them through the door.',
     review_sms_manual_note: 'Opens your own messaging app. You press send there.',
     review_open_sms: 'Open SMS app',
+    row_recover_menu: 'Recover',
+    row_send_manually: 'Send manually via WhatsApp',
+    row_download_card: 'Download card',
+    row_copy_message: 'Copy message',
+    row_send_sms: 'Send SMS',
+    row_message_copied: 'Message copied',
+    manual_card_downloaded: 'The card has been downloaded. Attach it to the WhatsApp message before sending.',
+    manual_no_card: 'WhatsApp is open, but the card could not be downloaded. The guest can still save it from the RSVP link in the message.',
     entrance_needs_whatsapp: 'Entrance passes are sent by WhatsApp only — add a WhatsApp number for this guest',
     entrance_status_sent: 'Sent',
     entrance_status_notsent: 'Not sent',

@@ -75,9 +75,11 @@ import {
   firstNameOf,
   fullNameOf,
   saveDateUrl,
+  normalizePhone,
 } from '@/lib/dashboard/share'
 import { formatInviteGuestName, INVITE_TEMPLATE, ENTRANCE_PASS_TEMPLATE } from '@/lib/whatsapp/types'
-import { buildSmsInvite } from '@/lib/dashboard/sms-invite'
+import { buildSmsInvite, cardDateLabel } from '@/lib/dashboard/sms-invite'
+import { buildManualInvite, manualWhatsAppUrl } from '@/lib/dashboard/manual-invite'
 import { EVENT_TYPE_LABELS } from '@/lib/dashboard/types'
 import type { EventType, TicketLanguage } from '@/lib/dashboard/types'
 import type { SendInvitesData, SendGuestRow } from '@/lib/dashboard/queries'
@@ -1337,6 +1339,74 @@ export default function SendInvitesView({
       },
       live,
     ]
+  }
+
+  /** The message the couple sends by hand, for this guest. */
+  function manualMessageFor(g: SendGuestRow): string {
+    const f = event.cardFields
+    return buildManualInvite({
+      guestName: formatInviteGuestName(g.name, 'Amina'),
+      hostsNames: f?.hosts_names ?? '',
+      coupleName: [f?.couple_name_1, f?.couple_name_2].filter(Boolean).join(' & ') || event.coupleName,
+      eventCategory: eventCat.trim() || event.eventCategorySw,
+      dateLabel: f ? cardDateLabel(f) : (event.dateLabel ?? ''),
+      rsvpUrl: g.rsvpUrl,
+      locationUrl: invitationFields?.mapsUrl ?? null,
+      locationLabel: invitationFields?.locationLabel ?? '',
+      passId: g.passId,
+      helpContact: f?.contact_1 ?? null,
+    })
+  }
+
+  /**
+   * Pull the guest's personalised card down as a file.
+   *
+   * Same-origin, so the anchor's download attribute is honoured and the browser
+   * saves rather than navigates. Named after the guest because the sender is
+   * about to pick it out of a downloads folder alongside twenty others.
+   */
+  async function downloadCardFor(g: SendGuestRow): Promise<boolean> {
+    if (!eventId) return false
+    const result = await prepareInviteGuestPreview(g.id, eventId)
+    if (!result.ok) {
+      toast.error(result.error)
+      return false
+    }
+    const a = document.createElement('a')
+    a.href = result.imageUrl
+    a.download = `${g.name.replace(/[^\w\s-]/g, '').trim() || 'invitation'}.png`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    return true
+  }
+
+  /**
+   * The emergency route for a guest the Business API will not reach.
+   *
+   * Downloads the card FIRST and only then opens WhatsApp: a wa.me link cannot
+   * carry an attachment, so the file has to be waiting in the sender's
+   * downloads before the compose window appears, or they will send the text
+   * alone and never notice.
+   */
+  function sendManually(g: SendGuestRow) {
+    const digits = normalizePhone(g.whatsappPhone || g.phone)
+    if (!digits) {
+      toast.error(strings.send_no_phone.replace('{n}', '1'))
+      return
+    }
+    setSendingRow(g.id)
+    startTransition(async () => {
+      try {
+        const got = await downloadCardFor(g)
+        window.open(manualWhatsAppUrl(digits, manualMessageFor(g)), '_blank', 'noopener,noreferrer')
+        toast.success(got ? strings.manual_card_downloaded : strings.manual_no_card, { duration: 8000 })
+        recordSend(g.id, 'whatsapp', eventId).catch(() => {})
+        router.refresh()
+      } finally {
+        setSendingRow(null)
+      }
+    })
   }
 
   function rowShare(g: SendGuestRow, channel: 'whatsapp' | 'sms' | 'copy') {
@@ -2955,7 +3025,7 @@ export default function SendInvitesView({
                                   disabled={pending || !hasPhone(g)}
                                   aria-haspopup="menu"
                                   aria-expanded={resendMenuId === g.id}
-                                  title={strings.row_resend_menu}
+                                  title={g.delivery?.state === 'failed' ? strings.row_recover_menu : strings.row_resend_menu}
                                   onClick={() => setResendMenuId(resendMenuId === g.id ? null : g.id)}
                                 >
                                   {sendingRow === g.id ? (
@@ -2963,10 +3033,49 @@ export default function SendInvitesView({
                                   ) : (
                                     <RotateCcw size={16} strokeWidth={2.4} />
                                   )}
-                                  {strings.row_resend_menu} <ChevronDown size={13} />
+                                  {g.delivery?.state === 'failed' ? strings.row_recover_menu : strings.row_resend_menu}{' '}
+                                  <ChevronDown size={13} />
                                 </button>
                                 {resendMenuId === g.id ? (
                                   <div className="rsmenupop" role="menu">
+                                    {/* A guest WhatsApp has already refused does
+                                        not need "send it again" offered first.
+                                        Retrying a held-back number pushes the
+                                        account's quality rating further down,
+                                        so the routes that actually work lead. */}
+                                    {g.delivery?.state === 'failed' ? (
+                                      <>
+                                        <button
+                                          role="menuitem"
+                                          onClick={() => { setResendMenuId(null); sendManually(g) }}
+                                        >
+                                          <MessageCircle size={13} /> {strings.row_send_manually}
+                                        </button>
+                                        <button
+                                          role="menuitem"
+                                          onClick={() => { setResendMenuId(null); void downloadCardFor(g) }}
+                                        >
+                                          <Download size={13} /> {strings.row_download_card}
+                                        </button>
+                                        <button
+                                          role="menuitem"
+                                          onClick={() => {
+                                            setResendMenuId(null)
+                                            navigator.clipboard.writeText(manualMessageFor(g))
+                                            toast.success(strings.row_message_copied)
+                                          }}
+                                        >
+                                          <Copy size={13} /> {strings.row_copy_message}
+                                        </button>
+                                        <button
+                                          role="menuitem"
+                                          onClick={() => { setResendMenuId(null); rowShare(g, 'sms') }}
+                                        >
+                                          <Smartphone size={13} /> {strings.row_send_sms}
+                                        </button>
+                                        <div className="rsmsep" />
+                                      </>
+                                    ) : null}
                                     <button
                                       role="menuitem"
                                       onClick={() => { setResendMenuId(null); rowShare(g, 'whatsapp') }}
@@ -3887,6 +3996,7 @@ const css = `
 .si .rsmenupop button{ display:flex; align-items:center; gap:9px; width:100%; border:none; background:none;
   padding:9px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--ink);
   cursor:pointer; text-align:left; }
+.si .rsmsep{ height:1px; margin:5px 0; background:var(--line); }
 .si .rsmenupop button:hover{ background:var(--hover); }
 .si .einp{ width:100%; max-width:220px; border:1px solid var(--lav); border-radius:8px; padding:6px 9px; font-size:13px; background:#fff; }
 .si .einp:focus{ outline:none; border-color:var(--purple); }

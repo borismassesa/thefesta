@@ -2406,11 +2406,24 @@ export interface SendGuestRow {
  * Unknown codes fall through to the provider's own text rather than a generic
  * "something went wrong", because a specific unknown beats a vague known.
  */
+/**
+ * Meta's delivery failure codes, in words a couple can act on.
+ *
+ * Deliberately does NOT claim more than Meta tells us. 131026 in particular is
+ * a broad undeliverable bucket, not a statement that the handset has no
+ * WhatsApp account — Meta withholds the precise cause on purpose, and calling
+ * it "not on WhatsApp" sends an operator to SMS when a manual WhatsApp message
+ * would have worked. The wording says what happened, and the row's actions
+ * offer the routes rather than the label picking one.
+ *
+ * Unknown codes fall through to the provider's own text rather than a generic
+ * "something went wrong", because a specific unknown beats a vague known.
+ */
 const DELIVERY_FAILURE_REASONS: { code: string; reason: string }[] = [
   { code: '131042', reason: 'Billing problem on the WhatsApp account' },
-  { code: '131049', reason: 'Held back by WhatsApp to protect delivery quality' },
-  { code: '131026', reason: "This number can't receive WhatsApp" },
-  { code: '130472', reason: 'WhatsApp is limiting messages to this number' },
+  { code: '131049', reason: 'Temporarily held back by WhatsApp to protect delivery quality' },
+  { code: '131026', reason: 'Could not be delivered by WhatsApp' },
+  { code: '130472', reason: 'Held back by a WhatsApp delivery experiment' },
   { code: '131053', reason: 'The invitation card image failed to upload' },
   { code: '131047', reason: 'WhatsApp needs a fresh conversation with this guest' },
   { code: '131000', reason: 'WhatsApp had an internal error' },
