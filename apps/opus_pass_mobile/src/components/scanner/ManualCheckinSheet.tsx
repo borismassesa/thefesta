@@ -105,6 +105,9 @@ export function ManualCheckinSheet({
   const [confirming, setConfirming] = useState<RosterEntry | null>(null);
   /** True while a picked guest's phone number is still being resolved. */
   const [phonePending, setPhonePending] = useState(false);
+  /** Which guest-detail lookup is the current one, so a superseded reply
+   *  cannot speak for the guest now on screen. */
+  const detailRequest = useRef(0);
 
   const codeInputRef = useRef<TextInput>(null);
   const nameInputRef = useRef<TextInput>(null);
@@ -283,20 +286,23 @@ export function ManualCheckinSheet({
     setConfirming(guest);
     const identifier = guest.passId ?? guest.entryCode;
     if (!identifier || !onLookup) return;
+    // Only the newest pick owns the card. Two taps in a row leave two lookups
+    // in flight, and whichever returns first must not speak for the other:
+    // without this, a fast lookup for the guest the attendant has already
+    // moved off would clear the pending flag and make the guest now on screen
+    // read "Not recorded" until their own slower lookup landed.
+    const request = (detailRequest.current += 1);
     setPhonePending(true);
     try {
       const found = await onLookup(identifier);
-      if (found.status !== 'found') return;
-      // Guard against a slow lookup landing after the attendant has moved on
-      // to another guest, which would show one guest's number on another's
-      // card — the exact confusion the number is here to prevent.
+      if (detailRequest.current !== request || found.status !== 'found') return;
       setConfirming((current) =>
         current?.invitationId === found.guest.invitationId
           ? { ...current, phone: found.guest.phone }
           : current
       );
     } finally {
-      setPhonePending(false);
+      if (detailRequest.current === request) setPhonePending(false);
     }
   };
 

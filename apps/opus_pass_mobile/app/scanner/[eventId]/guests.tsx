@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -76,6 +76,9 @@ export default function ScannerGuestsScreen() {
   const [groupSheetOpen, setGroupSheetOpen] = useState(false);
   const [confirming, setConfirming] = useState<RosterEntry | null>(null);
   const [phonePending, setPhonePending] = useState(false);
+  /** Which guest-detail lookup is the current one, so a superseded reply
+   *  cannot speak for the guest now on screen. */
+  const detailRequest = useRef(0);
   const [admitting, setAdmitting] = useState(false);
   const [admitError, setAdmitError] = useState<string | null>(null);
 
@@ -141,20 +144,24 @@ export default function ScannerGuestsScreen() {
   const openConfirm = async (guest: RosterEntry) => {
     setConfirming(guest);
     if (!session) return;
+    // Only the newest pick owns the card. Two taps in a row leave two lookups
+    // in flight, and whichever returns first must not speak for the other:
+    // without this, a fast lookup for the guest the attendant has already
+    // moved off would clear the pending flag and make the guest now on screen
+    // read "Not recorded" until their own slower lookup landed.
+    const request = (detailRequest.current += 1);
     setPhonePending(true);
     try {
       const detailed = await withGuestDetail(
         { eventId: session.eventId, accessToken: session.accessToken },
         guest
       );
-      // Guard against a slow lookup landing after the attendant has moved on
-      // to a different guest, which would show one guest's number on another's
-      // card — the exact confusion the number is here to prevent.
+      if (detailRequest.current !== request) return;
       setConfirming((current) =>
         current?.invitationId === detailed.invitationId ? detailed : current
       );
     } finally {
-      setPhonePending(false);
+      if (detailRequest.current === request) setPhonePending(false);
     }
   };
 
