@@ -2712,7 +2712,10 @@ export async function getSendInvitesData(
     let statusLabel = 'Not sent'
     if (attending) {
       status = 'attending'
-      statusLabel = attending.party_size > 1 ? `Attending · ${attending.party_size}` : 'Attending'
+      // Count first: "2 Attending" is read as a headcount, which is what the
+      // couple is scanning the column for. "Attending · 2" reads as a status
+      // with a footnote.
+      statusLabel = attending.party_size > 1 ? `${attending.party_size} Attending` : 'Attending'
     } else if (anyDeclined) {
       status = 'declined'
       statusLabel = 'Declined'

@@ -38,6 +38,7 @@ import {
   Mail,
   Share2,
   CalendarDays,
+  Clock,
   MapPin,
   Users,
   AlertTriangle,
@@ -1899,16 +1900,7 @@ export default function SendInvitesView({
           <div className="cinfo">
             <div className="cinfo-head">
               <h3>{headingName}</h3>
-              {isCardSendTab && event.hasPaidOrder && !editingSettings ? (
-                <div className="ctxhead">
-                  <button className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
-                    <Pencil size={13} /> {strings.settings_edit}
-                  </button>
-                  <button className="btn ghost" disabled={guests.length === 0} onClick={() => setPreviewOpen(true)}>
-                    <Eye size={15} /> {strings.preview_button}
-                  </button>
-                </div>
-              ) : sendTab === 'ticket' ? (
+              {sendTab === 'ticket' ? (
                 <div className="ctxhead">
                   {data.event.ticketFields && !ticketForm ? (
                     <button className="btn ghost" disabled={pending} onClick={openTicketEditor}>
@@ -2050,6 +2042,51 @@ export default function SendInvitesView({
               </>
             ) : null}
           </div>
+
+          {/* Invitation allowance, as a right rail rather than a tile in the
+              stat row. It belongs with the package facts it qualifies: the
+              facts say what was bought, this says what is left of it. Only on
+              the card tabs, since the entrance pool has its own meter. */}
+          {isCardSendTab && event.hasPaidOrder ? (
+            <aside className={`quota rail${quotaOverdrawn ? ' over' : ''}`}>
+              {/* The card's own actions sit above the meter rather than beside
+                  the heading: they act on this package, and the heading row was
+                  crowding them against a name that can be two lines long. */}
+              {!editingSettings ? (
+                <div className="railacts">
+                  <button className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
+                    <Pencil size={13} /> {strings.settings_edit}
+                  </button>
+                  <button className="btn ghost" disabled={guests.length === 0} onClick={() => setPreviewOpen(true)}>
+                    <Eye size={15} /> {strings.preview_button}
+                  </button>
+                </div>
+              ) : null}
+              <div className="top">
+                <span>{strings.quota_label}</span>
+                {quotaOverdrawn ? (
+                  <span>
+                    {strings.quota_used_label} <b>{quota.used}</b>
+                    {' · '}
+                    {strings.quota_available_label} <b>0</b>
+                  </span>
+                ) : (
+                  <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
+                )}
+              </div>
+              <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
+              <div className="ft">
+                {quotaOverdrawn ? (
+                  <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
+                ) : (
+                  <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
+                )}
+                <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
+                  {strings.quota_topup}
+                </button>
+              </div>
+            </aside>
+          ) : null}
 
           {/* Production tracker — a full-bleed band under the identity block,
               not a second rounded card inside this one. The left column tells
@@ -2361,31 +2398,6 @@ export default function SendInvitesView({
           ) : null}
           <div className="fc"><div className="fcicon"><Eye size={13} /></div><div className="n">{funnel.viewed}</div><div className="l"><span className="ar">→</span> {strings.funnel_viewed}</div></div>
           <div className="fc"><div className="fcicon"><CalendarCheck size={13} /></div><div className="n">{funnel.rsvpd}</div><div className="l"><span className="ar">→</span> {strings.funnel_rsvpd}</div></div>
-          <div className={`fc quota${quotaOverdrawn ? ' over' : ''}`}>
-            <div className="top">
-              <span>{strings.quota_label}</span>
-              {quotaOverdrawn ? (
-                <span>
-                  {strings.quota_used_label} <b>{quota.used}</b>
-                  {' · '}
-                  {strings.quota_available_label} <b>0</b>
-                </span>
-              ) : (
-                <span><b>{quota.used}</b> {fmt(strings.quota_used_suffix, { m: quota.purchased })}</span>
-              )}
-            </div>
-            <div className="bar"><i style={{ width: `${quotaOverdrawn ? 100 : pct}%` }} /></div>
-            <div className="ft">
-              {quotaOverdrawn ? (
-                <span className="overwarn"><AlertTriangle size={11} /> {strings.quota_overdrawn}</span>
-              ) : (
-                <span>{fmt(strings.quota_remaining, { n: quota.remaining })}</span>
-              )}
-              <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
-                {strings.quota_topup}
-              </button>
-            </div>
-          </div>
         </div>
       ) : null}
 
@@ -2797,10 +2809,14 @@ export default function SendInvitesView({
                       <td className="delcell">
                         {g.delivery ? (
                           <>
-                            <span className={`dpill ${DELIVERY_CLASS[g.delivery.state]}`}>
-                              {DELIVERY_LABEL(strings)[g.delivery.state]}
-                            </span>
-                            <span className="delwhen">{shortWhen(g.delivery.at)}</span>
+                            <div className="dtop">
+                              <span className={`dpill ${DELIVERY_CLASS[g.delivery.state]}`}>
+                                {DELIVERY_LABEL(strings)[g.delivery.state]}
+                              </span>
+                              <span className="delwhen" title={new Date(g.delivery.at).toLocaleString()}>
+                                <Clock size={11} /> {shortWhen(g.delivery.at)}
+                              </span>
+                            </div>
                             {/* The reason is the whole point of the column: a
                                 bare "Failed" leaves the couple with nothing to
                                 do about it. */}
@@ -2880,7 +2896,7 @@ export default function SendInvitesView({
                                 title={strings.row_preview_send}
                                 onClick={() => setReview({ guestId: g.id, mode: 'invite' })}
                               >
-                                <Eye size={13} /> {strings.row_preview_send}
+                                <Send size={13} /> {strings.row_preview_send}
                               </button>
                             )
                           }
@@ -2891,16 +2907,16 @@ export default function SendInvitesView({
                           return (
                             <>
                               <button
-                                className="ia"
+                                className="ia preview"
                                 disabled={pending}
                                 title={strings.row_preview}
                                 onClick={() => setReview({ guestId: g.id, mode: 'invite' })}
                               >
-                                <Eye size={13} /> {strings.row_preview}
+                                {strings.row_preview}
                               </button>
                               <div className="rsmenu" data-resend-menu>
                                 <button
-                                  className="ia"
+                                  className="ia resend"
                                   disabled={pending || !hasPhone(g)}
                                   aria-haspopup="menu"
                                   aria-expanded={resendMenuId === g.id}
@@ -2908,9 +2924,9 @@ export default function SendInvitesView({
                                   onClick={() => setResendMenuId(resendMenuId === g.id ? null : g.id)}
                                 >
                                   {sendingRow === g.id ? (
-                                    <Loader2 size={14} className="spin" />
+                                    <Loader2 size={16} className="spin" />
                                   ) : (
-                                    <RotateCcw size={13} />
+                                    <RotateCcw size={16} strokeWidth={2.4} />
                                   )}
                                   {strings.row_resend_menu} <ChevronDown size={13} />
                                 </button>
@@ -2940,7 +2956,6 @@ export default function SendInvitesView({
                             </>
                           )
                         })()}
-                        <button className="ia" disabled={pending} title={strings.row_copy} onClick={() => rowShare(g, 'copy')}><Copy size={15} /></button>
                         <button
                           className="ia"
                           disabled={pending}
@@ -3429,6 +3444,27 @@ const css = `
 .si .ctx.production{ padding:24px 26px; }
 .si .ctxhead{ display:flex; gap:8px; flex-wrap:wrap; }
 .si .ctxbody{ display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+/* Invitation allowance as the card's right rail. Fixed width so the identity
+   block keeps the space it needs and the meter never stretches to half the
+   card on a wide screen. */
+.si .quota.rail{ flex:none; width:250px; align-self:center; background:#fff;
+  border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:var(--soft); }
+/* Full-width so the two actions split the rail evenly instead of hugging one
+   edge, with a rule under them separating "act on this package" from "how much
+   of it is left". */
+.si .quota.rail .railacts{ display:flex; gap:8px; margin:0 0 12px; padding-bottom:12px;
+  border-bottom:1px solid var(--line); }
+.si .quota.rail .railacts .btn{ flex:1; justify-content:center; padding:8px 10px; font-size:12.5px;
+  background:var(--lav-soft); color:var(--purple-d); border:1px solid var(--lav); }
+.si .quota.rail .railacts .btn:hover{ background:#f0e5f8; border-color:var(--purple); }
+.si .quota.rail .top{ display:block; margin-bottom:8px; }
+.si .quota.rail .top span:first-child{ display:block; font-size:12px; color:var(--muted); }
+.si .quota.rail .top span + span{ display:block; margin-top:2px; font-size:14px; color:var(--ink); }
+/* Below the identity block rather than beside it once the row wraps, so the
+   meter never ends up in a 250px column next to a squeezed heading. */
+@media (max-width:900px){
+  .si .quota.rail{ width:100%; }
+}
 /* Production state: the art and the identity sit side by side at the top,
    the tracker spans both columns underneath. Top-aligned, so a short info
    column never leaves the card art floating in the middle of dead space. */
@@ -3666,7 +3702,9 @@ const css = `
 .si tbody tr:hover td{ background:var(--hover); }
 .si .who{ font-weight:600; } .si .contact{ color:var(--muted); font-size:12px; }
 .si .addnum{ display:inline-flex; align-items:center; gap:5px; border:1px dashed var(--lav); background:var(--lav-soft);
-  color:var(--purple-d); font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:999px; cursor:pointer; }
+  color:var(--purple-d); font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:999px; cursor:pointer;
+  white-space:nowrap; flex:none; }
+.si .addnum svg{ flex:none; }
 .si .pedit{ display:inline-flex; align-items:center; gap:6px; }
 .si .pedit input{ width:130px; border:1px solid var(--lav); border-radius:8px; padding:5px 8px; font-size:12px; }
 .si .pedit input:focus{ outline:none; border-color:var(--purple); }
@@ -3688,19 +3726,26 @@ const css = `
 .si .chmenu-item:hover:not(:disabled){ background:var(--hover); }
 .si .chmenu-item.active{ background:var(--hover); }
 .si .chmenu-item:disabled{ opacity:.4; cursor:not-allowed; }
-.si .status{ display:inline-flex; align-items:center; font-size:11.5px; font-weight:600; padding:4px 11px; border-radius:999px; }
+.si .status{ display:inline-flex; align-items:center; font-size:11.5px; font-weight:600; padding:4px 11px;
+  border-radius:999px; white-space:nowrap; }
 /* A guest who received nothing must not look like a quiet neutral state. This
    is the one row status that is a problem to act on, so it carries the same
    red the failure pills use. */
 .si .status.s-undel{ background:var(--bad-bg); color:var(--bad-tx); }
 /* Delivery column */
 .si .delcell{ white-space:nowrap; }
-.si .dpill{ display:inline-flex; align-items:center; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; }
+.si .dpill{ display:inline-flex; align-items:center; font-size:11px; font-weight:700; padding:3px 9px;
+  border-radius:999px; white-space:nowrap; }
 .si .dpill.d-ok{ background:var(--ok-bg); color:var(--ok-tx); }
 .si .dpill.d-read{ background:var(--green); color:var(--green-tx); }
 .si .dpill.d-wait{ background:var(--amber-bg); color:var(--amber-tx); }
 .si .dpill.d-bad{ background:var(--bad-bg); color:var(--bad-tx); }
-.si .delwhen{ display:block; font-size:11px; color:var(--faint); margin-top:3px; }
+/* Pill and time share a line — the time qualifies the pill, so stacking them
+   made every delivered row three lines tall for no gain. */
+.si .delcell .dtop{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.si .delwhen{ display:inline-flex; align-items:center; gap:4px; font-size:11px;
+  color:var(--muted); white-space:nowrap; }
+.si .delwhen svg{ flex:none; opacity:.7; }
 /* The reason wraps rather than truncating: "Billing problem on the WhatsApp
    account" is the actionable part, and an ellipsis hides exactly the words the
    couple needs. Capped so one long reason cannot stretch the column. */
@@ -3720,7 +3765,7 @@ const css = `
 .si .s-no{ background:var(--bad-bg); color:var(--bad-tx); }
 .si .s-maybe{ background:#fff5e6; color:#b9791a; }
 .si .ra{ display:flex; gap:7px; justify-content:flex-end; align-items:center; }
-.si .ia{ height:32px; min-width:32px; padding:0 8px; border-radius:9px; border:1px solid var(--line); background:#fff; cursor:pointer;
+.si .ia{ height:32px; min-width:32px; padding:0 8px; white-space:nowrap; flex:none; border-radius:9px; border:1px solid var(--line); background:#fff; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:600; color:var(--ink); }
 .si .ia:hover{ background:var(--hover); border-color:var(--lav); }
 .si .ia:disabled{ opacity:.45; cursor:not-allowed; }
@@ -3728,6 +3773,17 @@ const css = `
 .si .ia.send:hover{ filter:brightness(1.06); background:var(--wa); }
 .si .ia.send.pass{ background:var(--wa); border-color:var(--wa); color:#fff; }
 .si .ia.send.pass:hover{ filter:brightness(1.06); background:var(--wa); }
+/* Preview reviews, it never sends — lavender, so it reads as "look" beside
+   the green "send". No icon: an eye at this size is a smudge, and the word
+   already says it. */
+.si .ia.preview{ background:var(--lav-soft); border-color:var(--lav); color:var(--purple-d); padding:0 14px; }
+.si .ia.preview:hover{ background:#f0e5f8; border-color:var(--purple); }
+/* Resend is amber, not green: it fires a real message at a real guest, so it
+   should read as "careful", never as the safe default. The icon carries the
+   meaning here, so it is full size and heavier than the rest. */
+.si .ia.resend{ background:var(--amber-bg); border-color:var(--amber-bd); color:var(--amber-tx); padding:0 12px; }
+.si .ia.resend:hover{ background:#fdf3d6; border-color:#E0B44E; }
+.si .ia.resend svg{ flex:none; }
 .si .ia.danger{ color:var(--bad-tx); }
 .si .ia.danger:hover{ border-color:var(--bad-tx); background:var(--bad-bg); }
 /* Resend menu on an already-invited row. Deliberately NOT the filled green
