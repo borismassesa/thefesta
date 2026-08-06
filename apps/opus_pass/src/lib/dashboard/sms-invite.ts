@@ -9,8 +9,9 @@
  *
  * The text is built from the CARD's own field values, not from the event row.
  * The card is what the couple actually filled in and what the designer set: it
- * carries both venues, both times, and the contact people. The event row holds
- * only the reception, so composing from it would quietly drop the ceremony.
+ * carries both venues, both times, the hosts and the contact people. The event
+ * row holds only the reception, so composing from it would quietly drop the
+ * ceremony.
  *
  * SENDING IS NOT WIRED. The Beem Africa integration is not configured, so this
  * text is produced for the couple to copy and send from their own phone. That
@@ -57,7 +58,7 @@ export interface SmsInviteInput {
   guestName: string
   /** The card's own details. */
   fields: CardInviteFields
-  /** Swahili event noun, e.g. "harusi". Used only as a fallback heading. */
+  /** Swahili event noun, e.g. "harusi". */
   eventCategory: string
   /** The guest's admission identifier for this event. */
   passId: string | null
@@ -65,30 +66,75 @@ export interface SmsInviteInput {
   partySize: number
 }
 
-const clean = (v: string | null | undefined): string => (v ?? '').trim()
+/** Trim, and collapse the whitespace runs the card fields sometimes carry. */
+const clean = (v: string | null | undefined): string => (v ?? '').trim().replace(/\s+/g, ' ')
+
+const SWAHILI_MONTHS = [
+  'Januari', 'Februari', 'Machi', 'Aprili', 'Mei', 'Juni',
+  'Julai', 'Agosti', 'Septemba', 'Oktoba', 'Novemba', 'Desemba',
+]
+
+/** Sunday-first, matching Date.getUTCDay(). */
+const SWAHILI_WEEKDAYS = [
+  'Jumapili', 'Jumatatu', 'Jumanne', 'Jumatano', 'Alhamisi', 'Ijumaa', 'Jumamosi',
+]
 
 /** How the ticket is named to a guest — the same words the pass itself uses. */
 function cardTypeLabel(partySize: number): string {
   return partySize >= 2 ? 'Double' : 'Single'
 }
 
-/** "08 AGOSTI 2026" from the card's three separate date parts. */
+/**
+ * "Jumamosi, 08 Agosti 2026" from the card's three separate date parts.
+ *
+ * The card stores the month as a shouted name ("AGOSTI"), so it is matched
+ * case-insensitively and re-cased. The weekday is derived rather than stored:
+ * a guest scanning a text reads the day name first, and it is the part that
+ * tells them whether they have the right Saturday.
+ *
+ * Falls back to whatever the card holds when the month cannot be recognised —
+ * a date without its weekday still beats no date at all.
+ */
 function dateLine(f: CardInviteFields): string {
-  return [clean(f.date_day), clean(f.date_month), clean(f.date_year)].filter(Boolean).join(' ')
+  const day = clean(f.date_day)
+  const month = clean(f.date_month)
+  const year = clean(f.date_year)
+  const raw = [day, month, year].filter(Boolean).join(' ')
+  if (!day || !month || !year) return raw
+
+  const monthIndex = SWAHILI_MONTHS.findIndex((m) => m.toLowerCase() === month.toLowerCase())
+  const dayNum = Number(day)
+  const yearNum = Number(year)
+  if (monthIndex < 0 || !Number.isFinite(dayNum) || !Number.isFinite(yearNum)) return raw
+
+  // Built in UTC purely to read the weekday. No timezone shifting is wanted:
+  // the card's date is already the local wedding date.
+  const at = new Date(Date.UTC(yearNum, monthIndex, dayNum))
+  if (Number.isNaN(at.getTime())) return raw
+  const dayPadded = String(dayNum).padStart(2, '0')
+  return `${SWAHILI_WEEKDAYS[at.getUTCDay()]}, ${dayPadded} ${SWAHILI_MONTHS[monthIndex]} ${yearNum}`
 }
 
 /**
- * One venue block, e.g.
- *   "Ibada ya Ndoa: KKKT Salasala Juu kuanzia Saa 09:00 Alasiri"
+ * Split "Bw. Baraka Kisau +255 767 967 695" into its name and its number.
  *
- * Returns empty when the venue has no title and no place — a bare time with
- * nowhere attached tells a guest nothing.
+ * The card stores each contact as a single printed line. A text message reads
+ * better with them apart, and the honorific goes: the guest is being given
+ * somebody to ring, not introduced to them.
  */
-function venueLine(title: string, place: string, time: string): string {
-  const head = title || place
-  if (!head) return ''
-  const where = title && place ? `${title}: ${place}` : head
-  return time ? `${where} kuanzia ${time}` : where
+function splitContact(raw: string | null | undefined): { name: string; phone: string } | null {
+  const value = clean(raw)
+  if (!value) return null
+  const match = value.match(/(\+?\d[\d\s()-]{6,})$/)
+  if (!match) return { name: value, phone: '' }
+  const phone = match[1].trim()
+  const name = value
+    .slice(0, value.length - match[1].length)
+    .trim()
+    .replace(/^(Bw|Bi|Mr|Mrs|Ms|Dkt|Dr)\.?\s+/i, '')
+    .replace(/[,:-]$/, '')
+    .trim()
+  return { name, phone }
 }
 
 export function buildSmsInvite(input: SmsInviteInput): string {
@@ -96,56 +142,81 @@ export function buildSmsInvite(input: SmsInviteInput): string {
   const lines: string[] = []
 
   lines.push(`Habari ${input.guestName.trim()},`)
-  lines.push('')
 
-  const couple = [clean(f.couple_name_1), clean(f.couple_name_2)].filter(Boolean).join(' & ')
-  const date = dateLine(f)
-  const heading = couple
-    ? `Tafadhali pokea mwaliko wa ${input.eventCategory.trim()} ya ${couple}`
-    : `Tafadhali pokea mwaliko wa ${input.eventCategory.trim()}`
-  lines.push(date ? `${heading}, itakayofanyika ${date}.` : `${heading}.`)
-
-  // The hosts are who the invitation comes FROM, and Tanzanian invitations name
-  // them: a guest reading an SMS from an unknown number places it by the family.
+  // Who is inviting. Tanzanian invitations lead with the family rather than the
+  // couple, and a guest reading a text from an unknown number places it by that
+  // name before anything else.
   const hosts = clean(f.hosts_names)
+  const couple = [clean(f.couple_name_1), clean(f.couple_name_2)].filter(Boolean).join(' & ')
   if (hosts) {
     lines.push('')
-    lines.push(`Imeandaliwa na: ${hosts}`)
-  }
-
-  const venue1 = venueLine(clean(f.venue_1_title), clean(f.venue_1_place), clean(f.venue_1_time))
-  const venue2 = venueLine(clean(f.venue_2_title), clean(f.venue_2_place), clean(f.venue_2_time))
-  if (venue1 || venue2) {
+    lines.push(
+      `Familia ya ${hosts} wanakualika kwenye ${input.eventCategory.trim()} ya watoto wao wapendwa:`,
+    )
+  } else if (couple) {
     lines.push('')
-    if (venue1) lines.push(venue1)
-    if (venue2) lines.push(venue2)
+    lines.push(`Unakaribishwa kwenye ${input.eventCategory.trim()} ya:`)
+  }
+  if (couple) {
+    lines.push('')
+    lines.push(`💍 ${couple}`)
   }
 
-  // The card's swatches, named. Approximate by nature, so kept coarse: a guest
-  // needs "Dusty Rose", not a precise shade they cannot buy anyway.
+  const date = dateLine(f)
+  if (date) {
+    lines.push('')
+    lines.push(`Itakayofanyika 📅 ${date}`)
+  }
+
+  // Ceremony. Its own title leads the block, because the card names it.
+  const v1Title = clean(f.venue_1_title)
+  const v1Place = clean(f.venue_1_place)
+  const v1Time = clean(f.venue_1_time)
+  if (v1Title || v1Place || v1Time) {
+    lines.push('')
+    lines.push(v1Title ? `⛪ ${v1Title} itafanyika` : '⛪ Ibada itafanyika')
+    if (v1Place) lines.push(v1Place)
+    if (v1Time) lines.push(v1Time)
+  }
+
+  // Reception. Fixed heading, with the venue's own name on the line under it —
+  // the card stores the house as the title and the area as the place.
+  const v2Title = clean(f.venue_2_title)
+  const v2Place = clean(f.venue_2_place)
+  const v2Time = clean(f.venue_2_time)
+  if (v2Title || v2Place || v2Time) {
+    lines.push('')
+    lines.push('🎉 Hafla fupi itakayo fanyika')
+    if (v2Title) lines.push(v2Title)
+    if (v2Place) lines.push(v2Place)
+    if (v2Time) lines.push(v2Time)
+  }
+
   const colours = paletteNames([f.palette_1, f.palette_2, f.palette_3, f.palette_4, f.palette_5])
   if (colours.length > 0) {
     lines.push('')
-    lines.push(`RANGI ZA SHEREHE: ${colours.join(', ')}`)
+    lines.push('🎨 Rangi za Sherehe')
+    lines.push(colours.join(', '))
   }
 
-  const contacts = [clean(f.contact_1), clean(f.contact_2)].filter(Boolean)
+  const contacts = [f.contact_1, f.contact_2]
+    .map(splitContact)
+    .filter((c): c is { name: string; phone: string } => Boolean(c))
   if (contacts.length > 0) {
     lines.push('')
-    lines.push(`MAWASILIANO: ${contacts.join(', ')}`)
+    lines.push('📞 Mawasiliano')
+    for (const c of contacts) lines.push(c.phone ? `${c.name}: ${c.phone}` : c.name)
   }
 
-  // The admission identifier is the point of the message: it is what the door
-  // reads when there is no QR to scan. "Entrance Pass ID", never "Token" — it
-  // is what the gate staff are told to ask for.
+  // What gets a guest through the door when there is no QR to scan.
   if (input.passId) {
     lines.push('')
-    lines.push(`Entrance Pass ID: ${input.passId}`)
-    lines.push(`Card type: ${cardTypeLabel(input.partySize)}`)
+    lines.push(`Pass ID: ${input.passId}`)
+    lines.push(`Kadi: ${cardTypeLabel(input.partySize)}`)
   }
 
   lines.push('')
-  lines.push('Karibu sana, tutafurahi ukijumuika pamoja nasi.')
+  lines.push('Karibu sana, tutafurahi kusherehekea pamoja nawe.')
 
   return lines.join('\n')
 }
