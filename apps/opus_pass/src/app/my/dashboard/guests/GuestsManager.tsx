@@ -1570,42 +1570,90 @@ function ViewBanner({
 // "Mr & Mrs" is one guest row for a married couple invited together, which is
 // how most of a Tanzanian roster is addressed. firstNameOf/fullNameOf skip the
 // "&" as part of the honorific, so the greeting still reads "Karibu Boris".
-const TITLE_OPTIONS = ['Mr', 'Mrs', 'Mr & Mrs', 'Ms', 'Mx', 'Dr']
+//
+// Grouped so a long list stays scannable. Anything added here must also be in
+// NAME_TITLES (share.ts), or the honorific lands in the First name box when
+// the guest is reopened.
+const TITLE_GROUPS: { label: string; options: string[] }[] = [
+  { label: 'Common', options: ['Mr', 'Mrs', 'Ms', 'Miss', 'Mx'] },
+  { label: 'Couples', options: ['Mr & Mrs', 'Dr & Mrs', 'Prof & Mrs', 'Eng & Mrs', 'Rev & Mrs', 'Hon & Mrs'] },
+  { label: 'Professional', options: ['Dr', 'Prof', 'Eng', 'Capt', 'Hon', 'Balozi'] },
+  { label: 'Faith', options: ['Rev', 'Pastor', 'Mchungaji', 'Bishop', 'Askofu', 'Fr', 'Sheikh', 'Imam', 'Ustadh', 'Alhaj'] },
+  { label: 'Swahili', options: ['Mzee', 'Mama', 'Bibi', 'Bwana', 'Ndugu'] },
+]
+const TITLE_OPTIONS = TITLE_GROUPS.flatMap((g) => g.options)
+/** Sentinel for the free-text escape hatch. Not a storable value. */
+const TITLE_OTHER = '__other__'
 
 function NameRow({
   title,
   first,
   last,
-  suffix,
   onChange,
   required = false,
 }: {
   title: string
   first: string
   last: string
-  suffix: string
-  onChange: (patch: { title?: string; first?: string; last?: string; suffix?: string }) => void
+  onChange: (patch: { title?: string; first?: string; last?: string }) => void
   required?: boolean
 }) {
+  // A title recovered from a stored name may be one the list does not offer
+  // ("Prof & Mrs Ziddy" is on the live roster), so an unrecognised value opens
+  // the free-text box already filled in rather than rendering blank and
+  // quietly dropping the honorific on the next save.
+  const [typingOther, setTypingOther] = useState(false)
+  const custom = typingOther || (Boolean(title) && !TITLE_OPTIONS.includes(title))
+
   return (
-    <div className="grid grid-cols-[80px_1fr_1fr_80px] gap-2">
+    <div className="grid grid-cols-[132px_1fr_1fr] gap-2">
       <Field label="Title">
-        <select
-          className={inputClass}
-          value={title}
-          onChange={(e) => onChange({ title: e.target.value })}
-        >
-          <option value=""></option>
-          {/* A title recovered from a stored name may not be one we offer
-              ("Prof & Mrs Ziddy" is on the live roster). Without an option to
-              match, the select would render blank and quietly drop the
-              honorific from the guest's name on the next save. */}
-          {(TITLE_OPTIONS.includes(title) || !title ? TITLE_OPTIONS : [title, ...TITLE_OPTIONS]).map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+        {custom ? (
+          <div className="space-y-1">
+            <input
+              className={inputClass}
+              value={title}
+              placeholder="Balozi"
+              autoFocus
+              onChange={(e) => onChange({ title: e.target.value })}
+            />
+            <button
+              type="button"
+              className="text-xs text-[#1A1A1A]/50 underline underline-offset-2 hover:text-[#1A1A1A]/80"
+              onClick={() => {
+                setTypingOther(false)
+                onChange({ title: '' })
+              }}
+            >
+              Pick from list
+            </button>
+          </div>
+        ) : (
+          <select
+            className={inputClass}
+            value={title}
+            onChange={(e) => {
+              if (e.target.value === TITLE_OTHER) {
+                setTypingOther(true)
+                onChange({ title: '' })
+                return
+              }
+              onChange({ title: e.target.value })
+            }}
+          >
+            <option value=""></option>
+            {TITLE_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+            <option value={TITLE_OTHER}>Other…</option>
+          </select>
+        )}
       </Field>
       <Field label={required ? 'First name *' : 'First name'}>
         <input
@@ -1614,19 +1662,14 @@ function NameRow({
           onChange={(e) => onChange({ first: e.target.value })}
         />
       </Field>
-      <Field label={required ? 'Last name *' : 'Last name'}>
+      {/* Optional even for the primary guest: plenty of a Tanzanian roster is
+          held as one name ("Mama Mvela"), and save() already accepts a first
+          name on its own. */}
+      <Field label="Last name">
         <input
           className={inputClass}
           value={last}
           onChange={(e) => onChange({ last: e.target.value })}
-        />
-      </Field>
-      <Field label="Suffix">
-        <input
-          className={inputClass}
-          value={suffix}
-          placeholder="Jr."
-          onChange={(e) => onChange({ suffix: e.target.value })}
         />
       </Field>
     </div>
@@ -1662,14 +1705,12 @@ function GuestInfoTab({
           title={form.title ?? ''}
           first={form.first_name ?? ''}
           last={form.last_name ?? ''}
-          suffix={form.suffix ?? ''}
           onChange={(patch) =>
             setForm((f) => ({
               ...f,
               title: patch.title ?? f.title,
               first_name: patch.first ?? f.first_name,
               last_name: patch.last ?? f.last_name,
-              suffix: patch.suffix ?? f.suffix,
             }))
           }
         />
@@ -1771,14 +1812,12 @@ function GuestInfoTab({
               title={form.plus_one_title ?? ''}
               first={form.plus_one_first_name ?? ''}
               last={form.plus_one_last_name ?? ''}
-              suffix={form.plus_one_suffix ?? ''}
               onChange={(patch) =>
                 setForm((f) => ({
                   ...f,
                   plus_one_title: patch.title ?? f.plus_one_title,
                   plus_one_first_name: patch.first ?? f.plus_one_first_name,
                   plus_one_last_name: patch.last ?? f.plus_one_last_name,
-                  plus_one_suffix: patch.suffix ?? f.plus_one_suffix,
                 }))
               }
             />

@@ -13,7 +13,14 @@ export function publicOrigin(): string {
  *  Swahili honorifics, since guests are named by Tanzanian couples. */
 const NAME_TITLES = new Set([
   'mr', 'mrs', 'ms', 'miss', 'mx', 'dr', 'prof', 'rev', 'sir', 'madam', 'chief', 'eng', 'engr', 'capt',
-  'mzee', 'bwana', 'bi', 'bibi', 'ndugu',
+  'mzee', 'bwana', 'bi', 'bibi', 'ndugu', 'mama',
+  // Faith and office titles a Tanzanian roster addresses guests by. Every
+  // honorific offered in the guest form's Title dropdown must appear here:
+  // the form composes full_name as "<title> <first> <last>", and reopening
+  // that guest splits it back with skipTitles. A title missing from this set
+  // would come back sitting in the First name box.
+  'pastor', 'mchungaji', 'bishop', 'askofu', 'fr', 'padri', 'sheikh', 'imam', 'ustadh',
+  'alhaj', 'alhaji', 'hon', 'mheshimiwa', 'balozi',
   // Joins a compound honorific: "Mr & Mrs Boris Massesa" must greet "Boris",
   // not "&". Only ever skipped BETWEEN titles, since the loop stops at the
   // first word that isn't in this set. Swahili's "na" is deliberately absent:

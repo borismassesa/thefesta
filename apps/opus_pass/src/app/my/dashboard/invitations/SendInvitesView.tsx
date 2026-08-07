@@ -3306,6 +3306,17 @@ export default function SendInvitesView({
                                         <Download size={13} /> {strings.row_download_card}
                                       </button>
                                     ) : null}
+                                    {/* Reachable from this tab too, not only the
+                                        Pass Ticket one: that tab lists confirmed
+                                        guests only, and the tickets most needed
+                                        by hand belong to the ones who have not
+                                        replied. */}
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => { setResendMenuId(null); downloadTicket(g) }}
+                                    >
+                                      <Ticket size={13} /> {strings.row_download_pass}
+                                    </button>
                                     {(() => {
                                       const until = heldBackUntil(g)
                                       return (
