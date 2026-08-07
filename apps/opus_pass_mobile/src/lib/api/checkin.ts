@@ -241,6 +241,32 @@ export interface AmendPartySizeInput {
  * a pass reports a duplicate and will not rewrite the headcount. See
  * apps/opus_pass/src/app/api/checkin/amend/route.ts.
  */
+export interface ReportLinkResult {
+  ok: boolean
+  path?: string
+  error?: string
+}
+
+/**
+ * Ask for a link to this event's check-in report PDF.
+ *
+ * Returns an absolute URL. The server hands back a path rather than a full
+ * URL because it does not know which host this device reached it on — in
+ * development that is a LAN address that changes — and a report link pointing
+ * at the wrong host is a link that silently fails at the end of a shift.
+ */
+export async function reportLink(eventId: string, accessToken: string): Promise<string> {
+  const result = await postJson<ReportLinkResult>(
+    'report-link',
+    { eventId, token: accessToken },
+    { cannotAdmit: true }
+  );
+  if (!result.ok || !result.path) {
+    throw new Error(result.error ?? "Couldn't prepare the report.");
+  }
+  return `${resolveApiOrigin(publicOrigin(), Constants.expoConfig?.hostUri ?? '', __DEV__)}${result.path}`;
+}
+
 export function amendPartySize(input: AmendPartySizeInput): Promise<CheckinScanResult> {
   return postJson<CheckinScanResult>('amend', input);
 }
