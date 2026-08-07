@@ -3222,22 +3222,34 @@ export default function SendInvitesView({
                           // so the couple still sees it before it goes.
                           const reviewable = hasPhone(g)
                           if (!reviewable) {
+                            // No number, so nothing can be sent — but the card
+                            // still exists and this is precisely the guest who
+                            // gets handed one in person. Without the download
+                            // here the row offered a disabled button and no way
+                            // out at all.
                             return (
-                              <button
-                                className="ia send"
-                                disabled={pending || !hasPhone(g)}
-                                title={effectiveChannel(g) === 'whatsapp' ? strings.row_whatsapp : strings.row_sms}
-                                onClick={() => rowShare(g, effectiveChannel(g))}
-                              >
-                                {sendingRow === g.id ? (
-                                  <Loader2 size={14} className="spin" />
-                                ) : g.status === 'none' ? (
+                              <>
+                                <button
+                                  className="ia send"
+                                  disabled
+                                  title={strings.row_needs_number}
+                                >
                                   <Send size={13} />
-                                ) : (
-                                  <RotateCcw size={13} />
-                                )}
-                                {g.status === 'none' ? strings.row_send : strings.row_resend}
-                              </button>
+                                  {g.status === 'none' ? strings.row_send : strings.row_resend}
+                                </button>
+                                <button
+                                  className="ia"
+                                  disabled={pending}
+                                  title={strings.row_download_card}
+                                  onClick={() => downloadCardDirect(g)}
+                                >
+                                  {sendingRow === g.id ? (
+                                    <Loader2 size={14} className="spin" />
+                                  ) : (
+                                    <Download size={15} />
+                                  )}
+                                </button>
+                              </>
                             )
                           }
                           if (g.status === 'none') {
