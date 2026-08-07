@@ -428,6 +428,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
             total: amount,
             tier: card.cardTier ?? undefined,
             guests,
+            pricePerGuest: card.unitPrice,
             image: card.cardImageUrl ?? undefined,
           },
         ],
