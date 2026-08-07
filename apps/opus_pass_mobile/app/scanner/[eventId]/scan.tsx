@@ -15,6 +15,7 @@ import { PartySizeSheet } from '@/components/scanner/PartySizeSheet';
 import { ScanTipsBanner, ScanTipsModal } from '@/components/scanner/ScanTipsModal';
 import { amendPartySize, lookupAdmission, submitScan, validateScannerSession } from '@/lib/api/checkin';
 import { getErrorMessage } from '@/lib/errors';
+import { shouldPromptForParty } from '@/lib/partyPrompt';
 import { arrivedHeads, clampArrived } from '@/lib/scannerRoster';
 import { useScannerSession } from '@/hooks/useScannerSession';
 import { useScannerTips } from '@/hooks/useScannerTips';
@@ -70,6 +71,9 @@ export default function ScanScreen() {
   // Refs, not state: the camera callback fires many times a second and must
   // read the latest value without re-subscribing or re-rendering.
   const lastScanRef = useRef<{ token: string; at: number; requestId: string } | null>(null);
+  /** The scan whose party size has already been asked about, so one scan asks
+   *  once however many times the result re-renders. */
+  const promptedForScanRef = useRef<string | null>(null);
   const busyRef = useRef(false);
   /** Outcome of the last attempt, so the camera callback can tell a retry of a
    *  failed scan from a deliberate second admission. */
@@ -377,21 +381,32 @@ export default function ScanScreen() {
 
   // Once a successful scan comes back for a multi-person party, offer the
   // correction step rather than assuming everyone arrived together.
+  //
+  // Keyed on the scan, never on whether the sheet is open. Answering the
+  // question closes the sheet without changing the result that prompted it,
+  // so a rule phrased as "success, party > 1, and no sheet showing" is true
+  // again the moment the sheet closes: the sheet reopened on every Done and
+  // every close, and a Double could not be admitted by scan at all.
   useEffect(() => {
+    const scan = lastScanRef.current;
     if (
-      result?.status === 'success' &&
-      (result.partySize ?? 1) > 1 &&
-      lastScanRef.current &&
-      !partyPrompt
+      !shouldPromptForParty({
+        status: result?.status ?? null,
+        partySize: result?.partySize ?? null,
+        scanRequestId: scan?.requestId ?? null,
+        promptedRequestId: promptedForScanRef.current,
+      })
     ) {
-      setPartyPrompt({
-        qrToken: lastScanRef.current.token,
-        guestName: result.guestName ?? 'Guest',
-        partySize: result.partySize ?? 1,
-        groupTag: result.groupTag ?? null,
-      });
+      return;
     }
-  }, [result, partyPrompt]);
+    promptedForScanRef.current = scan!.requestId;
+    setPartyPrompt({
+      qrToken: scan!.token,
+      guestName: result?.guestName ?? 'Guest',
+      partySize: result?.partySize ?? 1,
+      groupTag: result?.groupTag ?? null,
+    });
+  }, [result]);
 
   const dismiss = () => {
     setResult(null);
