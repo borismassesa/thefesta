@@ -15,6 +15,7 @@ import {
   eventHeroSlugBase,
   eventSlugBase,
   firstNameOf,
+  greetingNameOf,
   heroSlugBase,
   normalizePhone,
   pledgeUrl,
@@ -3978,7 +3979,7 @@ export async function sendThankYouMessages(guestIds?: string[], eventId?: string
 
     const result = await provider.sendThankYou({
       to,
-      guestFirstName: firstNameOf(g.full_name),
+      guestFirstName: templateParam(greetingNameOf(g.full_name), g.full_name, 60),
       coupleName: ent.coupleName,
       eventCategory: ent.eventCategory,
       headerImageUrl,
@@ -4489,7 +4490,7 @@ async function sendWhatsAppLinkRequests(
 
     const result = await provider.sendLinkRequest(kind, {
       to,
-      contactFirstName: firstNameOf(g.full_name),
+      contactFirstName: templateParam(greetingNameOf(g.full_name), g.full_name, 60),
       coupleName: ent.coupleName,
       headerImageUrl,
       token,
@@ -4599,7 +4600,7 @@ export async function sendEmailPledgeRequests(
       continue
     }
 
-    const { subject, html, text } = pledgeRequestEmail(ctx.coupleName, firstNameOf(g.full_name), link)
+    const { subject, html, text } = pledgeRequestEmail(ctx.coupleName, greetingNameOf(g.full_name), link)
     let ok = true
     if (live) {
       ok = (await sendEmail({ to: g.email, subject, html, text })).sent
@@ -4669,7 +4670,7 @@ export async function sendSmsPledgeRequests(
 
     const result = await provider.sendLinkRequest({
       to,
-      contactFirstName: firstNameOf(g.full_name),
+      contactFirstName: templateParam(greetingNameOf(g.full_name), g.full_name, 60),
       coupleName: ctx.coupleName,
       link,
     })

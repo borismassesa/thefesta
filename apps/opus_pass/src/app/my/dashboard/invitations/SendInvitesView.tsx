@@ -73,7 +73,7 @@ import {
   emailShareUrl,
   inviteMessage,
   reminderMessage,
-  firstNameOf,
+  greetingNameOf,
   fullNameOf,
   saveDateUrl,
   normalizePhone,
@@ -1528,7 +1528,7 @@ export default function SendInvitesView({
           return
         }
         downloadPreparedCard(g, result.imageUrl)
-        toast.success(fmt(strings.row_card_downloaded, { name: firstNameOf(g.name) }))
+        toast.success(fmt(strings.row_card_downloaded, { name: greetingNameOf(g.name) }))
       } finally {
         setSendingRow(null)
       }
@@ -1611,7 +1611,7 @@ export default function SendInvitesView({
         stageBulkSend([g.id], { reminder: isAwaiting(g.status) })
         return
       }
-      const first = firstNameOf(g.name)
+      const first = greetingNameOf(g.name)
       const remindingLive = isAwaiting(g.status)
       setSendingRow(g.id)
       startTransition(async () => {
@@ -1644,7 +1644,7 @@ export default function SendInvitesView({
     window.open(url, '_blank', 'noopener,noreferrer')
     recordSend(g.id, channel, eventId).catch(() => {})
     if (reminding)
-      toast.success(fmt(strings.toast_reminder_ready, { name: firstNameOf(g.name) }))
+      toast.success(fmt(strings.toast_reminder_ready, { name: greetingNameOf(g.name) }))
   }
 
   function sendTest() {

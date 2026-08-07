@@ -72,7 +72,7 @@ import {
   whatsappShareUrl,
   smsShareUrl,
   emailShareUrl,
-  firstNameOf,
+  greetingNameOf,
 } from '@/lib/dashboard/share'
 import type { DashboardHeroContent } from '@/lib/cms/dashboard-hero'
 import type { PledgesDashboardCopy } from '@/lib/cms/dashboard-copy'
@@ -716,9 +716,9 @@ export default function PledgesManager({
           // couple's default event otherwise — see sendWhatsAppLinkRequests).
           const r = await sendWhatsAppPledgeRequests([p.guest_contact_id], selectedEventId ?? undefined)
           if (r.sent > 0 && r.dryRun) toast.success('1 queued (dry run)')
-          else if (r.sent > 0) toast.success(`WhatsApp reminder sent to ${firstNameOf(p.full_name)}`)
+          else if (r.sent > 0) toast.success(`WhatsApp reminder sent to ${greetingNameOf(p.full_name)}`)
           else if (r.skipped > 0) toast.error('No usable phone number for this contributor')
-          else toast.error(`Could not send to ${firstNameOf(p.full_name)}`)
+          else toast.error(`Could not send to ${greetingNameOf(p.full_name)}`)
           if (r.sent > 0) recordPledgeReminder(p.id, 'whatsapp').catch(() => {})
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Send failed')
@@ -747,7 +747,7 @@ export default function PledgesManager({
       try {
         const r = await sendPledgeReminderSms(p.id, reminderText(p))
         if (r.ok && r.dryRun) toast.success('1 queued (dry run — no SMS gateway connected yet)')
-        else if (r.ok) toast.success(`SMS reminder sent to ${firstNameOf(p.full_name)}`)
+        else if (r.ok) toast.success(`SMS reminder sent to ${greetingNameOf(p.full_name)}`)
         else toast.error(r.error ?? 'Could not send SMS reminder')
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Send failed')
@@ -765,7 +765,7 @@ export default function PledgesManager({
       try {
         const r = await sendPledgeReminderEmail(p.id, reminderText(p))
         if (r.ok && r.dryRun) toast.success('1 queued (dry run — email isn’t fully configured yet)')
-        else if (r.ok) toast.success(`Email reminder sent to ${firstNameOf(p.full_name)}`)
+        else if (r.ok) toast.success(`Email reminder sent to ${greetingNameOf(p.full_name)}`)
         else toast.error(r.error ?? 'Could not send email reminder')
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Send failed')

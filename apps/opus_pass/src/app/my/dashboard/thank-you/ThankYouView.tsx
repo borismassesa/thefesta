@@ -32,7 +32,7 @@ import {
   type ThankYouSendSummary,
   type WhatsAppSendResult,
 } from '@/lib/dashboard/actions'
-import { firstNameOf } from '@/lib/dashboard/share'
+import { greetingNameOf } from '@/lib/dashboard/share'
 import { THANK_YOU_TEMPLATE } from '@/lib/whatsapp/types'
 import type { ThankYouData, ThankYouGuestRow } from '@/lib/dashboard/queries'
 import { TEMPLATE_CARD_PRICE, parseTemplateCardItemId, type PledgeCardCatalogItem } from '@/lib/dashboard/pledge-card-templates'
@@ -398,7 +398,7 @@ export default function ThankYouView({
     }
   }
 
-  const sampleGuest = firstNameOf(guests[0]?.name ?? 'Amina')
+  const sampleGuest = greetingNameOf(guests[0]?.name ?? 'Amina')
   const previewBody = THANK_YOU_TEMPLATE.body
     .replace('{{1}}', sampleGuest)
     .replace('{{2}}', event.coupleName)

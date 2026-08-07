@@ -1546,8 +1546,9 @@ function ViewBanner({
 // ──────────────────────── slideover sub-tabs ────────────────────────
 
 // "Mr & Mrs" is one guest row for a married couple invited together, which is
-// how most of a Tanzanian roster is addressed. firstNameOf/fullNameOf skip the
-// "&" as part of the honorific, so the greeting still reads "Karibu Boris".
+// how most of a Tanzanian roster is addressed. skipTitles treats the "&" as
+// part of the honorific rather than as a name, so greetingNameOf reads the
+// whole title back out ("Karibu Mr & Mrs Boris") instead of the ampersand.
 //
 // Grouped so a long list stays scannable. Anything added here must also be in
 // NAME_TITLES (share.ts), or the honorific lands in the First name box when
