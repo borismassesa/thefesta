@@ -18,6 +18,10 @@ export const SELCOM_ENABLED = process.env.NEXT_PUBLIC_PAYMENTS_SELCOM_ENABLED ==
 // "Pesa ni M-Pesa" merchant poster.
 export const MPESA_LIPA_NAMBA = '350298654'
 export const MPESA_LIPA_NAME = 'OPUSFESTA COMPANY LIMITED'
+/** Ordinary M-Pesa "send money" number, for payers whose phone or bank app
+ *  cannot reach a Lipa Namba till. Quoted on quotations beside the till number
+ *  so whoever is paying has a route that works for them. */
+export const MPESA_SEND_MONEY = '+255 799 242 471'
 
 /** Phone shapes the payment forms accept. Mirrors PHONE_RE in the initiate route. */
 export const PHONE_RE = /^\+?(?:[\d](?:[\s().-]?)){9,}$/

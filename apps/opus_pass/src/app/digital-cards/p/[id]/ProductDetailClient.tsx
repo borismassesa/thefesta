@@ -521,41 +521,16 @@ export default function ProductDetailClient({ product, allProducts, packages, ad
                   </label>
                   <p className="text-[11px] text-gray-500">{packages.minGuestsTemplate.replace('{count}', String(MIN_CARDS))}</p>
                 </div>
-                <div className="ml-auto inline-flex shrink-0 items-stretch overflow-hidden rounded-full border border-gray-300 bg-white">
-                  <button
-                    type="button"
-                    aria-label="Fewer cards"
-                    onClick={() => setDigitalQty((q) => Math.max(MIN_CARDS, (Number.isNaN(q) ? MIN_CARDS : q) - 10))}
-                    disabled={digitalQty <= MIN_CARDS}
-                    className="px-3 text-lg font-semibold text-gray-600 transition bg-gray-100 hover:bg-gray-200 disabled:opacity-40 sm:px-4"
-                  >
-                    −
-                  </button>
-                  <input
-                    id="card-count"
-                    type="number"
-                    min={MIN_CARDS}
-                    step={10}
-                    inputMode="numeric"
-                    value={digitalQty}
-                    onChange={(e) => {
-                      const n = Number(e.target.value)
-                      if (!Number.isNaN(n)) setDigitalQty(n)
-                    }}
-                    onBlur={() => {
-                      if (Number.isNaN(digitalQty) || digitalQty < MIN_CARDS) setDigitalQty(MIN_CARDS)
-                    }}
-                    className="w-14 border-x border-gray-200 bg-white py-2 text-center text-[14px] font-bold text-gray-900 tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none sm:w-16 sm:py-2.5 sm:text-[15px]"
-                  />
-                  <button
-                    type="button"
-                    aria-label="More cards"
-                    onClick={() => setDigitalQty((q) => (Number.isNaN(q) ? MIN_CARDS : q) + 10)}
-                    className="px-3 text-lg font-semibold text-gray-600 transition bg-gray-100 hover:bg-gray-200 sm:px-4"
-                  >
-                    +
-                  </button>
-                </div>
+                <QtyStepper
+                  inputId="card-count"
+                  value={digitalQty}
+                  min={MIN_CARDS}
+                  step={10}
+                  onChange={setDigitalQty}
+                  ariaLabel={packages.cardsCountLabel}
+                  lessLabel="Fewer cards"
+                  moreLabel="More cards"
+                />
               </div>
 
               {/* What this tier includes — the tier's own bullet list */}
@@ -772,6 +747,91 @@ function AddOnCard({
   )
 }
 
+/**
+ * The −/value/+ control, shared by the card count and every per-unit add-on.
+ *
+ * Typing is held in a draft STRING and only committed on blur. The obvious
+ * version — `value={n}` with `onChange={e => set(Number(e.target.value))}` —
+ * has two bugs that look unrelated but are the same mistake:
+ *
+ *  - Clearing the field sends '', and `Number('')` is 0, not NaN. So the field
+ *    refills itself with "0" on every keystroke of backspace and the zero can
+ *    never be deleted.
+ *  - Typing into that stuck zero gives a DOM value of "065". React skips the
+ *    write-back because for a number input it compares loosely, and "065" == 65
+ *    is true — so the field keeps showing "065" forever.
+ *
+ * A draft string fixes both: an empty field stays empty while focused, and the
+ * committed number is re-stringified on blur, which drops the leading zero.
+ * `type="text"` rather than `type="number"` for the same reason — it is the
+ * number input's loose comparison that strands "065" on screen.
+ */
+function QtyStepper({
+  value,
+  min,
+  step,
+  onChange,
+  ariaLabel,
+  lessLabel,
+  moreLabel,
+  inputId,
+}: {
+  value: number
+  min: number
+  step: number
+  onChange: (n: number) => void
+  ariaLabel: string
+  lessLabel: string
+  moreLabel: string
+  inputId?: string
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const safe = Number.isNaN(value) ? min : value
+  return (
+    <div className="ml-auto inline-flex shrink-0 items-stretch overflow-hidden rounded-full border border-gray-300 bg-white">
+      <button
+        type="button"
+        aria-label={lessLabel}
+        onClick={() => {
+          setDraft(null)
+          onChange(Math.max(min, safe - step))
+        }}
+        disabled={safe <= min}
+        className="px-3 text-lg font-semibold text-gray-600 transition bg-gray-100 hover:bg-gray-200 disabled:opacity-40 sm:px-4"
+      >
+        −
+      </button>
+      <input
+        id={inputId}
+        type="text"
+        inputMode="numeric"
+        aria-label={ariaLabel}
+        value={draft ?? String(safe)}
+        // Digits only: a stray letter would otherwise sit in the draft until
+        // blur and then silently snap the count back to the minimum.
+        onChange={(e) => setDraft(e.target.value.replace(/[^\d]/g, ''))}
+        onBlur={() => {
+          const n = parseInt(draft ?? '', 10)
+          setDraft(null)
+          onChange(Number.isNaN(n) || n < min ? min : n)
+        }}
+        className="w-14 border-x border-gray-200 bg-white py-2 text-center text-[14px] font-bold text-gray-900 tabular-nums focus:outline-none sm:w-16 sm:py-2.5 sm:text-[15px]"
+      />
+      <button
+        type="button"
+        aria-label={moreLabel}
+        onClick={() => {
+          setDraft(null)
+          onChange(safe + step)
+        }}
+        className="px-3 text-lg font-semibold text-gray-600 transition bg-gray-100 hover:bg-gray-200 sm:px-4"
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
 // Quantity stepper for a 'per_unit' add-on — shown inside its AddOnCard once
 // checked. Generic over any add-on's unit price/label/min/step.
 function AddOnQuantityStepper({
@@ -797,41 +857,15 @@ function AddOnQuantityStepper({
         <p className="text-[12px] font-bold text-gray-900 sm:text-[13px]">{label}</p>
         <p className="text-[11px] text-gray-500">TZS {unitPrice.toLocaleString('en-US')} {unitLabel}</p>
       </div>
-      <div className="ml-auto inline-flex shrink-0 items-stretch overflow-hidden rounded-full border border-gray-300 bg-white">
-        <button
-          type="button"
-          aria-label="Fewer"
-          onClick={() => onChange(Math.max(min, (Number.isNaN(value) ? min : value) - step))}
-          disabled={value <= min}
-          className="px-3 text-lg font-semibold text-gray-600 transition bg-gray-100 hover:bg-gray-200 disabled:opacity-40 sm:px-4"
-        >
-          −
-        </button>
-        <input
-          type="number"
-          min={min}
-          step={step}
-          inputMode="numeric"
-          aria-label={label}
-          value={value}
-          onChange={(e) => {
-            const n = Number(e.target.value)
-            if (!Number.isNaN(n)) onChange(n)
-          }}
-          onBlur={() => {
-            if (Number.isNaN(value) || value < min) onChange(min)
-          }}
-          className="w-14 border-x border-gray-200 bg-white py-2 text-center text-[14px] font-bold text-gray-900 tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none sm:w-16 sm:py-2.5 sm:text-[15px]"
-        />
-        <button
-          type="button"
-          aria-label="More"
-          onClick={() => onChange((Number.isNaN(value) ? min : value) + step)}
-          className="px-3 text-lg font-semibold text-gray-600 transition bg-gray-100 hover:bg-gray-200 sm:px-4"
-        >
-          +
-        </button>
-      </div>
+      <QtyStepper
+        value={value}
+        min={min}
+        step={step}
+        onChange={onChange}
+        ariaLabel={label}
+        lessLabel="Fewer"
+        moreLabel="More"
+      />
     </div>
   )
 }

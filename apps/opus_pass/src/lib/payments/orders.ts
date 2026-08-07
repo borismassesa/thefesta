@@ -215,6 +215,7 @@ export function orderRowToStoredOrder(
       tier: i.tier,
       tierId: i.tierId,
       guests: i.guests,
+      pricePerGuest: i.pricePerGuest,
       addOns: i.addOns,
       addOnItems: i.addOnItems,
     })),
@@ -283,6 +284,15 @@ export async function getOrdersForDashboardUser(
   return rows.map((row) =>
     orderRowToStoredOrder(row, row.parent_order_id ? refById.get(row.parent_order_id) ?? null : null),
   )
+}
+
+/** The human-readable ref behind an order id. Used to name a top-up's parent
+ *  purchase on single-order surfaces (the invoice), where the batched lookup in
+ *  getOrdersForDashboardUser is not in play. */
+export async function getOrderRefById(id: string): Promise<string | null> {
+  const supabase = createSupabaseServerClient()
+  const { data } = await supabase.from('invitation_orders').select('ref').eq('id', id).maybeSingle()
+  return (data as { ref: string } | null)?.ref ?? null
 }
 
 export async function setProviderOrderId(ref: string, providerOrderId: string): Promise<void> {

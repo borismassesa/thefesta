@@ -1136,18 +1136,18 @@ export async function getEntrancePassData(token: string, eventId: string): Promi
     .eq('guest_contact_id', guest.id)
     .eq('event_id', eventId)
     .maybeSingle<{ id: string; rsvp_status: string; party_size: number | null }>()
-  // Confirmed guests only, and deliberately so.
+  // Any invited guest, replied or not.
   //
-  // Relaxing this looks like it would let the couple hand a ticket to somebody
-  // who has not replied, but the door would still refuse them:
-  // checkin_admit_guest() carries its own `rsvp_status = 'attending'` predicate,
-  // and it is a SECURITY DEFINER function, so no API change reaches it. Drawing
-  // the ticket anyway would produce the worst outcome available — a guest at
-  // the gate holding a real pass, told they are not on the list.
+  // This used to be confirmed-only, because the door refused anyone else:
+  // checkin_admit_guest() carried its own `rsvp_status = 'attending'` predicate
+  // and, being SECURITY DEFINER, no API change could reach it. Drawing a ticket
+  // for an unreplied guest would have produced the worst outcome available — a
+  // guest at the gate holding a real pass, told they are not on the list.
   //
-  // To give an unreplied guest a working pass, mark them attending in the RSVP
-  // tracker. That makes every layer agree at once: ticket, door and wallet.
-  if (!invitation || invitation.rsvp_status !== 'attending') return null
+  // That predicate is gone (20260807090000_checkin_admit_any_invited_guest),
+  // along with the matching refusals in /api/checkin/scan and /api/checkin/
+  // validate, so the pass and the door agree again. An invitation is enough.
+  if (!invitation) return null
 
   const { data: event } = await supabase
     .from('wedding_events')
@@ -2497,6 +2497,21 @@ export interface SendGuestRow {
     /** Plain-English reason, for `failed` only. Never a bare Meta code. */
     reason: string | null
   } | null
+  /**
+   * When this guest was FIRST logged as contacted for THIS event
+   * (guest_message_log), ISO. The fallback timestamp for a guest with no
+   * whatsapp_messages invite row: a wa.me or SMS share through recordSend(),
+   * or a send that predates event scoping. Null when nothing was ever logged.
+   *
+   * Earliest, not latest, and that is the whole point. guest_message_log has no
+   * `kind` column, and thank-you sends write into it against this same
+   * event_id, so a newest-first read (what getLastSendByGuest does, correctly,
+   * for its own purpose) would report a thank-you as the invitation time for
+   * every guest who received one. An invite always precedes a thank-you, so the
+   * earliest row is the only one that cannot lie. Pledge sends carry no
+   * event_id and are excluded by the filter.
+   */
+  loggedSendAt: string | null
 }
 
 /**
@@ -2811,7 +2826,7 @@ export async function getSendInvitesData(
   // Seat collection assignments → each guest's table name, so the live
   // Check-ins roster can point an arriving guest to their seat. Read-only
   // here; the seating itself is arranged on the Seat collection page.
-  const [{ data: seatTables }, { data: seatAssignments }] = await Promise.all([
+  const [{ data: seatTables }, { data: seatAssignments }, { data: sendLogRows }] = await Promise.all([
     supabase
       .from('seating_tables')
       .select('id, name')
@@ -2822,7 +2837,21 @@ export async function getSendInvitesData(
       .select('guest_contact_id, table_id')
       .eq('user_id', user.id)
       .eq('event_id', selectedEventId),
+    // Every logged contact for this event, oldest first — see the note on
+    // SendGuestRow.loggedSendAt for why the earliest row is the one we keep.
+    supabase
+      .from('guest_message_log')
+      .select('guest_contact_id, created_at')
+      .eq('user_id', user.id)
+      .eq('event_id', selectedEventId)
+      .order('created_at', { ascending: true }),
   ])
+  const loggedSendByGuest = new Map<string, string>()
+  for (const row of (sendLogRows ?? []) as { guest_contact_id: string; created_at: string }[]) {
+    if (!loggedSendByGuest.has(row.guest_contact_id)) {
+      loggedSendByGuest.set(row.guest_contact_id, row.created_at)
+    }
+  }
   const tableNameById = new Map(
     ((seatTables ?? []) as { id: string; name: string }[]).map((t) => [t.id, t.name]),
   )
@@ -2905,6 +2934,7 @@ export async function getSendInvitesData(
       // needs the attendant's name — the door has its own column.
       checkedInBy: attending?.checked_in_by ? attending.checked_in_by.split(' (')[0].trim() || null : null,
       delivery: deliveryByGuest.get(g.id) ?? null,
+      loggedSendAt: loggedSendByGuest.get(g.id) ?? null,
       tableName: tableNameByGuest.get(g.id) ?? null,
     }
   })

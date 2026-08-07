@@ -93,6 +93,7 @@ import RsvpTracker from '../rsvps/RsvpTracker'
 import { createCheckinRealtimeClient } from '@/lib/checkin/realtimeClient'
 import { checkinChannelName, type CheckinBroadcastPayload } from '@/lib/checkin/shared'
 import type { CheckinReportData } from '@/lib/checkin-report-pdf'
+import type { InviteReportData, InviteReportRow } from '@/lib/invite-report'
 
 /** Short stable digest of the ticket's visible fields — appended to the
  *  preview image URL so a save produces a new URL, and the browser can
@@ -267,6 +268,16 @@ function formatClock(iso: string): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+/** Date + clock for a send timestamp (e.g. "7 Aug, 16:12"). Arrivals happen on
+ *  one evening and need no date; invitations go out over weeks. Formatted here
+ *  rather than inside the PDF because /api/invite-report renders on a UTC
+ *  server and only the browser knows the couple's timezone. */
+function formatStamp(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${formatClock(iso)}`
+}
+
 /** A door scan received live over the broadcast channel, newest-first. */
 interface LiveArrival {
   name: string
@@ -384,6 +395,9 @@ export default function SendInvitesView({
   const [liveArrivals, setLiveArrivals] = useState<LiveArrival[]>([])
   const [checkinConnected, setCheckinConnected] = useState(false)
   const [reportBusy, setReportBusy] = useState(false)
+  /** Separate from reportBusy on purpose: that one drives the check-in report's
+   *  buttons on another tab, and a shared flag would grey those out too. */
+  const [inviteReportBusy, setInviteReportBusy] = useState(false)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [sendingRow, setSendingRow] = useState<string | null>(null)
@@ -1069,6 +1083,138 @@ export default function SendInvitesView({
       }
     } finally {
       setReportBusy(false)
+    }
+  }
+
+  // ── Downloadable / shareable invite & delivery report ──────────────────────
+  /**
+   * Built from the whole scoped roster, never from `visible` — a report that
+   * silently reflects whichever filter happened to be on would make two
+   * downloads of the same event disagree with each other.
+   */
+  function buildInviteReportData(): InviteReportData {
+    const rows: InviteReportRow[] = guests.map((g) => {
+      // The WhatsApp attempt is the precise one. loggedSendAt only stands in
+      // for guests with no WhatsApp invite row at all (an SMS or wa.me share).
+      const at = g.delivery?.at ?? g.loggedSendAt
+      return {
+        name: g.name,
+        // The number the send would actually use — the same one that picks
+        // `channel`, so the two columns can never contradict each other.
+        phone: g.whatsappPhone ?? g.phone,
+        channel: g.channel,
+        delivery: g.delivery?.state ?? null,
+        failureReason: g.delivery?.state === 'failed' ? g.delivery.reason : null,
+        sharedByHand: !g.delivery && Boolean(g.loggedSendAt),
+        sentAt: at ? formatStamp(at) : null,
+        rsvp:
+          g.status === 'attending'
+            ? 'attending'
+            : g.status === 'declined'
+              ? 'declined'
+              : g.status === 'maybe'
+                ? 'maybe'
+                : 'none',
+        partySize: g.rsvpPartySize,
+      }
+    })
+    return {
+      eventName: headingName,
+      eventDate: event.dateLabel ?? null,
+      venue: event.venue ?? null,
+      generatedAt: new Date().toLocaleString(undefined, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      invited: funnel.invited,
+      delivered: funnel.delivered,
+      undelivered: funnel.undelivered,
+      viewed: funnel.viewed,
+      responded: funnel.rsvpd,
+      creditsUsed: quota.used,
+      creditsPurchased: quota.purchased,
+      rows,
+    }
+  }
+
+  /** Plain-text fallback for share targets that can't take a file. Uses the CMS
+   *  strings rather than the PDF's own hardcoded English, matching
+   *  buildReportText above — this one lands in a chat, not on a page. */
+  function buildInviteReportText(): string {
+    const lines = [
+      fmt(strings.invite_report_title, { event: headingName }),
+      [
+        `${funnel.invited} ${strings.funnel_invited}`,
+        `${funnel.delivered} ${strings.funnel_delivered}`,
+        `${funnel.viewed} ${strings.funnel_viewed}`,
+        `${funnel.rsvpd} ${strings.funnel_rsvpd}`,
+      ].join(' · '),
+      '',
+    ]
+    for (const g of guests) {
+      const state = g.delivery ? strings[`delivery_${g.delivery.state}`] : g.statusLabel
+      const reason = g.delivery?.reason ? ` (${g.delivery.reason})` : ''
+      lines.push(`${g.name} — ${state}${reason}`)
+    }
+    return lines.join('\n')
+  }
+
+  async function fetchInviteReportBlob(): Promise<Blob> {
+    const res = await fetch('/api/invite-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildInviteReportData()),
+    })
+    if (!res.ok) throw new Error('Invite report request failed')
+    return res.blob()
+  }
+
+  const inviteReportFilename = `${headingName.replace(/[^A-Za-z0-9 _-]/g, '').trim() || 'OpusPass'}-Invite-Report.pdf`
+
+  async function downloadInviteReport() {
+    setInviteReportBusy(true)
+    try {
+      const blob = await fetchInviteReportBlob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = inviteReportFilename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error(strings.invite_report_toast_failed)
+    } finally {
+      setInviteReportBusy(false)
+    }
+  }
+
+  async function shareInviteReport() {
+    setInviteReportBusy(true)
+    try {
+      const blob = await fetchInviteReportBlob()
+      const file = new File([blob], inviteReportFilename, { type: 'application/pdf' })
+      const canShareFile = typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })
+      if (canShareFile && navigator.share) {
+        await navigator.share({ files: [file], title: fmt(strings.invite_report_title, { event: headingName }) })
+        return
+      }
+      await navigator.clipboard.writeText(buildInviteReportText())
+      toast.success(strings.invite_report_toast_copied)
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return // user cancelled the share sheet
+      try {
+        await navigator.clipboard.writeText(buildInviteReportText())
+        toast.success(strings.invite_report_toast_copied)
+      } catch {
+        toast.error(strings.invite_report_toast_failed)
+      }
+    } finally {
+      setInviteReportBusy(false)
     }
   }
 
@@ -2690,6 +2836,26 @@ export default function SendInvitesView({
       {/* Funnel + quota — Digital Cards only; Entrance Pass has its own
        *  quota bar in the event context card above. */}
       {sendTab === 'cards' && event.hasPaidOrder ? (
+        <>
+        {/* Deliberately NOT gated on funnel.invited: a couple who has sent
+            nothing yet is exactly who needs the "still to invite" list. */}
+        <div className="funnelbar">
+          <button
+            className="btn ghost"
+            disabled={inviteReportBusy || guests.length === 0}
+            onClick={downloadInviteReport}
+          >
+            {inviteReportBusy ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
+            {strings.invite_report_download}
+          </button>
+          <button
+            className="btn ghost"
+            disabled={inviteReportBusy || guests.length === 0}
+            onClick={shareInviteReport}
+          >
+            <Share2 size={14} /> {strings.invite_report_share}
+          </button>
+        </div>
         <div className="funnel">
           <div className="fc"><div className="fcicon"><Send size={13} /></div><div className="n">{funnel.invited}</div><div className="l">{strings.funnel_invited}</div></div>
           <div className="fc"><div className="fcicon"><CheckCheck size={13} /></div><div className="n">{funnel.delivered}</div><div className="l"><span className="ar">→</span> {strings.funnel_delivered}</div></div>
@@ -2711,6 +2877,7 @@ export default function SendInvitesView({
           <div className="fc"><div className="fcicon"><Eye size={13} /></div><div className="n">{funnel.viewed}</div><div className="l"><span className="ar">→</span> {strings.funnel_viewed}</div></div>
           <div className="fc"><div className="fcicon"><CalendarCheck size={13} /></div><div className="n">{funnel.rsvpd}</div><div className="l"><span className="ar">→</span> {strings.funnel_rsvpd}</div></div>
         </div>
+        </>
       ) : null}
 
       {/* Live Check-ins — a live door summary plus the attending roster, each
@@ -4190,6 +4357,9 @@ const css = `
   /* The busy spinner stays: it is the only signal that a send is in flight. */
   .si .prodpanel .dp em, .si .livedot.on, .si .lf{ animation:none; }
   .si .btn:hover{ transform:none; } }
+/* Sibling of .funnel, never a child: that grid would lay the buttons out as
+   two more funnel cards. */
+.si .funnelbar{ display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 .si .funnel{ display:grid; grid-template-columns:repeat(4,1fr) 1.5fr; gap:12px; }
 .si .fc{ position:relative; background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px 18px; box-shadow:var(--soft); }
 .si .fcicon{ position:absolute; top:14px; right:14px; width:26px; height:26px; border-radius:50%;

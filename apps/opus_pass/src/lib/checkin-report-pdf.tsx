@@ -1,15 +1,10 @@
 import { Document, Page, View, Text, Svg, Path, StyleSheet } from '@react-pdf/renderer'
 import { PdfLogo, PdfLetterhead, PDF_PAGE_PADDING } from '@/lib/pdf-letterhead'
+import { EventMetaRows, reportPaddingTop } from '@/lib/pdf-report-header'
 
 const BRAND = '#5c2d8c'
 const SAGE = '#2E7D55'
 const NEUTRAL = '#9ca3af'
-
-/** "1 guest" vs "3 guests" — react-pdf's font can't lean on a CMS pluralizer,
- *  so plurals are computed here alongside every other derived line. */
-function plural(n: number, one: string, many: string): string {
-  return n === 1 ? one : many
-}
 
 /** A drawn check mark — the standard PDF Helvetica font silently drops the ✓
  *  glyph, so arrivals are marked with a shape instead (same trick as the star
@@ -54,13 +49,16 @@ export interface CheckinReportData {
 }
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', fontSize: 10, color: '#1a1a1a', ...PDF_PAGE_PADDING, paddingTop: 150 },
+  // paddingTop is set per document by reportPaddingTop() — it depends on how
+  // many meta rows the header actually has.
+  page: { fontFamily: 'Helvetica', fontSize: 10, color: '#1a1a1a', ...PDF_PAGE_PADDING },
   fixedHeader: { position: 'absolute', top: 40, left: 44, right: 44 },
   h1: { fontSize: 18, fontFamily: 'Helvetica-Bold' },
-  metaLine: { marginTop: 5, fontSize: 9.5, color: '#6b7280' },
-  summaryLine: { marginTop: 5, fontSize: 9.5, color: '#374151' },
-  generatedLine: { marginTop: 8, fontSize: 7.5, color: '#9ca3af' },
-  pageNumber: { position: 'absolute', top: 40, right: 44, fontSize: 8, color: '#9ca3af' },
+  // Top-right on every page: a door report gets printed and passed around, and
+  // "how old is this copy?" is the first thing anyone needs to know.
+  generatedLine: { position: 'absolute', top: 40, right: 44, fontSize: 7.5, color: '#9ca3af' },
+  // Bottom-right, clear of the letterhead (26pt offset plus its own ~51pt).
+  pageNumber: { position: 'absolute', bottom: 86, right: 44, fontSize: 8, color: '#9ca3af' },
 
   statRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
   statTile: { flex: 1, borderWidth: 1, borderColor: '#e6e6ea', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10 },
@@ -105,18 +103,19 @@ function StatTile({ label, value }: { label: string; value: string | number }) {
   )
 }
 
-function PageHeader({ data, subtitle }: { data: CheckinReportData; subtitle: string }) {
+function PageHeader({ data }: { data: CheckinReportData }) {
   return (
     <>
       <View style={s.fixedHeader} fixed>
         <PdfLogo />
         <Text style={[s.h1, { marginTop: 8 }]}>{data.eventName}</Text>
-        {data.eventDate || data.venue ? (
-          <Text style={s.metaLine}>{[data.eventDate, data.venue].filter(Boolean).join(' · ')}</Text>
-        ) : null}
-        <Text style={s.summaryLine}>{subtitle}</Text>
-        <Text style={s.generatedLine}>Generated on {data.generatedAt}</Text>
+        <EventMetaRows eventDate={data.eventDate} venue={data.venue} />
+        {/* No summary sentence: the stat tiles below already carry every one of
+            those counts, and saying them twice just costs a line. */}
       </View>
+      <Text style={s.generatedLine} fixed>
+        Generated on {data.generatedAt}
+      </Text>
       <Text style={s.pageNumber} fixed render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </>
   )
@@ -125,11 +124,6 @@ function PageHeader({ data, subtitle }: { data: CheckinReportData; subtitle: str
 export function CheckinReportPdf({ data }: { data: CheckinReportData }) {
   const pct = data.totalAttending > 0 ? Math.round((data.totalArrived / data.totalAttending) * 100) : 0
   const notArrived = data.totalAttending - data.totalArrived
-  const summary = `${data.totalArrived} of ${data.totalAttending} confirmed ${plural(
-    data.totalAttending,
-    'guest',
-    'guests',
-  )} checked in at the door`
 
   // Arrived first (in arrival order), then the not-yet-arrived — the same
   // reading order as the live tab, so the printout matches the screen.
@@ -142,8 +136,8 @@ export function CheckinReportPdf({ data }: { data: CheckinReportData }) {
 
   return (
     <Document title={`${data.eventName}: Check-in report`}>
-      <Page size="A4" style={s.page}>
-        <PageHeader data={data} subtitle={summary} />
+      <Page size="A4" style={[s.page, { paddingTop: reportPaddingTop(data) }]}>
+        <PageHeader data={data} />
 
         <View style={s.statRow}>
           <StatTile label="Confirmed" value={data.totalAttending} />

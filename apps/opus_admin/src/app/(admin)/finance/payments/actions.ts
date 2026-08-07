@@ -109,6 +109,11 @@ async function emailCustomer(args: {
   const approved = args.kind === 'approved'
   const label = PAYMENT_CATEGORY_BADGE[toCategory(args.payment.category)]
   const labelLower = label.toLowerCase()
+  // A top-up commissions no design work, and this email carries the invoice
+  // PDF — telling the couple their order is "moving into design" here would
+  // promise a delivery that approveDigitalCardPayment deliberately never
+  // schedules (it marks top-ups 'ready' on the spot).
+  const isTopup = args.payment.order_kind === 'topup'
   const subject = approved
     ? `Payment approved - ${args.payment.ref}`
     : `Payment update - ${args.payment.ref}`
@@ -116,14 +121,16 @@ async function emailCustomer(args: {
     preheader: approved
       ? `Your ${labelLower} payment ${args.payment.ref} has been approved.`
       : `We need help reconciling ${labelLower} payment ${args.payment.ref}.`,
-    eyebrow: `${label} Payment`,
+    eyebrow: isTopup ? `${label} Top-up` : `${label} Payment`,
     heading: approved ? 'Your payment is approved' : 'Payment needs review',
     referenceCode: args.payment.ref,
     sections: [
       {
         kind: 'paragraph',
         text: approved
-          ? `Finance has confirmed your Lipa Namba payment. Your ${labelLower} order is now confirmed and moving into design.`
+          ? isTopup
+            ? 'Finance has confirmed your Lipa Namba payment. Your extra digital cards have been added to your event and are ready to send now. They use the design you already approved, so there is nothing new to deliver.'
+            : `Finance has confirmed your Lipa Namba payment. Your ${labelLower} order is now confirmed and moving into design.`
           : `Finance could not approve the payment details submitted for this ${labelLower} order. Please reply with the correct payment SMS/reference or contact OpusFesta support.`,
       },
       {

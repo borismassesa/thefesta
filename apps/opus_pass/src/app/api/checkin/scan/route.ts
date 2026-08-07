@@ -248,11 +248,11 @@ export async function POST(request: Request) {
     identifierType = 'roster_pick'
   }
 
-  // The invitation must belong to THIS event and still be an active
-  // "attending" RSVP. This is what stops a pass for another event/couple
-  // validating at this door, and is also how revocation works: a guest the
-  // couple later moved off "attending" is refused even though their token is
-  // still cryptographically valid — no separate revocation table needed.
+  // The invitation must belong to THIS event. That is what stops a pass for
+  // another event/couple validating at this door.
+  //
+  // It no longer has to be an "attending" RSVP. Being invited is enough, and
+  // the RSVP status is not read here at all — see the refusal removed below.
   const { data: invitation, error: invitationError } = await supabase
     .from('guest_invitations')
     .select('id, event_id, guest_contact_id, party_size, rsvp_status')
@@ -279,9 +279,16 @@ export async function POST(request: Request) {
   if (!invitation) {
     return NextResponse.json({ status: 'invalid', message: 'This pass is not for this event' })
   }
-  if (invitation.rsvp_status !== 'attending') {
-    return NextResponse.json({ status: 'invalid', message: 'This guest is no longer marked as attending' })
-  }
+  // No RSVP check here on purpose. It used to refuse anyone not marked
+  // 'attending', which turned away the guests who were handed a pass by hand
+  // because WhatsApp would not deliver, and everyone who simply never replied.
+  // checkin_admit_guest() now decides admission on its own, and the allowance
+  // bound inside it is what keeps the headcount honest.
+  //
+  // TRADE-OFF, deliberate: moving a guest off 'attending' was also how a pass
+  // got revoked, and it no longer does that. Revoking a specific guest needs
+  // its own mechanism; until then, a guest the couple removed from the RSVP
+  // tracker can still be admitted.
 
   const { data: guest } = await supabase
     .from('guest_contacts')

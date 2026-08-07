@@ -4,14 +4,25 @@
     {
       "name": "studio",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev", "--port", "3000"],
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "--port",
+        "3000"
+      ],
       "port": 3000,
       "cwd": "apps/studio"
     },
     {
       "name": "mobile",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["expo", "start", "--web", "--port", "8092"],
+      "runtimeArgs": [
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8092"
+      ],
       "port": 8092,
       "autoPort": true,
       "cwd": "apps/of_mobile"
@@ -19,14 +30,22 @@
     {
       "name": "website",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev", "--port", "3006"],
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "--port",
+        "3006"
+      ],
       "port": 3006,
       "cwd": "apps/opus_website"
     },
     {
       "name": "opus_admin",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev"],
+      "runtimeArgs": [
+        "next",
+        "dev"
+      ],
       "port": 3010,
       "autoPort": true,
       "cwd": "apps/opus_admin"
@@ -34,15 +53,21 @@
     {
       "name": "vendors_portal",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev"],
+      "runtimeArgs": [
+        "next",
+        "dev"
+      ],
       "port": 3003,
       "autoPort": true,
       "cwd": "apps/vendors_portal"
     },
     {
       "name": "opus_pass",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev"],
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "OPUS_PASS_DIST_DIR=.next-dev npx next dev --port 3008"
+      ],
       "port": 3008,
       "autoPort": true,
       "cwd": "apps/opus_pass"
@@ -50,45 +75,81 @@
     {
       "name": "vendors_portal_worktree",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev", "--port", "3021"],
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "--port",
+        "3021"
+      ],
       "port": 3021,
       "cwd": ".worktrees/of-multicat/apps/vendors_portal"
     },
     {
       "name": "opus_pass_prod",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "start", "--port", "3019"],
+      "runtimeArgs": [
+        "next",
+        "start",
+        "--port",
+        "3019"
+      ],
       "port": 3019,
       "cwd": "apps/opus_pass",
-      "env": { "OPUS_PASS_DIST_DIR": ".next-prodtest" }
+      "env": {
+        "OPUS_PASS_DIST_DIR": ".next-prodtest"
+      }
     },
     {
       "name": "opus_pass_preview",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev", "--port", "3018"],
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "--port",
+        "3018"
+      ],
       "port": 3018,
       "autoPort": true,
       "cwd": "apps/opus_pass",
-      "env": { "OPUS_PASS_DIST_DIR": ".next-preview" }
+      "env": {
+        "OPUS_PASS_DIST_DIR": ".next-preview"
+      }
     },
     {
       "name": "opus_scanner",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["next", "dev", "--port", "3111"],
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "--port",
+        "3111"
+      ],
       "port": 3111,
       "cwd": "apps/opus_scanner"
     },
     {
       "name": "opus_scanner_mobile",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["expo", "start", "--web", "--port", "8090"],
+      "runtimeArgs": [
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8090"
+      ],
       "port": 8090,
       "cwd": "apps/opus_scanner_mobile"
     },
     {
       "name": "opus_pass_mobile",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["expo", "start", "--web", "--port", "8093"],
+      "runtimeArgs": [
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8093"
+      ],
       "port": 8093,
       "autoPort": true,
       "cwd": "apps/opus_pass_mobile"
