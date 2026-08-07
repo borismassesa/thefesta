@@ -1262,6 +1262,8 @@ export interface DashboardSendStrings {
   row_recover_menu: string
   row_send_manually: string
   row_download_card: string
+  row_download_pass: string
+  row_card_downloaded: string // {name}
   row_copy_message: string
   row_send_sms: string
   row_message_copied: string
@@ -2490,6 +2492,8 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     row_recover_menu: 'Recover',
     row_send_manually: 'Send manually via WhatsApp',
     row_download_card: 'Download card',
+    row_download_pass: 'Download entrance pass',
+    row_card_downloaded: "Saved {name}'s card",
     row_copy_message: 'Copy message',
     row_send_sms: 'Send SMS',
     row_message_copied: 'Message copied',
