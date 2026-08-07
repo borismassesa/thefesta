@@ -4,6 +4,7 @@ import { getDashboardUser, requireDashboardUser } from './auth'
 import type { CardInviteFields } from './sms-invite'
 import { deriveAssetToken } from '@/lib/cards/asset-tokens'
 import { prepareGuestCardAsset } from '@/lib/cards/prepare-guest-asset'
+import { generateEntryPassQrDataUrl } from '@/lib/checkin/qr'
 
 /** Must match the variant the send pipeline prepares, or the page would render
  *  a second copy of every card under a different token. */
@@ -897,6 +898,24 @@ export interface PublicRsvpData {
   cardUrlByEvent: Record<string, string>
   /** Somebody to ring, per event, from the card's own contact fields. */
   contactsByEvent: Record<string, string[]>
+  /**
+   * The guest's entrance pass, per event — present BEFORE they RSVP.
+   *
+   * The pass is the product, not a reward for replying: a guest who never
+   * answers still turns up and still has to get through the door, and the
+   * manual WhatsApp recovery route sends only this link. So the QR is drawn
+   * whatever the RSVP status says, and `status` carries the lifecycle instead.
+   */
+  passByEvent: Record<string, {
+    passId: string | null
+    /** Seats this pass admits — "Single Entry" / "Double Entry". */
+    seats: number
+    /** Data URL. Null when the credential is revoked or cannot be issued. */
+    qrDataUrl: string | null
+    status: 'pending' | 'confirmed' | 'declined' | 'checked_in'
+  }>
+  /** The card's own event detail, per event: both venues, both times. */
+  cardFieldsByEvent: Record<string, CardInviteFields>
 }
 
 export async function getPublicRsvpData(token: string): Promise<PublicRsvpData | null> {
@@ -938,6 +957,8 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
       answers: {},
       cardUrlByEvent: {},
       contactsByEvent: {},
+      passByEvent: {},
+      cardFieldsByEvent: {},
     }
   }
 
@@ -971,6 +992,7 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
   // cross the boundary.
   const cardUrlByEvent: Record<string, string> = {}
   const contactsByEvent: Record<string, string[]> = {}
+  const cardFieldsByEvent: Record<string, CardInviteFields> = {}
   const { data: designRows } = await supabase
     .from('invitation_card_designs')
     .select('current_release_id, field_values, released_at, invitation_orders!inner(event_id)')
@@ -993,6 +1015,7 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
       .map((c) => (c ?? '').trim())
       .filter(Boolean)
     if (contacts.length) contactsByEvent[eventId] = contacts
+    if (row.field_values) cardFieldsByEvent[eventId] = row.field_values
 
     const subject = {
       designReleaseId: row.current_release_id,
@@ -1003,6 +1026,41 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     if (!prepared.ok) continue
     const token = deriveAssetToken(subject)
     if (token) cardUrlByEvent[eventId] = `${publicOrigin()}/invite-card/${token}.png`
+  }
+
+  // Drawn for every invitation, not only the confirmed ones. A guest who never
+  // replies still arrives, and the recovery route hands them nothing but this
+  // link — so the pass has to be here when they open it.
+  const passByEvent: PublicRsvpData['passByEvent'] = {}
+  for (const inv of invs) {
+    const row = inv as unknown as {
+      id: string
+      event_id: string
+      pass_id: string | null
+      party_size: number | null
+      rsvp_status: string
+      checked_in_at: string | null
+    }
+    const status: PublicRsvpData['passByEvent'][string]['status'] = row.checked_in_at
+      ? 'checked_in'
+      : row.rsvp_status === 'attending'
+        ? 'confirmed'
+        : row.rsvp_status === 'declined'
+          ? 'declined'
+          : 'pending'
+    let qrDataUrl: string | null = null
+    try {
+      qrDataUrl = await generateEntryPassQrDataUrl(guest.id, row.id)
+    } catch {
+      // A pass that cannot draw its QR still shows its ID and its status; the
+      // page degrades rather than disappearing.
+    }
+    passByEvent[row.event_id] = {
+      passId: row.pass_id ?? null,
+      seats: Math.max(1, row.party_size ?? 1),
+      qrDataUrl,
+      status,
+    }
   }
 
   const allQuestions = (questionRows ?? []).map((r) => toRsvpQuestion(r as Record<string, unknown>))
@@ -1055,6 +1113,8 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     answers,
     cardUrlByEvent,
     contactsByEvent,
+    passByEvent,
+    cardFieldsByEvent,
   }
 }
 
