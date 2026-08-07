@@ -72,8 +72,8 @@ export function AttendanceDonut({ stats }: { stats: DashboardStats }) {
           )}
         </Svg>
         <View className="absolute inset-0 items-center justify-center">
-          <Text className="font-space-grotesk-bold text-2xl text-ed-on-surface">{stats.responseRate}%</Text>
-          <Text className="font-work-sans text-[10px] uppercase tracking-wide text-ed-on-surface-variant">
+          <Text className="font-inter-bold text-screen-title text-ed-on-surface">{stats.responseRate}%</Text>
+          <Text className="font-inter text-label uppercase tracking-wide text-ed-on-surface-variant">
             answered
           </Text>
         </View>
@@ -84,9 +84,9 @@ export function AttendanceDonut({ stats }: { stats: DashboardStats }) {
           <View key={s.key} className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-2">
               <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-              <Text className="font-work-sans text-sm text-ed-on-surface-variant">{s.label}</Text>
+              <Text className="font-inter text-body-sm text-ed-on-surface-variant">{s.label}</Text>
             </View>
-            <Text className="font-work-sans-semibold text-sm text-ed-on-surface">{s.count}</Text>
+            <Text className="font-inter-semibold text-body-sm text-ed-on-surface">{s.count}</Text>
           </View>
         ))}
       </View>

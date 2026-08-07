@@ -53,14 +53,14 @@ function ProfileRow({
     >
       <Ionicons name={icon} size={20} color={destructive ? editorial.error : editorial.onSurface} />
       <Text
-        className={`ml-3 flex-1 font-work-sans text-[15px] ${
+        className={`ml-3 flex-1 font-inter text-body-sm ${
           destructive ? 'text-ed-error' : 'text-ed-on-surface'
         }`}
       >
         {label}
       </Text>
       {value ? (
-        <Text className="mr-1 font-work-sans text-sm text-ed-on-surface-variant">{value}</Text>
+        <Text className="mr-1 font-inter text-body-sm text-ed-on-surface-variant">{value}</Text>
       ) : null}
       {!destructive ? (
         <Ionicons name="chevron-forward" size={18} color={editorial.onSurfaceVariant} />
@@ -127,9 +127,9 @@ export default function ProfileScreen() {
               </View>
             )}
           </View>
-          <Text className="mt-3 font-playfair-bold text-xl text-ed-on-surface">{coupleName}</Text>
+          <Text className="mt-3 font-inter-bold text-section-title text-ed-on-surface">{coupleName}</Text>
           {weddingDate ? (
-            <Text className="mt-0.5 font-work-sans text-sm text-ed-on-surface-variant">{weddingDate}</Text>
+            <Text className="mt-0.5 font-inter text-body-sm text-ed-on-surface-variant">{weddingDate}</Text>
           ) : null}
         </View>
 

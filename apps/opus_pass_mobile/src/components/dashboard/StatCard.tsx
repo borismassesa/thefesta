@@ -15,12 +15,12 @@ export function StatCard({ label, value, hint, accent }: StatCardProps) {
         accent ? 'border-ed-outline' : 'border-ed-outline-variant'
       }`}
     >
-      <Text className="font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+      <Text className="font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
         {label}
       </Text>
-      <Text className="mt-1 font-space-grotesk-bold text-3xl text-ed-on-surface">{value}</Text>
+      <Text className="mt-1 font-inter-bold text-screen-title text-ed-on-surface">{value}</Text>
       {hint ? (
-        <Text className="mt-1 font-work-sans text-xs text-ed-on-surface-variant" numberOfLines={1}>
+        <Text className="mt-1 font-inter text-caption text-ed-on-surface-variant" numberOfLines={1}>
           {hint}
         </Text>
       ) : null}

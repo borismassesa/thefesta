@@ -142,11 +142,11 @@ export default function WebsiteShareScreen() {
       <Modal visible={qrVisible} animationType="fade" transparent onRequestClose={() => setQrVisible(false)}>
         <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: 'rgba(20,16,24,0.72)' }}>
           <View className="w-full items-center rounded-3xl bg-ed-surface p-6">
-            <Text className="font-playfair-bold text-lg text-ed-on-surface">{coupleNames}</Text>
+            <Text className="font-inter-bold text-card-title text-ed-on-surface">{coupleNames}</Text>
             <View className="mt-5 rounded-2xl bg-white p-4">
               {shareUrl ? <QRCode value={shareUrl} size={200} /> : null}
             </View>
-            <Text className="mt-5 text-center font-work-sans text-xs text-ed-on-surface-variant">
+            <Text className="mt-5 text-center font-inter text-caption text-ed-on-surface-variant">
               Scan to view the invitation and RSVP
             </Text>
             <Pressable
@@ -154,7 +154,7 @@ export default function WebsiteShareScreen() {
               className="mt-5 w-full items-center rounded-2xl py-3.5"
               style={{ backgroundColor: editorial.secondary }}
             >
-              <Text className="font-work-sans-bold text-sm text-white">Done</Text>
+              <Text className="font-inter-bold text-body-sm text-white">Done</Text>
             </Pressable>
           </View>
         </View>
@@ -179,14 +179,14 @@ function HeroOverlay({
       end={{ x: 0, y: 1 }}
       className="px-6 pb-8 pt-16"
     >
-      <Text className="text-center font-playfair-bold text-4xl text-white">{coupleNames}</Text>
+      <Text className="text-center font-playfair-bold text-display text-white">{coupleNames}</Text>
       {weddingDate ? (
-        <Text className="mt-3 text-center font-work-sans text-base text-white/90">
+        <Text className="mt-3 text-center font-inter text-body text-white/90">
           {formatLongDate(weddingDate)}
         </Text>
       ) : null}
       {venue ? (
-        <Text className="mt-1 text-center font-work-sans text-base text-white/90">{venue}</Text>
+        <Text className="mt-1 text-center font-inter text-body text-white/90">{venue}</Text>
       ) : null}
     </LinearGradient>
   );
@@ -216,7 +216,7 @@ function ShareAction({
       ) : (
         <Ionicons name={icon} size={22} color={editorial.onSurface} />
       )}
-      <Text className="font-work-sans-semibold text-sm text-ed-on-surface">{label}</Text>
+      <Text className="font-inter-semibold text-body-sm text-ed-on-surface">{label}</Text>
     </Pressable>
   );
 }

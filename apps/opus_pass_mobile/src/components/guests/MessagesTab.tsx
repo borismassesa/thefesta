@@ -103,14 +103,14 @@ export function MessagesTab() {
       <View className="mb-6 flex-row items-start gap-4 rounded-2xl bg-ed-surface-container p-4">
         <Ionicons name="chatbubbles" size={26} color={editorial.secondary} />
         <View className="flex-1">
-          <Text className="font-work-sans-bold text-[15px] text-ed-on-surface">Reach out to guests</Text>
-          <Text className="mt-1 font-work-sans text-sm leading-5 text-ed-on-surface-variant">
+          <Text className="font-inter-bold text-body-sm text-ed-on-surface">Reach out to guests</Text>
+          <Text className="mt-1 font-inter text-body-sm leading-5 text-ed-on-surface-variant">
             Easily share details and send reminders to your guests.
           </Text>
         </View>
       </View>
 
-      <Text className="mb-3 font-work-sans-bold text-[15px] text-ed-on-surface">Choose a template:</Text>
+      <Text className="mb-3 font-inter-bold text-body-sm text-ed-on-surface">Choose a template:</Text>
 
       {TEMPLATES.map((template) => {
         const audience = audienceFor(template);
@@ -122,8 +122,8 @@ export function MessagesTab() {
             className="mb-3 flex-row items-center rounded-2xl border border-ed-outline-variant bg-ed-surface p-4"
           >
             <View className="flex-1">
-              <Text className="font-work-sans-bold text-[15px] text-ed-on-surface">{template.label}</Text>
-              <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
+              <Text className="font-inter-bold text-body-sm text-ed-on-surface">{template.label}</Text>
+              <Text className="mt-0.5 font-inter text-caption text-ed-on-surface-variant">
                 {audience.length} guest{audience.length === 1 ? '' : 's'}
               </Text>
             </View>
@@ -136,7 +136,7 @@ export function MessagesTab() {
         );
       })}
 
-      <Text className="mt-2 font-work-sans text-xs leading-5 text-ed-on-surface-variant">
+      <Text className="mt-2 font-inter text-caption leading-5 text-ed-on-surface-variant">
         Messages open in WhatsApp when a template targets a single guest with a number on file.
         Otherwise the text is handed to your share sheet so you can pick where to send it.
       </Text>

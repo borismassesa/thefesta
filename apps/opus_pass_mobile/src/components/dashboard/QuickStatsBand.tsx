@@ -17,9 +17,9 @@ function StatPill({ stat }: { stat: QuickStat }) {
     <View className="flex-1 items-center gap-1 rounded-2xl border border-ed-outline-variant bg-ed-surface px-2 py-3">
       <View className="flex-row items-center gap-1.5">
         <Ionicons name={stat.icon} size={16} color={stat.iconColor} />
-        <Text className="font-work-sans-bold text-base text-ed-on-surface">{stat.value}</Text>
+        <Text className="font-inter-bold text-body text-ed-on-surface">{stat.value}</Text>
       </View>
-      <Text className="font-work-sans text-xs text-ed-on-surface-variant">{stat.label}</Text>
+      <Text className="font-inter text-caption text-ed-on-surface-variant">{stat.label}</Text>
     </View>
   );
 }

@@ -127,7 +127,7 @@ export function SearchDiscoverGrid({ onNavigate }: SearchDiscoverGridProps) {
                   style={{ backgroundColor: 'rgba(0,0,0,0.28)' }}
                 />
                 <Text
-                  className="font-work-sans-semibold text-base text-white"
+                  className="font-inter-semibold text-body text-white"
                   style={{
                     textShadowColor: 'rgba(0,0,0,0.4)',
                     textShadowOffset: { width: 0, height: 1 },
@@ -158,10 +158,10 @@ export function SearchDiscoverGrid({ onNavigate }: SearchDiscoverGridProps) {
           className="mt-6 flex-row items-center justify-between rounded-2xl bg-ed-surface-container-low p-5"
         >
           <View className="flex-1 pr-4">
-            <Text className="font-work-sans-semibold text-base text-ed-on-surface">
+            <Text className="font-inter-semibold text-body text-ed-on-surface">
               Have wedding planning questions?
             </Text>
-            <Text className="mt-1 font-work-sans text-sm text-ed-on-surface-variant">
+            <Text className="mt-1 font-inter text-body-sm text-ed-on-surface-variant">
               Get help with your to-dos.
             </Text>
           </View>

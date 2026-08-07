@@ -30,7 +30,7 @@ export function InquiryStatusBadge({
 
   return (
     <View className={`rounded-full px-2.5 py-1 ${style.bg}`}>
-      <Text className={`font-work-sans-bold text-[10px] ${style.text}`}>{style.label}</Text>
+      <Text className={`font-inter-bold text-label ${style.text}`}>{style.label}</Text>
     </View>
   );
 }

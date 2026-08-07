@@ -25,17 +25,17 @@ function MissingConfigScreen({ missingVars }: { missingVars: string[] }) {
   return (
     <View className="flex-1 items-center justify-center bg-white px-6">
       <View className="w-full max-w-md rounded-2xl border border-red-200 bg-red-50 p-5">
-        <Text className="font-work-sans-bold text-lg text-red-900">Missing environment configuration</Text>
-        <Text className="mt-2 font-work-sans text-sm leading-5 text-red-800">
+        <Text className="font-inter-bold text-card-title text-red-900">Missing environment configuration</Text>
+        <Text className="mt-2 font-inter text-body-sm leading-5 text-red-800">
           OpusPass is configured to use Clerk + Supabase, but required environment variables are missing.
         </Text>
-        <Text className="mt-3 font-work-sans-medium text-sm text-red-900">Missing keys:</Text>
+        <Text className="mt-3 font-inter-medium text-body-sm text-red-900">Missing keys:</Text>
         {missingVars.map((key) => (
-          <Text key={key} className="mt-1 font-work-sans text-sm text-red-800">
+          <Text key={key} className="mt-1 font-inter text-body-sm text-red-800">
             - {key}
           </Text>
         ))}
-        <Text className="mt-4 font-work-sans text-xs leading-5 text-red-700">
+        <Text className="mt-4 font-inter text-caption leading-5 text-red-700">
           Add them to apps/opus_pass_mobile/.env and restart Expo.
         </Text>
       </View>
@@ -56,17 +56,16 @@ export default function RootLayout() {
 function RootLayoutInner() {
   const { colors } = useTheme();
   const [fontStartupTimedOut, setFontStartupTimedOut] = useState(false);
+  // Five files, not ten. Inter carries the whole interface at four weights;
+  // Playfair Bold is kept for celebratory display type only. Each weight is a
+  // separate family name because Android picks a face by file rather than by
+  // fontWeight, and a synthesised bold on iOS would not match it.
   const [fontsLoaded, fontError] = useFonts({
-    'PlayfairDisplay-SemiBold': require('../assets/fonts/PlayfairDisplay-SemiBold.ttf'),
+    'Inter-Regular': require('../assets/fonts/Inter-Regular.ttf'),
+    'Inter-Medium': require('../assets/fonts/Inter-Medium.ttf'),
+    'Inter-SemiBold': require('../assets/fonts/Inter-SemiBold.ttf'),
+    'Inter-Bold': require('../assets/fonts/Inter-Bold.ttf'),
     'PlayfairDisplay-Bold': require('../assets/fonts/PlayfairDisplay-Bold.ttf'),
-    'SpaceGrotesk-Regular': require('../assets/fonts/SpaceGrotesk-Regular.ttf'),
-    'SpaceGrotesk-Bold': require('../assets/fonts/SpaceGrotesk-Bold.ttf'),
-    'WorkSans-Regular': require('../assets/fonts/WorkSans-Regular.ttf'),
-    'WorkSans-Medium': require('../assets/fonts/WorkSans-Medium.ttf'),
-    'WorkSans-SemiBold': require('../assets/fonts/WorkSans-SemiBold.ttf'),
-    'WorkSans-Bold': require('../assets/fonts/WorkSans-Bold.ttf'),
-    'DancingScript-Regular': require('../assets/fonts/DancingScript-Regular.ttf'),
-    'DancingScript-Bold': require('../assets/fonts/DancingScript-Bold.ttf'),
   });
   const canRenderApp = fontsLoaded || Boolean(fontError) || fontStartupTimedOut;
 
@@ -91,7 +90,7 @@ function RootLayoutInner() {
       <View className="flex-1 items-center justify-center bg-ed-bg">
         <ThemedStatusBar />
         <ActivityIndicator size="small" color={colors.primary} />
-        <Text className="mt-3 text-sm text-ed-on-surface-variant">Preparing app…</Text>
+        <Text className="mt-3 text-body-sm text-ed-on-surface-variant">Preparing app…</Text>
       </View>
     );
   }

@@ -105,7 +105,7 @@ export function PartySizeSheet({
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View className="flex-1 px-5 pt-4">
-            <Text className="font-playfair-bold text-3xl text-ed-on-surface">
+            <Text className="font-inter-bold text-screen-title text-ed-on-surface">
               How many arrived?
             </Text>
 
@@ -117,7 +117,7 @@ export function PartySizeSheet({
                 style={{ backgroundColor: DEEP_GREEN }}
               >
                 <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                <Text className="font-work-sans-semibold text-sm text-white">
+                <Text className="font-inter-semibold text-body-sm text-white">
                   Pass accepted
                 </Text>
               </View>
@@ -125,12 +125,12 @@ export function PartySizeSheet({
                 <GuestAvatar fullName={guestName} size={48} colorKey={groupTag} />
                 <View className="min-w-0 flex-1">
                   <Text
-                    className="font-work-sans-bold text-[15px] text-ed-on-surface"
+                    className="font-inter-bold text-body-sm text-ed-on-surface"
                     numberOfLines={2}
                   >
                     {guestName}
                   </Text>
-                  <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
+                  <Text className="mt-0.5 font-inter text-caption text-ed-on-surface-variant">
                     {groupTag ? `${groupTag} · ` : ''}Invited {partySize}
                   </Text>
                 </View>
@@ -153,11 +153,11 @@ export function PartySizeSheet({
                 editable={!busy}
                 placeholder="Enter count arrived"
                 placeholderTextColor={editorial.onSurfaceVariant}
-                className="font-work-sans text-base text-ed-on-surface"
+                className="font-inter text-body text-ed-on-surface"
               />
             </Pressable>
             <Text
-              className="mt-2 font-work-sans text-xs"
+              className="mt-2 font-inter text-caption"
               style={{ color: valid ? editorial.onSurfaceVariant : editorial.error }}
             >
               {valid
@@ -178,7 +178,7 @@ export function PartySizeSheet({
               {busy ? (
                 <ActivityIndicator color={editorial.onPrimary} />
               ) : (
-                <Text className="font-work-sans-bold text-base text-ed-on-primary">
+                <Text className="font-inter-bold text-body text-ed-on-primary">
                   Done
                 </Text>
               )}

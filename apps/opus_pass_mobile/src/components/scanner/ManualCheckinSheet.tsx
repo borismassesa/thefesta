@@ -347,9 +347,9 @@ export function ManualCheckinSheet({
       <SafeAreaView className="flex-1 bg-ed-bg">
         <View className="flex-row items-center justify-between border-b border-ed-outline-variant px-5 py-4">
           <Pressable onPress={onClose} accessibilityRole="button" hitSlop={8}>
-            <Text className="font-work-sans text-[15px] text-ed-on-surface">Cancel</Text>
+            <Text className="font-inter text-body-sm text-ed-on-surface">Cancel</Text>
           </Pressable>
-          <Text className="font-work-sans-bold text-[17px] text-ed-on-surface">
+          <Text className="font-inter-bold text-body text-ed-on-surface">
             {mode === 'code' ? 'Enter Pass ID or ticket code' : 'Find guest by name'}
           </Text>
           {/* Mode toggle. Lives here rather than as a line of copy under the
@@ -382,7 +382,7 @@ export function ManualCheckinSheet({
         >
           {mode === 'code' ? (
             <View className="px-5 pt-8">
-              <Text className="text-center font-work-sans text-sm leading-5 text-ed-on-surface-variant">
+              <Text className="text-center font-inter text-body-sm leading-5 text-ed-on-surface-variant">
                 Type the Pass ID or ticket code printed under the QR on the
                 guest&apos;s ticket. A Pass ID shows the guest for you to check
                 before anyone is admitted.
@@ -412,7 +412,7 @@ export function ManualCheckinSheet({
                             : editorial.outlineVariant,
                       }}
                     >
-                      <Text className="font-work-sans-bold text-2xl text-ed-on-surface">
+                      <Text className="font-inter-bold text-screen-title text-ed-on-surface">
                         {char ?? ''}
                       </Text>
                     </View>
@@ -446,7 +446,7 @@ export function ManualCheckinSheet({
               {codeError ? (
                 <View className="mt-4 flex-row items-center justify-center gap-1.5">
                   <Ionicons name="alert-circle" size={15} color={editorial.error} />
-                  <Text className="font-work-sans text-sm text-ed-error">{codeError}</Text>
+                  <Text className="font-inter text-body-sm text-ed-error">{codeError}</Text>
                 </View>
               ) : null}
 
@@ -472,7 +472,7 @@ export function ManualCheckinSheet({
                     color="#1A1A1A"
                   />
                   <Text
-                    className="font-work-sans-bold text-sm uppercase tracking-[1px]"
+                    className="font-inter-bold text-body-sm uppercase tracking-[1px]"
                     style={{ color: '#1A1A1A' }}
                   >
                     {codeError ? 'Try again' : 'Check in'}
@@ -495,7 +495,7 @@ export function ManualCheckinSheet({
                     autoCorrect={false}
                     autoCapitalize="words"
                     returnKeyType="search"
-                    className="ml-2 flex-1 font-work-sans text-base text-ed-on-surface"
+                    className="ml-2 flex-1 font-inter text-body text-ed-on-surface"
                   />
                   {query ? (
                     <Pressable onPress={() => setQuery('')} hitSlop={10}>
@@ -517,7 +517,7 @@ export function ManualCheckinSheet({
               ) : isError ? (
                 <View className="mt-16 items-center px-8">
                   <Ionicons name="cloud-offline-outline" size={30} color={editorial.error} />
-                  <Text className="mt-3 text-center font-work-sans text-sm text-ed-on-surface-variant">
+                  <Text className="mt-3 text-center font-inter text-body-sm text-ed-on-surface-variant">
                     Couldn&apos;t load the guest list. You can still check a guest
                     in with the code from their ticket.
                   </Text>
@@ -526,7 +526,7 @@ export function ManualCheckinSheet({
                     onPress={onRetry}
                     className="mt-4 rounded-full border border-ed-outline-variant px-5 py-2.5"
                   >
-                    <Text className="font-work-sans-bold text-[13px] text-ed-on-surface">
+                    <Text className="font-inter-bold text-caption text-ed-on-surface">
                       Try again
                     </Text>
                   </Pressable>
@@ -545,7 +545,7 @@ export function ManualCheckinSheet({
                         size={30}
                         color={editorial.onSurfaceVariant}
                       />
-                      <Text className="mt-3 text-center font-work-sans text-sm text-ed-on-surface-variant">
+                      <Text className="mt-3 text-center font-inter text-body-sm text-ed-on-surface-variant">
                         {query
                           ? `No guest matching “${query.trim()}”.`
                           : 'No guests on this list yet.'}
@@ -573,7 +573,7 @@ export function ManualCheckinSheet({
                         <View className="min-w-0 flex-1">
                           <View className="flex-row items-center gap-2">
                             <Text
-                              className="shrink font-work-sans-bold text-[15px] text-ed-on-surface"
+                              className="shrink font-inter-bold text-body-sm text-ed-on-surface"
                               numberOfLines={1}
                             >
                               {item.fullName}
@@ -584,7 +584,7 @@ export function ManualCheckinSheet({
                                 style={{ backgroundColor: LIVE_GREEN }}
                               >
                                 <Text
-                                  className="font-work-sans-bold text-[9px] uppercase"
+                                  className="font-inter-bold text-label uppercase"
                                   style={{ color: '#1A1A1A' }}
                                 >
                                   VIP
@@ -599,13 +599,13 @@ export function ManualCheckinSheet({
                           {item.entryCode || arrived ? (
                             <View className="mt-1 flex-row items-center gap-2">
                               {item.entryCode ? (
-                                <Text className="font-work-sans-bold text-[11px] tracking-[1px] text-ed-on-surface-variant">
+                                <Text className="font-inter-bold text-label tracking-[1px] text-ed-on-surface-variant">
                                   {item.entryCode}
                                 </Text>
                               ) : null}
                               {arrived ? (
                                 <Text
-                                  className="shrink font-work-sans text-xs text-ed-on-surface-variant"
+                                  className="shrink font-inter text-caption text-ed-on-surface-variant"
                                   numberOfLines={1}
                                 >
                                   Already in, {item.checkedInPartySize ?? item.partySize} of{' '}

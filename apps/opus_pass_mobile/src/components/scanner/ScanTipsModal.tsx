@@ -105,7 +105,7 @@ export function ScanTipsModal({ visible, onClose }: ScanTipsModalProps) {
             <ScanReticle />
           </View>
 
-          <Text className="font-playfair-bold text-[30px] leading-9 text-ed-on-surface">
+          <Text className="font-inter-bold text-screen-title leading-9 text-ed-on-surface">
             Scan the pass to check a guest in
           </Text>
 
@@ -121,7 +121,7 @@ export function ScanTipsModal({ visible, onClose }: ScanTipsModalProps) {
                 >
                   <Ionicons name={tip.icon} size={20} color={editorial.onSurface} />
                 </View>
-                <Text className="mt-2 flex-1 font-work-sans text-[15px] leading-6 text-ed-on-surface">
+                <Text className="mt-2 flex-1 font-inter text-body-sm leading-6 text-ed-on-surface">
                   {tip.text}
                 </Text>
               </View>
@@ -140,7 +140,7 @@ export function ScanTipsModal({ visible, onClose }: ScanTipsModalProps) {
             style={{ backgroundColor: ACCENT }}
           >
             <Text
-              className="font-work-sans-bold text-sm uppercase tracking-[1px]"
+              className="font-inter-bold text-body-sm uppercase tracking-[1px]"
               style={{ color: ON_ACCENT }}
             >
               Got it
@@ -165,7 +165,7 @@ export function ScanTipsBanner({ onOpen, onDismiss }: ScanTipsBannerProps) {
       style={{ backgroundColor: 'rgba(255,255,255,0.16)' }}
     >
       <Ionicons name="bulb-outline" size={19} color="#FFFFFF" />
-      <Text className="flex-1 font-work-sans text-[13px] text-white" numberOfLines={1}>
+      <Text className="flex-1 font-inter text-caption text-white" numberOfLines={1}>
         Tips for scanning passes
       </Text>
       <Pressable
@@ -175,7 +175,7 @@ export function ScanTipsBanner({ onOpen, onDismiss }: ScanTipsBannerProps) {
         className="rounded-full px-3 py-1"
         style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}
       >
-        <Text className="font-work-sans-semibold text-[12px] text-white">See tips</Text>
+        <Text className="font-inter-semibold text-caption text-white">See tips</Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"

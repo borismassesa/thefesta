@@ -38,7 +38,7 @@ export function Stepper({
         onPress={onDecrement}
       />
       <View className={compact ? 'min-w-10 px-1' : 'min-w-12 px-1.5'}>
-        <Text className="text-center font-work-sans-bold text-[15px] text-ed-on-surface">
+        <Text className="text-center font-inter-bold text-body-sm text-ed-on-surface">
           {value}
         </Text>
       </View>

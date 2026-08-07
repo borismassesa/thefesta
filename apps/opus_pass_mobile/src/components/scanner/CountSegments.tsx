@@ -103,12 +103,12 @@ export function CountSegments({
           >
             <View className="flex-row items-center justify-center gap-1.5">
               <Ionicons name={segment.icon} size={15} color={color} />
-              <Text className="font-work-sans-semibold text-[15px]" style={{ color }}>
+              <Text className="font-inter-semibold text-body-sm" style={{ color }}>
                 {segment.count}
               </Text>
             </View>
             <Text
-              className="font-work-sans-medium text-[10px] uppercase tracking-[0.5px]"
+              className="font-inter-medium text-label uppercase tracking-[0.5px]"
               style={{ color: idleColor, marginTop: 1 }}
             >
               {segment.caption}
@@ -164,7 +164,7 @@ export function GroupChip({ activeTag, onPress, tone = 'surface' }: GroupChipPro
       <Ionicons name="people-circle-outline" size={19} color={color} />
       {activeTag ? (
         <Text
-          className="shrink font-work-sans-semibold text-[13px]"
+          className="shrink font-inter-semibold text-caption"
           style={{ color }}
           numberOfLines={1}
         >

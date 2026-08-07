@@ -30,7 +30,7 @@ export function PartyBadge({ partySize }: { partySize: number }) {
       className="shrink-0 rounded-lg px-2.5 py-1"
       style={{ backgroundColor: colors.bg }}
     >
-      <Text className="font-work-sans-semibold text-[13px]" style={{ color: colors.text }}>
+      <Text className="font-inter-semibold text-caption" style={{ color: colors.text }}>
         {partySizeLabel(partySize)}
       </Text>
     </View>

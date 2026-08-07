@@ -1,4 +1,27 @@
 import type { Config } from 'tailwindcss';
+import {
+  FONT_FAMILY,
+  RADIUS,
+  SPACING,
+  TYPE_SCALE,
+} from './src/theme/designTokens';
+
+/** The type scale as Tailwind fontSize entries, so `text-body` carries its
+ *  line height and tracking with it and cannot be half-applied. */
+const fontSize = Object.fromEntries(
+  Object.values(TYPE_SCALE).map((step) => [
+    step.utility,
+    [`${step.size}px`, { lineHeight: `${step.lineHeight}px`, letterSpacing: `${step.letterSpacing}px` }],
+  ])
+) as Record<string, [string, { lineHeight: string; letterSpacing: string }]>;
+
+const spacing = Object.fromEntries(
+  Object.entries(SPACING).map(([name, value]) => [name, `${value}px`])
+);
+
+const borderRadius = Object.fromEntries(
+  Object.entries(RADIUS).map(([name, value]) => [name, value >= 999 ? '9999px' : `${value}px`])
+);
 
 const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './src/**/*.{ts,tsx}'],
@@ -66,19 +89,21 @@ const config: Config = {
           'header-tint': 'var(--ed-header-tint)',
         },
       },
+      // Inter is the interface;
+      // Playfair Bold is celebratory display type only and must not label a
+      // control. A weight per family name because Android resolves a face by
+      // file rather than by fontWeight.
       fontFamily: {
-        playfair: ['PlayfairDisplay-SemiBold'],
-        'playfair-bold': ['PlayfairDisplay-Bold'],
-        'space-grotesk': ['SpaceGrotesk-Regular'],
-        'space-grotesk-bold': ['SpaceGrotesk-Bold'],
-        'work-sans': ['WorkSans-Regular'],
-        'work-sans-medium': ['WorkSans-Medium'],
-        'work-sans-semibold': ['WorkSans-SemiBold'],
-        'work-sans-bold': ['WorkSans-Bold'],
-        'dancing-script': ['DancingScript-Regular'],
-        'dancing-script-bold': ['DancingScript-Bold'],
+        inter: [FONT_FAMILY.regular],
+        'inter-medium': [FONT_FAMILY.medium],
+        'inter-semibold': [FONT_FAMILY.semibold],
+        'inter-bold': [FONT_FAMILY.bold],
+        'playfair-bold': [FONT_FAMILY.display],
       },
+      fontSize,
+      spacing,
       borderRadius: {
+        ...borderRadius,
         card: '24px',
         button: '9999px',
         pill: '9999px',

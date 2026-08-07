@@ -23,7 +23,7 @@ export default function VendorCategoryScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={editorial.onSurface} />
         </Pressable>
-        <Text className="flex-1 font-playfair-bold text-xl text-ed-on-surface">{title}</Text>
+        <Text className="flex-1 font-inter-bold text-section-title text-ed-on-surface">{title}</Text>
       </View>
 
       <ScrollView className="flex-1" contentContainerClassName="items-center gap-4 px-5 pb-32 pt-2">

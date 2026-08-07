@@ -27,10 +27,10 @@ export function VendorListItem({ row }: { row: SavedVendorRow }) {
       <Avatar name={vendor.business_name} uri={vendor.cover_image ?? vendor.logo} />
 
       <View className="flex-1 gap-0.5">
-        <Text numberOfLines={1} className="font-work-sans-bold text-sm text-ed-on-surface">
+        <Text numberOfLines={1} className="font-inter-bold text-body-sm text-ed-on-surface">
           {vendor.business_name}
         </Text>
-        <Text numberOfLines={1} className="font-work-sans text-xs text-ed-on-surface-variant">
+        <Text numberOfLines={1} className="font-inter text-caption text-ed-on-surface-variant">
           {[vendor.category, location].filter(Boolean).join(' · ')}
         </Text>
         {reviewCount > 0 ? <StarRating rating={rating} count={reviewCount} /> : null}
@@ -38,7 +38,7 @@ export function VendorListItem({ row }: { row: SavedVendorRow }) {
 
       {row.status === 'booked' ? (
         <View className="rounded-full bg-[#dcfce7] px-2 py-1">
-          <Text className="font-work-sans-bold text-[10px] text-[#16a34a]">Booked</Text>
+          <Text className="font-inter-bold text-label text-[#16a34a]">Booked</Text>
         </View>
       ) : null}
 

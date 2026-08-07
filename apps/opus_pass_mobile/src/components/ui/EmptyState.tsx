@@ -13,7 +13,7 @@ export function EmptyState({
   return (
     <View className="flex-1 items-center justify-center py-24">
       <Ionicons name={icon} size={32} color={editorial.onSurfaceVariant} />
-      <Text className="mt-3 px-10 text-center font-work-sans text-sm text-ed-on-surface-variant">
+      <Text className="mt-3 px-10 text-center font-inter text-body-sm text-ed-on-surface-variant">
         {label}
       </Text>
     </View>

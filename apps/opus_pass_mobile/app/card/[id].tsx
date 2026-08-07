@@ -93,7 +93,7 @@ function TierBadgeIconGlyph({
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
     <Text
-      className="font-work-sans-bold text-[11px] uppercase tracking-[2px]"
+      className="font-inter-bold text-label uppercase tracking-[2px]"
       style={{ color: EYEBROW_GRAY }}
     >
       {children}
@@ -127,13 +127,13 @@ function RelatedCard({
         />
       </View>
       <Text
-        className="mt-2.5 font-work-sans-bold text-sm leading-snug text-ed-on-surface"
+        className="mt-2.5 font-inter-bold text-body-sm leading-snug text-ed-on-surface"
         numberOfLines={2}
       >
         {product.name}
       </Text>
       {fromGuestPrice > 0 ? (
-        <Text className="mt-1 font-work-sans text-[13px] text-ed-on-surface-variant">
+        <Text className="mt-1 font-inter text-caption text-ed-on-surface-variant">
           {fromLabel} {formatTzs(fromGuestPrice)} {perGuestLabel}
         </Text>
       ) : null}
@@ -168,15 +168,15 @@ function TierCard({
           borderColor: active ? pill.activeBorder : pill.idleBorder,
         }}
       >
-        <Text className="font-work-sans-bold text-xs text-ed-on-surface">{tier.name}</Text>
-        <Text className="mt-0.5 font-work-sans-bold text-sm text-ed-on-surface">
+        <Text className="font-inter-bold text-caption text-ed-on-surface">{tier.name}</Text>
+        <Text className="mt-0.5 font-inter-bold text-body-sm text-ed-on-surface">
           {formatTzs(tier.price_per_guest)}{' '}
-          <Text className="font-work-sans-medium text-[10px] text-ed-on-surface-variant">
+          <Text className="font-inter-medium text-label text-ed-on-surface-variant">
             {perGuestLabel}
           </Text>
         </Text>
         <Text
-          className="mt-1.5 font-work-sans text-[10px] leading-tight text-ed-on-surface-variant"
+          className="mt-1.5 font-inter text-label leading-tight text-ed-on-surface-variant"
           numberOfLines={3}
         >
           {tier.best_for}
@@ -196,7 +196,7 @@ function TierCard({
               <TierBadgeIconGlyph icon={tier.badge_icon} color={badgeTone.text} size={11} />
             ) : null}
             <Text
-              className="font-work-sans-bold text-[9px] uppercase tracking-wide"
+              className="font-inter-bold text-label uppercase tracking-wide"
               style={{ color: badgeTone.text }}
             >
               {tier.badge_label}
@@ -229,19 +229,19 @@ function IncludedAddOnCard({
         </View>
         <View className="flex-1">
           <View className="flex-row flex-wrap items-center gap-2">
-            <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+            <Text className="font-inter-bold text-body-sm text-ed-on-surface">
               {addon.includedTitle || addon.title}
             </Text>
             <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: '#9FE870' }}>
               <Text
-                className="font-work-sans-bold text-[10px] uppercase tracking-wide"
+                className="font-inter-bold text-label uppercase tracking-wide"
                 style={{ color: '#1A1A1A' }}
               >
                 {includedPillLabel || 'Included'}
               </Text>
             </View>
           </View>
-          <Text className="mt-1 font-work-sans text-xs leading-4 text-ed-on-surface-variant">
+          <Text className="mt-1 font-inter text-caption leading-4 text-ed-on-surface-variant">
             {addon.includedDescription || addon.description}
           </Text>
         </View>
@@ -301,12 +301,12 @@ function AddOnCard({
           ) : null}
         </View>
         <View className="flex-1">
-          <Text className="font-work-sans-bold text-sm text-ed-on-surface">{addon.title}</Text>
-          <Text className="mt-0.5 font-work-sans text-xs leading-4 text-ed-on-surface-variant">
+          <Text className="font-inter-bold text-body-sm text-ed-on-surface">{addon.title}</Text>
+          <Text className="mt-0.5 font-inter text-caption leading-4 text-ed-on-surface-variant">
             {addon.description}
           </Text>
           {priceLabel ? (
-            <Text className="mt-1.5 font-work-sans-bold text-xs text-ed-on-surface">
+            <Text className="mt-1.5 font-inter-bold text-caption text-ed-on-surface">
               {priceLabel}
             </Text>
           ) : null}
@@ -316,10 +316,10 @@ function AddOnCard({
       {selected && addon.pricingMode === 'per_unit' ? (
         <View className="flex-row items-center justify-between gap-3 border-t border-ed-outline-variant px-4 pb-4 pt-4">
           <View className="min-w-0 flex-1">
-            <Text className="font-work-sans-bold text-xs text-ed-on-surface">
+            <Text className="font-inter-bold text-caption text-ed-on-surface">
               {howManyLabel}
             </Text>
-            <Text className="mt-0.5 font-work-sans text-[11px] text-ed-on-surface-variant">
+            <Text className="mt-0.5 font-inter text-label text-ed-on-surface-variant">
               {formatTzs(addon.unitPrice)} {addon.unitLabel}
             </Text>
           </View>
@@ -334,7 +334,7 @@ function AddOnCard({
 
       {selected && addon.pricingMode === 'quote' ? (
         <View className="flex-row items-center justify-between gap-3 border-t border-ed-outline-variant px-4 pb-4 pt-4">
-          <Text className="flex-1 font-work-sans-bold text-xs text-ed-on-surface">
+          <Text className="flex-1 font-inter-bold text-caption text-ed-on-surface">
             {addon.quoteLabel}
           </Text>
           <Pressable
@@ -344,7 +344,7 @@ function AddOnCard({
             style={{ borderColor: editorial.onSurface }}
           >
             <Text
-              className="font-work-sans-bold text-[11px] uppercase tracking-wide"
+              className="font-inter-bold text-label uppercase tracking-wide"
               style={{ color: editorial.onSurface }}
             >
               {addon.quoteCtaLabel || 'Call us'}
@@ -378,7 +378,7 @@ function InfoAccordionItem({
       className="border-b border-ed-outline-variant py-4"
     >
       <View className="flex-row items-center justify-between gap-2">
-        <Text className="flex-1 font-work-sans-medium text-[15px] text-ed-on-surface">
+        <Text className="flex-1 font-inter-medium text-body-sm text-ed-on-surface">
           {faq.title}
         </Text>
         <Ionicons
@@ -388,12 +388,12 @@ function InfoAccordionItem({
         />
       </View>
       {open ? (
-        <Text className="mt-2 font-work-sans text-sm leading-5 text-ed-on-surface-variant">
+        <Text className="mt-2 font-inter text-body-sm leading-5 text-ed-on-surface-variant">
           {bodyText}
           {faq.link_href && faq.link_label ? (
             <Text
               onPress={onLinkPress}
-              className="font-work-sans-semibold text-ed-on-surface"
+              className="font-inter-semibold text-ed-on-surface"
             >
               {' '}
               {faq.link_label}
@@ -619,7 +619,7 @@ export default function CardDetailScreen() {
             size={32}
             color={editorial.onSurfaceVariant}
           />
-          <Text className="mt-3 text-center font-work-sans text-sm text-ed-on-surface-variant">
+          <Text className="mt-3 text-center font-inter text-body-sm text-ed-on-surface-variant">
             We couldn't find this design. It may no longer be available.
           </Text>
         </View>
@@ -676,7 +676,7 @@ export default function CardDetailScreen() {
                 style={{ backgroundColor: ACCENT }}
               >
                 <Text
-                  className="font-work-sans-bold text-[10px]"
+                  className="font-inter-bold text-label"
                   style={{ color: ON_ACCENT }}
                 >
                   {cartCount}
@@ -731,7 +731,7 @@ export default function CardDetailScreen() {
               style={{ backgroundColor: 'rgba(255,255,255,0.92)' }}
             >
               <Ionicons name={badge.icon} size={13} color="#B8860B" />
-              <Text className="font-work-sans-semibold text-[11px] text-ed-on-surface">
+              <Text className="font-inter-semibold text-label text-ed-on-surface">
                 {badge.label}
               </Text>
             </View>
@@ -759,24 +759,24 @@ export default function CardDetailScreen() {
         <View className="px-5">
           {/* Category + title */}
           <Text
-            className="mt-6 font-work-sans-bold text-[11px] uppercase tracking-[2px]"
+            className="mt-6 font-inter-bold text-label uppercase tracking-[2px]"
             style={{ color: editorial.onSurfaceVariant }}
           >
             {product.category}
           </Text>
-          <Text className="mt-1.5 font-playfair-bold text-2xl text-ed-on-surface">
+          <Text className="mt-1.5 font-inter-bold text-screen-title text-ed-on-surface">
             {product.name}
           </Text>
 
           {/* Description */}
           <View className="mt-5 border-t border-ed-outline-variant pt-5">
-            <Text className="mb-2 font-work-sans-medium text-[15px] text-ed-on-surface">
+            <Text className="mb-2 font-inter-medium text-body-sm text-ed-on-surface">
               {addonsFaqQuery.data?.descriptionLabel || 'Description'}
             </Text>
             {description ? (
               <>
                 <Text
-                  className="font-work-sans text-sm leading-6 text-ed-on-surface-variant"
+                  className="font-inter text-body-sm leading-6 text-ed-on-surface-variant"
                   numberOfLines={descriptionExpanded ? undefined : 4}
                 >
                   {description}
@@ -786,7 +786,7 @@ export default function CardDetailScreen() {
                     onPress={() => setDescriptionExpanded((v) => !v)}
                     className="mt-1.5"
                   >
-                    <Text className="font-work-sans-semibold text-sm text-ed-on-surface">
+                    <Text className="font-inter-semibold text-body-sm text-ed-on-surface">
                       {descriptionExpanded
                         ? addonsFaqQuery.data?.readLessLabel || 'Read less'
                         : addonsFaqQuery.data?.readMoreLabel || 'Read more'}
@@ -795,7 +795,7 @@ export default function CardDetailScreen() {
                 ) : null}
               </>
             ) : (
-              <Text className="font-work-sans text-sm leading-6 text-ed-on-surface-variant">
+              <Text className="font-inter text-body-sm leading-6 text-ed-on-surface-variant">
                 {product.name} is a signature design, sent digitally to every guest by WhatsApp or SMS.
               </Text>
             )}
@@ -813,7 +813,7 @@ export default function CardDetailScreen() {
               </SectionEyebrow>
               {packagesQuery.data?.subheading ? (
                 <Text
-                  className="mt-1 font-work-sans text-xs"
+                  className="mt-1 font-inter text-caption"
                   style={{ color: editorial.onSurfaceVariant }}
                 >
                   {packagesQuery.data.subheading}
@@ -835,12 +835,12 @@ export default function CardDetailScreen() {
               {/* Guest count stepper */}
               <View className="mt-5 flex-row items-center justify-between gap-3">
                 <View className="min-w-0 flex-1">
-                  <Text className="font-work-sans-bold text-[13px] text-ed-on-surface">
+                  <Text className="font-inter-bold text-caption text-ed-on-surface">
                     {packagesQuery.data?.cardsCountLabel ||
                       'Number of digital cards & OpusPass tickets'}
                   </Text>
                   <Text
-                    className="mt-0.5 font-work-sans text-[11px]"
+                    className="mt-0.5 font-inter text-label"
                     style={{ color: editorial.onSurfaceVariant }}
                   >
                     {(packagesQuery.data?.minGuestsTemplate || 'Minimum {count} guests').replace(
@@ -878,7 +878,7 @@ export default function CardDetailScreen() {
                           color="#059669"
                           style={{ marginTop: 3 }}
                         />
-                        <Text className="flex-1 font-work-sans text-[13px] leading-5 text-ed-on-surface">
+                        <Text className="flex-1 font-inter text-caption leading-5 text-ed-on-surface">
                           {bullet.label}
                           {bullet.note ? (
                             <Text style={{ color: editorial.onSurfaceVariant }}>
@@ -900,7 +900,7 @@ export default function CardDetailScreen() {
                 </View>
               ) : addonsFaqQuery.data && addonsFaqQuery.data.addons.length > 0 ? (
                 <View className="mt-8 border-t border-ed-outline-variant pt-6">
-                  <Text className="font-work-sans-bold text-[13px] text-ed-on-surface">
+                  <Text className="font-inter-bold text-caption text-ed-on-surface">
                     {addonsFaqQuery.data.addonsHeading || 'Available optional add-ons'}
                   </Text>
                   {addonsFaqQuery.data.addons.map((addon) => {
@@ -938,19 +938,19 @@ export default function CardDetailScreen() {
 
               {/* Order summary */}
               <View className="mt-8 border-t border-ed-outline-variant pt-6">
-                <Text className="font-work-sans-bold text-[13px] text-ed-on-surface">
+                <Text className="font-inter-bold text-caption text-ed-on-surface">
                   Order summary
                 </Text>
                 <View className="mt-3 gap-2">
                   {selectedTier ? (
                     <View className="flex-row items-baseline justify-between gap-2">
                       <Text
-                        className="flex-1 font-work-sans text-sm"
+                        className="flex-1 font-inter text-body-sm"
                         style={{ color: editorial.onSurfaceVariant }}
                       >
                         {selectedTier.name} ({guestCount} guests)
                       </Text>
-                      <Text className="font-work-sans-medium text-sm text-ed-on-surface">
+                      <Text className="font-inter-medium text-body-sm text-ed-on-surface">
                         {formatTzs(digitalSubtotal)}
                       </Text>
                     </View>
@@ -961,22 +961,22 @@ export default function CardDetailScreen() {
                       className="flex-row items-baseline justify-between gap-2"
                     >
                       <Text
-                        className="flex-1 font-work-sans text-sm"
+                        className="flex-1 font-inter text-body-sm"
                         style={{ color: editorial.onSurfaceVariant }}
                       >
                         {addon.title}
                       </Text>
-                      <Text className="font-work-sans-medium text-sm text-ed-on-surface">
+                      <Text className="font-inter-medium text-body-sm text-ed-on-surface">
                         {formatTzs(amount)}
                       </Text>
                     </View>
                   ))}
                 </View>
                 <View className="mt-3 flex-row items-baseline justify-between border-t border-ed-outline-variant pt-3">
-                  <Text className="font-work-sans-bold text-base text-ed-on-surface">
+                  <Text className="font-inter-bold text-body text-ed-on-surface">
                     Total
                   </Text>
-                  <Text className="font-work-sans-bold text-[26px] leading-none text-ed-on-surface">
+                  <Text className="font-inter-bold text-screen-title leading-none text-ed-on-surface">
                     {formatTzs(total)}
                   </Text>
                 </View>
@@ -991,7 +991,7 @@ export default function CardDetailScreen() {
                   style={{ borderColor: editorial.onSurface }}
                 >
                   <Text
-                    className="font-work-sans-bold text-xs uppercase tracking-[1px]"
+                    className="font-inter-bold text-caption uppercase tracking-[1px]"
                     style={{ color: editorial.onSurface }}
                   >
                     Add to cart
@@ -1004,7 +1004,7 @@ export default function CardDetailScreen() {
                   style={{ backgroundColor: ACCENT }}
                 >
                   <Text
-                    className="font-work-sans-bold text-xs uppercase tracking-[1px]"
+                    className="font-inter-bold text-caption uppercase tracking-[1px]"
                     style={{ color: ON_ACCENT }}
                   >
                     Buy now
@@ -1025,7 +1025,7 @@ export default function CardDetailScreen() {
               style={{ backgroundColor: ACCENT }}
             >
               <Text
-                className="font-work-sans-bold text-xs uppercase tracking-[1px]"
+                className="font-inter-bold text-caption uppercase tracking-[1px]"
                 style={{ color: ON_ACCENT }}
               >
                 Continue with this design
@@ -1059,7 +1059,7 @@ export default function CardDetailScreen() {
         {/* Similar designs */}
         {related.length > 0 ? (
           <View className="mt-10 px-5">
-            <Text className="font-playfair-bold text-xl text-ed-on-surface">
+            <Text className="font-inter-bold text-section-title text-ed-on-surface">
               {addonsFaqQuery.data?.similarDesignsHeading || 'Similar designs'}
             </Text>
             <View className="mt-6 flex-row flex-wrap justify-between gap-y-6">
@@ -1088,13 +1088,13 @@ export default function CardDetailScreen() {
           >
             <View className="min-w-0 flex-1">
               <Text
-                className="font-work-sans-bold text-sm"
+                className="font-inter-bold text-body-sm"
                 style={{ color: editorial.bg }}
               >
                 {toast}
               </Text>
               <Text
-                className="mt-0.5 font-work-sans text-xs"
+                className="mt-0.5 font-inter text-caption"
                 style={{ color: editorial.bg, opacity: 0.75 }}
                 numberOfLines={1}
               >
@@ -1111,7 +1111,7 @@ export default function CardDetailScreen() {
               style={{ backgroundColor: ACCENT }}
             >
               <Text
-                className="font-work-sans-bold text-[11px] uppercase tracking-wide"
+                className="font-inter-bold text-label uppercase tracking-wide"
                 style={{ color: ON_ACCENT }}
               >
                 View cart

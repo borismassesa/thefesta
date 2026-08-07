@@ -67,7 +67,7 @@ export function CategoryVendorCard({ vendor }: { vendor: VendorListing }) {
             style={{ backgroundColor: ACCENT }}
           >
             <Text
-              className="font-work-sans-bold text-[9px] uppercase tracking-[1.5px]"
+              className="font-inter-bold text-label uppercase tracking-[1.5px]"
               style={{ color: ON_ACCENT }}
             >
               {badge}
@@ -92,13 +92,13 @@ export function CategoryVendorCard({ vendor }: { vendor: VendorListing }) {
       <View className="gap-1.5 px-4 py-3.5">
         <Text
           numberOfLines={1}
-          className="font-work-sans-bold text-[10px] uppercase tracking-[1.5px] text-ed-on-surface-variant"
+          className="font-inter-bold text-label uppercase tracking-[1.5px] text-ed-on-surface-variant"
         >
           {vendor.category}
         </Text>
 
         <View className="flex-row items-center gap-1.5">
-          <Text numberOfLines={1} className="flex-1 font-work-sans-bold text-base text-ed-on-surface">
+          <Text numberOfLines={1} className="flex-1 font-inter-bold text-body text-ed-on-surface">
             {vendor.business_name}
           </Text>
           {vendor.verified ? (
@@ -107,7 +107,7 @@ export function CategoryVendorCard({ vendor }: { vendor: VendorListing }) {
         </View>
 
         {location ? (
-          <Text numberOfLines={1} className="font-work-sans text-sm text-ed-on-surface-variant">
+          <Text numberOfLines={1} className="font-inter text-body-sm text-ed-on-surface-variant">
             {location}
           </Text>
         ) : null}

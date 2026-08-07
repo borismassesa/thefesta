@@ -75,7 +75,7 @@ export function GroupFilterSheet({
         >
           <SafeAreaView edges={['bottom']}>
             <View className="flex-row items-center justify-between px-6 pb-2 pt-6">
-              <Text className="font-playfair-bold text-2xl text-ed-on-surface">
+              <Text className="font-inter-bold text-screen-title text-ed-on-surface">
                 Select group
               </Text>
               <Pressable
@@ -102,10 +102,10 @@ export function GroupFilterSheet({
                   <Ionicons name="people" size={20} color={editorial.onSurfaceVariant} />
                 </View>
                 <View className="min-w-0 flex-1">
-                  <Text className="font-work-sans-bold text-[15px] text-ed-on-surface">
+                  <Text className="font-inter-bold text-body-sm text-ed-on-surface">
                     All guests
                   </Text>
-                  <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
+                  <Text className="mt-0.5 font-inter text-caption text-ed-on-surface-variant">
                     Total {countLabel(roster.length, expectedHeads(roster))}
                   </Text>
                 </View>
@@ -123,12 +123,12 @@ export function GroupFilterSheet({
                   <GuestAvatar fullName={group.tag} colorKey={group.tag} />
                   <View className="min-w-0 flex-1">
                     <Text
-                      className="font-work-sans-bold text-[15px] text-ed-on-surface"
+                      className="font-inter-bold text-body-sm text-ed-on-surface"
                       numberOfLines={1}
                     >
                       {group.tag}
                     </Text>
-                    <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
+                    <Text className="mt-0.5 font-inter text-caption text-ed-on-surface-variant">
                       {countLabel(group.guests.length, group.heads)} ·{' '}
                       {group.arrivedCount} in
                     </Text>

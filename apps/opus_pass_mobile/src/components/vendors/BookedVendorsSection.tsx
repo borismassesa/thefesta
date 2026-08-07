@@ -33,7 +33,7 @@ export function BookedVendorsSection() {
 
   return (
     <View className="gap-1 px-5">
-      <Text className="pb-2 font-work-sans text-xs text-ed-on-surface-variant">
+      <Text className="pb-2 font-inter text-caption text-ed-on-surface-variant">
         {bookedByCategory.size} of {VENDOR_CATEGORIES.length} booked
       </Text>
 
@@ -71,10 +71,10 @@ export function BookedVendorsSection() {
             </View>
 
             <View className="flex-1">
-              <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+              <Text className="font-inter-bold text-body-sm text-ed-on-surface">
                 {category.label}
               </Text>
-              <Text numberOfLines={1} className="font-work-sans text-xs text-ed-on-surface-variant">
+              <Text numberOfLines={1} className="font-inter text-caption text-ed-on-surface-variant">
                 {booked?.vendors?.business_name ?? 'Not booked yet'}
               </Text>
             </View>

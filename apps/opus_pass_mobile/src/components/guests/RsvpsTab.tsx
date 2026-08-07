@@ -31,8 +31,8 @@ function EventRsvpCard({ event }: { event: WeddingEvent }) {
     <View className="mb-4 overflow-hidden rounded-2xl border border-ed-outline-variant bg-ed-surface">
       <View className="flex-row items-center justify-between gap-3 p-4">
         <View className="flex-1">
-          <Text className="font-work-sans-bold text-[15px] text-ed-on-surface">{event.name}</Text>
-          <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
+          <Text className="font-inter-bold text-body-sm text-ed-on-surface">{event.name}</Text>
+          <Text className="mt-0.5 font-inter text-caption text-ed-on-surface-variant">
             {EVENT_TYPE_LABELS[event.event_type]} · {eventGuests.length} guest
             {eventGuests.length === 1 ? '' : 's'}
           </Text>
@@ -60,11 +60,11 @@ function EventRsvpCard({ event }: { event: WeddingEvent }) {
           <AttendanceDonut stats={stats} />
 
           <View className="mt-4 border-t border-ed-outline-variant pt-3">
-            <Text className="font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+            <Text className="font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
               RSVP questions
             </Text>
             {eventQuestions.length === 0 ? (
-              <Text className="mt-2 font-work-sans text-sm text-ed-on-surface-variant">
+              <Text className="mt-2 font-inter text-body-sm text-ed-on-surface-variant">
                 No custom questions yet. Guests just reply yes or no.
               </Text>
             ) : (
@@ -76,10 +76,10 @@ function EventRsvpCard({ event }: { event: WeddingEvent }) {
                     color={editorial.onSurfaceVariant}
                     style={{ marginTop: 2 }}
                   />
-                  <Text className="flex-1 font-work-sans text-sm text-ed-on-surface">
+                  <Text className="flex-1 font-inter text-body-sm text-ed-on-surface">
                     {q.prompt}
                     {q.event_id === null ? (
-                      <Text className="font-work-sans text-xs text-ed-on-surface-variant"> · all events</Text>
+                      <Text className="font-inter text-caption text-ed-on-surface-variant"> · all events</Text>
                     ) : null}
                   </Text>
                 </View>
@@ -111,7 +111,7 @@ export function RsvpsTab() {
 
   if (events.isError) {
     return (
-      <Text className="py-16 text-center font-work-sans text-sm text-ed-error">
+      <Text className="py-16 text-center font-inter text-body-sm text-ed-error">
         Couldn&rsquo;t load your RSVPs. Pull to refresh, or try again shortly.
       </Text>
     );
@@ -120,10 +120,10 @@ export function RsvpsTab() {
   if (events.data.length === 0) {
     return (
       <View className="items-center py-12">
-        <Text className="text-center font-playfair-bold text-2xl text-ed-on-surface">
+        <Text className="text-center font-inter-bold text-screen-title text-ed-on-surface">
           No events yet
         </Text>
-        <Text className="mt-2 text-center font-work-sans text-sm text-ed-on-surface-variant">
+        <Text className="mt-2 text-center font-inter text-body-sm text-ed-on-surface-variant">
           Add an event first, then turn its RSVP page on here.
         </Text>
       </View>
@@ -139,7 +139,7 @@ export function RsvpsTab() {
           style={{ backgroundColor: editorial.secondary }}
         >
           <Ionicons name="information-circle" size={20} color="#FFFFFF" />
-          <Text className="flex-1 font-work-sans text-sm leading-5 text-white">
+          <Text className="flex-1 font-inter text-body-sm leading-5 text-white">
             Heads-up! Your RSVP settings are saved, but guests can&rsquo;t reply until you share
             your invite link. Tap to set it up.
           </Text>

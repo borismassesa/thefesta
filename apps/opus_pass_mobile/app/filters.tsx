@@ -163,7 +163,7 @@ export default function FiltersScreen() {
     <SafeAreaView className="flex-1 bg-ed-bg">
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 pt-2">
-        <Text className="font-playfair-bold text-2xl text-ed-on-surface">
+        <Text className="font-inter-bold text-screen-title text-ed-on-surface">
           Filters
         </Text>
         <Pressable
@@ -196,12 +196,12 @@ export default function FiltersScreen() {
                 className="flex-row items-center justify-between py-4"
               >
                 <View className="flex-row items-center gap-2">
-                  <Text className="font-work-sans text-base text-ed-on-surface">
+                  <Text className="font-inter text-body text-ed-on-surface">
                     {section.label}
                   </Text>
                   {sectionSelected.size > 0 ? (
                     <View className="h-5 min-w-5 items-center justify-center rounded-full bg-ed-on-surface px-1.5">
-                      <Text className="font-work-sans-semibold text-[11px] text-ed-bg">
+                      <Text className="font-inter-semibold text-label text-ed-bg">
                         {sectionSelected.size}
                       </Text>
                     </View>
@@ -238,7 +238,7 @@ export default function FiltersScreen() {
                             style={{ backgroundColor: option.swatch }}
                           />
                         ) : null}
-                        <Text className="font-work-sans text-base text-ed-on-surface">
+                        <Text className="font-inter text-body text-ed-on-surface">
                           {option.label}{' '}
                           <Text className="text-ed-on-surface-variant">
                             ({option.count})
@@ -258,7 +258,7 @@ export default function FiltersScreen() {
       <View className="flex-row items-center justify-between border-t border-ed-outline-variant px-5 py-4">
         <Pressable onPress={resetAll} disabled={totalSelected === 0}>
           <Text
-            className={`font-work-sans-semibold text-sm ${
+            className={`font-inter-semibold text-body-sm ${
               totalSelected === 0
                 ? 'text-ed-on-surface-variant'
                 : 'text-ed-on-surface'
@@ -281,7 +281,7 @@ export default function FiltersScreen() {
           }}
           className="rounded-full bg-ed-primary-container px-6 py-3"
         >
-          <Text className="font-work-sans-semibold text-sm text-ed-on-primary">
+          <Text className="font-inter-semibold text-body-sm text-ed-on-primary">
             Show Results{totalSelected > 0 ? ` (${totalSelected})` : ''}
           </Text>
         </Pressable>

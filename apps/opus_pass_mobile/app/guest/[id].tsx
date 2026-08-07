@@ -103,7 +103,7 @@ export default function GuestFormScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="mb-6 font-playfair-bold text-2xl text-ed-on-surface">
+          <Text className="mb-6 font-inter-bold text-screen-title text-ed-on-surface">
             {isNew ? 'Add a guest' : 'Edit guest'}
           </Text>
 
@@ -166,7 +166,7 @@ export default function GuestFormScreen() {
             {saveGuest.isPending ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text className="font-work-sans-bold text-sm text-white">
+              <Text className="font-inter-bold text-body-sm text-white">
                 {isNew ? 'Add guest' : 'Save changes'}
               </Text>
             )}

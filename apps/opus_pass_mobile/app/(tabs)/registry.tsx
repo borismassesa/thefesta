@@ -5,8 +5,8 @@ export default function RegistryScreen() {
   return (
     <SafeAreaView className="flex-1 bg-ed-bg" edges={['top']}>
       <View className="flex-1 items-center justify-center px-6 pb-32">
-        <Text className="font-playfair-bold text-xl text-ed-on-surface">Registry</Text>
-        <Text className="mt-2 text-center font-work-sans text-sm text-ed-on-surface-variant">
+        <Text className="font-inter-bold text-section-title text-ed-on-surface">Registry</Text>
+        <Text className="mt-2 text-center font-inter text-body-sm text-ed-on-surface-variant">
           Coming soon.
         </Text>
       </View>

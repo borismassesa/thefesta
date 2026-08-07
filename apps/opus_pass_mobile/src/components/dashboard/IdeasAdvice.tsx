@@ -47,7 +47,7 @@ export function IdeasAdvice() {
 
   return (
     <View className="mt-8 pb-8">
-      <Text className="font-playfair-bold text-xl text-ed-on-surface">
+      <Text className="font-inter-bold text-section-title text-ed-on-surface">
         Ideas &amp; advice
       </Text>
       <ScrollView
@@ -91,7 +91,7 @@ export function IdeasAdvice() {
             </ImageBackground>
             <Text
               numberOfLines={2}
-              className="mt-2 font-work-sans-semibold text-[13px] leading-4 text-ed-on-surface"
+              className="mt-2 font-inter-semibold text-caption leading-4 text-ed-on-surface"
             >
               {post.title}
             </Text>

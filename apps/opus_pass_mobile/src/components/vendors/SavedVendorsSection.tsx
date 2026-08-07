@@ -27,7 +27,7 @@ export function SavedVendorsSection() {
 
   return (
     <View>
-      <Text className="px-5 pb-2 font-work-sans text-xs text-ed-on-surface-variant">
+      <Text className="px-5 pb-2 font-inter text-caption text-ed-on-surface-variant">
         {data.length} saved
       </Text>
       {data.map((row) => (

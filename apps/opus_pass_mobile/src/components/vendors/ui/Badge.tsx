@@ -23,7 +23,7 @@ export function Badge({
 
   return (
     <View className={`${className} rounded-[20px] px-3 py-1 ${v.bg}`}>
-      <Text className={`font-work-sans-bold text-[11px] ${v.text}`}>{label}</Text>
+      <Text className={`font-inter-bold text-label ${v.text}`}>{label}</Text>
     </View>
   );
 }

@@ -19,7 +19,7 @@ export default function InquiriesScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={editorial.onSurface} />
         </Pressable>
-        <Text className="flex-1 font-playfair-bold text-xl text-ed-on-surface">My requests</Text>
+        <Text className="flex-1 font-inter-bold text-section-title text-ed-on-surface">My requests</Text>
       </View>
 
       <ScrollView className="flex-1" contentContainerClassName="pb-32">
@@ -42,14 +42,14 @@ export default function InquiriesScreen() {
               <View className="flex-row items-center gap-2">
                 <Text
                   numberOfLines={1}
-                  className="flex-1 font-work-sans-bold text-sm text-ed-on-surface"
+                  className="flex-1 font-inter-bold text-body-sm text-ed-on-surface"
                 >
                   {inquiry.vendor_name ?? 'Vendor'}
                 </Text>
                 <InquiryStatusBadge status={inquiry.status} />
               </View>
 
-              <Text className="font-work-sans text-xs text-ed-on-surface-variant">
+              <Text className="font-inter text-caption text-ed-on-surface-variant">
                 {[
                   inquiry.event_date ? new Date(inquiry.event_date).toDateString() : null,
                   inquiry.guest_count ? `${inquiry.guest_count} guests` : null,

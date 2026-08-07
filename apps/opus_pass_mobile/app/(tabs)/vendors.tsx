@@ -21,7 +21,7 @@ export default function VendorsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-ed-bg" edges={['top']}>
       <View className="flex-row items-center justify-between px-5 pb-3 pt-2">
-        <Text className="font-playfair-bold text-2xl text-ed-on-surface">Vendors</Text>
+        <Text className="font-inter-bold text-screen-title text-ed-on-surface">Vendors</Text>
 
         <View className="flex-row items-center gap-4">
           <Pressable
@@ -42,7 +42,7 @@ export default function VendorsScreen() {
             <Ionicons name="heart-outline" size={22} color={editorial.onSurface} />
             {savedCount > 0 ? (
               <View className="absolute -right-2 -top-1 h-4 min-w-4 items-center justify-center rounded-full bg-ed-primary-container px-1">
-                <Text className="font-work-sans-bold text-[10px] text-ed-on-primary">
+                <Text className="font-inter-bold text-label text-ed-on-primary">
                   {savedCount}
                 </Text>
               </View>

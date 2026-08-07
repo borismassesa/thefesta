@@ -46,8 +46,8 @@ function AddMethodCard({
     >
       <Ionicons name={icon} size={24} color={iconColor} />
       <View className="ml-4 flex-1">
-        <Text className="font-work-sans-bold text-[15px] text-ed-on-surface">{title}</Text>
-        <Text className="mt-0.5 font-work-sans text-sm text-ed-on-surface-variant">{subtitle}</Text>
+        <Text className="font-inter-bold text-body-sm text-ed-on-surface">{title}</Text>
+        <Text className="mt-0.5 font-inter text-body-sm text-ed-on-surface-variant">{subtitle}</Text>
       </View>
       <Ionicons name="arrow-forward" size={20} color={editorial.onSurface} />
     </Pressable>
@@ -70,16 +70,16 @@ function GuestRow({ guest, onEdit, onDelete }: { guest: GuestWithInvitations; on
         className="h-10 w-10 items-center justify-center rounded-full"
         style={{ backgroundColor: editorial.secondaryContainer }}
       >
-        <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+        <Text className="font-inter-bold text-body-sm text-ed-on-surface">
           {guest.full_name.trim().charAt(0).toUpperCase() || '?'}
         </Text>
       </View>
 
       <View className="ml-3.5 flex-1">
-        <Text numberOfLines={1} className="font-work-sans-semibold text-[15px] text-ed-on-surface">
+        <Text numberOfLines={1} className="font-inter-semibold text-body-sm text-ed-on-surface">
           {guest.full_name}
         </Text>
-        <Text numberOfLines={1} className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
+        <Text numberOfLines={1} className="mt-0.5 font-inter text-caption text-ed-on-surface-variant">
           {[
             guest.group_tag,
             guest.phone ?? guest.whatsapp_phone ?? guest.email,
@@ -92,7 +92,7 @@ function GuestRow({ guest, onEdit, onDelete }: { guest: GuestWithInvitations; on
 
       {tone ? (
         <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: `${tone.color}1F` }}>
-          <Text className="font-work-sans-semibold text-[11px]" style={{ color: tone.color }}>
+          <Text className="font-inter-semibold text-label" style={{ color: tone.color }}>
             {tone.label}
           </Text>
         </View>
@@ -138,7 +138,7 @@ export function GuestListTab() {
 
   if (guests.isError) {
     return (
-      <Text className="py-16 text-center font-work-sans text-sm text-ed-error">
+      <Text className="py-16 text-center font-inter text-body-sm text-ed-error">
         Couldn&rsquo;t load your guest list. Pull to refresh, or try again shortly.
       </Text>
     );
@@ -147,7 +147,7 @@ export function GuestListTab() {
   if (guests.data.length === 0) {
     return (
       <View>
-        <Text className="mb-5 font-playfair-bold text-2xl text-ed-on-surface">
+        <Text className="mb-5 font-inter-bold text-screen-title text-ed-on-surface">
           Let&rsquo;s add guests! Choose how:
         </Text>
         <AddMethodCard
@@ -178,7 +178,7 @@ export function GuestListTab() {
   return (
     <View>
       <View className="mb-4 flex-row items-center justify-between">
-        <Text className="font-playfair-bold text-2xl text-ed-on-surface">
+        <Text className="font-inter-bold text-screen-title text-ed-on-surface">
           {guests.data.length} guest{guests.data.length === 1 ? '' : 's'}
         </Text>
         <Pressable
@@ -187,7 +187,7 @@ export function GuestListTab() {
           style={{ backgroundColor: editorial.secondary }}
         >
           <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text className="font-work-sans-semibold text-[13px] text-white">Add</Text>
+          <Text className="font-inter-semibold text-caption text-white">Add</Text>
         </Pressable>
       </View>
 
@@ -200,7 +200,7 @@ export function GuestListTab() {
         />
       ))}
 
-      <Text className="mt-2 text-center font-work-sans text-xs text-ed-on-surface-variant">
+      <Text className="mt-2 text-center font-inter text-caption text-ed-on-surface-variant">
         Tap a guest to edit. Press and hold to remove.
       </Text>
     </View>

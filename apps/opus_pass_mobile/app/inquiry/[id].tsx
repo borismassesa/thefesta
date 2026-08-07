@@ -50,7 +50,7 @@ export default function InquiryDetailScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={editorial.onSurface} />
         </Pressable>
-        <Text numberOfLines={1} className="flex-1 font-playfair-bold text-lg text-ed-on-surface">
+        <Text numberOfLines={1} className="flex-1 font-inter-bold text-card-title text-ed-on-surface">
           {inquiry?.vendor_name ?? 'Request'}
         </Text>
         {inquiry ? (
@@ -79,7 +79,7 @@ export default function InquiryDetailScreen() {
               {inquiry.proposal_status ? <ProposalCard inquiry={inquiry} /> : null}
 
               <View className="gap-2">
-                <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+                <Text className="font-inter-bold text-body-sm text-ed-on-surface">
                   Conversation
                 </Text>
 
@@ -96,7 +96,7 @@ export default function InquiryDetailScreen() {
                         }`}
                       >
                         <Text
-                          className={`font-work-sans text-sm ${
+                          className={`font-inter text-body-sm ${
                             isMe ? 'text-ed-on-primary' : 'text-ed-on-surface'
                           }`}
                         >
@@ -106,7 +106,7 @@ export default function InquiryDetailScreen() {
                     );
                   })
                 ) : (
-                  <Text className="font-work-sans text-xs text-ed-on-surface-variant">
+                  <Text className="font-inter text-caption text-ed-on-surface-variant">
                     No replies yet.
                   </Text>
                 )}
@@ -123,7 +123,7 @@ export default function InquiryDetailScreen() {
               placeholder="Reply to the vendor"
               placeholderTextColor={editorial.onSurfaceVariant}
               multiline
-              className="max-h-28 flex-1 rounded-2xl bg-ed-surface-container px-4 py-2.5 font-work-sans text-sm text-ed-on-surface"
+              className="max-h-28 flex-1 rounded-2xl bg-ed-surface-container px-4 py-2.5 font-inter text-body-sm text-ed-on-surface"
             />
             <Pressable
               onPress={onSend}

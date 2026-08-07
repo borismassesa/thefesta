@@ -15,13 +15,13 @@ export function StarRating({
 
   return (
     <View className="flex-row items-center gap-0.5">
-      <Text className={`text-[#C4920A] ${size === 'sm' ? 'text-xs' : 'text-base'}`}>
+      <Text className={`text-[#C4920A] ${size === 'sm' ? 'text-caption' : 'text-body'}`}>
         {'★'.repeat(fullStars)}
         {hasHalf ? '★' : ''}
         {'☆'.repeat(emptyStars)}
       </Text>
       {count !== undefined && (
-        <Text className="ml-1 font-work-sans text-xs text-ed-on-surface-variant">
+        <Text className="ml-1 font-inter text-caption text-ed-on-surface-variant">
           {rating.toFixed(1)}
           {count > 0 && ` (${count})`}
         </Text>
