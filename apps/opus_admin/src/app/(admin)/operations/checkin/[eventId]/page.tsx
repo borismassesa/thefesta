@@ -4,6 +4,7 @@ import { listAttendants } from '../actions'
 import EventConsoleClient from './EventConsoleClient'
 import type { CheckinBaseline } from './CheckinEventClient'
 import type { CheckinReport } from './CheckinReportClient'
+import type { AuditLedgerRow, AuditSnapshotRow } from './CheckinAuditClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +17,7 @@ export default async function CheckinEventPage({
 }) {
   const { eventId } = await params
   const { tab } = await searchParams
-  const initialTab = tab === 'report' ? 'report' : 'checkin'
+  const initialTab = tab === 'report' ? 'report' : tab === 'audit' ? 'audit' : 'checkin'
 
   // Both tabs are views of the same check-in data — the live console and the
   // after-the-fact report — so one permission covers the whole console.
@@ -131,6 +132,94 @@ export default async function CheckinEventPage({
 
   const attendants = await listAttendants(eventId)
 
+  // ── Audit ledger ──────────────────────────────────────────────────────────
+  // select('*') rather than a column list: resolution_method, admission_mode,
+  // manual_reason and attendant_name arrive in a migration that may not be
+  // applied yet, and a named select would 400 on a column that does not exist.
+  // Absent keys read as undefined and render as "not recorded".
+  const { data: ledgerRows } = await admin
+    .from('checkin_scan_events')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false })
+
+  const rawLedger = (ledgerRows ?? []) as Record<string, unknown>[]
+
+  // Name each mutation's guest. The ledger keys on guest_invitation_id, which
+  // is meaningless in a dispute; the point of this page is to be readable by
+  // someone reconstructing an evening.
+  const ledgerInvitationIds = [
+    ...new Set(rawLedger.map((r) => String(r.guest_invitation_id))),
+  ]
+  const guestByInvitation = new Map<string, { name: string | null; passId: string | null }>()
+  if (ledgerInvitationIds.length > 0) {
+    const { data: invRows } = await admin
+      .from('guest_invitations')
+      .select('id, pass_id, guest_contact_id')
+      .in('id', ledgerInvitationIds)
+    const contactIds = [...new Set((invRows ?? []).map((r) => r.guest_contact_id as string))]
+    const nameByContact = new Map<string, string | null>()
+    if (contactIds.length > 0) {
+      const { data: contacts } = await admin
+        .from('guest_contacts')
+        .select('id, full_name')
+        .in('id', contactIds)
+      for (const c of contacts ?? []) {
+        nameByContact.set(c.id as string, (c.full_name as string | null) ?? null)
+      }
+    }
+    for (const inv of invRows ?? []) {
+      guestByInvitation.set(inv.id as string, {
+        name: nameByContact.get(inv.guest_contact_id as string) ?? null,
+        passId: (inv.pass_id as string | null) ?? null,
+      })
+    }
+  }
+
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null)
+  const ledger: AuditLedgerRow[] = rawLedger.map((r) => {
+    const guest = guestByInvitation.get(String(r.guest_invitation_id))
+    return {
+      id: String(r.id),
+      requestId: String(r.request_id),
+      guestName: guest?.name ?? null,
+      passId: guest?.passId ?? null,
+      result: str(r.result) ?? 'unknown',
+      admittedCount: typeof r.admitted_count === 'number' ? r.admitted_count : 0,
+      totalAfter: typeof r.total_after === 'number' ? r.total_after : null,
+      allowanceAfter: typeof r.allowance_after === 'number' ? r.allowance_after : null,
+      source: str(r.source) ?? 'api',
+      resolutionMethod: str(r.resolution_method),
+      admissionMode: str(r.admission_mode),
+      manualReason: str(r.manual_reason),
+      reason: str(r.reason),
+      attendantName: str(r.attendant_name),
+      checkedInBy: str(r.checked_in_by),
+      checkedInDoor: str(r.checked_in_door),
+      credentialFormat: str(r.credential_format),
+      createdAt: String(r.created_at),
+      completedAt: str(r.completed_at),
+    }
+  })
+
+  // Tolerated failure: the snapshots table arrives with the lifecycle
+  // migration. Absent means no client report has ever been finalized.
+  const { data: snapshotRows } = await admin
+    .from('checkin_report_snapshots')
+    .select('id, version, model_version, finalized_at, superseded_at')
+    .eq('event_id', eventId)
+    .order('version', { ascending: false })
+
+  const snapshots: AuditSnapshotRow[] = ((snapshotRows ?? []) as Record<string, unknown>[]).map(
+    (r) => ({
+      id: String(r.id),
+      version: Number(r.version),
+      modelVersion: Number(r.model_version),
+      finalizedAt: String(r.finalized_at),
+      supersededAt: str(r.superseded_at),
+    }),
+  )
+
   return (
     <EventConsoleClient
       eventId={eventId}
@@ -138,6 +227,8 @@ export default async function CheckinEventPage({
       report={report}
       initialAttendants={attendants}
       initialTab={initialTab}
+      ledger={ledger}
+      snapshots={snapshots}
     />
   )
 }

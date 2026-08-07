@@ -2,20 +2,24 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileText, QrCode } from 'lucide-react'
+import { FileText, QrCode, ScrollText } from 'lucide-react'
 import { useSetPageHeading } from '@/components/PageHeading'
 import { HeaderBadgeSlot } from '@/components/HeaderPortals'
 import { cn } from '@/lib/utils'
 import { eventLifecycle, LIFECYCLE_LABEL, LIFECYCLE_TONE } from '@/lib/checkin-event-status'
 import CheckinEventClient, { type CheckinBaseline } from './CheckinEventClient'
 import CheckinReportClient, { type CheckinReport } from './CheckinReportClient'
+import CheckinAuditClient, { type AuditLedgerRow, type AuditSnapshotRow } from './CheckinAuditClient'
 import type { AttendantAssignment } from '../actions'
 
-type ConsoleTab = 'checkin' | 'report'
+type ConsoleTab = 'checkin' | 'report' | 'audit'
 
 const TABS: { key: ConsoleTab; label: string; Icon: typeof QrCode }[] = [
   { key: 'checkin', label: 'Door staff', Icon: QrCode },
   { key: 'report', label: 'Report', Icon: FileText },
+  // Staff-only raw ledger. Sits beside the other two because it is a third
+  // view of the same door, for a third audience.
+  { key: 'audit', label: 'Audit', Icon: ScrollText },
 ]
 
 function formatEventDate(iso: string | null) {
@@ -29,12 +33,16 @@ export default function EventConsoleClient({
   report,
   initialAttendants,
   initialTab,
+  ledger,
+  snapshots,
 }: {
   eventId: string
   baseline: CheckinBaseline
   report: CheckinReport
   initialAttendants: AttendantAssignment[]
   initialTab: ConsoleTab
+  ledger: AuditLedgerRow[]
+  snapshots: AuditSnapshotRow[]
 }) {
   const router = useRouter()
   const [tab, setTab] = useState<ConsoleTab>(initialTab)
@@ -63,7 +71,7 @@ export default function EventConsoleClient({
   function selectTab(next: ConsoleTab) {
     setTab(next)
     // Keep the URL in sync so refresh/share/back preserves which tab was open.
-    router.replace(next === 'report' ? `/operations/checkin/${eventId}?tab=report` : `/operations/checkin/${eventId}`, {
+    router.replace(next === 'checkin' ? `/operations/checkin/${eventId}` : `/operations/checkin/${eventId}?tab=${next}`, {
       scroll: false,
     })
   }
@@ -117,6 +125,8 @@ export default function EventConsoleClient({
 
       {tab === 'checkin' ? (
         <CheckinEventClient eventId={eventId} baseline={baseline} initialAttendants={initialAttendants} />
+      ) : tab === 'audit' ? (
+        <CheckinAuditClient ledger={ledger} snapshots={snapshots} />
       ) : (
         <CheckinReportClient baseline={baseline} report={report} attendants={initialAttendants} />
       )}
