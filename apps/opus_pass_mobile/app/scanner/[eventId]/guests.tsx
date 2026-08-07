@@ -398,7 +398,7 @@ export default function ScannerGuestsScreen() {
                   {arrived || item.entryCode ? (
                     <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
                       {arrived
-                        ? `Arrived · ${item.checkedInPartySize ?? item.partySize} of ${item.partySize}`
+                        ? `Arrived, ${item.checkedInPartySize ?? item.partySize} of ${item.partySize}`
                         : item.entryCode}
                     </Text>
                   ) : null}

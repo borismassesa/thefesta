@@ -195,8 +195,17 @@ export function GuestConfirmCard({
                   <Text className="mt-0.5 font-work-sans text-sm text-ed-on-surface-variant">
                     {admitted} of {guest.partySize} admitted at{' '}
                     {timeOf(guest.checkedInAt!)}
-                    {guest.checkedInDoor ? ` · ${guest.checkedInDoor}` : ''}
                   </Text>
+                  {/* The door is a separate fact from the count, so it gets its
+                      own line and its own icon rather than a middot. */}
+                  {guest.checkedInDoor ? (
+                    <View className="mt-1 flex-row items-center gap-1.5">
+                      <Ionicons name="enter-outline" size={13} color={editorial.onSurfaceVariant} />
+                      <Text className="font-work-sans text-sm text-ed-on-surface-variant">
+                        {guest.checkedInDoor}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             ) : (

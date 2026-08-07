@@ -608,8 +608,8 @@ export function ManualCheckinSheet({
                                   className="shrink font-work-sans text-xs text-ed-on-surface-variant"
                                   numberOfLines={1}
                                 >
-                                  Already checked in ·{' '}
-                                  {item.checkedInPartySize ?? item.partySize} of {item.partySize}
+                                  Already in, {item.checkedInPartySize ?? item.partySize} of{' '}
+                                  {item.partySize}
                                 </Text>
                               ) : null}
                             </View>

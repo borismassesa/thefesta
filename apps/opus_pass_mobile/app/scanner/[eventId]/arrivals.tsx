@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BackButton } from '@/components/navigation/BackButton';
+import { PartyBadge } from '@/components/scanner/PartyBadge';
 import { validateScannerSession } from '@/lib/api/checkin';
 import { arrivedHeads, expectedHeads } from '@/lib/scannerRoster';
 import { useScannerSession } from '@/hooks/useScannerSession';
@@ -108,6 +109,20 @@ export default function ArrivalsScreen() {
   const { eventId } = useLocalSearchParams<{ eventId: string }>();
   const router = useRouter();
   const { editorial } = useTheme();
+
+  /** One fact, led by the icon that says what kind of fact it is. */
+  const MetaItem = ({
+    icon,
+    label,
+  }: {
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+  }) => (
+    <View className="flex-row items-center gap-1.5">
+      <Ionicons name={icon} size={13} color={editorial.onSurfaceVariant} />
+      <Text className="font-work-sans text-xs text-ed-on-surface-variant">{label}</Text>
+    </View>
+  );
   const { session, isLoading: sessionLoading } = useScannerSession();
 
   const [query, setQuery] = useState('');
@@ -420,26 +435,30 @@ export default function ArrivalsScreen() {
                     ) : null}
                   </View>
 
-                  <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
-                    {admitted === item.partySize
-                      ? admitted === 1
-                        ? 'Came alone'
-                        : `Party of ${admitted}`
-                      : `${admitted} of ${item.partySize} arrived`}
-                    {item.checkedInDoor ? ` · ${item.checkedInDoor}` : ''}
-                    {attendant ? ` · ${attendant}` : ''}
-                  </Text>
+                  {/* Facts as icon-led items, not a middot run-on. Each line of
+                      a dot-separated list looks like the same kind of thing, so
+                      the door and the attendant read as one sentence; an icon
+                      per fact says what each one IS before it is read. */}
+                  <View className="mt-1.5 flex-row flex-wrap items-center gap-x-3 gap-y-1.5">
+                    {/* The ticket, named the way it was sold. */}
+                    <PartyBadge partySize={item.partySize} />
+                    {/* Only when it disagrees with the ticket: a Double with one
+                        person is the thing worth noticing here. */}
+                    {admitted !== item.partySize ? (
+                      <MetaItem
+                        icon="people-outline"
+                        label={`${admitted} of ${item.partySize} arrived`}
+                      />
+                    ) : null}
+                    {item.checkedInDoor ? (
+                      <MetaItem icon="enter-outline" label={item.checkedInDoor} />
+                    ) : null}
+                    {attendant ? <MetaItem icon="person-outline" label={attendant} /> : null}
+                  </View>
 
                   {manual ? (
-                    <View className="mt-1.5 flex-row items-center gap-1">
-                      <Ionicons
-                        name="create-outline"
-                        size={12}
-                        color={editorial.onSurfaceVariant}
-                      />
-                      <Text className="font-work-sans text-[11px] text-ed-on-surface-variant">
-                        {manualMethodOf(item.checkedInBy)}
-                      </Text>
+                    <View className="mt-1.5">
+                      <MetaItem icon="create-outline" label={manualMethodOf(item.checkedInBy)} />
                     </View>
                   ) : null}
                 </View>
