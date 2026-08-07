@@ -796,6 +796,45 @@ export async function deleteGuests(guestIds: string[]): Promise<number> {
 }
 
 /**
+ * Mark guests as attending, so a hand-delivered pass works at the door.
+ *
+ * The couple sends a card and an entrance pass by hand whenever WhatsApp
+ * refuses to deliver. Until the guest is attending that pass is half a
+ * product: it renders, but checkin_admit_guest() carries its own
+ * `rsvp_status = 'attending'` predicate and turns them away at the gate.
+ *
+ * This is the supported way to close that gap. It is a couple-initiated
+ * admission, not a forged reply: `responded_at` is left alone, so the RSVP
+ * figures still count real replies and the roster is not quietly inflated
+ * with answers nobody gave.
+ *
+ * Consumes no credit. rsvp_status and credit_consumptions are separate
+ * ledgers, and this touches only the first.
+ */
+export async function markGuestsAttending(guestIds: string[], eventId?: string): Promise<number> {
+  const user = await requireDashboardUser()
+  const supabase = createDashboardClient()
+  if (!guestIds.length) return 0
+  const resolvedEventId = await resolveDefaultEventId(eventId)
+  if (!resolvedEventId) throw new Error('Set up an event first.')
+
+  // Only guests who have not already answered. Overwriting a real "attending"
+  // is a no-op, but overwriting a real "declined" would erase somebody's
+  // decision, and this action exists to unlock a door — not to change minds.
+  const { data, error } = await supabase
+    .from('guest_invitations')
+    .update({ rsvp_status: 'attending' })
+    .eq('user_id', user.id)
+    .eq('event_id', resolvedEventId)
+    .eq('rsvp_status', 'pending')
+    .in('guest_contact_id', guestIds)
+    .select('id')
+  if (error) throw new Error(error.message)
+  revalidateDashboard()
+  return data?.length ?? 0
+}
+
+/**
  * Stage one of an import: say what the file WOULD do, change nothing.
  *
  * This replaces an importer that inserted immediately and reported three
