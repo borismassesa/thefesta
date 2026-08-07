@@ -3824,7 +3824,7 @@ export default function SendInvitesView({
                 <div>
                   <b>{strings.manual_step_download}</b>
                   <button
-                    className="btn ghost"
+                    className={`btn manstep ${recover.downloaded ? 'ghost' : 'dl'}`}
                     disabled={!recover.cardUrl}
                     onClick={() => recover.cardUrl && downloadPreparedCard(recover.guest, recover.cardUrl)}
                   >
@@ -3837,7 +3837,7 @@ export default function SendInvitesView({
                 <div>
                   <b>{strings.manual_step_open}</b>
                   <button
-                    className={`btn ${recover.downloaded ? 'send' : 'ghost'}`}
+                    className="btn manstep wa"
                     onClick={() => openWhatsAppFor(recover.guest)}
                   >
                     <MessageCircle size={14} /> {strings.manual_open_whatsapp}
@@ -4403,6 +4403,19 @@ const css = `
   .si .mrow.manacts .btn{ flex:1 1 100%; }
   .si .mrow.manacts .btn.pri{ flex:1 1 100%; }
 }
+/* The two steps are what the modal exists for, so they are filled, not
+   outlined. White-on-white read as disabled, which is exactly wrong for the
+   only two things there are to do here. */
+.si .btn.manstep{ padding:10px 18px; font-size:13px; }
+.si .btn.manstep.dl{ background:var(--purple); color:#fff; }
+.si .btn.manstep.dl:hover{ filter:brightness(1.08); }
+/* WhatsApp's own green: the button opens WhatsApp, so it should look like it
+   rather than like a generic secondary action. */
+.si .btn.manstep.wa{ background:var(--wa); color:#fff; }
+.si .btn.manstep.wa:hover{ filter:brightness(1.06); }
+/* Once the card is saved, step one steps back so step two is the obvious
+   next move. */
+.si .btn.manstep.ghost{ background:#fff; color:var(--muted); border:1px solid var(--line); }
 .si .mancard{ display:flex; justify-content:center; margin:14px 0; }
 .si .manimg{ width:auto; max-height:300px; border-radius:10px; box-shadow:var(--soft); }
 .si .manph{ display:flex; align-items:center; gap:8px; padding:36px 18px; font-size:13px; color:var(--muted); }
