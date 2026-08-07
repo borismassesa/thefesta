@@ -317,6 +317,14 @@ export async function POST(request: Request) {
     .filter(Boolean)
     .join(' ')
 
+  // The same facts as structured columns, because a report cannot count a
+  // regex. `identifierType` says how the invitation was RESOLVED; the mode
+  // says which path the attendant took. They are separate on purpose: only
+  // the QR branch is a scan, and every other branch is required by the guard
+  // above to carry a manual reason, but searching by Pass ID and then
+  // overriding would be manual without being a roster pick.
+  const admissionMode = qrToken ? 'scan' : 'manual'
+
   // No pre-emptive duplicate check any more: a party of four that has had two
   // members admitted is a legitimate scan, not a duplicate. Only the RPC can
   // tell "some entries left" from "none left", and only it can do so without
@@ -333,6 +341,13 @@ export async function POST(request: Request) {
     p_checked_in_by: auditLabel,
     p_checked_in_door: displayDoor,
     p_request_id: body.requestId ?? null,
+    // Written inside the claim, not tagged afterwards like the credential
+    // below: these decide a number the couple reads, so a dropped write would
+    // silently under-report manual admissions.
+    p_resolution_method: identifierType,
+    p_admission_mode: admissionMode,
+    p_manual_reason: manualReason ?? null,
+    p_attendant_name: effectiveAttendantName || null,
   })
   if (error) {
     // The Postgres error is the only thing that distinguishes a constraint
