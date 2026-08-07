@@ -3306,17 +3306,12 @@ export default function SendInvitesView({
                                         <Download size={13} /> {strings.row_download_card}
                                       </button>
                                     ) : null}
-                                    {/* Reachable from this tab too, not only the
-                                        Pass Ticket one: that tab lists confirmed
-                                        guests only, and the tickets most needed
-                                        by hand belong to the ones who have not
-                                        replied. */}
-                                    <button
-                                      role="menuitem"
-                                      onClick={() => { setResendMenuId(null); downloadTicket(g) }}
-                                    >
-                                      <Ticket size={13} /> {strings.row_download_pass}
-                                    </button>
+                                    {/* Ticket download lives on the Pass Ticket
+                                        tab only. Offering it here would hand out
+                                        tickets for guests who have not replied,
+                                        and the door refuses those — a real pass
+                                        that fails at the gate is worse than
+                                        none. Mark them attending first. */}
                                     {(() => {
                                       const until = heldBackUntil(g)
                                       return (

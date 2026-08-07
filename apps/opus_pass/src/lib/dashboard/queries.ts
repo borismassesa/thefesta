@@ -1137,17 +1137,18 @@ export async function getEntrancePassData(token: string, eventId: string): Promi
     .eq('guest_contact_id', guest.id)
     .eq('event_id', eventId)
     .maybeSingle<{ id: string; rsvp_status: string; party_size: number | null }>()
-  // Any invited guest, not only the confirmed ones.
+  // Confirmed guests only, and deliberately so.
   //
-  // 88 of 137 guests on the live event are still pending two days out, and some
-  // will simply turn up. Refusing to draw their ticket meant the couple could
-  // not hand them one in advance: the pass existed but was unreachable.
+  // Relaxing this looks like it would let the couple hand a ticket to somebody
+  // who has not replied, but the door would still refuse them:
+  // checkin_admit_guest() carries its own `rsvp_status = 'attending'` predicate,
+  // and it is a SECURITY DEFINER function, so no API change reaches it. Drawing
+  // the ticket anyway would produce the worst outcome available — a guest at
+  // the gate holding a real pass, told they are not on the list.
   //
-  // The BULK SEND still filters to attending (entrance-pass-send.ts), so
-  // nothing is blasted to somebody who has not replied. This only makes the
-  // ticket obtainable, one guest at a time, by the couple who already holds the
-  // roster — and it is what "the pass exists before RSVP" means in practice.
-  if (!invitation) return null
+  // To give an unreplied guest a working pass, mark them attending in the RSVP
+  // tracker. That makes every layer agree at once: ticket, door and wallet.
+  if (!invitation || invitation.rsvp_status !== 'attending') return null
 
   const { data: event } = await supabase
     .from('wedding_events')
