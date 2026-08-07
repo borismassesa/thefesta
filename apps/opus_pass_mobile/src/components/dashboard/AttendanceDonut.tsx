@@ -72,7 +72,7 @@ export function AttendanceDonut({ stats }: { stats: DashboardStats }) {
           )}
         </Svg>
         <View className="absolute inset-0 items-center justify-center">
-          <Text className="font-inter-bold text-screen-title text-ed-on-surface">{stats.responseRate}%</Text>
+          <Text className="font-inter-bold text-section-title text-ed-on-surface">{stats.responseRate}%</Text>
           <Text className="font-inter text-label uppercase tracking-wide text-ed-on-surface-variant">
             answered
           </Text>

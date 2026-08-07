@@ -112,7 +112,7 @@ export function EventsTab() {
   if (events.data.length === 0) {
     return (
       <View className="items-center py-12">
-        <Text className="text-center font-inter-bold text-screen-title text-ed-on-surface">
+        <Text className="text-center font-inter-bold text-section-title text-ed-on-surface">
           Add your first event
         </Text>
         <Text className="mt-2 text-center font-inter text-body-sm text-ed-on-surface-variant">
@@ -133,7 +133,7 @@ export function EventsTab() {
   return (
     <View>
       <View className="mb-4 flex-row items-center justify-between">
-        <Text className="font-inter-bold text-screen-title text-ed-on-surface">
+        <Text className="font-inter-bold text-section-title text-ed-on-surface">
           {events.data.length} event{events.data.length === 1 ? '' : 's'}
         </Text>
         <Pressable

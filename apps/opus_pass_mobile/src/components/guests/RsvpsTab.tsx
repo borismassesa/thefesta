@@ -120,7 +120,7 @@ export function RsvpsTab() {
   if (events.data.length === 0) {
     return (
       <View className="items-center py-12">
-        <Text className="text-center font-inter-bold text-screen-title text-ed-on-surface">
+        <Text className="text-center font-inter-bold text-section-title text-ed-on-surface">
           No events yet
         </Text>
         <Text className="mt-2 text-center font-inter text-body-sm text-ed-on-surface-variant">

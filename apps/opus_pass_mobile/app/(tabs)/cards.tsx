@@ -599,7 +599,7 @@ export default function CardsScreen() {
                 ) : null}
 
                 <View className="mb-10 mt-10">
-                  <Text className="text-center font-inter-bold text-screen-title text-ed-on-surface">
+                  <Text className="text-center font-inter-bold text-section-title text-ed-on-surface">
                     {activeCategoryDef.label} Cards
                     {'\n'}Frequently Asked Questions
                   </Text>

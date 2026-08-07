@@ -147,7 +147,7 @@ export function GuestListTab() {
   if (guests.data.length === 0) {
     return (
       <View>
-        <Text className="mb-5 font-inter-bold text-screen-title text-ed-on-surface">
+        <Text className="mb-5 font-inter-bold text-section-title text-ed-on-surface">
           Let&rsquo;s add guests! Choose how:
         </Text>
         <AddMethodCard
@@ -178,7 +178,7 @@ export function GuestListTab() {
   return (
     <View>
       <View className="mb-4 flex-row items-center justify-between">
-        <Text className="font-inter-bold text-screen-title text-ed-on-surface">
+        <Text className="font-inter-bold text-section-title text-ed-on-surface">
           {guests.data.length} guest{guests.data.length === 1 ? '' : 's'}
         </Text>
         <Pressable

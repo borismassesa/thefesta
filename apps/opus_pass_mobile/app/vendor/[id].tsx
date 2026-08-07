@@ -349,7 +349,7 @@ function VendorAboutSection({
             {avatarUri ? (
               <Image source={{ uri: avatarUri }} className="h-full w-full" resizeMode="cover" />
             ) : (
-              <Text className="font-inter-bold text-screen-title text-ed-on-surface-variant">
+              <Text className="font-inter-bold text-section-title text-ed-on-surface-variant">
                 {(vendor.business_name || '?').slice(0, 2).toUpperCase()}
               </Text>
             )}
@@ -524,7 +524,7 @@ function PackageCard({
       <Text className="font-inter-bold text-label uppercase tracking-[2px] text-ed-on-surface-variant">
         {pkg.name}
       </Text>
-      <Text className="mt-2 font-inter-bold text-screen-title text-ed-on-surface">
+      <Text className="mt-2 font-inter-bold text-section-title text-ed-on-surface">
         {pkg.price ? `TZS ${pkg.price}` : 'On request'}
       </Text>
 
@@ -1770,7 +1770,7 @@ export default function VendorDetailScreen() {
             ) : (
               <View className="h-full w-full items-center justify-center border border-dashed border-ed-outline-variant">
                 <View className="mb-3 h-16 w-16 items-center justify-center rounded-full bg-ed-surface">
-                  <Text className="font-inter-bold text-screen-title text-ed-on-surface-variant">
+                  <Text className="font-inter-bold text-section-title text-ed-on-surface-variant">
                     {(vendor.business_name || '?').slice(0, 2).toUpperCase()}
                   </Text>
                 </View>
