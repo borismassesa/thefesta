@@ -325,8 +325,15 @@ export default function CartClient({
    * unchanged cart hands back the same quotation number.
    */
   function buildQuotation(): StoredOrder {
+    // Sorted by id, and by add-on within a line, because the signature has to
+    // describe the offer rather than the array. Re-adding a design already in
+    // the cart moves it to the end (CartProvider.addItem drops and re-appends),
+    // so an order-sensitive signature would mint a second quotation number for
+    // a cart nobody actually changed.
     const signature = JSON.stringify(
-      items.map((i) => [i.id, i.guests ?? 0, i.total, i.addOns ?? []]),
+      items
+        .map((i) => [i.id, i.guests ?? 0, i.total, [...(i.addOns ?? [])].sort()] as const)
+        .sort((a, b) => a[0].localeCompare(b[0])),
     )
     const contact = getContact()
     return {

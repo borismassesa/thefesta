@@ -1136,18 +1136,18 @@ export async function getEntrancePassData(token: string, eventId: string): Promi
     .eq('guest_contact_id', guest.id)
     .eq('event_id', eventId)
     .maybeSingle<{ id: string; rsvp_status: string; party_size: number | null }>()
-  // Confirmed guests only, and deliberately so.
+  // Any invited guest, replied or not.
   //
-  // Relaxing this looks like it would let the couple hand a ticket to somebody
-  // who has not replied, but the door would still refuse them:
-  // checkin_admit_guest() carries its own `rsvp_status = 'attending'` predicate,
-  // and it is a SECURITY DEFINER function, so no API change reaches it. Drawing
-  // the ticket anyway would produce the worst outcome available — a guest at
-  // the gate holding a real pass, told they are not on the list.
+  // This used to be confirmed-only, because the door refused anyone else:
+  // checkin_admit_guest() carried its own `rsvp_status = 'attending'` predicate
+  // and, being SECURITY DEFINER, no API change could reach it. Drawing a ticket
+  // for an unreplied guest would have produced the worst outcome available — a
+  // guest at the gate holding a real pass, told they are not on the list.
   //
-  // To give an unreplied guest a working pass, mark them attending in the RSVP
-  // tracker. That makes every layer agree at once: ticket, door and wallet.
-  if (!invitation || invitation.rsvp_status !== 'attending') return null
+  // That predicate is gone (20260807090000_checkin_admit_any_invited_guest),
+  // along with the matching refusals in /api/checkin/scan and /api/checkin/
+  // validate, so the pass and the door agree again. An invitation is enough.
+  if (!invitation) return null
 
   const { data: event } = await supabase
     .from('wedding_events')

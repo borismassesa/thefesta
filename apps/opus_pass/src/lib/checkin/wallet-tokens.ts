@@ -216,8 +216,12 @@ export async function resolveWalletPass(
   // off, so it has to outrank eligibility.
   if (row.token_status !== 'active') return { state: 'revoked', pass }
 
-  // The RSVP is the eligibility gate, exactly as it is at the door. A guest
-  // who has not confirmed has no pass to show yet.
+  // The RSVP is the eligibility gate for a WALLET pass, and it is deliberately
+  // stricter than the door, which now admits any invited guest. A wallet pass
+  // is a credential a guest saves to their phone and keeps; the web pass is
+  // what an unreplied guest is handed, and that one the door accepts. Google
+  // Wallet is paused behind its own flag, so nothing reaches a guest from here
+  // today — revisit this gate before it is switched back on.
   if (row.rsvp_status !== 'attending') return { state: 'not_yet_eligible', pass }
 
   const reference = row.ends_at

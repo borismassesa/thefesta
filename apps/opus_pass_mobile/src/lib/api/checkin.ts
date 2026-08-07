@@ -195,7 +195,9 @@ export type LookupResult =
       isVip: boolean;
       tableName: string | null;
       rsvpStatus: string;
-      /** False when the guest is no longer attending — /scan would refuse. */
+      /** Whether the door will accept this guest. Read it rather than deriving
+       *  it from `rsvpStatus`: an invitation is enough to be admitted now, so
+       *  this is true for every guest the lookup finds. */
       admissible: boolean;
       rsvpdPartySize: number;
       alreadyAdmitted: number;
