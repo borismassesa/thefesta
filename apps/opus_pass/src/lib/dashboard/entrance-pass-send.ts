@@ -7,7 +7,7 @@ import {
   getWhatsAppEntitlement,
   releaseSendCredit,
 } from './queries'
-import { fullNameOf, normalizePhone, publicOrigin, templateParam } from './share'
+import { normalizePhone, publicOrigin, templateParam } from './share'
 import { assessRosterDelivery } from './guest-delivery'
 import { loadRosterIdentities } from './queries'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
@@ -176,10 +176,13 @@ export async function deliverEntrancePasses(args: {
 
     const result = await provider.sendEntrancePass({
       to,
-      // Meta rejects/limits overlong template params — a full name is
-      // unbounded (unlike firstNameOf's realistically-short single word),
-      // so cap it the same way the test-send flow already does.
-      guestName: templateParam(fullNameOf(g.full_name), g.full_name, 60),
+      // The stored name verbatim, honorific included: getEntrancePassData
+      // puts guest.full_name on the ticket image itself, so stripping the
+      // title here made the message text disagree with the ticket attached
+      // to it ("Emmanuel Laiser" over a ticket reading "Mr & Mrs Emmanuel
+      // Laiser"). Still capped, because Meta rejects/limits overlong
+      // template params and a full name is unbounded.
+      guestName: templateParam(g.full_name, 'Rafiki', 60),
       eventCategory,
       coupleName,
       dateLabel,

@@ -74,7 +74,6 @@ import {
   inviteMessage,
   reminderMessage,
   greetingNameOf,
-  fullNameOf,
   saveDateUrl,
   normalizePhone,
 } from '@/lib/dashboard/share'
@@ -873,9 +872,11 @@ export default function SendInvitesView({
   const entrancePreviewGuest = guests.find((g) => g.status === 'attending') ?? null
 
   /** The entrance-pass template body for one guest, interpolated exactly as
-   *  sendEntrancePasses does. {{1}} is formatInviteGuestName, NOT fullNameOf:
-   *  the real send keeps the guest's title, so stripping it here would show
-   *  the couple a name their guest never receives. */
+   *  sendEntrancePasses does. {{1}} is the guest's complete stored name in
+   *  both places now, title included: formatInviteGuestName here, and
+   *  templateParam(g.full_name) in the real send. They only agree on the
+   *  title because that send stopped stripping it — until then this preview
+   *  showed the couple a name their guest never received. */
   const entrancePassBodyFor = (name: string | null) =>
     ENTRANCE_PASS_TEMPLATE.body
       .replace('{{1}}', formatInviteGuestName(name, 'Amina'))
@@ -2719,7 +2720,10 @@ export default function SendInvitesView({
                 <div className="lfhead">{strings.checkin_just_arrived}</div>
                 {liveArrivals.map((a, i) => (
                   <div key={`${a.at}-${i}`} className="lf">
-                    <span className="lfname">{fullNameOf(a.name)}</span>
+                    {/* Honorific included: whoever is watching the door is
+                        matching this against the ticket in the guest's hand,
+                        which prints the stored name in full. */}
+                    <span className="lfname">{a.name}</span>
                     <span className="lfmeta">
                       {a.duplicate ? `${strings.checkin_duplicate} · ` : ''}
                       {a.door} · {formatClock(a.at)}
