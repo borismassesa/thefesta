@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { CalendarHeart, MapPin, Clock, Check, PartyPopper, Heart, ImagePlus } from 'lucide-react'
+import { CalendarHeart, MapPin, Clock, Check, PartyPopper, Heart, ImagePlus, Download, Phone, Ticket } from 'lucide-react'
+import Image from 'next/image'
 import Logo from '@/components/ui/Logo'
+import { LocaleToggle } from '@/components/LocaleToggle'
 import { useT } from '@/components/providers/UIStringsProvider'
 import { submitPublicRsvp, type PublicRsvpResponse, type PublicRsvpAnswerInput } from '@/lib/dashboard/actions'
 import { eventTypeLabel, type RsvpStatus, type RsvpQuestion } from '@/lib/dashboard/types'
@@ -67,13 +69,18 @@ function multipleChoiceAnswerText(q: RsvpQuestion, a: QAnswer): string {
 
 function formatWhen(value: string | null, tbc: string): string {
   if (!value) return tbc
+  // Pinned to the venue's clock. Without this the browser's own timezone wins,
+  // so a guest (or the couple) reading from abroad saw 18:00 EAT as 08:00 —
+  // a wrong arrival time, stated with complete confidence.
   return new Date(value).toLocaleString('en-GB', {
+    timeZone: 'Africa/Nairobi',
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hourCycle: 'h23',
   })
 }
 
@@ -237,6 +244,9 @@ export default function PublicRsvpForm({
     return (
       <Shell
         coupleName={data.coupleName}
+        cardUrl={data.cardUrlByEvent[data.events[0]?.id ?? ''] ?? null}
+        cardAlt={t('card_alt')}
+        cardDownloadLabel={t('card_download')}
         coverImageUrl={data.coverImageUrl}
       >
         <div className="text-center">
@@ -265,28 +275,64 @@ export default function PublicRsvpForm({
   return (
     <Shell
       coupleName={data.coupleName}
+      cardUrl={followupMode ? null : (data.cardUrlByEvent[data.events[0]?.id ?? ''] ?? null)}
+      cardAlt={t('card_alt')}
+      cardDownloadLabel={t('card_download')}
       coverImageUrl={followupMode ? null : data.coverImageUrl}
     >
       <div className="text-center">
-        {!followupMode ? (
-          <p className="inline-flex rounded-full border border-[#C9A0DC]/35 bg-[#F7EFFB] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7B439E]">
-            {t('eyebrow')}
-          </p>
-        ) : null}
-        <h1 className={`${followupMode ? '' : 'mt-4'} font-serif text-4xl font-semibold leading-tight text-[#4F2877] sm:text-5xl`}>
-          {followupMode ? t('followup_title') : data.coupleName}
+        <h1 className="leading-tight text-[#1A1A1A]">
+          <span
+            className="block text-[2rem] leading-none sm:text-4xl lg:text-5xl"
+            style={{ fontFamily: 'var(--font-dancing), cursive' }}
+          >
+            {followupMode ? t('followup_title') : data.coupleName}
+          </span>
         </h1>
-        <div className="mx-auto mt-3 flex w-28 items-center justify-center gap-2 text-[#C9A0DC]">
-          <span className="h-px flex-1 bg-current/40" />
-          <Heart className="h-3.5 w-3.5" fill="currentColor" />
-          <span className="h-px flex-1 bg-current/40" />
+        <div className="mx-auto mt-3 flex items-center justify-center gap-2.5 text-[#C9A0DC]" aria-hidden>
+          <span className="h-px w-8 bg-current/50" />
+          <Heart className="h-3 w-3 shrink-0" fill="currentColor" strokeWidth={0} />
+          <span className="h-px w-8 bg-current/50" />
         </div>
-        <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-[#1A1A1A]/55">
+        <p className="mx-auto mt-4 max-w-sm text-[15px] leading-relaxed text-[#1A1A1A]/55">
           {followupMode
             ? t('followup_greeting')
             : t('header_greeting', { name: guestFirstName })}
         </p>
       </div>
+
+      {/* Pass ID and who to ring. The card itself sits in the panel beside
+          this (above it on a phone), so it is not repeated here. */}
+      {!followupMode
+        ? data.events.map((e) => {
+            const contacts = data.contactsByEvent[e.id] ?? []
+            const passId = (e.invitation as { pass_id?: string | null }).pass_id
+            if (!passId && contacts.length === 0) return null
+            return (
+              <div key={`facts-${e.id}`} className="mt-8 space-y-3 rounded-2xl border border-black/[0.08] bg-white p-5">
+                {passId ? (
+                  <div className="flex items-center gap-3">
+                    <Ticket className="h-4 w-4 flex-none text-[#8e57b3]" />
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1A1A1A]/45">
+                        {t('card_pass_id')}
+                      </div>
+                      <div className="font-mono text-base font-bold tracking-[0.12em] text-[#1A1A1A]">
+                        {passId}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                {contacts.map((c) => (
+                  <div key={c} className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 flex-none text-[#8e57b3]" />
+                    <span className="text-sm text-[#1A1A1A]/75">{c}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          })
+        : null}
 
       {submitted ? (
         <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
@@ -536,57 +582,70 @@ function QuestionField({
 function Shell({
   children,
   coupleName,
+  cardUrl,
+  cardAlt,
+  cardDownloadLabel,
   coverImageUrl,
 }: {
   children: React.ReactNode
   coupleName: string
+  /** The guest's own card. Fills the panel a cover photo would otherwise, and
+   *  is the thing they opened the link to see. */
+  cardUrl?: string | null
+  cardAlt: string
+  cardDownloadLabel: string
   coverImageUrl?: string | null
 }) {
   return (
     <div className="min-h-screen bg-white text-[#1A1A1A] lg:grid lg:grid-cols-2">
       <Logo className="fixed left-4 top-4 z-10 drop-shadow-sm sm:left-6 sm:top-6" />
+      <LocaleToggle className="fixed right-4 top-4 z-10 shadow-sm sm:right-6 sm:top-6" />
 
-      <aside className="relative min-h-[360px] overflow-hidden bg-gradient-to-br from-[#F1F4EB] to-[#E6EADE] lg:sticky lg:top-0 lg:h-screen">
+      <aside className="flex items-center justify-center overflow-y-auto bg-gradient-to-br from-[#F1F4EB] to-[#EDF0E7] px-5 pb-8 pt-24 sm:px-10 sm:py-14 lg:sticky lg:top-0 lg:h-screen lg:min-h-0 lg:px-16 lg:py-16">
         {coverImageUrl ? (
-          <>
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={coverImageUrl}
-            alt={`${coupleName} photo`}
-            className="absolute inset-0 h-full w-full object-cover"
+            alt={coupleName}
+            className="max-h-[65vh] w-auto max-w-full rounded-2xl object-contain shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] sm:max-h-[75vh] lg:max-h-[calc(100vh-8rem)]"
           />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-white/10" />
-          </>
+        ) : cardUrl ? (
+          <div className="flex w-full max-w-[420px] flex-col items-center">
+            <Image
+              src={cardUrl}
+              alt={cardAlt}
+              width={760}
+              height={1064}
+              className="max-h-[65vh] w-auto max-w-full rounded-2xl object-contain shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] sm:max-h-[75vh] lg:max-h-[calc(100vh-10rem)]"
+              unoptimized
+              priority
+            />
+            <a
+              href={cardUrl}
+              download
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-[#4F2877] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3E1F5E]"
+            >
+              <Download className="h-4 w-4" /> {cardDownloadLabel}
+            </a>
+          </div>
         ) : (
-          <div className="relative flex h-full min-h-[360px] items-end px-6 pb-10 pt-24 lg:min-h-screen lg:px-12 lg:pb-14">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(201,160,220,0.16),transparent_32%),radial-gradient(circle_at_78%_76%,rgba(79,40,119,0.08),transparent_34%)]" />
-            <div className="relative w-full max-w-[460px]">
-              <div className="aspect-[4/5] w-full rounded-[26px] border border-dashed border-[#C9A0DC]/45 bg-white/25 p-3 shadow-[0_28px_90px_-56px_rgba(65,42,78,0.45)]">
-                <div className="flex h-full items-center justify-center rounded-[20px] bg-white/25">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#C9A0DC]/30 bg-white/60 text-[#7B439E]">
-                    <ImagePlus className="h-5 w-5" />
-                  </span>
-                </div>
-              </div>
-              <div className="mt-5 max-w-sm text-left">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8e57b3]">
-                  Couple photo
-                </p>
-                <h2 className="mt-2 text-lg font-semibold leading-snug text-[#1A1A1A]">
-                  Add a photo from the dashboard
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-[#1A1A1A]/55">
-                  This space will show the couple&apos;s uploaded photo once it is added.
-                </p>
-              </div>
-            </div>
+          /* Neither photo nor card. A quiet mark, never operator copy: a guest
+             cannot act on "add a photo from the dashboard". */
+          <div className="flex flex-col items-center text-[#7B439E]/45">
+            <Heart className="h-8 w-8" fill="currentColor" strokeWidth={0} />
           </div>
         )}
       </aside>
 
-      <main className="flex justify-center px-5 py-8 sm:px-8 sm:py-10 lg:min-h-screen lg:px-14 lg:py-16">
+      {/* A column, so the credit can be pushed to the foot of the page with
+          mt-auto rather than trailing whatever the content happens to end on.
+          On a phone there is no spare height to push into, so it simply
+          follows the content, which is where a footer belongs there anyway. */}
+      <main className="flex flex-col items-center px-5 py-8 sm:px-8 sm:py-10 lg:min-h-screen lg:px-14 lg:py-16">
         <div className="w-full max-w-lg">
           {children}
-          <footer className="mt-8 flex justify-center text-center">
+        </div>
+          <footer className="mt-auto flex justify-center pt-12 text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white px-4 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-[#1A1A1A]/45 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.35)]">
               <span>Powered</span>
               <span>with</span>
@@ -595,7 +654,6 @@ function Shell({
               <span className="font-semibold text-[#5d2f83]">OpusPass</span>
             </span>
           </footer>
-        </div>
       </main>
     </div>
   )

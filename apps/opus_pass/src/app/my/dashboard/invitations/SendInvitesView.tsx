@@ -75,9 +75,11 @@ import {
   firstNameOf,
   fullNameOf,
   saveDateUrl,
+  normalizePhone,
 } from '@/lib/dashboard/share'
 import { formatInviteGuestName, INVITE_TEMPLATE, ENTRANCE_PASS_TEMPLATE } from '@/lib/whatsapp/types'
-import { buildSmsInvite } from '@/lib/dashboard/sms-invite'
+import { buildSmsInvite, cardDateLabel } from '@/lib/dashboard/sms-invite'
+import { buildManualInvite, manualWhatsAppUrl } from '@/lib/dashboard/manual-invite'
 import { EVENT_TYPE_LABELS } from '@/lib/dashboard/types'
 import type { EventType, TicketLanguage } from '@/lib/dashboard/types'
 import type { SendInvitesData, SendGuestRow } from '@/lib/dashboard/queries'
@@ -338,6 +340,14 @@ export default function SendInvitesView({
   // closes it rather than leaving a drawer pointed at nothing.
   const reviewGuest = review ? (guests.find((g) => g.id === review.guestId) ?? null) : null
   const [resendMenuId, setResendMenuId] = useState<string | null>(null)
+  // The manual-send modal. Holds the prepared card so the two steps can be
+  // taken in either order and the second knows the first happened.
+  const [recover, setRecover] = useState<{
+    guest: SendGuestRow
+    cardUrl: string | null
+    downloaded: boolean
+    preparing: boolean
+  } | null>(null)
   useEffect(() => {
     if (!resendMenuId) return
     const onDown = (e: MouseEvent) => {
@@ -375,7 +385,7 @@ export default function SendInvitesView({
   const [topUpOpen, setTopUpOpen] = useState(false)
   // Any full-screen overlay open — freeze the page behind it so scrolling
   // over the (fixed-position) dim backdrop doesn't also scroll the page.
-  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress || topUpOpen || reviewGuest))
+  useBodyLock(Boolean(confirmSend || report || previewOpen || confirmEntranceSend || entrancePreviewOpen || confirmBulkDelete || sendProgress || topUpOpen || reviewGuest || recover))
   // The selected event owns partner names, category and location. The preview
   // chooses a REAL guest so its message and image can never drift apart.
   const hostName = data.sendSettings.hostName
@@ -586,6 +596,24 @@ export default function SendInvitesView({
 
   // "Awaiting" = invited but not yet replied (delivered or seen, no RSVP).
   const isAwaiting = (s: SendGuestRow['status']) => s === 'sent' || s === 'viewed'
+  /**
+   * True while Meta's documented cool-off for a held-back marketing template
+   * has not elapsed. Meta asks for at least 24 hours before re-attempting a
+   * 131049; it does not say a retry harms the account, only that it will not
+   * help. Resend stays visible but disabled, so the operator can see why.
+   */
+  const HELD_BACK_WAIT_MS = 24 * 60 * 60 * 1000
+  // The server's clock, not the browser's: reading Date.now() in render is
+  // impure. The 25s poll re-renders this view, so it stays current enough for
+  // a 24-hour window.
+  const serverNow = new Date(data.now).getTime()
+  function heldBackUntil(g: SendGuestRow): number | null {
+    if (g.delivery?.state !== 'failed' || g.delivery.code !== '131049') return null
+    const at = new Date(g.delivery.at).getTime()
+    if (Number.isNaN(at)) return null
+    const until = at + HELD_BACK_WAIT_MS
+    return until > serverNow ? until : null
+  }
   const hasPhone = (g: SendGuestRow) => Boolean(g.whatsappPhone || g.phone)
 
   const notSentCount = useMemo(() => guests.filter((g) => g.status === 'none').length, [guests])
@@ -1337,6 +1365,98 @@ export default function SendInvitesView({
       },
       live,
     ]
+  }
+
+  /** The message the couple sends by hand, for this guest. */
+  function manualMessageFor(g: SendGuestRow): string {
+    const f = event.cardFields
+    return buildManualInvite({
+      guestName: formatInviteGuestName(g.name, 'Amina'),
+      hostsNames: f?.hosts_names ?? '',
+      coupleName: [f?.couple_name_1, f?.couple_name_2].filter(Boolean).join(' & ') || event.coupleName,
+      eventCategory: eventCat.trim() || event.eventCategorySw,
+      dateLabel: f ? cardDateLabel(f) : (event.dateLabel ?? ''),
+      rsvpUrl: g.rsvpUrl,
+      locationUrl: invitationFields?.mapsUrl ?? null,
+      locationLabel: invitationFields?.locationLabel ?? '',
+      passId: g.passId,
+      helpContact: f?.contact_1 ?? null,
+    })
+  }
+
+  /**
+   * Hand the guest's card to the couple's own WhatsApp, in two explicit steps.
+   *
+   * It cannot be one step. A wa.me link carries text only, so the card has to
+   * be downloaded separately — and doing the download first then calling
+   * window.open() breaks: the await consumes the browser's user activation and
+   * Safari blocks the window as an unrequested popup. So each step gets its own
+   * button and its own click, and the modal tracks which are done.
+   *
+   * Where the platform supports sharing files, the share sheet does both at
+   * once and WhatsApp appears in it. That path is offered when available and
+   * the two-step flow remains for everyone else, since file-share support
+   * varies by browser and OS.
+   */
+  function openRecovery(g: SendGuestRow) {
+    setRecover({ guest: g, cardUrl: null, downloaded: false, preparing: true })
+    void (async () => {
+      if (!eventId) return
+      try {
+        const result = await prepareInviteGuestPreview(g.id, eventId)
+        setRecover((prev) =>
+          prev && prev.guest.id === g.id
+            ? { ...prev, preparing: false, cardUrl: result.ok ? result.imageUrl : null }
+            : prev,
+        )
+      } catch {
+        setRecover((prev) => (prev && prev.guest.id === g.id ? { ...prev, preparing: false } : prev))
+      }
+    })()
+  }
+
+  /** Save the prepared card. Same origin, so `download` is honoured. */
+  function downloadPreparedCard(g: SendGuestRow, cardUrl: string) {
+    const a = document.createElement('a')
+    a.href = cardUrl
+    a.download = `${g.name.replace(/[^\w\s-]/g, '').trim() || 'invitation'}.png`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setRecover((prev) => (prev && prev.guest.id === g.id ? { ...prev, downloaded: true } : prev))
+  }
+
+  /** Straight from the click, no await before it — see openRecovery. */
+  function openWhatsAppFor(g: SendGuestRow) {
+    const digits = normalizePhone(g.whatsappPhone || g.phone)
+    if (!digits) {
+      toast.error(fmt(strings.send_no_phone, { n: 1 }))
+      return
+    }
+    window.open(manualWhatsAppUrl(digits, manualMessageFor(g)), '_blank', 'noopener,noreferrer')
+    // Opened, not sent. Whether they attached the card and pressed send is not
+    // something this app can observe, so it is not recorded as a send.
+    recordSend(g.id, 'whatsapp', eventId).catch(() => {})
+  }
+
+  /**
+   * One step where the platform allows it: the share sheet carries the file and
+   * the text together, and WhatsApp is one of its targets.
+   */
+  async function shareCardNatively(g: SendGuestRow, cardUrl: string): Promise<boolean> {
+    try {
+      const res = await fetch(cardUrl)
+      if (!res.ok) return false
+      const blob = await res.blob()
+      const file = new File([blob], `${g.name.trim() || 'invitation'}.png`, { type: 'image/png' })
+      const data = { files: [file], text: manualMessageFor(g) }
+      if (typeof navigator.canShare !== 'function' || !navigator.canShare(data)) return false
+      await navigator.share(data)
+      recordSend(g.id, 'whatsapp', eventId).catch(() => {})
+      return true
+    } catch {
+      return false
+    }
   }
 
   function rowShare(g: SendGuestRow, channel: 'whatsapp' | 'sms' | 'copy') {
@@ -2955,7 +3075,7 @@ export default function SendInvitesView({
                                   disabled={pending || !hasPhone(g)}
                                   aria-haspopup="menu"
                                   aria-expanded={resendMenuId === g.id}
-                                  title={strings.row_resend_menu}
+                                  title={g.delivery?.state === 'failed' ? strings.row_recover_menu : strings.row_resend_menu}
                                   onClick={() => setResendMenuId(resendMenuId === g.id ? null : g.id)}
                                 >
                                   {sendingRow === g.id ? (
@@ -2963,16 +3083,62 @@ export default function SendInvitesView({
                                   ) : (
                                     <RotateCcw size={16} strokeWidth={2.4} />
                                   )}
-                                  {strings.row_resend_menu} <ChevronDown size={13} />
+                                  {g.delivery?.state === 'failed' ? strings.row_recover_menu : strings.row_resend_menu}{' '}
+                                  <ChevronDown size={13} />
                                 </button>
                                 {resendMenuId === g.id ? (
                                   <div className="rsmenupop" role="menu">
-                                    <button
-                                      role="menuitem"
-                                      onClick={() => { setResendMenuId(null); rowShare(g, 'whatsapp') }}
-                                    >
-                                      <Send size={13} /> {strings.row_resend_now}
-                                    </button>
+                                    {/* A guest WhatsApp has already refused does
+                                        not need "send it again" offered first.
+                                        Retrying a held-back number pushes the
+                                        account's quality rating further down,
+                                        so the routes that actually work lead. */}
+                                    {g.delivery?.state === 'failed' ? (
+                                      <>
+                                        <button
+                                          role="menuitem"
+                                          onClick={() => { setResendMenuId(null); openRecovery(g) }}
+                                        >
+                                          <MessageCircle size={13} /> {strings.row_send_manually}
+                                        </button>
+                                        <button
+                                          role="menuitem"
+                                          onClick={() => { setResendMenuId(null); openRecovery(g) }}
+                                        >
+                                          <Download size={13} /> {strings.row_download_card}
+                                        </button>
+                                        <button
+                                          role="menuitem"
+                                          onClick={() => {
+                                            setResendMenuId(null)
+                                            navigator.clipboard.writeText(manualMessageFor(g))
+                                            toast.success(strings.row_message_copied)
+                                          }}
+                                        >
+                                          <Copy size={13} /> {strings.row_copy_message}
+                                        </button>
+                                        <button
+                                          role="menuitem"
+                                          onClick={() => { setResendMenuId(null); rowShare(g, 'sms') }}
+                                        >
+                                          <Smartphone size={13} /> {strings.row_send_sms}
+                                        </button>
+                                        <div className="rsmsep" />
+                                      </>
+                                    ) : null}
+                                    {(() => {
+                                      const until = heldBackUntil(g)
+                                      return (
+                                        <button
+                                          role="menuitem"
+                                          disabled={Boolean(until)}
+                                          title={until ? strings.row_resend_held_back : undefined}
+                                          onClick={() => { setResendMenuId(null); rowShare(g, 'whatsapp') }}
+                                        >
+                                          <Send size={13} /> {strings.row_resend_now}
+                                        </button>
+                                      )
+                                    })()}
                                     <button
                                       role="menuitem"
                                       onClick={() => { setResendMenuId(null); setReview({ guestId: g.id, mode: 'invite' }) }}
@@ -3378,6 +3544,81 @@ export default function SendInvitesView({
           onTopUp={() => { setReview(null); setTopUpOpen(true) }}
           onClose={() => setReview(null)}
         />
+      ) : null}
+
+      {/* Manual send. Two steps, each on its own click: a wa.me link carries no
+          attachment, and doing the download first then opening the window loses
+          the user activation Safari needs, so the popup is blocked. */}
+      {recover ? (
+        <div className="ovl" onClick={() => setRecover(null)}>
+          <div className="modal" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
+            <div className="mhead">
+              <h3>{strings.manual_title}</h3>
+              <button className="xbtn" onClick={() => setRecover(null)} aria-label={strings.preview_close}><X size={16} /></button>
+            </div>
+            <p className="mutedp">{fmt(strings.manual_intro, { name: recover.guest.name })}</p>
+
+            <div className="mancard">
+              {recover.preparing ? (
+                <div className="manph"><Loader2 size={18} className="spin" /> {strings.manual_preparing}</div>
+              ) : recover.cardUrl ? (
+                <Image src={recover.cardUrl} alt="" width={300} height={420} className="manimg" unoptimized />
+              ) : (
+                <div className="manph bad"><AlertTriangle size={18} /> {strings.manual_card_failed}</div>
+              )}
+            </div>
+
+            <ol className="mansteps">
+              <li className={recover.downloaded ? 'done' : ''}>
+                <span className="mannum">{recover.downloaded ? <Check size={13} /> : 1}</span>
+                <div>
+                  <b>{strings.manual_step_download}</b>
+                  <button
+                    className="btn ghost"
+                    disabled={!recover.cardUrl}
+                    onClick={() => recover.cardUrl && downloadPreparedCard(recover.guest, recover.cardUrl)}
+                  >
+                    <Download size={14} /> {strings.row_download_card}
+                  </button>
+                </div>
+              </li>
+              <li className={recover.downloaded ? 'next' : ''}>
+                <span className="mannum">2</span>
+                <div>
+                  <b>{strings.manual_step_open}</b>
+                  <button
+                    className={`btn ${recover.downloaded ? 'send' : 'ghost'}`}
+                    onClick={() => openWhatsAppFor(recover.guest)}
+                  >
+                    <MessageCircle size={14} /> {strings.manual_open_whatsapp}
+                  </button>
+                </div>
+              </li>
+            </ol>
+
+            <p className="manwarn">{strings.manual_attach_reminder}</p>
+
+            <div className="mrow">
+              {recover.cardUrl ? (
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    const { guest, cardUrl } = recover
+                    void shareCardNatively(guest, cardUrl!).then((ok) => {
+                      if (!ok) toast(strings.manual_share_unavailable)
+                    })
+                  }}
+                >
+                  <Share2 size={14} /> {strings.manual_share}
+                </button>
+              ) : null}
+              <button className="btn ghost" onClick={() => { navigator.clipboard.writeText(manualMessageFor(recover.guest)); toast.success(strings.row_message_copied) }}>
+                <Copy size={14} /> {strings.row_copy_message}
+              </button>
+              <button className="btn pri" onClick={() => setRecover(null)}>{strings.review_done}</button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {/* Add-more-invitations drawer. Mounted only while open so its candidate
@@ -3887,6 +4128,24 @@ const css = `
 .si .rsmenupop button{ display:flex; align-items:center; gap:9px; width:100%; border:none; background:none;
   padding:9px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--ink);
   cursor:pointer; text-align:left; }
+.si .mancard{ display:flex; justify-content:center; margin:14px 0; }
+.si .manimg{ width:auto; max-height:260px; border-radius:10px; box-shadow:var(--soft); }
+.si .manph{ display:flex; align-items:center; gap:8px; padding:36px 18px; font-size:13px; color:var(--muted); }
+.si .manph.bad{ color:var(--bad-tx); }
+.si .mansteps{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.si .mansteps li{ display:flex; gap:11px; align-items:flex-start; padding:11px 12px; border:1px solid var(--line); border-radius:12px; }
+/* The second step is emphasised only once the first is done, so the order is
+   readable at a glance rather than stated in prose. */
+.si .mansteps li.next{ border-color:var(--wa); background:#f2fdf6; }
+.si .mansteps li.done{ opacity:.62; }
+.si .mansteps li > div{ display:flex; flex-direction:column; gap:7px; align-items:flex-start; }
+.si .mansteps b{ font-size:13px; font-weight:600; }
+.si .mannum{ flex:none; width:22px; height:22px; border-radius:999px; background:var(--lav-soft); color:var(--purple-d);
+  display:inline-flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; }
+.si .mansteps li.done .mannum{ background:var(--ok-bg); color:var(--ok-tx); }
+.si .manwarn{ margin:12px 0 0; padding:10px 12px; border-radius:10px; background:var(--amber-bg);
+  border:1px solid var(--amber-bd); color:var(--amber-tx); font-size:12.5px; line-height:1.5; }
+.si .rsmsep{ height:1px; margin:5px 0; background:var(--line); }
 .si .rsmenupop button:hover{ background:var(--hover); }
 .si .einp{ width:100%; max-width:220px; border:1px solid var(--lav); border-radius:8px; padding:6px 9px; font-size:13px; background:#fff; }
 .si .einp:focus{ outline:none; border-color:var(--purple); }

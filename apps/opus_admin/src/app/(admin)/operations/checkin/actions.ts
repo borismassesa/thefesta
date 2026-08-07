@@ -36,6 +36,9 @@ export type SendAccessCodeResult = { ok: true } | { ok: false; error: string }
  *  lets through, since Resend reports a hard failure either way. */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/** Every event this product serves runs on Tanzanian local time. */
+const EVENT_TIME_ZONE = 'Africa/Dar_es_Salaam'
+
 interface AccessCodeDelivery {
   eventId: string
   to: string
@@ -71,8 +74,14 @@ async function deliverAccessCode(d: AccessCodeDelivery): Promise<DeliveryResult>
   const message = composeAccessCodeEmail({
     recipientName: d.recipientName,
     eventName: event?.name ?? 'your event',
+    // Pinned to Dar es Salaam: the server runs in UTC, so an evening event
+    // would otherwise be emailed to the door with the previous day's date.
     eventDate: event?.starts_at
-      ? new Date(event.starts_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      ? new Date(event.starts_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: EVENT_TIME_ZONE })
+      : null,
+    eventTime: event?.starts_at
+      // en-US for the 12-hour clock the door reads it in ("4:00 PM").
+      ? new Date(event.starts_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: EVENT_TIME_ZONE })
       : null,
     venue: [event?.venue_name, event?.city].filter(Boolean).join(', ') || null,
     doorLabel: d.doorLabel,

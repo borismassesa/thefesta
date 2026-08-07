@@ -654,6 +654,11 @@ export interface FormsRsvpStrings {
   submitted_title: string
   submitted_body: string
   submitted_change: string
+  // The guest's own card, shown so they can save it when the sender could not
+  // attach it to a message.
+  card_alt: string
+  card_download: string
+  card_pass_id: string
   // Event card
   dress_code_prefix: string // "Dress code:" — value appended in markup
   // RSVP status options
@@ -1253,6 +1258,26 @@ export interface DashboardSendStrings {
   review_sms_message_note: string
   review_sms_manual_note: string
   review_open_sms: string
+  // Recovery actions for a guest WhatsApp refused
+  row_recover_menu: string
+  row_send_manually: string
+  row_download_card: string
+  row_copy_message: string
+  row_send_sms: string
+  row_message_copied: string
+  manual_card_downloaded: string
+  manual_no_card: string
+  row_resend_held_back: string
+  manual_title: string
+  manual_intro: string
+  manual_preparing: string
+  manual_card_failed: string
+  manual_step_download: string
+  manual_step_open: string
+  manual_open_whatsapp: string
+  manual_attach_reminder: string
+  manual_share: string
+  manual_share_unavailable: string
   entrance_needs_whatsapp: string
   entrance_status_sent: string
   entrance_status_notsent: string
@@ -1916,6 +1941,9 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     submitted_title: 'Your details are saved',
     submitted_body: 'Thank you! You can update your details below if anything changes.',
     submitted_change: 'Change my response',
+    card_alt: 'Your invitation card',
+    card_download: 'Download invitation card',
+    card_pass_id: 'Entrance Pass ID',
     dress_code_prefix: 'Dress code:',
     status_attending: "I'll be there",
     status_maybe: 'Maybe',
@@ -2459,6 +2487,25 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     review_sms_message_note: 'Exactly what this guest will read. SMS carries no card image, so the Entrance Pass ID is what gets them through the door.',
     review_sms_manual_note: 'Opens your own messaging app. You press send there.',
     review_open_sms: 'Open SMS app',
+    row_recover_menu: 'Recover',
+    row_send_manually: 'Send manually via WhatsApp',
+    row_download_card: 'Download card',
+    row_copy_message: 'Copy message',
+    row_send_sms: 'Send SMS',
+    row_message_copied: 'Message copied',
+    manual_card_downloaded: 'The card has been downloaded. Attach it to the WhatsApp message before sending.',
+    manual_no_card: 'WhatsApp is open, but the card could not be downloaded. The guest can still save it from the RSVP link in the message.',
+    row_resend_held_back: 'WhatsApp held this guest back. Meta asks for 24 hours before trying the template again.',
+    manual_title: 'Send manually',
+    manual_intro: 'WhatsApp would not deliver to {name}. Send it yourself in two steps.',
+    manual_preparing: 'Preparing the card',
+    manual_card_failed: 'The card could not be prepared',
+    manual_step_download: 'Save the card to this device',
+    manual_step_open: 'Open the chat and attach it',
+    manual_open_whatsapp: 'Open WhatsApp',
+    manual_attach_reminder: 'WhatsApp cannot attach the card for you. Add it from the attachment button before sending. If you forget, the guest can still download it from the RSVP link in the message.',
+    manual_share: 'Share card and message',
+    manual_share_unavailable: 'This device cannot share files directly. Use the two steps above.',
     entrance_needs_whatsapp: 'Entrance passes are sent by WhatsApp only — add a WhatsApp number for this guest',
     entrance_status_sent: 'Sent',
     entrance_status_notsent: 'Not sent',

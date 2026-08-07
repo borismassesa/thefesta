@@ -44,6 +44,16 @@ export interface RosterEntry {
  * path sends `invitationId` instead — so nothing here needs the token, and
  * the blast radius of a stolen device stays limited to the door code itself,
  * which the couple can revoke.
+ *
+ * The same reasoning governs contact details, and it is the reason this route
+ * carries none. A roster is a bulk read: everything returned here lands on the
+ * device in one call, for every attending guest, and stays there for the
+ * shift. So it is limited to what the door needs to FIND a guest — the name
+ * and the couple's own grouping. Anything that identifies a guest personally,
+ * the phone number being the one the confirm card wants, is guest-specific
+ * detail and comes from /lookup, one resolved guest at a time. Adding a
+ * personal field here would widen a lost device from "the door code, which is
+ * revocable" to "the whole guest list's contact details, which are not".
  */
 export async function POST(request: Request) {
   const { eventId, token } = (await request.json().catch(() => ({}))) as {

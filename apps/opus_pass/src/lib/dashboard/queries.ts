@@ -2,6 +2,12 @@ import 'server-only'
 import { createDashboardClient } from './supabase'
 import { getDashboardUser, requireDashboardUser } from './auth'
 import type { CardInviteFields } from './sms-invite'
+import { deriveAssetToken } from '@/lib/cards/asset-tokens'
+import { prepareGuestCardAsset } from '@/lib/cards/prepare-guest-asset'
+
+/** Must match the variant the send pipeline prepares, or the page would render
+ *  a second copy of every card under a different token. */
+const INVITE_CARD_VARIANT = 'whatsapp_header_v1'
 import { eatDateParts, eventInviteUrl, eventSlugBase, firstNameOf, formatLongDate, formatLongDateSw, formatSwahiliTime, formatTicketDate, hasEatTimeComponent, publicOrigin, slugBaseOf } from './share'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import { eventTypeLabel, eventTypeLabelSw, ticketIntroLabel } from './types'
@@ -656,12 +662,13 @@ export async function getPublicPledgeCouple(token: string, eventId: string | nul
   const { data: profile } = await supabase
     .from('couple_profiles')
     .select(
-      'partner1_name, partner2_name, wedding_date, city, pledge_payment_instructions, pledge_payment_methods, pledge_page',
+      'partner1_name, partner2_name, invite_host_name, wedding_date, city, pledge_payment_instructions, pledge_payment_methods, pledge_page',
     )
     .eq('user_id', owner.id)
     .maybeSingle<{
       partner1_name: string | null
       partner2_name: string | null
+      invite_host_name: string | null
       wedding_date: string | null
       city: string | null
       pledge_payment_instructions: string | null
@@ -669,12 +676,12 @@ export async function getPublicPledgeCouple(token: string, eventId: string | nul
       pledge_page: PledgePageConfig | null
     }>()
 
-  // Guests see the pledge page as a personal ask from the couple, not a legal
-  // document — first names read warmer than full names here.
-  const names = [profile?.partner1_name, profile?.partner2_name].filter(Boolean).map((n) => firstNameOf(n!))
-  const coupleName = names.length ? names.join(' & ') : await fallbackCoupleNameFromEvent(supabase, owner.id)
   const storedPage = profile?.pledge_page ?? {}
   const resolvedEventId = await resolveEventIdOrDefault(owner.id, eventId)
+  // The guest is being asked to support the celebrants of THIS event, so the
+  // event's own partner names win over the account's profile names (an account
+  // co-ordinating several couples' events has generic profile names).
+  const coupleName = await pledgeCoupleName(supabase, owner.id, resolvedEventId, profile ?? null)
   return {
     coupleName,
     weddingDate: profile?.wedding_date ?? null,
@@ -686,21 +693,37 @@ export async function getPublicPledgeCouple(token: string, eventId: string | nul
   }
 }
 
-/** No partner names on the profile? Fall back to the couple's earliest event's
- *  own title (e.g. "Asha & Juma's Wedding") before the generic placeholder. */
-export async function fallbackCoupleNameFromEvent(
+/** Whose pledge page the guest is looking at. Same precedence as the entrance
+ *  pass (see entranceCoupleName): the event's own partner names, then the
+ *  host-name override, then the profile's partner names, then the event title
+ *  (e.g. "Asha & Juma's Wedding") before the generic placeholder. Guests read
+ *  this as a personal ask, so structured names are shortened to first names. */
+async function pledgeCoupleName(
   supabase: ReturnType<typeof createDashboardClient>,
   userId: string,
+  eventId: string | null,
+  profile: { partner1_name: string | null; partner2_name: string | null; invite_host_name: string | null } | null,
 ): Promise<string> {
-  const { data: primaryEvent } = await supabase
-    .from('wedding_events')
-    .select('name')
-    .eq('user_id', userId)
-    .order('sort_order', { ascending: true })
-    .order('starts_at', { ascending: true, nullsFirst: false })
-    .limit(1)
-    .maybeSingle<{ name: string | null }>()
-  return primaryEvent?.name?.trim() || 'The Couple'
+  const { data: event } = eventId
+    ? await supabase
+        .from('wedding_events')
+        .select('name, partner1_name, partner2_name')
+        .eq('user_id', userId)
+        .eq('id', eventId)
+        .maybeSingle<{ name: string | null; partner1_name: string | null; partner2_name: string | null }>()
+    : { data: null }
+
+  if (event) {
+    return entranceCoupleName(
+      { name: event.name?.trim() || 'The Couple', partner1_name: event.partner1_name, partner2_name: event.partner2_name },
+      profile,
+    )
+  }
+
+  const hostOverride = profile?.invite_host_name?.trim()
+  if (hostOverride) return hostOverride
+  const profileNames = [profile?.partner1_name, profile?.partner2_name].filter(Boolean) as string[]
+  return profileNames.length ? profileNames.map(firstNameOf).join(' & ') : 'The Couple'
 }
 
 /** The signed-in couple's saved pledge-page config, with the cover resolved
@@ -860,6 +883,20 @@ export interface PublicRsvpData {
   generalQuestions: RsvpQuestion[]
   /** Prior answers keyed by guest_invitation_id -> question_id -> answer. */
   answers: Record<string, Record<string, RsvpAnswer>>
+  /**
+   * This guest's own personalised invitation card, keyed by event id.
+   *
+   * The safety net for the manual send: a wa.me link cannot attach the image,
+   * so when the sender forgets, this page is where the guest still gets it.
+   *
+   * Resolved entirely from the public RSVP token. The client never supplies or
+   * sees a guest id, a design id, a release id or a storage path — the value is
+   * the same token-derived public URL the WhatsApp header uses, which resolves
+   * to one card and cannot be walked to another guest's.
+   */
+  cardUrlByEvent: Record<string, string>
+  /** Somebody to ring, per event, from the card's own contact fields. */
+  contactsByEvent: Record<string, string[]>
 }
 
 export async function getPublicRsvpData(token: string): Promise<PublicRsvpData | null> {
@@ -899,6 +936,8 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
       questionsByEvent: {},
       generalQuestions: [],
       answers: {},
+      cardUrlByEvent: {},
+      contactsByEvent: {},
     }
   }
 
@@ -927,6 +966,45 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     supabase.from('rsvp_answers').select('*').in('guest_invitation_id', invitationIds),
   ])
 
+  // The guest's own card, per event. Resolved here rather than on the client:
+  // the page is public, so nothing that could address another guest's asset may
+  // cross the boundary.
+  const cardUrlByEvent: Record<string, string> = {}
+  const contactsByEvent: Record<string, string[]> = {}
+  const { data: designRows } = await supabase
+    .from('invitation_card_designs')
+    .select('current_release_id, field_values, released_at, invitation_orders!inner(event_id)')
+    .in('status', ['ready', 'delivered'])
+    .not('current_release_id', 'is', null)
+    .in('invitation_orders.event_id', eventIds)
+    .order('released_at', { ascending: false })
+
+  for (const row of (designRows ?? []) as unknown as {
+    current_release_id: string
+    field_values: CardInviteFields | null
+    invitation_orders: { event_id: string } | { event_id: string }[]
+  }[]) {
+    const order = Array.isArray(row.invitation_orders) ? row.invitation_orders[0] : row.invitation_orders
+    const eventId = order?.event_id
+    // Newest first, so the first release seen for an event is the current one.
+    if (!eventId || cardUrlByEvent[eventId]) continue
+
+    const contacts = [row.field_values?.contact_1, row.field_values?.contact_2]
+      .map((c) => (c ?? '').trim())
+      .filter(Boolean)
+    if (contacts.length) contactsByEvent[eventId] = contacts
+
+    const subject = {
+      designReleaseId: row.current_release_id,
+      guestId: guest.id,
+      renderVariant: INVITE_CARD_VARIANT,
+    }
+    const prepared = await prepareGuestCardAsset(subject)
+    if (!prepared.ok) continue
+    const token = deriveAssetToken(subject)
+    if (token) cardUrlByEvent[eventId] = `${publicOrigin()}/invite-card/${token}.png`
+  }
+
   const allQuestions = (questionRows ?? []).map((r) => toRsvpQuestion(r as Record<string, unknown>))
   const eventIdSet = new Set(eventIds)
   const questionsByEvent: Record<string, RsvpQuestion[]> = {}
@@ -953,7 +1031,14 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     .filter((x): x is WeddingEvent & { invitation: GuestInvitation } => x !== null)
     .sort((a, b) => a.sort_order - b.sort_order)
 
-  const names = [profile?.partner1_name, profile?.partner2_name].filter(Boolean).map((n) => firstNameOf(n!))
+  // The EVENT's own partner names first, the account profile only as a
+  // fallback. A coordinator or agency account carries the agency's name on the
+  // profile, and the guest was invited to a specific wedding — being greeted by
+  // "Co-ordinator & OpusPass" tells them nothing and reads as a broken page.
+  const primary = merged[0]
+  const eventNames = [primary?.partner1_name, primary?.partner2_name].filter(Boolean) as string[]
+  const profileNames = [profile?.partner1_name, profile?.partner2_name].filter(Boolean) as string[]
+  const names = (eventNames.length ? eventNames : profileNames).map((n) => firstNameOf(n))
   return {
     guest: {
       id: guest.id,
@@ -968,6 +1053,8 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     questionsByEvent,
     generalQuestions,
     answers,
+    cardUrlByEvent,
+    contactsByEvent,
   }
 }
 
@@ -2390,6 +2477,10 @@ export interface SendGuestRow {
    */
   delivery: {
     state: 'pending' | 'delivered' | 'read' | 'failed'
+    /** Meta's raw numeric code, for rules that depend on WHICH failure it was
+     *  (131049 carries a documented 24-hour wait before retrying). Null when
+     *  the failure carried no recognisable code. */
+    code: string | null
     /** When the send was made. The webhook updates the row in place, so this
      *  is the attempt time, not the delivery time. */
     at: string
@@ -2406,11 +2497,24 @@ export interface SendGuestRow {
  * Unknown codes fall through to the provider's own text rather than a generic
  * "something went wrong", because a specific unknown beats a vague known.
  */
+/**
+ * Meta's delivery failure codes, in words a couple can act on.
+ *
+ * Deliberately does NOT claim more than Meta tells us. 131026 in particular is
+ * a broad undeliverable bucket, not a statement that the handset has no
+ * WhatsApp account — Meta withholds the precise cause on purpose, and calling
+ * it "not on WhatsApp" sends an operator to SMS when a manual WhatsApp message
+ * would have worked. The wording says what happened, and the row's actions
+ * offer the routes rather than the label picking one.
+ *
+ * Unknown codes fall through to the provider's own text rather than a generic
+ * "something went wrong", because a specific unknown beats a vague known.
+ */
 const DELIVERY_FAILURE_REASONS: { code: string; reason: string }[] = [
   { code: '131042', reason: 'Billing problem on the WhatsApp account' },
-  { code: '131049', reason: 'Held back by WhatsApp to protect delivery quality' },
-  { code: '131026', reason: "This number can't receive WhatsApp" },
-  { code: '130472', reason: 'WhatsApp is limiting messages to this number' },
+  { code: '131049', reason: 'Temporarily held back by WhatsApp to protect delivery quality' },
+  { code: '131026', reason: 'Could not be delivered by WhatsApp' },
+  { code: '130472', reason: 'Held back by a WhatsApp delivery experiment' },
   { code: '131053', reason: 'The invitation card image failed to upload' },
   { code: '131047', reason: 'WhatsApp needs a fresh conversation with this guest' },
   { code: '131000', reason: 'WhatsApp had an internal error' },
@@ -2505,6 +2609,10 @@ export interface SendInvitesData {
    *  so their design/quota isn't invisible to every event. */
   unassignedOrders: PaidOrderSummary[]
   funnel: { invited: number; delivered: number; undelivered: number; viewed: number; rsvpd: number }
+  /** Server clock at render, ISO. Time-dependent UI rules (Meta's 24-hour wait
+   *  before re-attempting a held-back template) read this rather than calling
+   *  Date.now() during render, which is impure and re-renders inconsistently. */
+  now: string
   quota: { used: number; purchased: number; remaining: number; hasPaidOrder: boolean }
   /** Entrance-pass pool — same purchased size as the invite quota, consumed
    *  independently (first ticket per guest charges, re-sends are free). */
@@ -2609,6 +2717,7 @@ export async function getSendInvitesData(
       selectedEventId: null,
       unassignedOrders: unassignedOrdersFrom(releasedOrders),
       funnel: { invited: 0, delivered: 0, undelivered: 0, viewed: 0, rsvpd: 0 },
+      now: new Date().toISOString(),
       quota: { used: 0, purchased: 0, remaining: 0, hasPaidOrder: false },
       entranceQuota: { used: 0, purchased: 0, remaining: 0 },
       publicLink: { enabled: false, slug: null, url: null },
@@ -2678,8 +2787,10 @@ export async function getSendInvitesData(
           : row.status === 'delivered'
             ? 'delivered'
             : 'pending'
+    const code = state === 'failed' ? (row.error ?? '').match(/^(\d{6})/)?.[1] ?? null : null
     deliveryByGuest.set(row.guest_contact_id, {
       state,
+      code,
       at: row.created_at,
       reason: state === 'failed' ? describeDeliveryFailure(row.error) : null,
     })
@@ -2860,6 +2971,7 @@ export async function getSendInvitesData(
     selectedEventId,
     unassignedOrders: entitlement.unassignedOrders,
     funnel,
+    now: new Date().toISOString(),
     quota: {
       used: entitlement.used,
       purchased: entitlement.purchased,

@@ -95,7 +95,7 @@ function cardTypeLabel(partySize: number): string {
  * Falls back to whatever the card holds when the month cannot be recognised —
  * a date without its weekday still beats no date at all.
  */
-function dateLine(f: CardInviteFields): string {
+export function cardDateLabel(f: CardInviteFields): string {
   const day = clean(f.date_day)
   const month = clean(f.date_month)
   const year = clean(f.date_year)
@@ -175,7 +175,7 @@ export function buildSmsInvite(input: SmsInviteInput): string {
     lines.push(`💍 ${couple}`)
   }
 
-  const date = dateLine(f)
+  const date = cardDateLabel(f)
   if (date) {
     lines.push('')
     lines.push(`Itakayofanyika 📅 ${date}`)
