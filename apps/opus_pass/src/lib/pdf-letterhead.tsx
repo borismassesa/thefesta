@@ -91,6 +91,123 @@ export function PdfLogo() {
   return <Image style={s.logo} src={{ data: Buffer.from(INVOICE_LOGO_PNG_BASE64, 'base64'), format: 'png' }} />
 }
 
+// ---------------------------------------------------------------- document head
+
+/**
+ * The invoice's head, shared.
+ *
+ * Logo left; document title and a status pill right-aligned; a grid of
+ * label/value pairs beneath. Mirrors invoice-pdf.tsx exactly — 21pt title at
+ * 2.4 letter-spacing, a 999-radius pill, 8pt uppercase labels — so a report and
+ * an invoice from OpusPass are recognisably the same stationery.
+ *
+ * The invoice deliberately keeps its own inline copy of this (see the note at
+ * the top of this file): it is live and payment-critical, and a shared-code
+ * refactor there buys nothing worth the regression risk. This exists for the
+ * documents that come after it.
+ */
+export type PdfDocumentStatus = 'live' | 'closed' | 'final' | 'internal'
+
+/**
+ * The pill carries the same weight here as PAID does on an invoice: nobody may
+ * mistake figures that are still moving for figures that are settled.
+ *
+ * `internal` is an AUDIENCE marker, not a lifecycle state. The event lifecycle
+ * is live -> closed -> final and nothing else.
+ */
+const STATUS_STYLES: Record<PdfDocumentStatus, { label: string; bg: string; border: string; fg: string }> = {
+  live: { label: 'LIVE', bg: '#fffbeb', border: '#fcd34d', fg: '#b45309' },
+  closed: { label: 'CLOSED', bg: '#f3f4f6', border: '#d1d5db', fg: '#4b5563' },
+  final: { label: 'FINAL', bg: '#ecfdf5', border: '#6ee7b7', fg: '#047857' },
+  internal: { label: 'INTERNAL', bg: '#f5f3ff', border: '#c4b5fd', fg: BRAND },
+}
+
+const head = StyleSheet.create({
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 30 },
+  docTitle: { alignItems: 'flex-end' },
+  h1: { fontSize: 21, letterSpacing: 2.4, fontFamily: 'Helvetica-Bold' },
+  pill: {
+    marginTop: 7,
+    paddingVertical: 4,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+    borderWidth: 1,
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    letterSpacing: 0.8,
+  },
+  meta: { flexDirection: 'row', justifyContent: 'space-between', gap: 20, marginBottom: 26 },
+  metaGrid: { flexDirection: 'row', flexWrap: 'wrap', width: 280, gap: 11 },
+  mi: { width: 126 },
+  miWide: { width: 280 },
+  label: { fontSize: 8, letterSpacing: 0.7, color: '#9ca3af', marginBottom: 2, textTransform: 'uppercase' },
+  val: { fontFamily: 'Helvetica-Bold', fontSize: 10 },
+  right: { alignItems: 'flex-end' },
+  rightLabel: { fontSize: 8, letterSpacing: 0.7, color: '#9ca3af', marginBottom: 3, textTransform: 'uppercase' },
+  rightVal: { fontSize: 11, fontFamily: 'Helvetica-Bold' },
+  rightSub: { fontSize: 9, color: '#6b7280', marginTop: 2 },
+})
+
+export interface PdfDocumentHeadProps {
+  /** e.g. "EVENT REPORT". Set in the caller's language, not here. */
+  title: string
+  status: PdfDocumentStatus
+  /** Overrides the pill's default word, for a translated document. */
+  statusLabel?: string
+  /** Label/value pairs. Entries with an empty value are dropped, so a report
+   *  for an event with no venue does not print an empty cell.
+   *
+   *  `wide` spans the whole grid. A 126pt cell hyphenates a long value
+   *  mid-word ("Nyumbani kwa Mama See-ta"), and breaking a proper noun is
+   *  exactly the detail that makes a document read as machine output. */
+  meta?: { label: string; value: string | null | undefined; wide?: boolean }[]
+  /** Right-hand block, where the invoice puts "billed to". */
+  aside?: { label: string; value: string; sub?: string | null }
+}
+
+export function PdfDocumentHead({ title, status, statusLabel, meta = [], aside }: PdfDocumentHeadProps) {
+  const tone = STATUS_STYLES[status]
+  const shown = meta.filter((m) => Boolean(m.value?.toString().trim()))
+  return (
+    <>
+      <View style={head.top}>
+        <PdfLogo />
+        <View style={head.docTitle}>
+          <Text style={head.h1}>{title}</Text>
+          <Text
+            style={[
+              head.pill,
+              { backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg },
+            ]}
+          >
+            {statusLabel ?? tone.label}
+          </Text>
+        </View>
+      </View>
+
+      {shown.length > 0 || aside ? (
+        <View style={head.meta}>
+          <View style={head.metaGrid}>
+            {shown.map((m) => (
+              <View key={m.label} style={m.wide ? head.miWide : head.mi}>
+                <Text style={head.label}>{m.label}</Text>
+                <Text style={head.val}>{m.value}</Text>
+              </View>
+            ))}
+          </View>
+          {aside ? (
+            <View style={head.right}>
+              <Text style={head.rightLabel}>{aside.label}</Text>
+              <Text style={head.rightVal}>{aside.value}</Text>
+              {aside.sub ? <Text style={head.rightSub}>{aside.sub}</Text> : null}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+    </>
+  )
+}
+
 /** Bottom-of-page branded footer — company address, contact, and socials, same as the invoice. */
 export function PdfLetterhead() {
   return (
