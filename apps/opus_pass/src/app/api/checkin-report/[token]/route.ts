@@ -4,6 +4,7 @@ import { createElement, type ReactElement } from 'react'
 import { CheckinReportPdf, type CheckinReportData } from '@/lib/checkin-report-pdf'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { verifyReportToken } from '@/lib/checkin/tokens'
+import { clientIp, withinRateLimit } from '@/lib/checkin/rate-limit'
 
 /**
  * The check-in report as a PDF, for a link minted by /api/checkin/report-link.
@@ -46,7 +47,7 @@ function attendantOf(checkedInBy: string | null): string | null {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params
@@ -58,6 +59,18 @@ export async function GET(
   }
 
   const supabase = createSupabaseServerClient()
+
+  // Same cap the dashboard's own report route applies, and for the same
+  // reason: this renders a PDF, which is CPU the whole app shares. A link
+  // that is meant to be opened once is worth nothing to its holder at fifty
+  // times a second, and the token deliberately outlives a single fetch so it
+  // can be retried on a bad venue connection.
+  if (!(await withinRateLimit(supabase, `checkin-report:${clientIp(request)}`, 20, 60))) {
+    return NextResponse.json(
+      { error: 'Too many requests — wait a moment and try again' },
+      { status: 429 }
+    )
+  }
 
   const { data: event } = await supabase
     .from('wedding_events')
