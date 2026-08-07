@@ -512,18 +512,6 @@ export default function GuestsManager({
     })
   }
 
-  function addPlusOne() {
-    setForm((f) => ({
-      ...f,
-      plus_one_title: f.plus_one_title ?? '',
-      plus_one_first_name: f.plus_one_first_name ?? '',
-      plus_one_last_name: f.plus_one_last_name ?? '',
-      plus_one_suffix: f.plus_one_suffix ?? '',
-      plus_one_name_unknown: f.plus_one_name_unknown ?? false,
-      max_party_size: 2,
-    }))
-  }
-
   function removePlusOne() {
     setForm((f) => ({
       ...f,
@@ -532,14 +520,6 @@ export default function GuestsManager({
       plus_one_last_name: '',
       plus_one_suffix: '',
       plus_one_name_unknown: false,
-    }))
-  }
-
-  function addChild() {
-    setForm((f) => ({
-      ...f,
-      children: [...(f.children ?? []), { first_name: '', last_name: '' }],
-      max_party_size: 2,
     }))
   }
 
@@ -1170,9 +1150,7 @@ export default function GuestsManager({
           <GuestInfoTab
             form={form}
             setForm={setForm}
-            addPlusOne={addPlusOne}
             removePlusOne={removePlusOne}
-            addChild={addChild}
             updateChild={updateChild}
             removeChild={removeChild}
           />
@@ -1578,7 +1556,7 @@ const TITLE_GROUPS: { label: string; options: string[] }[] = [
   { label: 'Common', options: ['Mr', 'Mrs', 'Ms', 'Miss', 'Mx'] },
   { label: 'Couples', options: ['Mr & Mrs', 'Dr & Mrs', 'Prof & Mrs', 'Eng & Mrs', 'Rev & Mrs', 'Hon & Mrs'] },
   { label: 'Professional', options: ['Dr', 'Prof', 'Eng', 'Capt', 'Hon', 'Balozi'] },
-  { label: 'Faith', options: ['Rev', 'Pastor', 'Mchungaji', 'Bishop', 'Askofu', 'Fr', 'Sheikh', 'Imam', 'Ustadh', 'Alhaj'] },
+  { label: 'Faith', options: ['Rev', 'Pastor', 'Mchungaji', 'Mwinjilisti', 'Bishop', 'Askofu', 'Fr', 'Sheikh', 'Imam', 'Ustadh', 'Alhaj'] },
   { label: 'Swahili', options: ['Mzee', 'Mama', 'Bibi', 'Bwana', 'Ndugu'] },
 ]
 const TITLE_OPTIONS = TITLE_GROUPS.flatMap((g) => g.options)
@@ -1629,30 +1607,36 @@ function NameRow({
             </button>
           </div>
         ) : (
-          <select
-            className={inputClass}
-            value={title}
-            onChange={(e) => {
-              if (e.target.value === TITLE_OTHER) {
-                setTypingOther(true)
-                onChange({ title: '' })
-                return
-              }
-              onChange({ title: e.target.value })
-            }}
-          >
-            <option value=""></option>
-            {TITLE_GROUPS.map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.options.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-            <option value={TITLE_OTHER}>Other…</option>
-          </select>
+          // Same treatment as the event switcher: the native arrow sits
+          // wherever the platform puts it, so it is replaced by one placed
+          // against the field's own padding.
+          <span className="relative block">
+            <select
+              className={cn(inputClass, 'appearance-none pr-9')}
+              value={title}
+              onChange={(e) => {
+                if (e.target.value === TITLE_OTHER) {
+                  setTypingOther(true)
+                  onChange({ title: '' })
+                  return
+                }
+                onChange({ title: e.target.value })
+              }}
+            >
+              <option value=""></option>
+              {TITLE_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.options.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+              <option value={TITLE_OTHER}>Other…</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#1A1A1A]/45" />
+          </span>
         )}
       </Field>
       <Field label={required ? 'First name *' : 'First name'}>
@@ -1676,20 +1660,19 @@ function NameRow({
   )
 }
 
+// No "Add plus one" / "Add child" entry points: party size is what Ticket type
+// (Single/Double) says. The sections below still render for guests who already
+// carry a plus one or children, so that data stays visible and removable.
 function GuestInfoTab({
   form,
   setForm,
-  addPlusOne,
   removePlusOne,
-  addChild,
   updateChild,
   removeChild,
 }: {
   form: GuestInput
   setForm: React.Dispatch<React.SetStateAction<GuestInput>>
-  addPlusOne: () => void
   removePlusOne: () => void
-  addChild: () => void
   updateChild: (idx: number, patch: Partial<ChildEntry>) => void
   removeChild: (idx: number) => void
 }) {
@@ -1740,24 +1723,14 @@ function GuestInfoTab({
               placeholder="+255 7XX XXX XXX"
             />
           </Field>
-          <Field label="Group">
-            <input
-              className={inputClass}
-              value={form.group_tag ?? ''}
-              onChange={(e) => setForm({ ...form, group_tag: e.target.value })}
-              placeholder="e.g. Family"
-            />
-          </Field>
+          {/* No Group input. The tag is still stored and still shown on the
+              roster, seating and check-in, but it is set by the flows that
+              actually know it (spreadsheet import, Contact Collector, pledge
+              links) rather than typed per guest. An edit here carries whatever
+              value the guest already has through untouched. */}
         </div>
-        <Field label="Notes" hint="Optional — meal preferences, accessibility, anything to remember">
-          <textarea
-            rows={3}
-            className={inputClass}
-            value={form.notes ?? ''}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            placeholder="Vegetarian, requires wheelchair access…"
-          />
-        </Field>
+        {/* No Notes input either, for the same reason as Group: still stored,
+            still carried through an edit, just not typed here. */}
         <Field label="Ticket type">
           <div className="grid grid-cols-2 gap-2">
             {([1, 2] as const).map((size) => {
@@ -1859,24 +1832,6 @@ function GuestInfoTab({
         </section>
       ) : null}
 
-      <section className="flex flex-wrap gap-2 border-t border-black/[0.06] pt-5">
-        {!plusOneShown ? (
-          <button
-            type="button"
-            onClick={addPlusOne}
-            className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.12] px-3 py-1.5 text-xs font-semibold text-[#1A1A1A] hover:bg-black/[0.04]"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add plus one
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={addChild}
-          className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.12] px-3 py-1.5 text-xs font-semibold text-[#1A1A1A] hover:bg-black/[0.04]"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add child
-        </button>
-      </section>
     </div>
   )
 }

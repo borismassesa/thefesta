@@ -19,7 +19,7 @@ const NAME_TITLES = new Set([
   // the form composes full_name as "<title> <first> <last>", and reopening
   // that guest splits it back with skipTitles. A title missing from this set
   // would come back sitting in the First name box.
-  'pastor', 'mchungaji', 'bishop', 'askofu', 'fr', 'padri', 'sheikh', 'imam', 'ustadh',
+  'pastor', 'mchungaji', 'mwinjilisti', 'bishop', 'askofu', 'fr', 'padri', 'sheikh', 'imam', 'ustadh',
   'alhaj', 'alhaji', 'hon', 'mheshimiwa', 'balozi',
   // Joins a compound honorific: "Mr & Mrs Boris Massesa" must greet "Boris",
   // not "&". Only ever skipped BETWEEN titles, since the loop stops at the
