@@ -114,13 +114,19 @@ export async function GET(
         door: inv.checked_in_at ? inv.checked_in_door : null,
         attendant: inv.checked_in_at ? attendantOf(inv.checked_in_by) : null,
         arrivedAt: inv.checked_in_at ? clock(inv.checked_in_at) : null,
+        // Sort key only, dropped before the row reaches the PDF: arrivedAt is
+        // a formatted clock, so "10:05 AM" sorts before "9:14 AM" as text.
+        arrivedIso: inv.checked_in_at,
       }
     })
-    // Arrived first, in the order they came through, then everyone still out.
+    // Arrived first and in the order they actually came through, then
+    // everyone still out, alphabetically so they can be found by name.
     .sort((a, b) => {
-      if (Boolean(a.arrivedAt) !== Boolean(b.arrivedAt)) return a.arrivedAt ? -1 : 1
+      if (Boolean(a.arrivedIso) !== Boolean(b.arrivedIso)) return a.arrivedIso ? -1 : 1
+      if (a.arrivedIso && b.arrivedIso) return a.arrivedIso.localeCompare(b.arrivedIso)
       return a.name.localeCompare(b.name)
     })
+    .map(({ arrivedIso: _arrivedIso, ...row }) => row)
 
   const data: CheckinReportData = {
     eventName: event?.name ?? 'Event',
