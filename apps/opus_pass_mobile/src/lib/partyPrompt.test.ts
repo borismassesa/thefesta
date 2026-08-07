@@ -38,3 +38,16 @@ test('only a successful admission is asked about', () => {
 test('a manual admission is not asked, having already counted heads', () => {
   assert.equal(shouldPromptForParty({ ...SCAN, scanRequestId: null }), false);
 });
+
+test('a correction that failed to send re-asks on the replayed scan', () => {
+  // Re-scanning after a failed amend replays the ORIGINAL success, party size
+  // and all, because the retry rule deliberately reuses that scan's id. The
+  // screen must ask again rather than treat the replay as already answered:
+  // the correction the attendant made never reached the server, and nothing
+  // else on screen would tell them so. scan.tsx clears the record of having
+  // asked when an amend fails, which is what makes this input reachable.
+  assert.equal(
+    shouldPromptForParty({ status: 'success', partySize: 4, scanRequestId: 'req-1', promptedRequestId: null }),
+    true
+  );
+});

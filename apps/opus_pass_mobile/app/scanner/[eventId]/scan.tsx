@@ -192,6 +192,13 @@ export default function ScanScreen() {
         // of the pass mints a fresh id and re-admits the heads this correction
         // just released — silently undoing it, and reporting success.
         lastResultRef.current = 'error';
+        // The headcount question has to come back with it. The line above
+        // points the retry rule at the ORIGINAL scan's request id, so
+        // re-scanning this pass replays the original success: the party size
+        // from BEFORE the correction. Left set, that replay counts as a scan
+        // already asked about, the sheet stays shut, and the correction the
+        // attendant just made vanishes with nothing on screen to say so.
+        promptedForScanRef.current = null;
       } finally {
         setPending(false);
       }
