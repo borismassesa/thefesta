@@ -135,9 +135,12 @@ export default function ArrivalsScreen() {
       if (!validated.ok) throw new Error(validated.error);
       return validated.roster;
     },
-    // Arrivals land continuously while a door is open, and other attendants
-    // scanning at other doors won't trigger a refetch here on their own.
-    refetchInterval: 15000,
+    // No polling. Arrivals do land continuously while a door is open, but a
+    // background refetch every 15s meant the list flashed its refresh
+    // indicator every few seconds all night, and a screen that redraws while
+    // you are reading it is worse than one that is a minute stale. The list
+    // refreshes when it mounts, when a check-in on this device invalidates
+    // it, and whenever the attendant pulls down.
   });
 
   const arrived = useMemo(
