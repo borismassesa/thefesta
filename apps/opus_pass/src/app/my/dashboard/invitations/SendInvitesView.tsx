@@ -1,6 +1,7 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -101,6 +102,94 @@ function fieldsDigest(parts: (string | null | undefined)[]): string {
   const joined = parts.join('|')
   for (let i = 0; i < joined.length; i++) h = ((h << 5) + h + joined.charCodeAt(i)) | 0
   return (h >>> 0).toString(36)
+}
+
+/**
+ * A row dropdown that escapes the guest table.
+ *
+ * The table card sets overflow:hidden and its scroller sets overflow-x:auto
+ * (which makes the vertical axis clip too), so a menu positioned inside a cell
+ * gets sliced off on the last rows instead of opening over the page. This
+ * portals the panel out to the console root and pins it to the trigger's rect
+ * instead: it flips above the trigger when the viewport has no room below,
+ * stays inside the left/right edges, and re-pins on scroll and resize so it
+ * never drifts away from its row.
+ */
+function AnchoredMenu({
+  anchor,
+  container,
+  className,
+  role,
+  dataAttr,
+  align = 'left',
+  children,
+}: {
+  anchor: HTMLElement | null
+  container: HTMLElement | null
+  className: string
+  role: 'menu' | 'listbox'
+  dataAttr: 'data-channel-menu' | 'data-resend-menu'
+  align?: 'left' | 'right'
+  children: ReactNode
+}) {
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!anchor) return
+    const place = () => {
+      const panel = panelRef.current
+      if (!panel) return
+      const a = anchor.getBoundingClientRect()
+      const { offsetWidth: w, offsetHeight: h } = panel
+      const GAP = 6
+      const EDGE = 8
+      // Below by default. Flip up only when below genuinely overflows AND
+      // above has the room, so a menu taller than the viewport still opens
+      // downwards rather than off the top.
+      const fitsBelow = a.bottom + GAP + h <= window.innerHeight - EDGE
+      const fitsAbove = a.top - GAP - h >= EDGE
+      const top = fitsBelow || !fitsAbove ? a.bottom + GAP : a.top - GAP - h
+      const left = Math.max(
+        EDGE,
+        Math.min(align === 'right' ? a.right - w : a.left, window.innerWidth - w - EDGE),
+      )
+      setPos({ top, left })
+    }
+    place()
+    // capture:true so it follows the table's own horizontal scroller too, not
+    // just the page scroll.
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+  }, [anchor, align])
+
+  if (!container) return null
+  return createPortal(
+    <div
+      ref={panelRef}
+      className={className}
+      role={role}
+      // The outside-click handlers close on anything not inside these, and the
+      // panel no longer sits inside the row that carries the attribute.
+      {...{ [dataAttr]: '' }}
+      style={{
+        position: 'fixed',
+        top: pos?.top ?? 0,
+        left: pos?.left ?? 0,
+        right: 'auto',
+        // It has to be in the DOM to be measured, so hide the pre-placement
+        // paint rather than flashing it in the corner.
+        visibility: pos ? 'visible' : 'hidden',
+      }}
+    >
+      {children}
+    </div>,
+    container,
+  )
 }
 
 const STATUS_CLASS: Record<SendGuestRow['status'], string> = {
@@ -340,6 +429,10 @@ export default function SendInvitesView({
   // closes it rather than leaving a drawer pointed at nothing.
   const reviewGuest = review ? (guests.find((g) => g.id === review.guestId) ?? null) : null
   const [resendMenuId, setResendMenuId] = useState<string | null>(null)
+  // Row dropdowns are portalled out of the clipping table (see AnchoredMenu),
+  // so each open menu remembers the button it hangs off.
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const [resendAnchor, setResendAnchor] = useState<HTMLElement | null>(null)
   // The manual-send modal. Holds the prepared card so the two steps can be
   // taken in either order and the second knows the first happened.
   const [recover, setRecover] = useState<{
@@ -367,6 +460,7 @@ export default function SendInvitesView({
   // native <select> can't render icon components inside its options.
   const [channelChoice, setChannelChoice] = useState<Record<string, 'whatsapp' | 'sms'>>({})
   const [channelMenuOpenId, setChannelMenuOpenId] = useState<string | null>(null)
+  const [channelAnchor, setChannelAnchor] = useState<HTMLElement | null>(null)
   useEffect(() => {
     if (!channelMenuOpenId) return
     const onDown = (e: MouseEvent) => {
@@ -1415,6 +1509,49 @@ export default function SendInvitesView({
     })()
   }
 
+  /**
+   * Download one guest's card straight from a row.
+   *
+   * The recovery modal already does this as step one of sending by hand, but
+   * the couple also just wants the file sometimes — to print, to forward, to
+   * keep. Prepared on demand, since a card that has never been sent has never
+   * been rendered either.
+   */
+  function downloadCardDirect(g: SendGuestRow) {
+    if (!eventId) return
+    setSendingRow(g.id)
+    startTransition(async () => {
+      try {
+        const result = await prepareInviteGuestPreview(g.id, eventId)
+        if (!result.ok) {
+          toast.error(result.error)
+          return
+        }
+        downloadPreparedCard(g, result.imageUrl)
+        toast.success(fmt(strings.row_card_downloaded, { name: firstNameOf(g.name) }))
+      } finally {
+        setSendingRow(null)
+      }
+    })
+  }
+
+  /**
+   * The guest's entrance-pass ticket, as a file.
+   *
+   * The ticket route renders live per request and refuses anyone not attending,
+   * which is why this is offered only on the Pass Ticket tab — every row there
+   * is already confirmed.
+   */
+  function downloadTicket(g: SendGuestRow) {
+    const a = document.createElement('a')
+    a.href = g.entrancePassUrl
+    a.download = `${g.name.replace(/[^\w\s-]/g, '').trim() || 'entrance-pass'}-pass.png`
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
   /** Save the prepared card. Same origin, so `download` is honoured. */
   function downloadPreparedCard(g: SendGuestRow, cardUrl: string) {
     const a = document.createElement('a')
@@ -1659,7 +1796,7 @@ export default function SendInvitesView({
   const responseEventFilter = selectedEventId ?? ALL_EVENTS
 
   return (
-    <div className="si">
+    <div className="si" ref={rootRef}>
       <style>{css}</style>
 
       <div className="head dash-header-safe">
@@ -2905,7 +3042,11 @@ export default function SendInvitesView({
                               <button
                                 type="button"
                                 className={`pillselect pill-${channel}`}
-                                onClick={() => setChannelMenuOpenId((id) => (id === g.id ? null : g.id))}
+                                onClick={(e) => {
+                                  const open = channelMenuOpenId === g.id
+                                  setChannelAnchor(open ? null : e.currentTarget)
+                                  setChannelMenuOpenId(open ? null : g.id)
+                                }}
                                 aria-haspopup="listbox"
                                 aria-expanded={channelMenuOpenId === g.id}
                                 aria-label={`${strings.row_whatsapp} / ${strings.row_sms}`}
@@ -2914,7 +3055,13 @@ export default function SendInvitesView({
                                 {channel === 'whatsapp' ? strings.channel_whatsapp : strings.channel_sms}
                               </button>
                               {channelMenuOpenId === g.id ? (
-                                <div className="chmenu" role="listbox">
+                                <AnchoredMenu
+                                  anchor={channelAnchor}
+                                  container={rootRef.current}
+                                  className="chmenu"
+                                  role="listbox"
+                                  dataAttr="data-channel-menu"
+                                >
                                   <button
                                     type="button"
                                     role="option"
@@ -2941,7 +3088,7 @@ export default function SendInvitesView({
                                   >
                                     <Smartphone size={13} /> {strings.channel_sms}
                                   </button>
-                                </div>
+                                </AnchoredMenu>
                               ) : null}
                             </div>
                           )
@@ -3013,7 +3160,21 @@ export default function SendInvitesView({
                               {strings.row_preview_send_pass}
                             </button>
                           )
-                        })() : (() => {
+                        })() : null}
+                        {/* The ticket as a file. Only on this tab, because the
+                            ticket route refuses anyone not yet attending and
+                            every row here is confirmed. */}
+                        {effectiveFilter === 'attending' ? (
+                          <button
+                            className="ia"
+                            disabled={pending}
+                            title={strings.row_download_pass}
+                            onClick={() => downloadTicket(g)}
+                          >
+                            <Download size={15} />
+                          </button>
+                        ) : null}
+                        {effectiveFilter !== 'attending' ? (() => {
                           // The review drawer reviews the APPROVED WhatsApp
                           // template. SMS and the dry-run path don't send
                           // anything on click — they open a compose window the
@@ -3076,7 +3237,11 @@ export default function SendInvitesView({
                                   aria-haspopup="menu"
                                   aria-expanded={resendMenuId === g.id}
                                   title={g.delivery?.state === 'failed' ? strings.row_recover_menu : strings.row_resend_menu}
-                                  onClick={() => setResendMenuId(resendMenuId === g.id ? null : g.id)}
+                                  onClick={(e) => {
+                                    const open = resendMenuId === g.id
+                                    setResendAnchor(open ? null : e.currentTarget)
+                                    setResendMenuId(open ? null : g.id)
+                                  }}
                                 >
                                   {sendingRow === g.id ? (
                                     <Loader2 size={16} className="spin" />
@@ -3087,7 +3252,14 @@ export default function SendInvitesView({
                                   <ChevronDown size={13} />
                                 </button>
                                 {resendMenuId === g.id ? (
-                                  <div className="rsmenupop" role="menu">
+                                  <AnchoredMenu
+                                    anchor={resendAnchor}
+                                    container={rootRef.current}
+                                    className="rsmenupop"
+                                    role="menu"
+                                    dataAttr="data-resend-menu"
+                                    align="right"
+                                  >
                                     {/* A guest WhatsApp has already refused does
                                         not need "send it again" offered first.
                                         Retrying a held-back number pushes the
@@ -3126,6 +3298,14 @@ export default function SendInvitesView({
                                         <div className="rsmsep" />
                                       </>
                                     ) : null}
+                                    {g.delivery?.state !== 'failed' ? (
+                                      <button
+                                        role="menuitem"
+                                        onClick={() => { setResendMenuId(null); downloadCardDirect(g) }}
+                                      >
+                                        <Download size={13} /> {strings.row_download_card}
+                                      </button>
+                                    ) : null}
                                     {(() => {
                                       const until = heldBackUntil(g)
                                       return (
@@ -3151,12 +3331,12 @@ export default function SendInvitesView({
                                     >
                                       <Copy size={13} /> {strings.row_copy_link}
                                     </button>
-                                  </div>
+                                  </AnchoredMenu>
                                 ) : null}
                               </div>
                             </>
                           )
-                        })()}
+                        })() : null}
                         <button
                           className="ia"
                           disabled={pending}
@@ -4051,7 +4231,9 @@ const css = `
 .si .pillselect:hover{ filter:brightness(0.97); }
 .si .pillselect.pill-whatsapp{ color:#1a8a4a; border-color:#bfe8d2; background-color:#eefaf3; }
 .si .pillselect.pill-sms{ color:var(--purple-d); border-color:var(--lav); background-color:#faf6fd; }
-.si .chmenu{ position:absolute; z-index:5; top:calc(100% + 4px); left:0; min-width:150px; background:#fff;
+/* Placement (position/top/left) is set inline by AnchoredMenu — the panel is
+   portalled out of the table, so it cannot be offset from its cell here. */
+.si .chmenu{ z-index:5; min-width:150px; background:#fff;
   border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 24px rgba(20,18,30,.12); padding:4px; }
 .si .chmenu-item{ display:flex; width:100%; align-items:center; gap:7px; border:none; background:transparent; border-radius:8px;
   padding:7px 9px; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; text-align:left; }
@@ -4122,7 +4304,8 @@ const css = `
    send button: an accidental duplicate message costs a real guest's trust,
    so the immediate action sits one click inside a neutral menu. */
 .si .rsmenu{ position:relative; }
-.si .rsmenupop{ position:absolute; right:0; top:calc(100% + 6px); z-index:20; min-width:210px;
+/* Placement is set inline by AnchoredMenu (see .chmenu). */
+.si .rsmenupop{ z-index:20; min-width:210px;
   background:#fff; border:1px solid var(--line); border-radius:12px; padding:5px;
   box-shadow:0 10px 28px rgba(20,18,30,.14); display:flex; flex-direction:column; }
 .si .rsmenupop button{ display:flex; align-items:center; gap:9px; width:100%; border:none; background:none;
