@@ -8,9 +8,13 @@ export function publicOrigin(): string {
   return (process.env.NEXT_PUBLIC_OPUS_PASS_URL || 'https://opuspass.opusfesta.com').replace(/\/$/, '')
 }
 
-/** Salutations that aren't a guest's actual first name — skipped so a name
- *  like "Mr Boris Massesa" greets "Boris", not "Mr". Covers both English and
- *  Swahili honorifics, since guests are named by Tanzanian couples. */
+/** Salutations that aren't part of somebody's given name — so "Mr Boris
+ *  Massesa" is understood as the title "Mr" in front of "Boris", not as a
+ *  person whose first name is "Mr". Covers both English and Swahili
+ *  honorifics, since guests are named by Tanzanian couples.
+ *
+ *  Recognising a word here does NOT mean it gets dropped: greetingNameOf
+ *  keeps the title ("Habari Mama Mvela"), firstNameOf drops it. */
 const NAME_TITLES = new Set([
   'mr', 'mrs', 'ms', 'miss', 'mx', 'dr', 'prof', 'rev', 'sir', 'madam', 'chief', 'eng', 'engr', 'capt',
   'mzee', 'bwana', 'bi', 'bibi', 'ndugu', 'mama',
@@ -38,13 +42,40 @@ function skipTitles(words: string[]): number {
   return i
 }
 
-/** First given name from a full name, for greetings — skips leading titles
- *  (Mr/Mrs/Dr/Mzee/Bwana/...) and falls back to the full name if nothing
- *  usable remains (e.g. the name is nothing but titles). */
+/** First given name from a full name, with any leading title dropped
+ *  ("Mr Boris Massesa" -> "Boris"). Falls back to the full name if nothing
+ *  usable remains (e.g. the name is nothing but titles).
+ *
+ *  This is for shortening the COUPLE'S OWN names — "Jonathan David &
+ *  Jenifer Kasala" reads as "Jonathan & Jenifer" everywhere it is shown.
+ *  To address a GUEST, use greetingNameOf: dropping the honorific is wrong
+ *  there. */
 export function firstNameOf(name: string): string {
   const words = name.trim().split(/\s+/)
   const i = skipTitles(words)
   return i === -1 ? name : words[i]
+}
+
+/**
+ * How to address a guest: their leading honorific plus their first given
+ * name. "Mama Mvela" -> "Mama Mvela", "Mr Boris Massesa" -> "Mr Boris",
+ * "Mr & Mrs Emmanuel Laiser" -> "Mr & Mrs Emmanuel", "Boris Massesa" ->
+ * "Boris".
+ *
+ * The honorific is part of how a Tanzanian roster addresses somebody, not
+ * decoration in front of the real name: "Habari Mvela" is not what a guest
+ * held as "Mama Mvela" is called, and reads as though we do not know who
+ * they are. Keeping the title costs a word and gets the address right.
+ *
+ * Still only the FIRST given name after the title, so a long stored name
+ * does not turn a greeting into a formal address, and the result stays
+ * short enough for a WhatsApp template parameter.
+ */
+export function greetingNameOf(name: string): string {
+  const trimmed = name.trim()
+  const words = trimmed.split(/\s+/)
+  const i = skipTitles(words)
+  return i === -1 ? trimmed : words.slice(0, i + 1).join(' ')
 }
 
 /** Full name with any leading title stripped ("Mr Boris Massesa" ->
@@ -360,7 +391,7 @@ export function pledgeReminderMessage(
   dueLabel: string | null,
   paymentInstructions?: string | null,
 ): string {
-  const firstName = firstNameOf(contributorName)
+  const firstName = greetingNameOf(contributorName)
   const dueSw = dueLabel ? ` kabla ya ${dueLabel}` : ''
   const dueEn = dueLabel ? ` by ${dueLabel}` : ''
   const pay = paymentInstructions?.trim() ? `\n\nMalipo / How to pay:\n${paymentInstructions.trim()}` : ''
@@ -409,7 +440,7 @@ export function inviteMessage(
   guestName: string,
   rsvpLink: string
 ): string {
-  const firstName = firstNameOf(guestName)
+  const firstName = greetingNameOf(guestName)
   return (
     `Karibu ${firstName}! 💚\n` +
     `${coupleNames} wanafurahi kukukaribisha kwenye harusi yao.\n` +
@@ -426,7 +457,7 @@ export function reminderMessage(
   guestName: string,
   rsvpLink: string
 ): string {
-  const firstName = firstNameOf(guestName)
+  const firstName = greetingNameOf(guestName)
   return (
     `Habari ${firstName}! 💚\n` +
     `Ni ukumbusho mpole — ${coupleNames} bado wanasubiri jibu lako.\n` +

@@ -26,7 +26,7 @@ import { Card, EmptyState } from '@/components/dashboard/primitives'
 import { inputClass } from '@/components/dashboard/controls'
 import { cn } from '@/lib/utils'
 import { updateRsvp, approveReviewGuest, dismissReviewGuest } from '@/lib/dashboard/actions'
-import { firstNameOf, smsShareUrl, whatsappShareUrl } from '@/lib/dashboard/share'
+import { greetingNameOf, smsShareUrl, whatsappShareUrl } from '@/lib/dashboard/share'
 import type { RsvpsDashboardCopy } from '@/lib/cms/dashboard-copy'
 import type { DashboardSendStrings } from '@/lib/cms/ui-strings-fallback'
 import type { SendGuestRow } from '@/lib/dashboard/queries'
@@ -312,7 +312,7 @@ export default function RsvpTracker({
   }
 
   function followupMessage(row: Row, url: string): string {
-    return `Hi ${firstNameOf(row.guestName)}, please answer the follow-up questions for ${row.eventName}: ${url}`
+    return `Hi ${greetingNameOf(row.guestName)}, please answer the follow-up questions for ${row.eventName}: ${url}`
   }
 
   function followupLink(url: string): string {

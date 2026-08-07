@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { firstNameOf, fullNameOf, splitStoredGuestName } from './share'
+import { firstNameOf, fullNameOf, greetingNameOf, splitStoredGuestName } from './share'
 
 /**
  * Honorific stripping for greetings.
@@ -42,6 +42,45 @@ test('a name that is nothing but titles falls back to the whole input', () => {
   assert.equal(firstNameOf('Mr'), 'Mr')
   assert.equal(firstNameOf('Mr & Mrs'), 'Mr & Mrs')
   assert.equal(fullNameOf('Mr & Mrs'), 'Mr & Mrs')
+})
+
+// ── greetingNameOf ────────────────────────────────────────────────────────
+// How a guest is ADDRESSED: title + first given name. firstNameOf drops the
+// title because it shortens the couple's own names; a guest keeps theirs.
+
+test('a guest greeting keeps the honorific', () => {
+  // The case this exists for: "Habari Mvela" is not what a guest held as
+  // "Mama Mvela" is called.
+  assert.equal(greetingNameOf('Mama Mvela'), 'Mama Mvela')
+  assert.equal(greetingNameOf('Mr Boris Massesa'), 'Mr Boris')
+  assert.equal(greetingNameOf('Mzee Juma Ally'), 'Mzee Juma')
+  assert.equal(greetingNameOf('Sheikh Juma Ally'), 'Sheikh Juma')
+})
+
+test('a guest greeting keeps a compound honorific whole', () => {
+  assert.equal(greetingNameOf('Mr & Mrs Emmanuel Laiser'), 'Mr & Mrs Emmanuel')
+  assert.equal(greetingNameOf('Mr and Mrs Boris Massesa'), 'Mr and Mrs Boris')
+})
+
+test('a guest greeting stops at the first given name', () => {
+  // Not the whole stored name: a greeting stays a greeting, and the result
+  // has to fit a WhatsApp template parameter.
+  assert.equal(greetingNameOf('Boris Massesa'), 'Boris')
+  assert.equal(greetingNameOf('Dr Jonathan David Kileo'), 'Dr Jonathan')
+})
+
+test('a guest greeting falls back to the whole input', () => {
+  assert.equal(greetingNameOf('Mr'), 'Mr')
+  assert.equal(greetingNameOf('Mr & Mrs'), 'Mr & Mrs')
+  assert.equal(greetingNameOf('Na Mwangi'), 'Na')
+  assert.equal(greetingNameOf('  Amina  '), 'Amina')
+})
+
+test('firstNameOf still drops the title, for the couple\'s own names', () => {
+  // The two must not converge: "Jonathan David & Jenifer Kasala" is shown to
+  // guests as "Jonathan & Jenifer", never "Mr Jonathan & Mrs Jenifer".
+  assert.equal(firstNameOf('Mama Mvela'), 'Mvela')
+  assert.equal(firstNameOf('Mr Boris Massesa'), 'Boris')
 })
 
 // ── splitStoredGuestName ──────────────────────────────────────────────────

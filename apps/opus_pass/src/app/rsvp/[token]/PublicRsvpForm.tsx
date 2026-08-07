@@ -10,7 +10,7 @@ import { useT } from '@/components/providers/UIStringsProvider'
 import { submitPublicRsvp, type PublicRsvpResponse, type PublicRsvpAnswerInput } from '@/lib/dashboard/actions'
 import { eventTypeLabel, type RsvpStatus, type RsvpQuestion } from '@/lib/dashboard/types'
 import type { PublicRsvpData } from '@/lib/dashboard/queries'
-import { firstNameOf } from '@/lib/dashboard/share'
+import { greetingNameOf } from '@/lib/dashboard/share'
 
 const inputClass =
   'w-full rounded-xl border border-black/[0.12] bg-white px-3.5 py-2.5 text-sm text-[#1A1A1A] outline-none transition-colors placeholder:text-[#1A1A1A]/35 focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#C9A0DC]/30'
@@ -262,7 +262,7 @@ export default function PublicRsvpForm({
 
   const allAttendanceKnown = data.events.length > 0 && data.events.every((e) => e.invitation.rsvp_status !== 'pending')
   const followupMode = followupModeRequested || allAttendanceKnown
-  const guestFirstName = firstNameOf(data.guest.full_name)
+  const guestFirstName = greetingNameOf(data.guest.full_name)
   const hasFollowupQuestions =
     followupMode &&
     (data.generalQuestions.length > 0 ||

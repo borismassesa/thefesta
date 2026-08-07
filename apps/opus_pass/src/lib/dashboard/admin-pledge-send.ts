@@ -2,7 +2,7 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createDashboardClient } from './supabase'
 import { resolveEventCover, type PledgePageConfig } from './pledge-page'
-import { firstNameOf, normalizePhone, pledgeUrl, publicOrigin } from './share'
+import { greetingNameOf, normalizePhone, pledgeUrl, publicOrigin, templateParam } from './share'
 import { assessRosterDelivery } from './guest-delivery'
 import { loadRosterIdentities } from './queries'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
@@ -205,7 +205,7 @@ export async function sendPledgeRequestForCouple(
       }
       const result = await provider.sendLinkRequest('pledge', {
         to,
-        contactFirstName: firstNameOf(g.full_name),
+        contactFirstName: templateParam(greetingNameOf(g.full_name), g.full_name, 60),
         coupleName,
         headerImageUrl,
         token,
@@ -239,7 +239,7 @@ export async function sendPledgeRequestForCouple(
       summary.skipped += 1
       continue
     }
-    const result = await provider.sendLinkRequest({ to, contactFirstName: firstNameOf(g.full_name), coupleName, link })
+    const result = await provider.sendLinkRequest({ to, contactFirstName: templateParam(greetingNameOf(g.full_name), g.full_name, 60), coupleName, link })
     if (result.ok) {
       summary.sent += 1
       await supabase.from('guest_message_log').insert({ user_id: userId, guest_contact_id: g.id, channel: 'sms' })
