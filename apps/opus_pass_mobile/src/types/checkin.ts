@@ -28,12 +28,35 @@ export interface RosterEntry {
   checkedInBy: string | null;
   /** Free-text guest-list grouping the couple entered, e.g. "Bride's Family". */
   groupTag: string | null;
+  /** The guest's own number, for telling two similar names apart on a manual
+   *  admission. WhatsApp number when there is one.
+   *
+   *  NOT carried by the roster: /validate returns every attending guest at
+   *  once, and a personal field there would put the whole guest list's numbers
+   *  on the device for the shift. This is populated per guest from /lookup, so
+   *  it is null both when the couple recorded no number AND before the lookup
+   *  has resolved — see withGuestDetail. Screens that show it track that
+   *  difference themselves rather than reading "no number" from null. */
+  phone: string | null;
   /** Heuristic: the couple wrote "VIP" in the group tag. Not a real tier. */
   isVip: boolean;
   /** Seating table this guest is assigned to (from Seat collection). Null
    *  when the guest hasn't been seated yet. */
   table: string | null;
 }
+
+/**
+ * Outcome of resolving a typed Pass ID before anyone is admitted.
+ *
+ * "Not found" and "couldn't ask" are kept apart deliberately. Collapsing them
+ * tells an attendant holding a perfectly good ticket that the guest does not
+ * exist, and they turn that guest away — the failure that actually needs
+ * saying is that the server could not be reached.
+ */
+export type ManualLookupResult =
+  | { status: 'found'; guest: RosterEntry }
+  | { status: 'not_found' }
+  | { status: 'error'; message: string };
 
 export type ResolveCodeResult =
   | { ok: true; eventId: string }

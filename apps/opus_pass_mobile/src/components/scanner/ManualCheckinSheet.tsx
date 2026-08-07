@@ -17,14 +17,15 @@ import { GuestConfirmCard } from '@/components/scanner/GuestConfirmCard';
 import { PartyBadge } from '@/components/scanner/PartyBadge';
 import { ACCENT } from '@/theme/brand';
 import { useTheme } from '@/theme/useTheme';
-import type { CheckinScanResult, RosterEntry } from '@/types/checkin';
+import type { CheckinScanResult, ManualLookupResult, RosterEntry } from '@/types/checkin';
 
 /** Brand green, matching the live/active pills used elsewhere in the product. */
 const LIVE_GREEN = '#9FE870';
 
-/** Entry codes are 6 characters of Crockford-style base32 (no I/L/O/U). */
 /** A legacy entry code is 6 characters; a Pass ID is 8. Both are typed into
- *  the same box because a guest reading one out does not know which they have. */
+ *  the same box because a guest reading one out does not know which they have.
+ *  Every issued ticket now prints an 8-character Pass ID, so 8 is what the box
+ *  is sized and timed for; 6 stays accepted for tickets printed before it. */
 const ENTRY_CODE_LENGTH = 6;
 const PASS_ID_LENGTH = 8;
 const MAX_IDENTIFIER_LENGTH = PASS_ID_LENGTH;
@@ -62,10 +63,10 @@ interface ManualCheckinSheetProps {
   /** Admit with the headcount the attendant confirmed on the card. */
   onAdmit: (guest: RosterEntry, arrived: number) => Promise<CheckinScanResult>;
   onAdmitByCode: (code: string) => Promise<CheckinScanResult>;
-  /** Read-only lookup for a Pass ID. Returns the guest to confirm, or null
-   *  when nothing matches. Writes nothing — admission is the separate
-   *  onAdmit call the confirm card makes. */
-  onLookup?: (passId: string) => Promise<RosterEntry | null>;
+  /** Read-only lookup for a Pass ID: the guest to confirm, nothing matched, or
+   *  why the question couldn't be answered. Writes nothing — admission is the
+   *  separate onAdmit call the confirm card makes. */
+  onLookup?: (passId: string) => Promise<ManualLookupResult>;
   onAdmitted: (result: CheckinScanResult) => void;
 }
 
@@ -102,15 +103,52 @@ export function ManualCheckinSheet({
   const [codeError, setCodeError] = useState<string | null>(null);
   /** Guest picked from the search results, awaiting confirmation. */
   const [confirming, setConfirming] = useState<RosterEntry | null>(null);
+  /** True while a picked guest's phone number is still being resolved. */
+  const [phonePending, setPhonePending] = useState(false);
+  /** Which guest-detail lookup is the current one, so a superseded reply
+   *  cannot speak for the guest now on screen. */
+  const detailRequest = useRef(0);
 
   const codeInputRef = useRef<TextInput>(null);
   const nameInputRef = useRef<TextInput>(null);
+
+  /**
+   * Held in a ref, not in `admitting`, because two triggers can fire for the
+   * same code inside one tick: auto-submit when the eighth character lands,
+   * and the keyboard's return key. State does not update until the next
+   * render, so both would read `admitting` as null and both would go to the
+   * server. A ref closes that window synchronously.
+   */
+  const submitLock = useRef(false);
+
+  /**
+   * The admission waiting to be handed up, held while the modals go away.
+   *
+   * An admission ends with up to two stacked modals on screen (this sheet,
+   * and the confirm card inside it) and a full-screen result overlay to show
+   * underneath them. Dismissing both in one frame leaves iOS with a window
+   * that no longer draws but still takes touches: the attendant sees the
+   * green "Checked in" screen and the door stops responding entirely. So the
+   * teardown is sequenced — confirm card first, then this sheet, then the
+   * result — each step waiting for the last to actually finish.
+   */
+  const pendingResult = useRef<CheckinScanResult | null>(null);
+
 
   // Reset between openings — stale input from the last guest would be worse
   // than useless with a queue moving.
   useEffect(() => {
     if (visible) {
       setMode(initialMode);
+      // Cleared on OPEN, not on close. flushPending runs from a native
+      // callback, and a callback is a thing that can fail to arrive; left set,
+      // a stale result would make this sheet's next "Not this guest" close the
+      // whole sheet, a failure with no visible connection to the admission
+      // that caused it. It cannot be cleared on close: `visible` flips false
+      // the moment onClose is called, which is BEFORE the dismissal completes,
+      // so clearing there would throw away the very result being delivered.
+      pendingResult.current = null;
+      submitLock.current = false;
       return;
     }
     if (!visible) {
@@ -119,6 +157,7 @@ export function ManualCheckinSheet({
       setAdmitting(null);
       setCodeError(null);
       setConfirming(null);
+      setPhonePending(false);
     }
   }, [visible, initialMode]);
 
@@ -140,18 +179,31 @@ export function ManualCheckinSheet({
       });
   }, [roster, query]);
 
-  // Six slots until the typing passes six, then eight. A Pass ID and an entry
-  // code go in the same box because a guest reading one out does not know
-  // which kind they have.
-  const slotCount = code.length > ENTRY_CODE_LENGTH ? PASS_ID_LENGTH : ENTRY_CODE_LENGTH;
+  // Always eight slots: that is what a ticket prints, so the box should show
+  // the shape the attendant is copying. A shorter legacy code simply leaves
+  // the last two empty.
+  const slotCount = PASS_ID_LENGTH;
+
+  /** Hand the finished admission up, once nothing is left covering the screen. */
+  const flushPending = () => {
+    const result = pendingResult.current;
+    pendingResult.current = null;
+    if (result) onAdmitted(result);
+  };
+
+  // onDismiss is iOS-only. Elsewhere there is no completion callback, and no
+  // stacked-modal problem to sequence around either, so run it straight away.
+  const AWAITS_DISMISS = Platform.OS === 'ios';
 
   const finish = (result: CheckinScanResult) => {
+    pendingResult.current = result;
     onClose();
-    onAdmitted(result);
+    if (!AWAITS_DISMISS) flushPending();
   };
 
   const submitCode = async (value: string) => {
-    if (admitting || !isCompleteIdentifier(value)) return;
+    if (submitLock.current || admitting || !isCompleteIdentifier(value)) return;
+    submitLock.current = true;
     setAdmitting('code');
     setCodeError(null);
     try {
@@ -162,7 +214,13 @@ export function ManualCheckinSheet({
       // left — before anyone is admitted. The lookup writes nothing.
       if (value.length === PASS_ID_LENGTH && onLookup) {
         const found = await onLookup(value);
-        if (!found) {
+        if (found.status === 'error') {
+          // Keep what they typed. The Pass ID was never the problem, and
+          // clearing it would make them retype a code that was fine.
+          setCodeError(found.message);
+          return;
+        }
+        if (found.status === 'not_found') {
           setCodeError('No guest found with that Pass ID.');
           setCode('');
           focusFor('code');
@@ -170,7 +228,7 @@ export function ManualCheckinSheet({
         }
         // Hand it to the same confirm card a roster pick uses, so admitting is
         // a deliberate second tap on both paths.
-        setConfirming(found);
+        setConfirming(found.guest);
         setCode('');
         return;
       }
@@ -198,6 +256,7 @@ export function ManualCheckinSheet({
       finish(result);
     } finally {
       setAdmitting(null);
+      submitLock.current = false;
     }
   };
 
@@ -205,8 +264,46 @@ export function ManualCheckinSheet({
     const cleaned = normaliseCode(next);
     setCode(cleaned);
     if (codeError) setCodeError(null);
-    // Submit the moment it's complete — at a door, an extra tap per guest adds up.
-    if (isCompleteIdentifier(cleaned)) void submitCode(cleaned);
+    // Submit the moment a full Pass ID is there — at a door, an extra tap per
+    // guest adds up. Only at eight: firing at six would submit the first six
+    // characters of an eight-character Pass ID and clear the box before the
+    // attendant could type the last two, which made Pass IDs impossible to
+    // enter by hand. A six-character legacy code is submitted with the button
+    // below instead.
+    if (cleaned.length === PASS_ID_LENGTH) void submitCode(cleaned);
+  };
+
+  /**
+   * Open the confirm card for a guest picked out of the search results, then
+   * fill in the phone number the roster does not carry.
+   *
+   * The card opens on the roster row straight away rather than waiting for
+   * the lookup: the attendant is identifying somebody standing in front of
+   * them, and a network round trip in front of every admission is the wrong
+   * trade. The number lands a moment later, or not at all.
+   */
+  const openConfirm = async (guest: RosterEntry) => {
+    setConfirming(guest);
+    const identifier = guest.passId ?? guest.entryCode;
+    if (!identifier || !onLookup) return;
+    // Only the newest pick owns the card. Two taps in a row leave two lookups
+    // in flight, and whichever returns first must not speak for the other:
+    // without this, a fast lookup for the guest the attendant has already
+    // moved off would clear the pending flag and make the guest now on screen
+    // read "Not recorded" until their own slower lookup landed.
+    const request = (detailRequest.current += 1);
+    setPhonePending(true);
+    try {
+      const found = await onLookup(identifier);
+      if (detailRequest.current !== request || found.status !== 'found') return;
+      setConfirming((current) =>
+        current?.invitationId === found.guest.invitationId
+          ? { ...current, phone: found.guest.phone }
+          : current
+      );
+    } finally {
+      if (detailRequest.current === request) setPhonePending(false);
+    }
   };
 
   const admitGuest = async (guest: RosterEntry, arrived: number) => {
@@ -214,11 +311,24 @@ export function ManualCheckinSheet({
     setAdmitting(guest.invitationId);
     try {
       const result = await onAdmit(guest, arrived);
+      pendingResult.current = result;
+      // Only the confirm card starts closing here. This sheet follows from
+      // its onDismissed, so the two never animate out on top of each other.
       setConfirming(null);
-      finish(result);
+      if (!AWAITS_DISMISS) {
+        onClose();
+        flushPending();
+      }
     } finally {
       setAdmitting(null);
     }
+  };
+
+  /** The confirm card has gone. Close this sheet too, but only when the card
+   *  closed because a guest was admitted — "Not this guest" just goes back to
+   *  the list, which is the whole point of that button. */
+  const handleConfirmCardDismissed = () => {
+    if (pendingResult.current) onClose();
   };
 
   const busyOnCode = admitting === 'code';
@@ -229,6 +339,9 @@ export function ManualCheckinSheet({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
+      // The result overlay is shown by the screen underneath, so it must not
+      // appear until this sheet has actually left the screen.
+      onDismiss={flushPending}
       onShow={() => focusFor(initialMode)}
     >
       <SafeAreaView className="flex-1 bg-ed-bg">
@@ -277,7 +390,7 @@ export function ManualCheckinSheet({
 
               {/* Character cells with one hidden input behind them. Reads as
                   entering a code rather than searching, and shows progress
-                  through the six characters as they type. */}
+                  through the eight characters as they type. */}
               <Pressable
                 accessibilityRole="none"
                 onPress={() => codeInputRef.current?.focus()}
@@ -315,6 +428,8 @@ export function ManualCheckinSheet({
                   autoCorrect={false}
                   autoComplete="off"
                   editable={!busyOnCode}
+                  returnKeyType="go"
+                  onSubmitEditing={() => void submitCode(code)}
                   // Visually hidden but still the real focus target, so the
                   // system keyboard and paste behave normally.
                   style={{
@@ -339,22 +454,28 @@ export function ManualCheckinSheet({
                 <View className="mt-6 items-center">
                   <ActivityIndicator color={editorial.secondary} />
                 </View>
-              ) : codeError && isCompleteIdentifier(code) ? (
-                // Only reachable after a network failure, where the code is
-                // kept. Auto-submit fires on change, so an unchanged code
-                // needs an explicit way to try again.
+              ) : isCompleteIdentifier(code) ? (
+                // Two cases, one button. A six-character legacy code is never
+                // auto-submitted (an eight-character Pass ID passes through
+                // six on its way), so it needs a deliberate submit. And after
+                // a network failure the typed value is kept, so an unchanged
+                // code needs a way to go again.
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => void submitCode(code)}
                   className="mt-6 h-12 flex-row items-center justify-center gap-2 self-center rounded-full px-6"
                   style={{ backgroundColor: ACCENT }}
                 >
-                  <Ionicons name="refresh" size={16} color="#1A1A1A" />
+                  <Ionicons
+                    name={codeError ? 'refresh' : 'arrow-forward'}
+                    size={16}
+                    color="#1A1A1A"
+                  />
                   <Text
                     className="font-work-sans-bold text-sm uppercase tracking-[1px]"
                     style={{ color: '#1A1A1A' }}
                   >
-                    Try again
+                    {codeError ? 'Try again' : 'Check in'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -443,7 +564,7 @@ export function ManualCheckinSheet({
                         // to see who they are about to let in. Guests already
                         // inside stay tappable — the card is also how you check
                         // when and by which door they came through.
-                        onPress={() => setConfirming(item)}
+                        onPress={() => void openConfirm(item)}
                         className="mb-3 flex-row items-center gap-3 rounded-2xl border border-ed-outline-variant bg-ed-surface p-4"
                         style={{ opacity: arrived ? 0.6 : 1 }}
                       >
@@ -487,8 +608,8 @@ export function ManualCheckinSheet({
                                   className="shrink font-work-sans text-xs text-ed-on-surface-variant"
                                   numberOfLines={1}
                                 >
-                                  Already checked in ·{' '}
-                                  {item.checkedInPartySize ?? item.partySize} of {item.partySize}
+                                  Already in, {item.checkedInPartySize ?? item.partySize} of{' '}
+                                  {item.partySize}
                                 </Text>
                               ) : null}
                             </View>
@@ -513,7 +634,9 @@ export function ManualCheckinSheet({
           visible={Boolean(confirming)}
           guest={confirming}
           busy={Boolean(admitting)}
+          phonePending={phonePending}
           onCancel={() => setConfirming(null)}
+          onDismissed={handleConfirmCardDismissed}
           onConfirm={(guest, arrived) => void admitGuest(guest, arrived)}
         />
       </SafeAreaView>

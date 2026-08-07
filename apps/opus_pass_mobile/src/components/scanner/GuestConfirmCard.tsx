@@ -10,8 +10,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GuestAvatar } from '@/components/scanner/GuestAvatar';
-import { PartyBadge } from '@/components/scanner/PartyBadge';
-import { clampArrived } from '@/lib/scannerRoster';
+import { clampArrived, partySizeLabel } from '@/lib/scannerRoster';
+import { ACCENT, ON_ACCENT } from '@/theme/brand';
 import { useTheme } from '@/theme/useTheme';
 import type { RosterEntry } from '@/types/checkin';
 
@@ -31,6 +31,15 @@ interface GuestConfirmCardProps {
    *  against a check-in the server never recorded. */
   error?: string | null;
   onCancel: () => void;
+  /** True while the guest's phone number is still being fetched. The roster
+   *  does not carry it, so a guest picked from the list arrives here without
+   *  one; showing "Not recorded" during that gap would state as fact the very
+   *  thing still being looked up. */
+  phonePending?: boolean;
+  /** Fires once this card's modal has FINISHED dismissing (iOS only — the
+   *  platform gives no such callback elsewhere). The caller needs it to avoid
+   *  tearing down a modal stacked underneath in the same frame. */
+  onDismissed?: () => void;
   /** Fires with the guest and the confirmed headcount. For a party of 1 the
    *  count is always 1; larger parties default to everyone unless the
    *  attendant steps it down. */
@@ -52,7 +61,9 @@ export function GuestConfirmCard({
   guest: incomingGuest,
   busy = false,
   error = null,
+  phonePending = false,
   onCancel,
+  onDismissed,
   onConfirm,
 }: GuestConfirmCardProps) {
   const { editorial } = useTheme();
@@ -116,6 +127,7 @@ export function GuestConfirmCard({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onCancel}
+      onDismiss={onDismissed}
     >
       <SafeAreaView className="flex-1 bg-ed-bg">
         {/* Header carries the group the way a delivery app carries the order
@@ -165,23 +177,13 @@ export function GuestConfirmCard({
           </View>
 
           <View className="px-5 pt-5">
-            <View className="flex-row items-start gap-3">
-              <View className="min-w-0 flex-1">
-                <Text className="font-playfair-bold text-[26px] leading-8 text-ed-on-surface">
-                  {guest.fullName}
-                </Text>
-                {/* The badge beside the name states the ticket type, so the
-                    subtitle carries only the printed code. */}
-                {guest.entryCode ? (
-                  <Text className="mt-1 font-work-sans text-sm text-ed-on-surface-variant">
-                    {guest.entryCode}
-                  </Text>
-                ) : null}
-              </View>
-              {/* Named in the language the tickets are sold in — the guest is
-                  holding a Single or a Double, not "1 ct". */}
-              <PartyBadge partySize={guest.partySize} />
-            </View>
+            {/* Name alone. The ticket type and the printed code both live in
+                Guest details below: repeating them here made the identity
+                line — the one thing the attendant reads against the person in
+                front of them — compete with two pieces of small print. */}
+            <Text className="font-playfair-bold text-[26px] leading-8 text-ed-on-surface">
+              {guest.fullName}
+            </Text>
 
             {arrived ? (
               <View className="mt-5 flex-row items-center gap-3 rounded-2xl border border-ed-outline-variant p-4">
@@ -193,8 +195,17 @@ export function GuestConfirmCard({
                   <Text className="mt-0.5 font-work-sans text-sm text-ed-on-surface-variant">
                     {admitted} of {guest.partySize} admitted at{' '}
                     {timeOf(guest.checkedInAt!)}
-                    {guest.checkedInDoor ? ` · ${guest.checkedInDoor}` : ''}
                   </Text>
+                  {/* The door is a separate fact from the count, so it gets its
+                      own line and its own icon rather than a middot. */}
+                  {guest.checkedInDoor ? (
+                    <View className="mt-1 flex-row items-center gap-1.5">
+                      <Ionicons name="enter-outline" size={13} color={editorial.onSurfaceVariant} />
+                      <Text className="font-work-sans text-sm text-ed-on-surface-variant">
+                        {guest.checkedInDoor}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             ) : (
@@ -222,11 +233,6 @@ export function GuestConfirmCard({
             <View className="mt-1">
               <DetailRow
                 first
-                icon="list-outline"
-                label="Group"
-                value={guest.groupTag || 'No group'}
-              />
-              <DetailRow
                 icon="restaurant-outline"
                 label="Table"
                 value={guest.table ?? 'Not seated'}
@@ -236,10 +242,20 @@ export function GuestConfirmCard({
                 label="Ticket code"
                 value={guest.entryCode ?? 'Not issued'}
               />
+              {/* The number the invitation went to. Two guests with the same
+                  name is the case a manual admission has no scanned pass to
+                  settle, and this is what settles it. */}
               <DetailRow
-                icon="people-outline"
-                label="Expected party"
-                value={`${guest.partySize} ${guest.partySize === 1 ? 'person' : 'people'}`}
+                icon="call-outline"
+                label="Phone number"
+                value={guest.phone ?? (phonePending ? 'Checking…' : 'Not recorded')}
+              />
+              {/* Named in the language the tickets are sold in — the guest is
+                  holding a Single or a Double, not "1 ct". */}
+              <DetailRow
+                icon="pricetag-outline"
+                label="Ticket type"
+                value={partySizeLabel(guest.partySize)}
               />
             </View>
           </View>
@@ -339,13 +355,19 @@ export function GuestConfirmCard({
             accessibilityState={{ disabled: arrived || busy }}
             disabled={arrived || busy}
             onPress={() => onConfirm(guest, arriving)}
-            className="mt-3 h-14 items-center justify-center rounded-2xl bg-ed-primary-container"
-            style={{ opacity: arrived || busy ? 0.5 : 1 }}
+            // Brand accent, not the theme's primary container: this is the one
+            // committing action on the screen and it must read the same in
+            // both schemes, the way the accent CTA does on the web.
+            className="mt-3 h-14 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: ACCENT, opacity: arrived || busy ? 0.5 : 1 }}
           >
             {busy ? (
-              <ActivityIndicator color={editorial.onPrimary} />
+              <ActivityIndicator color={ON_ACCENT} />
             ) : (
-              <Text className="font-work-sans-bold text-base text-ed-on-primary">
+              <Text
+                className="font-work-sans-bold text-base"
+                style={{ color: ON_ACCENT }}
+              >
                 {/* The button restates the number being recorded, so a
                     mis-tapped stepper is caught here rather than on the
                     invoice. */}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -19,6 +19,7 @@ import { GuestAvatar } from '@/components/scanner/GuestAvatar';
 import { GuestConfirmCard } from '@/components/scanner/GuestConfirmCard';
 import { PartyBadge } from '@/components/scanner/PartyBadge';
 import { submitScan, validateScannerSession } from '@/lib/api/checkin';
+import { withGuestDetail } from '@/lib/api/guestDetail';
 import { getErrorMessage } from '@/lib/errors';
 import {
   arrivedHeads,
@@ -74,6 +75,10 @@ export default function ScannerGuestsScreen() {
   const [groupTag, setGroupTag] = useState<string | null>(null);
   const [groupSheetOpen, setGroupSheetOpen] = useState(false);
   const [confirming, setConfirming] = useState<RosterEntry | null>(null);
+  const [phonePending, setPhonePending] = useState(false);
+  /** Which guest-detail lookup is the current one, so a superseded reply
+   *  cannot speak for the guest now on screen. */
+  const detailRequest = useRef(0);
   const [admitting, setAdmitting] = useState(false);
   const [admitError, setAdmitError] = useState<string | null>(null);
 
@@ -126,6 +131,39 @@ export default function ScannerGuestsScreen() {
       })),
     [visible, filter]
   );
+
+  /**
+   * Show the confirm card, then fill in the phone number.
+   *
+   * The card opens immediately on the roster row rather than waiting: the
+   * attendant is identifying somebody standing in front of them, and holding
+   * the whole card back for a contact detail would put a network round trip
+   * in front of every admission. The number arrives a moment later, or not at
+   * all, and neither blocks admitting.
+   */
+  const openConfirm = async (guest: RosterEntry) => {
+    setConfirming(guest);
+    if (!session) return;
+    // Only the newest pick owns the card. Two taps in a row leave two lookups
+    // in flight, and whichever returns first must not speak for the other:
+    // without this, a fast lookup for the guest the attendant has already
+    // moved off would clear the pending flag and make the guest now on screen
+    // read "Not recorded" until their own slower lookup landed.
+    const request = (detailRequest.current += 1);
+    setPhonePending(true);
+    try {
+      const detailed = await withGuestDetail(
+        { eventId: session.eventId, accessToken: session.accessToken },
+        guest
+      );
+      if (detailRequest.current !== request) return;
+      setConfirming((current) =>
+        current?.invitationId === detailed.invitationId ? detailed : current
+      );
+    } finally {
+      if (detailRequest.current === request) setPhonePending(false);
+    }
+  };
 
   const admit = async (guest: RosterEntry, arrived: number) => {
     if (!session || admitting) return;
@@ -326,7 +364,7 @@ export default function ScannerGuestsScreen() {
                 accessibilityLabel={`${item.fullName}, ${arrived ? 'checked in' : 'not yet arrived'}`}
                 onPress={() => {
                   setAdmitError(null);
-                  setConfirming(item);
+                  void openConfirm(item);
                 }}
                 className="mb-3 flex-row items-center gap-3 rounded-2xl border border-ed-outline-variant bg-ed-surface p-4"
               >
@@ -360,7 +398,7 @@ export default function ScannerGuestsScreen() {
                   {arrived || item.entryCode ? (
                     <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
                       {arrived
-                        ? `Arrived · ${item.checkedInPartySize ?? item.partySize} of ${item.partySize}`
+                        ? `Arrived, ${item.checkedInPartySize ?? item.partySize} of ${item.partySize}`
                         : item.entryCode}
                     </Text>
                   ) : null}
@@ -391,6 +429,7 @@ export default function ScannerGuestsScreen() {
         guest={confirming}
         busy={admitting}
         error={admitError}
+        phonePending={phonePending}
         onCancel={() => {
           setConfirming(null);
           setAdmitError(null);
