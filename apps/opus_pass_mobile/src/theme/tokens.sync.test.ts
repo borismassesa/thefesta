@@ -6,6 +6,7 @@ import {
   MAX_FONT_SCALE,
   SPACING,
   TYPE_SCALE,
+  type TypeStep,
 } from './designTokens';
 
 /**
@@ -16,10 +17,16 @@ import {
  * is, and nobody notices until a designer opens the app.
  */
 
-test('every type step declares a Tailwind utility, and they are unique', () => {
+test('every operational step declares a unique Tailwind utility', () => {
   const utilities = Object.values(TYPE_SCALE).map((s) => s.utility);
   for (const step of Object.values(TYPE_SCALE)) {
-    assert.ok(step.utility.length > 0, 'a step with no utility cannot be used in a className');
+    assert.ok((step.utility ?? '').length > 0, 'a step with no utility cannot be used in a className');
+  }
+  // Display steps deliberately have none: they are RN-style only, and naming
+  // a utility they do not generate is how the two scales came to claim the
+  // same class name.
+  for (const step of Object.values(DISPLAY_SCALE) as TypeStep[]) {
+    assert.equal(step.utility, undefined, 'celebratory type is not exposed as a class');
   }
   assert.equal(
     new Set(utilities).size,
@@ -86,4 +93,43 @@ test('font scaling is capped but never below the system size', () => {
   }
   // Larger type has less room to grow: it starts with more already spent.
   assert.ok(MAX_FONT_SCALE.display < MAX_FONT_SCALE.body);
+});
+
+test('the Tailwind config really does generate these utilities', async () => {
+  // The claim in designTokens.ts is that both consumers read one source. This
+  // is what makes it true rather than aspirational: it imports the actual
+  // config and compares what Tailwind will emit against the tokens. A future
+  // hand-edit inside tailwind.config.ts now fails here instead of shipping.
+  const config = (await import('../../tailwind.config')).default as {
+    theme?: { extend?: Record<string, unknown> };
+  };
+  const extend = config.theme?.extend ?? {};
+  const fontSize = extend.fontSize as Record<string, [string, { lineHeight: string; letterSpacing: string }]>;
+
+  for (const step of Object.values(TYPE_SCALE)) {
+    const emitted = fontSize[step.utility as string];
+    assert.ok(emitted, `${step.utility} is missing from the Tailwind fontSize scale`);
+    assert.equal(emitted[0], `${step.size}px`);
+    assert.equal(emitted[1].lineHeight, `${step.lineHeight}px`);
+    assert.equal(emitted[1].letterSpacing, `${step.letterSpacing}px`);
+  }
+
+  // Celebratory type is reached through RN styles, never a class, so it must
+  // NOT appear here — and must never quietly take over an Inter utility.
+  const emittedFamilies = Object.values(extend.fontFamily as Record<string, string[]>).flat();
+  assert.ok(
+    emittedFamilies.filter((f) => f === FONT_FAMILY.display).length === 1,
+    'the display face belongs to exactly one utility'
+  );
+
+  // Radii must not collide with Tailwind's own rounded-sm/md/lg/xl, which are
+  // 2/6/8/12px. Overriding those silently resized 36 existing call sites once
+  // already; the prefix is what stops it happening again.
+  const radii = extend.borderRadius as Record<string, string>;
+  for (const reserved of ['sm', 'md', 'lg', 'xl']) {
+    assert.ok(
+      !(reserved in radii),
+      `rounded-${reserved} is Tailwind's own; overriding it changes every existing usage`
+    );
+  }
 });

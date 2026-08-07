@@ -19,8 +19,21 @@ const spacing = Object.fromEntries(
   Object.entries(SPACING).map(([name, value]) => [name, `${value}px`])
 );
 
+/**
+ * Radii are exposed under a `token-` prefix on purpose.
+ *
+ * Tailwind already ships `rounded-sm|md|lg|xl` at 2/6/8/12px. Emitting our own
+ * sm/md/lg/xl into `extend` OVERRIDES those rather than adding to them, which
+ * silently resized 36 existing call sites the first time this was written —
+ * a typography change quietly doubling the corner radius of the sign-in
+ * inputs. Prefixing keeps both scales addressable and makes reaching for the
+ * design-system value explicit.
+ */
 const borderRadius = Object.fromEntries(
-  Object.entries(RADIUS).map(([name, value]) => [name, value >= 999 ? '9999px' : `${value}px`])
+  Object.entries(RADIUS).map(([name, value]) => [
+    `token-${name}`,
+    value >= 999 ? '9999px' : `${value}px`,
+  ])
 );
 
 const config: Config = {

@@ -9,7 +9,8 @@
  *
  * src/theme/tokens.ts wraps these for use in RN style objects.
  * tailwind.config.ts turns them into `text-body`, `p-md`, `rounded-lg`.
- * src/theme/tokens.sync.test.ts fails if the two ever drift.
+ * src/theme/tokens.sync.test.ts imports the built Tailwind config and fails if
+ * the utilities it generates stop matching these values.
  */
 
 /** Font family names as registered with expo-font in app/_layout.tsx. */
@@ -27,8 +28,14 @@ export interface TypeStep {
   size: number;
   lineHeight: number;
   letterSpacing: number;
-  /** The Tailwind utility this step is exposed as, e.g. `text-card-title`. */
-  utility: string;
+  /**
+   * The Tailwind utility this step is exposed as, e.g. `text-card-title`.
+   *
+   * Only the operational scale has one. Celebratory display type is reached
+   * through the `Type` component's RN styles, never a className, so giving
+   * those steps a utility name would name a class that does not exist.
+   */
+  utility?: string;
 }
 
 /**
@@ -74,8 +81,8 @@ export const TYPE_SCALE = {
  * time. That is how this app came to have 47 serif screen titles nobody chose.
  */
 export const DISPLAY_SCALE = {
-  hero: { family: FONT_FAMILY.display, size: 32, lineHeight: 38, letterSpacing: -0.5, utility: 'display' },
-  heroSmall: { family: FONT_FAMILY.display, size: 28, lineHeight: 34, letterSpacing: -0.25, utility: 'screen-title' },
+  hero: { family: FONT_FAMILY.display, size: 32, lineHeight: 38, letterSpacing: -0.5 },
+  heroSmall: { family: FONT_FAMILY.display, size: 28, lineHeight: 34, letterSpacing: -0.25 },
 } as const satisfies Record<string, TypeStep>;
 
 /**

@@ -135,12 +135,19 @@ export default function ArrivalsScreen() {
       if (!validated.ok) throw new Error(validated.error);
       return validated.roster;
     },
-    // No polling. Arrivals do land continuously while a door is open, but a
-    // background refetch every 15s meant the list flashed its refresh
-    // indicator every few seconds all night, and a screen that redraws while
-    // you are reading it is worse than one that is a minute stale. The list
-    // refreshes when it mounts, when a check-in on this device invalidates
-    // it, and whenever the attendant pulls down.
+    // No polling: a background refetch every 15s shared this query with the
+    // pull-to-refresh indicator, so the list flashed every few seconds all
+    // night, and a screen that redraws while you are reading it is its own
+    // problem.
+    //
+    // Be clear about the cost, because it is not just flicker. This screen
+    // refreshes on mount, when a check-in made on THIS device invalidates the
+    // roster, and on pull. Nothing refreshes it when another door admits
+    // somebody, so an arrival scanned at a second gate is invisible here
+    // until an attendant pulls down — not for fifteen seconds, but for as
+    // long as nobody thinks to. If watching every gate live turns out to
+    // matter, the fix is to poll only while this screen is focused and bind
+    // the indicator to user-initiated refetches alone, not to restore this.
   });
 
   const arrived = useMemo(
