@@ -1,5 +1,6 @@
 import { Document, Page, View, Text, Svg, Path, StyleSheet } from '@react-pdf/renderer'
 import { PdfLogo, PdfLetterhead, PDF_PAGE_PADDING } from '@/lib/pdf-letterhead'
+import { EventMetaRows, reportPaddingTop } from '@/lib/pdf-report-header'
 
 const BRAND = '#5c2d8c'
 
@@ -74,13 +75,17 @@ export interface SeatingPlanPdfData {
 }
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', fontSize: 10, color: '#1a1a1a', ...PDF_PAGE_PADDING, paddingTop: 162 },
+  // paddingTop is set per page by reportPaddingTop() — it depends on how many
+  // meta rows the header has, and the guest-index page adds a subtitle line.
+  page: { fontFamily: 'Helvetica', fontSize: 10, color: '#1a1a1a', ...PDF_PAGE_PADDING },
   fixedHeader: { position: 'absolute', top: 40, left: 44, right: 44 },
   h1: { fontSize: 18, fontFamily: 'Helvetica-Bold' },
-  metaLine: { marginTop: 5, fontSize: 9.5, color: '#6b7280' },
   summaryLine: { marginTop: 5, fontSize: 9.5, color: '#374151' },
-  generatedLine: { marginTop: 8, fontSize: 7.5, color: '#9ca3af' },
-  pageNumber: { position: 'absolute', top: 40, right: 44, fontSize: 8, color: '#9ca3af' },
+  // Top-right on every page: a seating plan is reprinted as guests move, and
+  // an usher holding two copies needs to see which is the newer one.
+  generatedLine: { position: 'absolute', top: 40, right: 44, fontSize: 7.5, color: '#9ca3af' },
+  // Bottom-right, clear of the letterhead (26pt offset plus its own ~51pt).
+  pageNumber: { position: 'absolute', bottom: 86, right: 44, fontSize: 8, color: '#9ca3af' },
 
   statRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
   statTile: { flex: 1, borderWidth: 1, borderColor: '#e6e6ea', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10 },
@@ -137,26 +142,27 @@ function StatTile({ label, value }: { label: string; value: string | number }) {
 /** Repeats on every page of whichever <Page> it's placed in (react-pdf's
  *  `fixed` prop) — a seating plan gets reprinted often, so every page should
  *  identify the event and when this particular copy was generated. */
-function PageHeader({ data, subtitle }: { data: SeatingPlanPdfData; subtitle: string }) {
+function PageHeader({ data, subtitle }: { data: SeatingPlanPdfData; subtitle?: string }) {
   return (
     <>
       <View style={s.fixedHeader} fixed>
         <PdfLogo />
         <Text style={[s.h1, { marginTop: 8 }]}>{data.eventName}</Text>
-        {data.eventDate || data.venue ? (
-          <Text style={s.metaLine}>{[data.eventDate, data.venue].filter(Boolean).join(' · ')}</Text>
-        ) : null}
-        <Text style={s.summaryLine}>{subtitle}</Text>
-        <Text style={s.generatedLine}>Generated on {data.generatedAt}</Text>
+        <EventMetaRows eventDate={data.eventDate} venue={data.venue} />
+        {/* Optional: the plan page omits it because its stat tiles already say
+            the same numbers. The guest index keeps it, where it is not a repeat
+            of anything but the only thing naming which view the page is. */}
+        {subtitle ? <Text style={s.summaryLine}>{subtitle}</Text> : null}
       </View>
+      <Text style={s.generatedLine} fixed>
+        Generated on {data.generatedAt}
+      </Text>
       <Text style={s.pageNumber} fixed render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </>
   )
 }
 
 export function SeatingPlanPdf({ data }: { data: SeatingPlanPdfData }) {
-  const tableLabel = plural(data.tables.length, 'table', 'tables')
-  const summary = `${data.seatedTotal} of ${data.totalCapacity} seats filled · ${data.tables.length} ${tableLabel}`
   const pctUsed = data.totalCapacity > 0 ? Math.round((data.seatedTotal / data.totalCapacity) * 100) : 0
 
   // Alphabetical guest → table index — the on-the-day, "find this guest fast"
@@ -168,8 +174,8 @@ export function SeatingPlanPdf({ data }: { data: SeatingPlanPdfData }) {
 
   return (
     <Document title={`${data.eventName}: Seating plan`}>
-      <Page size="A4" style={s.page}>
-        <PageHeader data={data} subtitle={summary} />
+      <Page size="A4" style={[s.page, { paddingTop: reportPaddingTop(data) }]}>
+        <PageHeader data={data} />
 
         <View style={s.statRow}>
           <StatTile label="Seated" value={data.seatedTotal} />
@@ -224,7 +230,8 @@ export function SeatingPlanPdf({ data }: { data: SeatingPlanPdfData }) {
 
       {/* On-the-day view: alphabetical guest → table lookup, for an usher
           who needs to find one guest fast rather than browse table-by-table. */}
-      <Page size="A4" style={s.page}>
+      {/* The guest index carries a subtitle, so its header is one line taller. */}
+      <Page size="A4" style={[s.page, { paddingTop: reportPaddingTop({ ...data, extraLines: 1 }) }]}>
         <PageHeader data={data} subtitle={`Guest index · ${index.length} ${plural(index.length, 'guest', 'guests')}, alphabetical`} />
 
         <View>
