@@ -63,6 +63,7 @@ import {
   createGuest,
   deleteGuest,
   deleteGuests,
+  markGuestsAttending,
   recordSend,
   type WhatsAppSendSummary,
   type WhatsAppSendResult,
@@ -1596,6 +1597,28 @@ export default function SendInvitesView({
     }
   }
 
+  /**
+   * Make a hand-delivered pass work at the gate.
+   *
+   * Sending a card and a ticket by hand is only half the job: the door checks
+   * rsvp_status, so a guest who never replied is turned away holding a real
+   * pass. Marking them attending is the supported way to close that, and it
+   * unlocks the ticket download in the same move.
+   */
+  function markAttending(ids: string[]) {
+    if (!ids.length) return
+    startTransition(async () => {
+      try {
+        const n = await markGuestsAttending(ids, eventId)
+        if (n === 0) toast(strings.mark_attending_none)
+        else toast.success(fmt(strings.mark_attending_done, { n }))
+        router.refresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : strings.mark_attending_none)
+      }
+    })
+  }
+
   function rowShare(g: SendGuestRow, channel: 'whatsapp' | 'sms' | 'copy') {
     if (channel === 'copy') {
       navigator.clipboard.writeText(g.rsvpUrl)
@@ -2884,6 +2907,15 @@ export default function SendInvitesView({
                 <Trash2 size={14} /> {strings.bulk_delete}
               </button>
             ) : null}
+            {/* Hand-delivering to a batch: one press makes every unanswered
+                guest in the selection admissible, which is what turns their
+                downloaded pass into one the door will accept. Card tabs only —
+                on the Pass Ticket tab everyone already is. */}
+            {selected.size > 0 && isCardSendTab ? (
+              <button className="btn ghost" disabled={pending} onClick={() => markAttending([...selected])}>
+                <Ticket size={14} /> {strings.bulk_mark_attending}
+              </button>
+            ) : null}
             <button className="btn ghost" disabled={pending} onClick={() => setNewGuest({ name: '', phone: '' })}>
               <Plus size={14} /> {strings.add_guest}
             </button>
@@ -3306,12 +3338,27 @@ export default function SendInvitesView({
                                         <Download size={13} /> {strings.row_download_card}
                                       </button>
                                     ) : null}
-                                    {/* Ticket download lives on the Pass Ticket
-                                        tab only. Offering it here would hand out
-                                        tickets for guests who have not replied,
-                                        and the door refuses those — a real pass
-                                        that fails at the gate is worse than
-                                        none. Mark them attending first. */}
+                                    {/* The door refuses a guest who has not
+                                        replied, so a hand-delivered pass only
+                                        works once they are marked attending.
+                                        That is what this does, and why the
+                                        ticket download sits behind it. */}
+                                    {g.status !== 'attending' && g.status !== 'declined' ? (
+                                      <button
+                                        role="menuitem"
+                                        onClick={() => { setResendMenuId(null); markAttending([g.id]) }}
+                                      >
+                                        <Ticket size={13} /> {strings.row_mark_attending}
+                                      </button>
+                                    ) : null}
+                                    {g.status === 'attending' ? (
+                                      <button
+                                        role="menuitem"
+                                        onClick={() => { setResendMenuId(null); downloadTicket(g) }}
+                                      >
+                                        <Ticket size={13} /> {strings.row_download_pass}
+                                      </button>
+                                    ) : null}
                                     {(() => {
                                       const until = heldBackUntil(g)
                                       return (

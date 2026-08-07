@@ -1263,6 +1263,10 @@ export interface DashboardSendStrings {
   row_send_manually: string
   row_download_card: string
   row_download_pass: string
+  row_mark_attending: string
+  bulk_mark_attending: string
+  mark_attending_done: string
+  mark_attending_none: string
   row_card_downloaded: string // {name}
   row_copy_message: string
   row_send_sms: string
@@ -2493,6 +2497,10 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     row_send_manually: 'Send manually via WhatsApp',
     row_download_card: 'Download card',
     row_download_pass: 'Download entrance pass',
+    row_mark_attending: 'Mark attending (unlocks pass)',
+    bulk_mark_attending: 'Mark attending',
+    mark_attending_done: '{n} now admissible at the door',
+    mark_attending_none: 'Nobody to mark. Guests who already replied are left alone.',
     row_card_downloaded: "Saved {name}'s card",
     row_copy_message: 'Copy message',
     row_send_sms: 'Send SMS',
