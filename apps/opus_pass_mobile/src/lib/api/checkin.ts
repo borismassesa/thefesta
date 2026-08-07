@@ -39,34 +39,39 @@ function checkinUrl(path: string): string {
 const REQUEST_TIMEOUT_MS = 15000;
 
 /**
- * Cap for calls that only READ.
+ * Cap for calls that cannot admit anybody.
  *
- * Longer than the writing one on purpose. The 15s cap is short because an
+ * Longer than the admission one on purpose. The 15s cap is short because an
  * admission that may or may not have committed has to be resolved quickly by
- * a human; a lookup has nothing to resolve, so giving up early only costs the
- * attendant a retype. The case that needs the headroom is a first request to a
- * dev server, which compiles the route on demand and can sit well past 15s
- * before answering — the door then sees a failure against a server that was
- * about to reply.
+ * a human standing at a door; nothing here has that problem, so giving up
+ * early only costs the attendant a retry. The case that needs the headroom is
+ * the first request to a dev server, which compiles the route on demand and
+ * can sit well past 15s before answering — the door then sees a failure
+ * against a server that was about to reply, which is how a shift starts with
+ * "couldn't load arrivals" and a healthy server.
  */
-const READ_TIMEOUT_MS = 40000;
+const NO_ADMISSION_TIMEOUT_MS = 40000;
 
 interface PostOptions {
-  /** True when the call cannot change anything, so a timeout can promise
-   *  nothing was recorded. Never set this on an admission. */
-  readOnly?: boolean;
+  /**
+   * True when this call cannot admit a guest, so a timeout can say plainly
+   * that nobody was let in. /validate is included: it does stamp a last-used
+   * time on the door code, but that is bookkeeping nobody has to reconcile at
+   * the door. Never set it on submitScan or amend.
+   */
+  cannotAdmit?: boolean;
 }
 
 async function postJson<T>(path: string, body: unknown, options: PostOptions = {}): Promise<T> {
   const url = checkinUrl(path);
-  const readOnly = options.readOnly === true;
+  const cannotAdmit = options.cannotAdmit === true;
 
   // AbortController + timer rather than AbortSignal.timeout: the static
   // helper isn't in Hermes, and this file runs on-device.
   const abort = new AbortController();
   const timer = setTimeout(
     () => abort.abort(),
-    readOnly ? READ_TIMEOUT_MS : REQUEST_TIMEOUT_MS
+    cannotAdmit ? NO_ADMISSION_TIMEOUT_MS : REQUEST_TIMEOUT_MS
   );
 
   let response: Response;
@@ -83,12 +88,12 @@ async function postJson<T>(path: string, body: unknown, options: PostOptions = {
     // may already have committed the check-in. Telling the attendant to look
     // before retrying is what stops a "why does it say already scanned".
     if (err instanceof Error && err.name === 'AbortError') {
-      // A read cannot have changed anything, so it must not raise the alarm a
+      // A call that cannot admit anyone must not raise the alarm a
       // half-committed admission does. Telling an attendant to go and check a
       // guest who was never admitted is its own kind of wrong answer.
       throw new Error(
-        readOnly
-          ? `${hostOf(url)} took too long to answer. Nothing was recorded. Try again.`
+        cannotAdmit
+          ? `${hostOf(url)} took too long to answer. Nobody was admitted. Try again.`
           : `${hostOf(url)} took too long to answer. This may still have gone through. Check the guest before scanning again.`
       );
     }
@@ -126,7 +131,7 @@ function hostOf(url: string): string {
 
 /** Exchange a typed access code for the event it belongs to. */
 export function resolveAccessCode(token: string): Promise<ResolveCodeResult> {
-  return postJson<ResolveCodeResult>('resolve', { token: token.trim() }, { readOnly: true });
+  return postJson<ResolveCodeResult>('resolve', { token: token.trim() }, { cannotAdmit: true });
 }
 
 /** Confirm the access code is still valid and fetch the event + guest roster. */
@@ -134,7 +139,7 @@ export function validateScannerSession(
   eventId: string,
   token: string
 ): Promise<ValidateSessionResult> {
-  return postJson<ValidateSessionResult>('validate', { eventId, token });
+  return postJson<ValidateSessionResult>('validate', { eventId, token }, { cannotAdmit: true });
 }
 
 export interface SubmitScanInput {
@@ -209,7 +214,7 @@ export type LookupResult =
  * the attendant makes after seeing who they are looking at.
  */
 export function lookupAdmission(input: LookupInput): Promise<LookupResult> {
-  return postJson<LookupResult>('lookup', input, { readOnly: true });
+  return postJson<LookupResult>('lookup', input, { cannotAdmit: true });
 }
 
 export interface AmendPartySizeInput {
