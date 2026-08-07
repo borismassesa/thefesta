@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/useTheme';
 import { PlanningMenu } from './PlanningMenu';
 import { SearchDiscoverGrid } from './SearchDiscoverGrid';
+import { FontFamily } from '@/theme/tokens';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -160,7 +161,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                 style={{
                   flex: 1,
                   marginLeft: 10,
-                  fontFamily: 'WorkSans-Regular',
+                  fontFamily: FontFamily.regular,
                   fontSize: 15,
                   color: editorial.onSurface,
                 }}
@@ -213,7 +214,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                         style={{
                           marginTop: 4,
                           fontSize: 11,
-                          fontFamily: 'WorkSans-SemiBold',
+                          fontFamily: FontFamily.semibold,
                           color,
                         }}
                       >
@@ -262,7 +263,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                       style={{
                         marginTop: 4,
                         fontSize: 11,
-                        fontFamily: 'WorkSans-SemiBold',
+                        fontFamily: FontFamily.semibold,
                         color,
                       }}
                     >

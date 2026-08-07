@@ -29,7 +29,7 @@ export function GuestAvatar({ fullName, size = 40, colorKey }: GuestAvatarProps)
       }}
     >
       <Text
-        className="font-work-sans-bold text-white"
+        className="font-inter-bold text-white"
         style={{ fontSize: size * 0.36 }}
         numberOfLines={1}
       >

@@ -165,7 +165,7 @@ export function PlanningMenu({ visible, onClose }: PlanningMenuProps) {
                 <Ionicons name={item.icon} size={20} color="#fff" />
               </View>
               <Text
-                className="mt-2 text-center font-work-sans-bold text-[11px] text-white"
+                className="mt-2 text-center font-inter-bold text-label text-white"
                 numberOfLines={2}
               >
                 {item.label}

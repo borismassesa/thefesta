@@ -23,7 +23,7 @@ export default function GuestsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-ed-bg" edges={['top']}>
       <View className="border-b border-ed-outline-variant bg-ed-bg px-5 pt-4">
-        <Text className="font-playfair-bold text-3xl text-ed-on-surface">Guests &amp; RSVP</Text>
+        <Text className="font-inter-bold text-screen-title text-ed-on-surface">Guests &amp; RSVP</Text>
 
         <ScrollView
           horizontal
@@ -45,10 +45,10 @@ export default function GuestsScreen() {
                 }}
               >
                 <Text
-                  className={`text-[15px] ${
+                  className={`text-body-sm ${
                     active
-                      ? 'font-work-sans-bold text-ed-on-surface'
-                      : 'font-work-sans text-ed-on-surface-variant'
+                      ? 'font-inter-bold text-ed-on-surface'
+                      : 'font-inter text-ed-on-surface-variant'
                   }`}
                 >
                   {tab.label}

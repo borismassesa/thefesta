@@ -29,7 +29,7 @@ function StepCircle({ stage, active }: { stage: PlanStage; active: boolean }) {
         }}
       >
         <Text
-          className="font-work-sans-bold text-base"
+          className="font-inter-bold text-body"
           style={{ color: active ? '#FFFFFF' : editorial.onSurfaceVariant }}
         >
           {stage.id}
@@ -60,7 +60,7 @@ function GoalRow({ goal, done, onPress }: { goal: PlanGoal; done: boolean; onPre
 
       <View className="ml-3.5 flex-1">
         <Text
-          className="font-work-sans-bold text-[15px]"
+          className="font-inter-bold text-body-sm"
           style={{
             color: done ? editorial.onSurfaceVariant : editorial.onSurface,
             textDecorationLine: done ? 'line-through' : 'none',
@@ -69,7 +69,7 @@ function GoalRow({ goal, done, onPress }: { goal: PlanGoal; done: boolean; onPre
           {goal.title}
         </Text>
         {!done ? (
-          <Text className="mt-0.5 font-work-sans text-sm text-ed-on-surface-variant">
+          <Text className="mt-0.5 font-inter text-body-sm text-ed-on-surface-variant">
             {taskCountLabel(goal)}
           </Text>
         ) : null}
@@ -91,8 +91,8 @@ export function PlanChecklist() {
   return (
     <View className="mt-8">
       <View className="flex-row items-baseline justify-between">
-        <Text className="font-playfair-bold text-xl text-ed-on-surface">Your plan</Text>
-        <Text className="font-work-sans-medium text-sm text-ed-on-surface-variant">
+        <Text className="font-inter-bold text-section-title text-ed-on-surface">Your plan</Text>
+        <Text className="font-inter-medium text-body-sm text-ed-on-surface-variant">
           {completed.size}/{TOTAL_GOALS} goals
         </Text>
       </View>
@@ -123,9 +123,9 @@ export function PlanChecklist() {
           >
             <Text
               numberOfLines={1}
-              className={`font-work-sans text-xs ${
+              className={`font-inter text-caption ${
                 stage.id === activeStageId
-                  ? 'font-work-sans-bold text-ed-on-surface'
+                  ? 'font-inter-bold text-ed-on-surface'
                   : 'text-ed-on-surface-variant'
               }`}
             >
@@ -149,7 +149,7 @@ export function PlanChecklist() {
 
       {activeStageId > PLAN_STAGES[0].id ? (
         <Pressable onPress={() => setActiveStageId(activeStageId - 1)} accessibilityRole="button">
-          <Text className="font-work-sans-semibold text-sm text-ed-secondary">
+          <Text className="font-inter-semibold text-body-sm text-ed-secondary">
             See the previous checklist
           </Text>
         </Pressable>

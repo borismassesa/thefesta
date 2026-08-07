@@ -41,7 +41,7 @@ export function VendorCard({ vendor, width }: { vendor: VendorListing; width?: n
             style={{ backgroundColor: ACCENT }}
           >
             <Text
-              className="font-work-sans-bold text-[9px] uppercase tracking-[1.5px]"
+              className="font-inter-bold text-label uppercase tracking-[1.5px]"
               style={{ color: ON_ACCENT }}
             >
               {badge}
@@ -53,12 +53,12 @@ export function VendorCard({ vendor, width }: { vendor: VendorListing; width?: n
       <View className="gap-1.5 px-3.5 py-3">
         <Text
           numberOfLines={1}
-          className="font-work-sans-bold text-[10px] uppercase tracking-[1.5px] text-ed-on-surface-variant"
+          className="font-inter-bold text-label uppercase tracking-[1.5px] text-ed-on-surface-variant"
         >
           {vendor.category}
         </Text>
 
-        <Text numberOfLines={1} className="font-work-sans-bold text-base leading-tight text-ed-on-surface">
+        <Text numberOfLines={1} className="font-inter-bold text-body leading-tight text-ed-on-surface">
           {vendor.business_name}
         </Text>
 
@@ -66,12 +66,12 @@ export function VendorCard({ vendor, width }: { vendor: VendorListing; width?: n
           {reviewCount > 0 ? (
             <StarRating rating={rating} count={reviewCount} />
           ) : (
-            <Text className="font-work-sans text-xs italic text-ed-on-surface-variant">No reviews</Text>
+            <Text className="font-inter text-caption italic text-ed-on-surface-variant">No reviews</Text>
           )}
           {location ? (
             <View className="flex-row shrink items-center gap-0.5">
               <Ionicons name="location-outline" size={11} color={editorial.onSurfaceVariant} />
-              <Text numberOfLines={1} className="font-work-sans text-xs text-ed-on-surface-variant">
+              <Text numberOfLines={1} className="font-inter text-caption text-ed-on-surface-variant">
                 {location}
               </Text>
             </View>

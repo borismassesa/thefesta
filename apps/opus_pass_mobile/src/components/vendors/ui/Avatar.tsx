@@ -33,7 +33,7 @@ export function Avatar({
     >
       <Text
         style={{ fontSize: size * 0.36 }}
-        className="font-work-sans-bold text-ed-on-surface-variant"
+        className="font-inter-bold text-ed-on-surface-variant"
       >
         {initialsFrom(name)}
       </Text>

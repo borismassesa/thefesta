@@ -28,8 +28,8 @@ function EventRow({
     >
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
-          <Text className="font-work-sans-bold text-[15px] text-ed-on-surface">{event.name}</Text>
-          <Text className="mt-1 font-work-sans text-xs text-ed-on-surface-variant">
+          <Text className="font-inter-bold text-body-sm text-ed-on-surface">{event.name}</Text>
+          <Text className="mt-1 font-inter text-caption text-ed-on-surface-variant">
             {[
               EVENT_TYPE_LABELS[event.event_type],
               event.starts_at ? formatShortDate(event.starts_at) : null,
@@ -48,13 +48,13 @@ function EventRow({
           style={{ backgroundColor: event.allow_rsvp ? '#2D8E5B1F' : editorial.surfaceContainer }}
         >
           <Text
-            className="font-work-sans-semibold text-[11px]"
+            className="font-inter-semibold text-label"
             style={{ color: event.allow_rsvp ? '#2D8E5B' : editorial.onSurfaceVariant }}
           >
             {event.allow_rsvp ? 'RSVPs on' : 'RSVPs off'}
           </Text>
         </View>
-        <Text className="font-work-sans text-xs text-ed-on-surface-variant">
+        <Text className="font-inter text-caption text-ed-on-surface-variant">
           {guestCount} guest{guestCount === 1 ? '' : 's'} invited
         </Text>
       </View>
@@ -103,7 +103,7 @@ export function EventsTab() {
 
   if (events.isError) {
     return (
-      <Text className="py-16 text-center font-work-sans text-sm text-ed-error">
+      <Text className="py-16 text-center font-inter text-body-sm text-ed-error">
         Couldn&rsquo;t load your events. Pull to refresh, or try again shortly.
       </Text>
     );
@@ -112,10 +112,10 @@ export function EventsTab() {
   if (events.data.length === 0) {
     return (
       <View className="items-center py-12">
-        <Text className="text-center font-playfair-bold text-2xl text-ed-on-surface">
+        <Text className="text-center font-inter-bold text-section-title text-ed-on-surface">
           Add your first event
         </Text>
-        <Text className="mt-2 text-center font-work-sans text-sm text-ed-on-surface-variant">
+        <Text className="mt-2 text-center font-inter text-body-sm text-ed-on-surface-variant">
           The ceremony, send-off, kitchen party — each one gets its own guest list and RSVPs.
         </Text>
         <Pressable
@@ -124,7 +124,7 @@ export function EventsTab() {
           style={{ backgroundColor: editorial.secondary }}
         >
           <Ionicons name="add" size={18} color="#FFFFFF" />
-          <Text className="font-work-sans-semibold text-sm text-white">New event</Text>
+          <Text className="font-inter-semibold text-body-sm text-white">New event</Text>
         </Pressable>
       </View>
     );
@@ -133,7 +133,7 @@ export function EventsTab() {
   return (
     <View>
       <View className="mb-4 flex-row items-center justify-between">
-        <Text className="font-playfair-bold text-2xl text-ed-on-surface">
+        <Text className="font-inter-bold text-section-title text-ed-on-surface">
           {events.data.length} event{events.data.length === 1 ? '' : 's'}
         </Text>
         <Pressable
@@ -142,7 +142,7 @@ export function EventsTab() {
           style={{ backgroundColor: editorial.secondary }}
         >
           <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text className="font-work-sans-semibold text-[13px] text-white">Add</Text>
+          <Text className="font-inter-semibold text-caption text-white">Add</Text>
         </Pressable>
       </View>
 
@@ -156,7 +156,7 @@ export function EventsTab() {
         />
       ))}
 
-      <Text className="mt-2 text-center font-work-sans text-xs text-ed-on-surface-variant">
+      <Text className="mt-2 text-center font-inter text-caption text-ed-on-surface-variant">
         Tap an event to edit. Press and hold to delete.
       </Text>
     </View>

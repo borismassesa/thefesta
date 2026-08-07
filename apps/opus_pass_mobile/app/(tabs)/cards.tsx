@@ -136,17 +136,17 @@ function DesignCard({
         ) : null}
       </View>
       <Text
-        className="mt-2 font-work-sans-semibold text-sm text-ed-on-surface"
+        className="mt-2 font-inter-semibold text-body-sm text-ed-on-surface"
         numberOfLines={1}
       >
         {product.name}
       </Text>
       {displayPrice && displayPrice > 0 ? (
         <View className="mt-0.5 flex-row flex-wrap items-baseline gap-x-1.5">
-          <Text className="font-work-sans-semibold text-xs text-ed-on-surface">
+          <Text className="font-inter-semibold text-caption text-ed-on-surface">
             From {formatTzs(displayPrice)}
           </Text>
-          <Text className="font-work-sans text-[11px] text-ed-on-surface-variant">
+          <Text className="font-inter text-label text-ed-on-surface-variant">
             {priceLabel}
           </Text>
         </View>
@@ -180,12 +180,12 @@ function FaqItem({
           size={20}
           color={editorial.onSurface}
         />
-        <Text className="ml-3 flex-1 font-work-sans-semibold text-[15px] text-ed-on-surface">
+        <Text className="ml-3 flex-1 font-inter-semibold text-body-sm text-ed-on-surface">
           {question}
         </Text>
       </View>
       {open ? (
-        <Text className="ml-8 mt-2.5 font-work-sans text-sm leading-5 text-ed-on-surface-variant">
+        <Text className="ml-8 mt-2.5 font-inter text-body-sm leading-5 text-ed-on-surface-variant">
           {answer}
         </Text>
       ) : null}
@@ -315,7 +315,7 @@ export default function CardsScreen() {
     <SafeAreaView className="flex-1 bg-ed-bg" edges={['top']}>
       {/* Title row */}
       <View className="flex-row items-center justify-between px-5 pt-2">
-        <Text className="font-playfair-bold text-2xl text-ed-on-surface">
+        <Text className="font-inter-bold text-screen-title text-ed-on-surface">
           Cards
         </Text>
         <View className="flex-row items-center rounded-full bg-ed-surface-container px-1.5">
@@ -374,7 +374,7 @@ export default function CardsScreen() {
                 style={{ backgroundColor: ACCENT }}
               >
                 <Text
-                  className="font-work-sans-bold text-[10px]"
+                  className="font-inter-bold text-label"
                   style={{ color: ON_ACCENT }}
                 >
                   {cartCount}
@@ -396,7 +396,7 @@ export default function CardsScreen() {
               className="mr-6 pb-2.5"
             >
               <Text
-                className={`font-work-sans-semibold text-[15px] ${
+                className={`font-inter-semibold text-body-sm ${
                   active ? 'text-ed-on-surface' : 'text-ed-on-surface-variant'
                 }`}
               >
@@ -423,12 +423,12 @@ export default function CardsScreen() {
                 <ActivityIndicator color={editorial.secondary} />
               </View>
             ) : categories.isError || !activeCategoryDef ? (
-              <Text className="text-center font-work-sans text-sm text-ed-error">
+              <Text className="text-center font-inter text-body-sm text-ed-error">
                 Couldn't load categories. Pull to refresh, or try again shortly.
               </Text>
             ) : (
               <>
-                <Text className="text-center font-work-sans-semibold text-xl text-ed-on-surface">
+                <Text className="text-center font-inter-semibold text-section-title text-ed-on-surface">
                   {activeCategoryDef.label} Cards
                 </Text>
                 <ScrollView
@@ -459,7 +459,7 @@ export default function CardsScreen() {
                             />
                           </View>
                           <Text
-                            className={`mt-1.5 text-center font-work-sans text-xs ${
+                            className={`mt-1.5 text-center font-inter text-caption ${
                               active
                                 ? 'text-ed-on-surface'
                                 : 'text-ed-on-surface-variant'
@@ -486,7 +486,7 @@ export default function CardsScreen() {
                   onChangeText={setQuery}
                   placeholder="Search for designs"
                   placeholderTextColor="#9CA3AF"
-                  className="ml-2 flex-1 font-work-sans text-sm text-ed-on-surface"
+                  className="ml-2 flex-1 font-inter text-body-sm text-ed-on-surface"
                 />
               </View>
               <Pressable
@@ -501,7 +501,7 @@ export default function CardsScreen() {
                 className="flex-row items-center gap-1.5 rounded-full border border-ed-outline-variant bg-ed-surface px-3.5 py-2.5"
               >
                 <Ionicons name="options-outline" size={16} color="#1A1A1A" />
-                <Text className="font-work-sans-medium text-sm text-ed-on-surface">
+                <Text className="font-inter-medium text-body-sm text-ed-on-surface">
                   Filters
                 </Text>
               </Pressable>
@@ -513,11 +513,11 @@ export default function CardsScreen() {
                 <ActivityIndicator color={editorial.secondary} />
               </View>
             ) : products.isError ? (
-              <Text className="mt-16 text-center font-work-sans text-sm text-ed-error">
+              <Text className="mt-16 text-center font-inter text-body-sm text-ed-error">
                 Couldn't load designs. Pull to refresh, or try again shortly.
               </Text>
             ) : categoryDesigns.length === 0 ? (
-              <Text className="mt-16 text-center font-work-sans text-sm text-ed-on-surface-variant">
+              <Text className="mt-16 text-center font-inter text-body-sm text-ed-on-surface-variant">
                 No {activeCategoryDef.label.toLowerCase()} designs available
                 yet.
               </Text>
@@ -555,7 +555,7 @@ export default function CardsScreen() {
                         color={page <= 1 ? '#C4C4C4' : '#1A1A1A'}
                       />
                       <Text
-                        className={`font-work-sans-medium text-sm ${
+                        className={`font-inter-medium text-body-sm ${
                           page <= 1
                             ? 'text-ed-on-surface-variant'
                             : 'text-ed-on-surface'
@@ -566,7 +566,7 @@ export default function CardsScreen() {
                     </Pressable>
 
                     <View className="rounded-lg border border-ed-outline-variant px-4 py-2">
-                      <Text className="font-work-sans-medium text-sm text-ed-on-surface">
+                      <Text className="font-inter-medium text-body-sm text-ed-on-surface">
                         Page {page} / {totalPages}
                       </Text>
                     </View>
@@ -581,7 +581,7 @@ export default function CardsScreen() {
                       className="flex-row items-center gap-1.5"
                     >
                       <Text
-                        className={`font-work-sans-medium text-sm ${
+                        className={`font-inter-medium text-body-sm ${
                           page >= totalPages
                             ? 'text-ed-on-surface-variant'
                             : 'text-ed-on-surface'
@@ -599,11 +599,11 @@ export default function CardsScreen() {
                 ) : null}
 
                 <View className="mb-10 mt-10">
-                  <Text className="text-center font-playfair-bold text-2xl text-ed-on-surface">
+                  <Text className="text-center font-inter-bold text-section-title text-ed-on-surface">
                     {activeCategoryDef.label} Cards
                     {'\n'}Frequently Asked Questions
                   </Text>
-                  <Text className="mt-3 text-center font-work-sans text-sm text-ed-on-surface-variant">
+                  <Text className="mt-3 text-center font-inter text-body-sm text-ed-on-surface-variant">
                     Take a look at our most commonly asked questions and
                     answers.
                   </Text>

@@ -231,14 +231,14 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text className="font-dancing-script-bold text-4xl text-ed-on-surface">OpusPass</Text>
-          <Text className="mt-2 font-work-sans-semibold text-2xl text-ed-on-surface">{heading}</Text>
-          <Text className="mt-1 font-work-sans text-sm text-ed-on-surface-variant">{subheading}</Text>
+          <Text className="font-playfair-bold text-display text-ed-on-surface">OpusPass</Text>
+          <Text className="mt-2 font-inter-semibold text-screen-title text-ed-on-surface">{heading}</Text>
+          <Text className="mt-1 font-inter text-body-sm text-ed-on-surface-variant">{subheading}</Text>
 
           <View className="mt-8 gap-4">
             {step.name === 'identifier' ? (
               <View>
-                <Text className="mb-1.5 font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+                <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
                   Email
                 </Text>
                 <TextInput
@@ -249,14 +249,14 @@ export default function SignInScreen() {
                   autoCapitalize="none"
                   autoComplete="email"
                   autoFocus
-                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-work-sans text-base text-ed-on-surface"
+                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-inter text-body text-ed-on-surface"
                 />
               </View>
             ) : null}
 
             {step.name === 'password' ? (
               <View>
-                <Text className="mb-1.5 font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+                <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
                   Password
                 </Text>
                 <TextInput
@@ -266,14 +266,14 @@ export default function SignInScreen() {
                   secureTextEntry
                   autoComplete="password"
                   autoFocus
-                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-work-sans text-base text-ed-on-surface"
+                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-inter text-body text-ed-on-surface"
                 />
               </View>
             ) : null}
 
             {step.name === 'email_code' ? (
               <View>
-                <Text className="mb-1.5 font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+                <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
                   Verification code
                 </Text>
                 <TextInput
@@ -283,17 +283,17 @@ export default function SignInScreen() {
                   keyboardType="number-pad"
                   maxLength={6}
                   autoFocus
-                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-work-sans text-base tracking-[4px] text-ed-on-surface"
+                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-inter text-body tracking-[4px] text-ed-on-surface"
                 />
                 <Pressable onPress={handleResendCode} className="mt-2 self-start">
-                  <Text className="font-work-sans-medium text-sm text-ed-secondary">Resend code</Text>
+                  <Text className="font-inter-medium text-body-sm text-ed-secondary">Resend code</Text>
                 </Pressable>
               </View>
             ) : null}
 
             {step.name === 'second_factor' ? (
               <View>
-                <Text className="mb-1.5 font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+                <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
                   {SECOND_FACTOR_LABEL[step.strategy]}
                 </Text>
                 <TextInput
@@ -304,17 +304,17 @@ export default function SignInScreen() {
                   autoCapitalize="none"
                   maxLength={step.strategy === 'backup_code' ? undefined : 6}
                   autoFocus
-                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-work-sans text-base tracking-[4px] text-ed-on-surface"
+                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-inter text-body tracking-[4px] text-ed-on-surface"
                 />
                 {step.strategy === 'phone_code' || step.strategy === 'email_code' ? (
                   <Pressable onPress={handleResendSecondFactorCode} className="mt-2 self-start">
-                    <Text className="font-work-sans-medium text-sm text-ed-secondary">Resend code</Text>
+                    <Text className="font-inter-medium text-body-sm text-ed-secondary">Resend code</Text>
                   </Pressable>
                 ) : null}
               </View>
             ) : null}
 
-            {error ? <Text className="font-work-sans text-sm text-ed-error">{error}</Text> : null}
+            {error ? <Text className="font-inter text-body-sm text-ed-error">{error}</Text> : null}
 
             <Pressable
               onPress={
@@ -331,7 +331,7 @@ export default function SignInScreen() {
                 loading ? 'opacity-50' : ''
               }`}
             >
-              <Text className="font-work-sans-semibold text-base text-ed-on-primary">
+              <Text className="font-inter-semibold text-body text-ed-on-primary">
                 {loading ? 'Please wait…' : step.name === 'identifier' ? 'Continue' : 'Sign in'}
               </Text>
             </Pressable>
@@ -346,7 +346,7 @@ export default function SignInScreen() {
                 }}
                 className="items-center py-2"
               >
-                <Text className="font-work-sans-medium text-sm text-ed-on-surface-variant">
+                <Text className="font-inter-medium text-body-sm text-ed-on-surface-variant">
                   Use a different email
                 </Text>
               </Pressable>

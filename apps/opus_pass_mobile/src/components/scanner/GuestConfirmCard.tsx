@@ -111,10 +111,10 @@ export function GuestConfirmCard({
     >
       <Ionicons name={icon} size={20} color={editorial.onSurfaceVariant} />
       <View className="min-w-0 flex-1">
-        <Text className="font-work-sans-semibold text-[15px] text-ed-on-surface">
+        <Text className="font-inter-semibold text-body-sm text-ed-on-surface">
           {label}
         </Text>
-        <Text className="mt-0.5 font-work-sans text-sm text-ed-on-surface-variant">
+        <Text className="mt-0.5 font-inter text-body-sm text-ed-on-surface-variant">
           {value}
         </Text>
       </View>
@@ -147,7 +147,7 @@ export function GuestConfirmCard({
           <View className="min-w-0 flex-1 flex-row items-center justify-center gap-2">
             <GuestAvatar fullName={guest.groupTag || guest.fullName} size={26} colorKey={guest.groupTag} />
             <Text
-              className="shrink font-work-sans-semibold text-[15px] text-ed-on-surface"
+              className="shrink font-inter-semibold text-body-sm text-ed-on-surface"
               numberOfLines={1}
             >
               {guest.groupTag || 'Guest list'}
@@ -167,7 +167,7 @@ export function GuestConfirmCard({
                 style={{ backgroundColor: LIVE_GREEN }}
               >
                 <Text
-                  className="font-work-sans-bold text-[10px] uppercase tracking-[1.5px]"
+                  className="font-inter-bold text-label uppercase tracking-[1.5px]"
                   style={{ color: '#1A1A1A' }}
                 >
                   {guest.groupTag || 'VIP'}
@@ -181,7 +181,7 @@ export function GuestConfirmCard({
                 Guest details below: repeating them here made the identity
                 line — the one thing the attendant reads against the person in
                 front of them — compete with two pieces of small print. */}
-            <Text className="font-playfair-bold text-[26px] leading-8 text-ed-on-surface">
+            <Text className="font-inter-bold text-screen-title leading-8 text-ed-on-surface">
               {guest.fullName}
             </Text>
 
@@ -189,10 +189,10 @@ export function GuestConfirmCard({
               <View className="mt-5 flex-row items-center gap-3 rounded-2xl border border-ed-outline-variant p-4">
                 <Ionicons name="alert-circle-outline" size={22} color="#B4751A" />
                 <View className="min-w-0 flex-1">
-                  <Text className="font-work-sans-semibold text-[15px] text-ed-on-surface">
+                  <Text className="font-inter-semibold text-body-sm text-ed-on-surface">
                     Already checked in
                   </Text>
-                  <Text className="mt-0.5 font-work-sans text-sm text-ed-on-surface-variant">
+                  <Text className="mt-0.5 font-inter text-body-sm text-ed-on-surface-variant">
                     {admitted} of {guest.partySize} admitted at{' '}
                     {timeOf(guest.checkedInAt!)}
                   </Text>
@@ -201,7 +201,7 @@ export function GuestConfirmCard({
                   {guest.checkedInDoor ? (
                     <View className="mt-1 flex-row items-center gap-1.5">
                       <Ionicons name="enter-outline" size={13} color={editorial.onSurfaceVariant} />
-                      <Text className="font-work-sans text-sm text-ed-on-surface-variant">
+                      <Text className="font-inter text-body-sm text-ed-on-surface-variant">
                         {guest.checkedInDoor}
                       </Text>
                     </View>
@@ -216,10 +216,10 @@ export function GuestConfirmCard({
                   color={editorial.onSurfaceVariant}
                 />
                 <View className="min-w-0 flex-1">
-                  <Text className="font-work-sans-semibold text-[15px] text-ed-on-surface">
+                  <Text className="font-inter-semibold text-body-sm text-ed-on-surface">
                     Check the guest is who you expect
                   </Text>
-                  <Text className="mt-0.5 font-work-sans text-sm text-ed-on-surface-variant">
+                  <Text className="mt-0.5 font-inter text-body-sm text-ed-on-surface-variant">
                     No pass was scanned, so this is recorded as a manual
                     check-in on the couple&apos;s report.
                   </Text>
@@ -227,7 +227,7 @@ export function GuestConfirmCard({
               </View>
             )}
 
-            <Text className="mt-7 font-work-sans-bold text-lg text-ed-on-surface">
+            <Text className="mt-7 font-inter-bold text-card-title text-ed-on-surface">
               Guest details
             </Text>
             <View className="mt-1">
@@ -274,10 +274,10 @@ export function GuestConfirmCard({
           {!arrived && guest.partySize > 1 ? (
             <View className="mb-3 flex-row items-center justify-between rounded-2xl border border-ed-outline-variant bg-ed-surface px-4 py-3">
               <View className="min-w-0 flex-1 pr-3">
-                <Text className="font-work-sans-semibold text-[15px] text-ed-on-surface">
+                <Text className="font-inter-semibold text-body-sm text-ed-on-surface">
                   Arriving now
                 </Text>
-                <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
+                <Text className="mt-0.5 font-inter text-caption text-ed-on-surface-variant">
                   Invited {guest.partySize}
                 </Text>
               </View>
@@ -297,7 +297,7 @@ export function GuestConfirmCard({
                 >
                   <Ionicons name="remove" size={20} color={editorial.onSurface} />
                 </Pressable>
-                <Text className="min-w-[28px] text-center font-work-sans-bold text-xl text-ed-on-surface">
+                <Text className="min-w-[28px] text-center font-inter-bold text-section-title text-ed-on-surface">
                   {arriving}
                 </Text>
                 <Pressable
@@ -333,7 +333,7 @@ export function GuestConfirmCard({
                 style={{ marginTop: 1 }}
               />
               <Text
-                className="min-w-0 flex-1 font-work-sans-semibold text-sm"
+                className="min-w-0 flex-1 font-inter-semibold text-body-sm"
                 style={{ color: editorial.error }}
               >
                 {error}
@@ -346,7 +346,7 @@ export function GuestConfirmCard({
             disabled={busy}
             className="h-14 items-center justify-center rounded-2xl bg-ed-surface-container"
           >
-            <Text className="font-work-sans-semibold text-base text-ed-on-surface">
+            <Text className="font-inter-semibold text-body text-ed-on-surface">
               Not this guest
             </Text>
           </Pressable>
@@ -365,7 +365,7 @@ export function GuestConfirmCard({
               <ActivityIndicator color={ON_ACCENT} />
             ) : (
               <Text
-                className="font-work-sans-bold text-base"
+                className="font-inter-bold text-body"
                 style={{ color: ON_ACCENT }}
               >
                 {/* The button restates the number being recorded, so a

@@ -120,7 +120,7 @@ export default function ArrivalsScreen() {
   }) => (
     <View className="flex-row items-center gap-1.5">
       <Ionicons name={icon} size={13} color={editorial.onSurfaceVariant} />
-      <Text className="font-work-sans text-xs text-ed-on-surface-variant">{label}</Text>
+      <Text className="font-inter text-caption text-ed-on-surface-variant">{label}</Text>
     </View>
   );
   const { session, isLoading: sessionLoading } = useScannerSession();
@@ -135,9 +135,19 @@ export default function ArrivalsScreen() {
       if (!validated.ok) throw new Error(validated.error);
       return validated.roster;
     },
-    // Arrivals land continuously while a door is open, and other attendants
-    // scanning at other doors won't trigger a refetch here on their own.
-    refetchInterval: 15000,
+    // No polling: a background refetch every 15s shared this query with the
+    // pull-to-refresh indicator, so the list flashed every few seconds all
+    // night, and a screen that redraws while you are reading it is its own
+    // problem.
+    //
+    // Be clear about the cost, because it is not just flicker. This screen
+    // refreshes on mount, when a check-in made on THIS device invalidates the
+    // roster, and on pull. Nothing refreshes it when another door admits
+    // somebody, so an arrival scanned at a second gate is invisible here
+    // until an attendant pulls down — not for fifteen seconds, but for as
+    // long as nobody thinks to. If watching every gate live turns out to
+    // matter, the fix is to poll only while this screen is focused and bind
+    // the indicator to user-initiated refetches alone, not to restore this.
   });
 
   const arrived = useMemo(
@@ -224,7 +234,7 @@ export default function ArrivalsScreen() {
     return (
       <SafeAreaView className="flex-1 bg-ed-bg" edges={['top']}>
         <View className="flex-1 items-center justify-center px-10">
-          <Text className="text-center font-work-sans text-sm text-ed-on-surface-variant">
+          <Text className="text-center font-inter text-body-sm text-ed-on-surface-variant">
             This shift has ended. Enter your access code again to continue.
           </Text>
           <Pressable
@@ -232,7 +242,7 @@ export default function ArrivalsScreen() {
             onPress={() => router.replace('/scanner')}
             className="mt-5 rounded-full bg-ed-primary-container px-6 py-3"
           >
-            <Text className="font-work-sans-bold text-xs uppercase tracking-[1px] text-ed-on-primary">
+            <Text className="font-inter-bold text-caption uppercase tracking-[1px] text-ed-on-primary">
               Enter code
             </Text>
           </Pressable>
@@ -257,17 +267,17 @@ export default function ArrivalsScreen() {
           style={{ opacity: rosterQuery.isPending ? 0.5 : 1 }}
         >
           <Ionicons name="share-outline" size={16} color={editorial.onSurface} />
-          <Text className="font-work-sans-semibold text-[13px] text-ed-on-surface">Report</Text>
+          <Text className="font-inter-semibold text-caption text-ed-on-surface">Report</Text>
         </Pressable>
       </View>
       <View className="px-5 pt-3">
         <Text
-          className="font-work-sans-semibold text-[11px] uppercase tracking-[0.18em] text-ed-on-surface-variant"
+          className="font-inter-semibold text-label uppercase tracking-[0.18em] text-ed-on-surface-variant"
           numberOfLines={1}
         >
           {session.eventName ?? 'This event'}
         </Text>
-        <Text className="mt-1 font-playfair-bold text-3xl text-ed-on-surface">Checked in</Text>
+        <Text className="mt-1 font-inter-bold text-screen-title text-ed-on-surface">Checked in</Text>
       </View>
 
       {/* Getting every guest in is the whole job, and it lands late in a long
@@ -277,10 +287,10 @@ export default function ArrivalsScreen() {
         <View className="mx-5 mt-5 overflow-hidden rounded-3xl border border-ed-outline-variant bg-ed-surface">
           <View className="flex-row items-center gap-4 p-5">
             <View className="min-w-0 flex-1">
-              <Text className="font-playfair-bold text-[26px] leading-8 text-ed-on-surface">
+              <Text className="font-inter-bold text-screen-title leading-8 text-ed-on-surface">
                 Everyone is in
               </Text>
-              <Text className="mt-1.5 font-work-sans text-sm text-ed-on-surface-variant">
+              <Text className="mt-1.5 font-inter text-body-sm text-ed-on-surface-variant">
                 All {totalGuests} invitations scanned. {headsIn}{' '}
                 {headsIn === 1 ? 'person' : 'people'} came through the door.
               </Text>
@@ -298,7 +308,7 @@ export default function ArrivalsScreen() {
             className="flex-row items-center justify-center gap-2 border-t border-ed-outline-variant py-4"
           >
             <Ionicons name="share-outline" size={17} color={editorial.onSurface} />
-            <Text className="font-work-sans-semibold text-sm text-ed-on-surface">
+            <Text className="font-inter-semibold text-body-sm text-ed-on-surface">
               Send the couple the final report
             </Text>
           </Pressable>
@@ -310,20 +320,20 @@ export default function ArrivalsScreen() {
           rather than a second competing figure in a cell. */
       <View className="mx-5 mt-5 rounded-3xl border border-ed-outline-variant bg-ed-surface p-5">
         <View className="flex-row items-baseline gap-2">
-          <Text className="font-playfair-bold text-[40px] leading-[42px] text-ed-on-surface">
+          <Text className="font-inter-bold text-display leading-[42px] text-ed-on-surface">
             {headsIn}
           </Text>
-          <Text className="flex-1 font-work-sans text-[15px] text-ed-on-surface-variant">
+          <Text className="flex-1 font-inter text-body-sm text-ed-on-surface-variant">
             {headsIn === 1 ? 'guest through the door' : 'guests through the door'}
           </Text>
         </View>
 
         <View className="mt-5 border-t border-ed-outline-variant pt-4">
           <View className="flex-row items-baseline justify-between">
-            <Text className="font-work-sans text-[13px] text-ed-on-surface-variant">
+            <Text className="font-inter text-caption text-ed-on-surface-variant">
               Invitations scanned
             </Text>
-            <Text className="font-work-sans-semibold text-[13px] text-ed-on-surface">
+            <Text className="font-inter-semibold text-caption text-ed-on-surface">
               {arrived.length} of {totalGuests}
             </Text>
           </View>
@@ -355,7 +365,7 @@ export default function ArrivalsScreen() {
               placeholder="Search who's arrived"
               placeholderTextColor={editorial.onSurfaceVariant}
               autoCorrect={false}
-              className="ml-2 flex-1 font-work-sans text-sm text-ed-on-surface"
+              className="ml-2 flex-1 font-inter text-body-sm text-ed-on-surface"
             />
           </View>
         </View>
@@ -366,7 +376,7 @@ export default function ArrivalsScreen() {
           <ActivityIndicator color={editorial.secondary} />
         </View>
       ) : rosterQuery.isError ? (
-        <Text className="mt-16 px-10 text-center font-work-sans text-sm text-ed-error">
+        <Text className="mt-16 px-10 text-center font-inter text-body-sm text-ed-error">
           Couldn&apos;t load arrivals. Pull down to retry.
         </Text>
       ) : (
@@ -385,7 +395,7 @@ export default function ArrivalsScreen() {
                 size={32}
                 color={editorial.onSurfaceVariant}
               />
-              <Text className="mt-3 text-center font-work-sans text-sm text-ed-on-surface-variant">
+              <Text className="mt-3 text-center font-inter text-body-sm text-ed-on-surface-variant">
                 {query
                   ? 'No arrivals match that name.'
                   : 'Nobody has been scanned in yet. Arrivals appear here as guests come through the door.'}
@@ -394,7 +404,7 @@ export default function ArrivalsScreen() {
           }
           renderSectionHeader={({ section }) =>
             sections.length > 1 || section.title !== 'Today' ? (
-              <Text className="mb-2 mt-2 font-work-sans-bold text-[11px] uppercase tracking-[2px] text-ed-on-surface-variant">
+              <Text className="mb-2 mt-2 font-inter-bold text-label uppercase tracking-[2px] text-ed-on-surface-variant">
                 {section.title}
               </Text>
             ) : null
@@ -415,7 +425,7 @@ export default function ArrivalsScreen() {
                 <View className="min-w-0 flex-1">
                   <View className="flex-row items-center gap-2">
                     <Text
-                      className="shrink font-work-sans-bold text-sm text-ed-on-surface"
+                      className="shrink font-inter-bold text-body-sm text-ed-on-surface"
                       numberOfLines={1}
                     >
                       {item.fullName}
@@ -426,7 +436,7 @@ export default function ArrivalsScreen() {
                         style={{ backgroundColor: LIVE_GREEN }}
                       >
                         <Text
-                          className="font-work-sans-bold text-[9px] uppercase"
+                          className="font-inter-bold text-label uppercase"
                           style={{ color: '#1A1A1A' }}
                         >
                           VIP
@@ -463,7 +473,7 @@ export default function ArrivalsScreen() {
                   ) : null}
                 </View>
 
-                <Text className="shrink-0 font-work-sans-medium text-xs text-ed-on-surface-variant">
+                <Text className="shrink-0 font-inter-medium text-caption text-ed-on-surface-variant">
                   {timeOf(item.checkedInAt)}
                 </Text>
               </View>

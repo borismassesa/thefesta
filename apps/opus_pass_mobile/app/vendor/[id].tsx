@@ -85,9 +85,9 @@ function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
 function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View className="mb-5">
-      <Text className="font-work-sans-bold text-xl text-ed-on-surface">{title}</Text>
+      <Text className="font-inter-bold text-section-title text-ed-on-surface">{title}</Text>
       {subtitle ? (
-        <Text className="mt-1 font-work-sans text-[13px] text-ed-on-surface-variant">{subtitle}</Text>
+        <Text className="mt-1 font-inter text-caption text-ed-on-surface-variant">{subtitle}</Text>
       ) : null}
     </View>
   );
@@ -148,7 +148,7 @@ function VendorNavTabs({
           return (
             <Pressable key={tab} onPress={() => onSelect(tab)} className="items-center pt-3">
               <Text
-                className="font-work-sans-bold text-[13px]"
+                className="font-inter-bold text-caption"
                 style={{ color: isActive ? onSurface : onSurfaceVariant }}
               >
                 {tab}
@@ -184,10 +184,10 @@ function VendorHeader({
     <View className="px-5 pt-5">
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
-          <Text className="font-playfair-bold text-3xl leading-9 text-ed-on-surface">
+          <Text className="font-inter-bold text-screen-title leading-9 text-ed-on-surface">
             {vendor.business_name}
           </Text>
-          <Text className="mt-2 font-work-sans-bold text-[11px] uppercase tracking-[2px] text-ed-on-surface-variant">
+          <Text className="mt-2 font-inter-bold text-label uppercase tracking-[2px] text-ed-on-surface-variant">
             {vendor.category}
           </Text>
 
@@ -195,26 +195,26 @@ function VendorHeader({
             {reviewCount > 0 ? (
               <View className="flex-row items-center gap-1.5">
                 <StarRow rating={rating} size={15} />
-                <Text className="ml-0.5 font-work-sans-bold text-sm text-ed-on-surface">
+                <Text className="ml-0.5 font-inter-bold text-body-sm text-ed-on-surface">
                   {rating.toFixed(1)}
                 </Text>
-                <Text className="font-work-sans-bold text-xs" style={{ color: label.color }}>
+                <Text className="font-inter-bold text-caption" style={{ color: label.color }}>
                   {label.text}
                 </Text>
                 <Text className="text-ed-on-surface-variant"> · </Text>
-                <Text className="font-work-sans-medium text-sm text-ed-on-surface underline">
+                <Text className="font-inter-medium text-body-sm text-ed-on-surface underline">
                   {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
                 </Text>
               </View>
             ) : (
-              <Text className="font-work-sans text-xs italic text-ed-on-surface-variant">
+              <Text className="font-inter text-caption italic text-ed-on-surface-variant">
                 No reviews yet
               </Text>
             )}
             {city ? (
               <View className="flex-row items-center gap-1">
                 <Ionicons name="location-outline" size={15} color="#6b7280" />
-                <Text className="font-work-sans text-sm text-ed-on-surface-variant">{city}</Text>
+                <Text className="font-inter text-body-sm text-ed-on-surface-variant">{city}</Text>
               </View>
             ) : null}
           </View>
@@ -255,12 +255,12 @@ function AboutText({ text }: { text: string }) {
 
   return (
     <View>
-      <Text className="font-work-sans text-sm leading-6 text-ed-on-surface-variant">
+      <Text className="font-inter text-body-sm leading-6 text-ed-on-surface-variant">
         {expanded || !hasMore ? trimmed : preview}
       </Text>
       {hasMore ? (
         <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={6} className="mt-2 self-start">
-          <Text className="font-work-sans-bold text-sm text-ed-on-surface underline">
+          <Text className="font-inter-bold text-body-sm text-ed-on-surface underline">
             {expanded ? 'Show less' : 'Read more'}
           </Text>
         </Pressable>
@@ -273,7 +273,7 @@ function AboutFact({ icon, children }: { icon: keyof typeof Ionicons.glyphMap; c
   return (
     <View className="w-1/2 flex-row items-center gap-2 py-1.5 pr-2">
       <Ionicons name={icon} size={14} color="#9ca3af" />
-      <Text className="flex-1 font-work-sans text-[13px] text-ed-on-surface-variant">{children}</Text>
+      <Text className="flex-1 font-inter text-caption text-ed-on-surface-variant">{children}</Text>
     </View>
   );
 }
@@ -349,15 +349,15 @@ function VendorAboutSection({
             {avatarUri ? (
               <Image source={{ uri: avatarUri }} className="h-full w-full" resizeMode="cover" />
             ) : (
-              <Text className="font-work-sans-bold text-3xl text-ed-on-surface-variant">
+              <Text className="font-inter-bold text-section-title text-ed-on-surface-variant">
                 {(vendor.business_name || '?').slice(0, 2).toUpperCase()}
               </Text>
             )}
           </View>
-          <Text className="mt-3 text-center font-work-sans-bold text-sm text-ed-on-surface">
+          <Text className="mt-3 text-center font-inter-bold text-body-sm text-ed-on-surface">
             {vendor.business_name}
           </Text>
-          <Text className="mt-0.5 text-center font-work-sans text-xs text-ed-on-surface-variant">
+          <Text className="mt-0.5 text-center font-inter text-caption text-ed-on-surface-variant">
             {team[0]?.role ?? vendor.category}
           </Text>
 
@@ -376,7 +376,7 @@ function VendorAboutSection({
             className="mt-4 w-full items-center rounded-full bg-[#1A1A1A] py-2.5"
             accessibilityRole="button"
           >
-            <Text className="font-work-sans-bold text-[13px] text-white">Message Vendor</Text>
+            <Text className="font-inter-bold text-caption text-white">Message Vendor</Text>
           </Pressable>
         </View>
 
@@ -387,7 +387,7 @@ function VendorAboutSection({
           <View className="mt-4 flex-row flex-wrap">
             {vendor.verified ? (
               <AboutFact icon="checkmark-circle">
-                <Text className="font-work-sans-medium text-ed-on-surface">Verified vendor</Text>
+                <Text className="font-inter-medium text-ed-on-surface">Verified vendor</Text>
               </AboutFact>
             ) : null}
             {vendor.response_time_hours ? (
@@ -439,7 +439,7 @@ function VendorServicesSection({ vendor }: { vendor: VendorListing }) {
                 className="flex-row items-center gap-3 px-5 py-4"
               >
                 <Ionicons name={getServiceIcon(service)} size={16} color={ACCENT_HOVER} />
-                <Text className="flex-1 font-work-sans-medium text-sm text-ed-on-surface">{service}</Text>
+                <Text className="flex-1 font-inter-medium text-body-sm text-ed-on-surface">{service}</Text>
                 <Ionicons
                   name={isOpen ? 'chevron-up' : 'chevron-down'}
                   size={15}
@@ -448,7 +448,7 @@ function VendorServicesSection({ vendor }: { vendor: VendorListing }) {
               </Pressable>
               {isOpen ? (
                 <View className="border-t border-ed-outline-variant bg-ed-surface-container-low px-5 py-4">
-                  <Text className="font-work-sans text-[13px] leading-5 text-ed-on-surface-variant">
+                  <Text className="font-inter text-caption leading-5 text-ed-on-surface-variant">
                     {getServiceDescription(service, vendor.business_name)}
                   </Text>
                 </View>
@@ -504,7 +504,7 @@ function PackageCard({
         >
           <Ionicons name={badgeIcon} size={11} color={tone.fg} />
           <Text
-            className="font-work-sans-bold text-[9px] uppercase tracking-[1.5px]"
+            className="font-inter-bold text-label uppercase tracking-[1.5px]"
             style={{ color: tone.fg }}
           >
             {customBadge.label}
@@ -513,7 +513,7 @@ function PackageCard({
       ) : popular ? (
         <View className="mb-3 self-start rounded-full px-3 py-1" style={{ backgroundColor: ACCENT }}>
           <Text
-            className="font-work-sans-bold text-[9px] uppercase tracking-[1.5px]"
+            className="font-inter-bold text-label uppercase tracking-[1.5px]"
             style={{ color: ON_ACCENT }}
           >
             Most popular
@@ -521,24 +521,24 @@ function PackageCard({
         </View>
       ) : null}
 
-      <Text className="font-work-sans-bold text-[10px] uppercase tracking-[2px] text-ed-on-surface-variant">
+      <Text className="font-inter-bold text-label uppercase tracking-[2px] text-ed-on-surface-variant">
         {pkg.name}
       </Text>
-      <Text className="mt-2 font-work-sans-bold text-2xl text-ed-on-surface">
+      <Text className="mt-2 font-inter-bold text-section-title text-ed-on-surface">
         {pkg.price ? `TZS ${pkg.price}` : 'On request'}
       </Text>
 
       <View className="my-4 h-px bg-ed-outline-variant" />
 
       {pkg.description ? (
-        <Text className="mb-3 font-work-sans text-[13px] leading-5 text-ed-on-surface-variant">
+        <Text className="mb-3 font-inter text-caption leading-5 text-ed-on-surface-variant">
           {pkg.description}
         </Text>
       ) : null}
 
       {items.length > 0 ? (
         <View>
-          <Text className="mb-2 font-work-sans-semibold text-[10px] uppercase tracking-[1.5px] text-ed-on-surface-variant">
+          <Text className="mb-2 font-inter-semibold text-label uppercase tracking-[1.5px] text-ed-on-surface-variant">
             Includes
           </Text>
           {items.map((item) => (
@@ -547,7 +547,7 @@ function PackageCard({
               className="flex-row items-center gap-3 border-b border-ed-outline-variant py-2"
             >
               <Ionicons name="checkmark" size={14} color={ACCENT_HOVER} />
-              <Text className="flex-1 font-work-sans text-[13px] text-ed-on-surface-variant">{item}</Text>
+              <Text className="flex-1 font-inter text-caption text-ed-on-surface-variant">{item}</Text>
             </View>
           ))}
         </View>
@@ -595,7 +595,7 @@ function VendorPricingSection({
         </View>
       ) : (
         <View className="items-center rounded-3xl border border-dashed border-ed-outline-variant p-8">
-          <Text className="font-work-sans text-sm text-ed-on-surface-variant">
+          <Text className="font-inter text-body-sm text-ed-on-surface-variant">
             Contact {vendor.business_name} for package pricing
           </Text>
         </View>
@@ -603,8 +603,8 @@ function VendorPricingSection({
 
       <View className="mt-4 flex-row items-start gap-3 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3">
         <Ionicons name="warning-outline" size={16} color="#f59e0b" />
-        <Text className="flex-1 font-work-sans text-[13px] leading-5 text-[#92400e]">
-          <Text className="font-work-sans-bold text-[#92400e]">Starting rates only. </Text>
+        <Text className="flex-1 font-inter text-caption leading-5 text-[#92400e]">
+          <Text className="font-inter-bold text-[#92400e]">Starting rates only. </Text>
           Final price varies by date, number of guests, and selected add-ons.
         </Text>
       </View>
@@ -644,13 +644,13 @@ function VendorHoursSection({ vendor }: { vendor: VendorListing }) {
               i > 0 ? 'border-t border-ed-outline-variant' : ''
             }`}
           >
-            <Text className="font-work-sans-medium text-sm text-ed-on-surface">{label}</Text>
+            <Text className="font-inter-medium text-body-sm text-ed-on-surface">{label}</Text>
             {value?.open ? (
-              <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+              <Text className="font-inter-bold text-body-sm text-ed-on-surface">
                 {value.from || '—'} – {value.to || '—'}
               </Text>
             ) : (
-              <Text className="font-work-sans text-sm italic text-ed-on-surface-variant">Closed</Text>
+              <Text className="font-inter text-body-sm italic text-ed-on-surface-variant">Closed</Text>
             )}
           </View>
         ))}
@@ -710,14 +710,14 @@ function MiniCalendar({
 
   return (
     <View>
-      <Text className="mb-3 text-center font-work-sans-bold text-[13px] text-ed-on-surface">
+      <Text className="mb-3 text-center font-inter-bold text-caption text-ed-on-surface">
         {CAL_MONTH_NAMES[month]} {year}
       </Text>
 
       <View className="flex-row">
         {CAL_DAY_ABBRS.map((d, i) => (
           <View key={`${d}${i}`} className="flex-1 items-center pb-2">
-            <Text className="font-work-sans-bold text-[11px] text-ed-on-surface">{d}</Text>
+            <Text className="font-inter-bold text-label text-ed-on-surface">{d}</Text>
           </View>
         ))}
       </View>
@@ -778,7 +778,7 @@ function MiniCalendar({
                 accessibilityLabel={`${CAL_MONTH_NAMES[month]} ${day}, ${year}`}
               >
                 <Text
-                  className={`font-work-sans-medium text-[11px] ${isBooked ? 'line-through' : ''}`}
+                  className={`font-inter-medium text-label ${isBooked ? 'line-through' : ''}`}
                   style={{ color: fg }}
                 >
                   {day}
@@ -859,7 +859,7 @@ function VendorAvailabilitySection({
               color={statusMsg.warn ? '#92400E' : '#065F46'}
             />
             <Text
-              className="flex-1 font-work-sans-medium text-xs"
+              className="flex-1 font-inter-medium text-caption"
               style={{ color: statusMsg.warn ? '#92400E' : '#065F46' }}
             >
               {statusMsg.text}
@@ -905,7 +905,7 @@ function VendorAvailabilitySection({
           {AVAILABILITY_LEGEND.map(({ bg, label }) => (
             <View key={label} className="flex-row items-center gap-1.5">
               <View className="h-3.5 w-3.5 rounded" style={{ backgroundColor: bg }} />
-              <Text className="font-work-sans text-[11px] text-ed-on-surface-variant">{label}</Text>
+              <Text className="font-inter text-label text-ed-on-surface-variant">{label}</Text>
             </View>
           ))}
         </View>
@@ -916,8 +916,8 @@ function VendorAvailabilitySection({
         style={{ backgroundColor: 'rgba(45,106,79,0.07)', borderWidth: 1, borderColor: 'rgba(45,106,79,0.22)' }}
       >
         <Ionicons name="flash-outline" size={14} color={CAL_EMERALD} style={{ marginTop: 2 }} />
-        <Text className="flex-1 font-work-sans text-[13px] leading-5" style={{ color: '#1A3C2E' }}>
-          <Text className="font-work-sans-bold" style={{ color: '#1A3C2E' }}>
+        <Text className="flex-1 font-inter text-caption leading-5" style={{ color: '#1A3C2E' }}>
+          <Text className="font-inter-bold" style={{ color: '#1A3C2E' }}>
             Peak Saturdays (June–Aug & December) book 6–18 months out.{' '}
           </Text>
           Couples who enquired early confirmed within 48hrs.
@@ -947,17 +947,17 @@ function VendorTeamSection({ vendor }: { vendor: VendorListing }) {
         {team.map((member) => (
           <View key={member.id} className="w-40 items-center">
             <Avatar name={member.name} uri={member.avatar} size={80} />
-            <Text className="mt-3 text-center font-work-sans-bold text-base text-ed-on-surface">
+            <Text className="mt-3 text-center font-inter-bold text-body text-ed-on-surface">
               {member.name}
             </Text>
             {member.role ? (
-              <Text className="mt-1 text-center font-work-sans-bold text-[10px] uppercase tracking-[2px] text-ed-on-surface-variant">
+              <Text className="mt-1 text-center font-inter-bold text-label uppercase tracking-[2px] text-ed-on-surface-variant">
                 {member.role}
               </Text>
             ) : null}
             <View className="my-3 h-px w-8 bg-ed-outline-variant" />
             {member.bio ? (
-              <Text className="text-center font-work-sans text-[13px] leading-5 text-ed-on-surface-variant">
+              <Text className="text-center font-inter text-caption leading-5 text-ed-on-surface-variant">
                 {member.bio}
               </Text>
             ) : null}
@@ -996,13 +996,13 @@ function VendorFaqSection({ vendor, onMessage }: { vendor: VendorListing; onMess
                   style={{ backgroundColor: isOpen ? '#1A1A1A' : '#F4F4F4' }}
                 >
                   <Text
-                    className="font-work-sans-bold text-[11px]"
+                    className="font-inter-bold text-label"
                     style={{ color: isOpen ? '#FFFFFF' : '#9CA3AF' }}
                   >
                     {i + 1}
                   </Text>
                 </View>
-                <Text className="flex-1 font-work-sans-bold text-sm leading-5 text-ed-on-surface">
+                <Text className="flex-1 font-inter-bold text-body-sm leading-5 text-ed-on-surface">
                   {faq.question}
                 </Text>
                 <Ionicons
@@ -1014,7 +1014,7 @@ function VendorFaqSection({ vendor, onMessage }: { vendor: VendorListing; onMess
               </Pressable>
               {isOpen ? (
                 <View className="border-t border-ed-outline-variant bg-ed-surface-container-low px-5 py-4 pl-14">
-                  <Text className="font-work-sans text-[13px] leading-5 text-ed-on-surface-variant">
+                  <Text className="font-inter text-caption leading-5 text-ed-on-surface-variant">
                     {faq.answer}
                   </Text>
                 </View>
@@ -1031,9 +1031,9 @@ function VendorFaqSection({ vendor, onMessage }: { vendor: VendorListing; onMess
         <View className="h-8 w-8 items-center justify-center rounded-full bg-[#1A1A1A]">
           <Ionicons name="book-outline" size={14} color="#FFFFFF" />
         </View>
-        <Text className="flex-1 font-work-sans text-[13px] leading-5 text-ed-on-surface-variant">
+        <Text className="flex-1 font-inter text-caption leading-5 text-ed-on-surface-variant">
           Still have questions?{' '}
-          <Text className="font-work-sans-bold text-ed-on-surface">
+          <Text className="font-inter-bold text-ed-on-surface">
             Send {vendor.business_name} a message
           </Text>{' '}
           — they typically respond {vendor.response_time_hours ? `within ${vendor.response_time_hours}` : 'within 48 hours'}.
@@ -1068,11 +1068,11 @@ function ReviewsSummary({
     <View className="overflow-hidden rounded-3xl border border-ed-outline-variant">
       <View className="items-center gap-2 border-b border-ed-outline-variant p-6">
         <View className="flex-row items-baseline gap-1.5">
-          <Text className="font-work-sans-bold text-5xl text-ed-on-surface">{avg.toFixed(1)}</Text>
-          <Text className="font-work-sans text-sm text-ed-on-surface-variant">out of 5.0</Text>
+          <Text className="font-inter-bold text-display text-ed-on-surface">{avg.toFixed(1)}</Text>
+          <Text className="font-inter text-body-sm text-ed-on-surface-variant">out of 5.0</Text>
         </View>
         <StarRow rating={avg} size={18} />
-        <Text className="font-work-sans text-sm text-ed-on-surface-variant">
+        <Text className="font-inter text-body-sm text-ed-on-surface-variant">
           {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
         </Text>
         <Pressable
@@ -1081,7 +1081,7 @@ function ReviewsSummary({
           style={{ backgroundColor: ACCENT }}
           accessibilityRole="button"
         >
-          <Text className="font-work-sans-bold text-xs" style={{ color: ON_ACCENT }}>
+          <Text className="font-inter-bold text-caption" style={{ color: ON_ACCENT }}>
             Write a review
           </Text>
         </Pressable>
@@ -1090,11 +1090,11 @@ function ReviewsSummary({
       <View className="gap-2.5 p-6">
         {dist.map(({ star, pct }) => (
           <View key={star} className="flex-row items-center gap-3">
-            <Text className="w-12 font-work-sans text-[13px] text-ed-on-surface-variant">{star} Star</Text>
+            <Text className="w-12 font-inter text-caption text-ed-on-surface-variant">{star} Star</Text>
             <View className="h-2.5 flex-1 overflow-hidden rounded-full bg-ed-surface-container">
               <View className="h-full rounded-full bg-[#1A1A1A]" style={{ width: `${pct}%` }} />
             </View>
-            <Text className="w-10 text-right font-work-sans text-[13px] text-ed-on-surface-variant">
+            <Text className="w-10 text-right font-inter text-caption text-ed-on-surface-variant">
               {pct}%
             </Text>
           </View>
@@ -1103,7 +1103,7 @@ function ReviewsSummary({
 
       <View className="flex-row items-center gap-3 border-t border-ed-outline-variant bg-ed-surface-container-low px-6 py-3">
         <Ionicons name="people-outline" size={16} color="#9ca3af" />
-        <Text className="flex-1 font-work-sans text-xs text-ed-on-surface-variant">
+        <Text className="flex-1 font-inter text-caption text-ed-on-surface-variant">
           Your trust is our goal. Our community relies on honest reviews to help couples make confident
           decisions.
         </Text>
@@ -1169,7 +1169,7 @@ function VendorReviewsSection({
               placeholder="Search reviews"
               placeholderTextColor="#9ca3af"
               returnKeyType="search"
-              className="flex-1 font-work-sans text-sm text-ed-on-surface"
+              className="flex-1 font-inter text-body-sm text-ed-on-surface"
             />
           </View>
 
@@ -1193,7 +1193,7 @@ function VendorReviewsSection({
                   accessibilityState={{ selected: active }}
                 >
                   <Text
-                    className={`font-work-sans-bold text-xs ${active ? 'text-white' : 'text-ed-on-surface-variant'}`}
+                    className={`font-inter-bold text-caption ${active ? 'text-white' : 'text-ed-on-surface-variant'}`}
                   >
                     {label}
                   </Text>
@@ -1208,7 +1208,7 @@ function VendorReviewsSection({
             className="mt-3"
             contentContainerStyle={{ gap: 8, paddingRight: 8 }}
           >
-            <Text className="self-center font-work-sans-bold text-xs text-ed-on-surface-variant">
+            <Text className="self-center font-inter-bold text-caption text-ed-on-surface-variant">
               Filter:
             </Text>
             {[5, 4, 3, 2, 1].map((star) => {
@@ -1228,7 +1228,7 @@ function VendorReviewsSection({
                 >
                   <Ionicons name="star" size={10} color="#FBBF24" />
                   <Text
-                    className={`font-work-sans-bold text-xs ${active ? 'text-white' : 'text-ed-on-surface-variant'}`}
+                    className={`font-inter-bold text-caption ${active ? 'text-white' : 'text-ed-on-surface-variant'}`}
                   >
                     {star} star
                   </Text>
@@ -1246,13 +1246,13 @@ function VendorReviewsSection({
                 accessibilityRole="button"
                 accessibilityLabel="Clear review filters"
               >
-                <Text className="font-work-sans-bold text-xs text-ed-on-surface underline">Clear</Text>
+                <Text className="font-inter-bold text-caption text-ed-on-surface underline">Clear</Text>
               </Pressable>
             ) : null}
           </ScrollView>
 
           {isFiltering ? (
-            <Text className="mt-2 font-work-sans text-xs text-ed-on-surface-variant">
+            <Text className="mt-2 font-inter text-caption text-ed-on-surface-variant">
               {filtered.length} {filtered.length === 1 ? 'review' : 'reviews'} found
             </Text>
           ) : null}
@@ -1270,35 +1270,35 @@ function VendorReviewsSection({
                           className="h-11 w-11 items-center justify-center rounded-full"
                           style={{ backgroundColor: authorColor(review.user.name) }}
                         >
-                          <Text className="font-work-sans-bold text-base text-white">
+                          <Text className="font-inter-bold text-body text-white">
                             {review.user.name.charAt(0).toUpperCase()}
                           </Text>
                         </View>
                       )}
                       <View className="flex-1">
-                        <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+                        <Text className="font-inter-bold text-body-sm text-ed-on-surface">
                           {review.user.name}
                         </Text>
                         <View className="mt-0.5 flex-row items-center gap-1.5">
                           <StarRow rating={review.rating} size={13} />
-                          <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+                          <Text className="font-inter-bold text-body-sm text-ed-on-surface">
                             {review.rating.toFixed(1)}
                           </Text>
                         </View>
                       </View>
                     </View>
-                    <Text className="font-work-sans text-[13px] text-ed-on-surface-variant">
+                    <Text className="font-inter text-caption text-ed-on-surface-variant">
                       {formatReviewDate(review.created_at)}
                     </Text>
                   </View>
 
                   {review.content ? (
-                    <Text className="ml-14 mt-3 font-work-sans text-sm leading-6 text-ed-on-surface-variant">
+                    <Text className="ml-14 mt-3 font-inter text-body-sm leading-6 text-ed-on-surface-variant">
                       {review.content}
                     </Text>
                   ) : null}
                   {review.event_type ? (
-                    <Text className="ml-14 mt-2 font-work-sans text-xs text-ed-on-surface-variant">
+                    <Text className="ml-14 mt-2 font-inter text-caption text-ed-on-surface-variant">
                       {review.event_type}
                     </Text>
                   ) : null}
@@ -1307,14 +1307,14 @@ function VendorReviewsSection({
 
               {visible < filtered.length ? (
                 <View className="mt-6 items-center gap-3">
-                  <Text className="font-work-sans-medium text-xs text-ed-on-surface-variant">
+                  <Text className="font-inter-medium text-caption text-ed-on-surface-variant">
                     Showing {Math.min(visible, filtered.length)} of {filtered.length} reviews
                   </Text>
                   <Pressable
                     onPress={() => setVisible((v) => v + REVIEW_PAGE)}
                     className="flex-row items-center gap-2 rounded-full bg-[#1A1A1A] px-8 py-3"
                   >
-                    <Text className="font-work-sans-bold text-sm text-white">Read more reviews</Text>
+                    <Text className="font-inter-bold text-body-sm text-white">Read more reviews</Text>
                     <Ionicons name="chevron-down" size={15} color="#FFFFFF" />
                   </Pressable>
                 </View>
@@ -1322,7 +1322,7 @@ function VendorReviewsSection({
             </View>
           ) : (
             <View className="mt-2 items-center rounded-3xl border border-dashed border-ed-outline-variant p-8">
-              <Text className="font-work-sans text-sm text-ed-on-surface-variant">
+              <Text className="font-inter text-body-sm text-ed-on-surface-variant">
                 No reviews match your filters.
               </Text>
             </View>
@@ -1330,7 +1330,7 @@ function VendorReviewsSection({
         </View>
       ) : (
         <View className="items-center gap-3 rounded-3xl border border-dashed border-ed-outline-variant p-8">
-          <Text className="text-center font-work-sans text-sm text-ed-on-surface-variant">
+          <Text className="text-center font-inter text-body-sm text-ed-on-surface-variant">
             No reviews yet — be the first to share your experience.
           </Text>
           <Pressable
@@ -1339,7 +1339,7 @@ function VendorReviewsSection({
             style={{ backgroundColor: ACCENT }}
             accessibilityRole="button"
           >
-            <Text className="font-work-sans-bold text-xs" style={{ color: ON_ACCENT }}>
+            <Text className="font-inter-bold text-caption" style={{ color: ON_ACCENT }}>
               Write a review
             </Text>
           </Pressable>
@@ -1476,7 +1476,7 @@ function WriteReviewModal({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <SafeAreaView className="flex-1 bg-ed-bg">
         <View className="flex-row items-center justify-between px-5 pb-3 pt-2">
-          <Text className="flex-1 font-playfair-bold text-xl text-ed-on-surface" numberOfLines={1}>
+          <Text className="flex-1 font-inter-bold text-section-title text-ed-on-surface" numberOfLines={1}>
             {submitted ? 'Thank you!' : `Review ${vendor.business_name}`}
           </Text>
           <Pressable onPress={handleClose} hitSlop={8} accessibilityLabel="Close">
@@ -1492,12 +1492,12 @@ function WriteReviewModal({
             >
               <Ionicons name="checkmark" size={30} color={ON_ACCENT} />
             </View>
-            <Text className="text-center font-work-sans text-sm leading-6 text-ed-on-surface-variant">
+            <Text className="text-center font-inter text-body-sm leading-6 text-ed-on-surface-variant">
               Your review is in our moderation queue. Once our team verifies it, it&rsquo;ll appear publicly on
               this profile.
             </Text>
             <Pressable onPress={handleClose} className="mt-2 rounded-full bg-[#1A1A1A] px-8 py-3">
-              <Text className="font-work-sans-bold text-sm text-white">Done</Text>
+              <Text className="font-inter-bold text-body-sm text-white">Done</Text>
             </Pressable>
           </View>
         ) : (
@@ -1508,14 +1508,14 @@ function WriteReviewModal({
               keyboardShouldPersistTaps="handled"
             >
               <View className="items-center gap-3 rounded-3xl border border-ed-outline-variant bg-ed-surface py-8">
-                <Text className="font-work-sans-bold text-xs uppercase tracking-[2px] text-ed-on-surface-variant">
+                <Text className="font-inter-bold text-caption uppercase tracking-[2px] text-ed-on-surface-variant">
                   Your rating
                 </Text>
                 <WriteReviewStarPicker value={rating} onChange={setRating} />
               </View>
 
               <View className="gap-2">
-                <Text className="font-work-sans-bold text-sm text-ed-on-surface">Your review</Text>
+                <Text className="font-inter-bold text-body-sm text-ed-on-surface">Your review</Text>
                 <TextInput
                   value={body}
                   onChangeText={setBody}
@@ -1525,9 +1525,9 @@ function WriteReviewModal({
                   textAlignVertical="top"
                   placeholder="Tell other couples about the professionalism, communication, quality of service, and overall value…"
                   placeholderTextColor={editorial.onSurfaceVariant}
-                  className="min-h-32 rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-work-sans text-sm text-ed-on-surface"
+                  className="min-h-32 rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-inter text-body-sm text-ed-on-surface"
                 />
-                <Text className="self-end font-work-sans text-xs text-ed-on-surface-variant">
+                <Text className="self-end font-inter text-caption text-ed-on-surface-variant">
                   {body.trim().length < REVIEW_BODY_MIN && body.length > 0
                     ? `${REVIEW_BODY_MIN - body.trim().length} more characters needed`
                     : `${body.length}/${REVIEW_BODY_MAX}`}
@@ -1535,11 +1535,11 @@ function WriteReviewModal({
               </View>
 
               {!email ? (
-                <Text className="font-work-sans text-xs text-[#92400e]">
+                <Text className="font-inter text-caption text-[#92400e]">
                   Add an email address to your account to submit a review.
                 </Text>
               ) : null}
-              {errorMsg ? <Text className="font-work-sans text-xs text-[#EF4444]">{errorMsg}</Text> : null}
+              {errorMsg ? <Text className="font-inter text-caption text-[#EF4444]">{errorMsg}</Text> : null}
 
               <Pressable
                 onPress={onSubmit}
@@ -1554,7 +1554,7 @@ function WriteReviewModal({
                   <ActivityIndicator color={editorial.onPrimary} />
                 ) : (
                   <Text
-                    className={`font-work-sans-bold text-sm ${
+                    className={`font-inter-bold text-body-sm ${
                       canSubmit ? 'text-ed-on-primary' : 'text-ed-on-surface-variant'
                     }`}
                   >
@@ -1721,7 +1721,7 @@ export default function VendorDetailScreen() {
           accessibilityLabel="Back to vendors"
         >
           <Ionicons name="arrow-back" size={14} color={editorial.onSurfaceVariant} />
-          <Text className="font-work-sans-bold text-[11px] uppercase tracking-[2px] text-ed-on-surface-variant">
+          <Text className="font-inter-bold text-label uppercase tracking-[2px] text-ed-on-surface-variant">
             {vendor.category} vendors
           </Text>
         </Pressable>
@@ -1761,8 +1761,8 @@ export default function VendorDetailScreen() {
                     />
                     <View className="absolute bottom-3 right-3 flex-row items-center gap-1.5 rounded-full bg-white/95 px-3 py-2">
                       <Ionicons name="grid-outline" size={14} color="#1A1A1A" />
-                      <Text className="font-work-sans-bold text-[13px] text-[#1A1A1A]">See all</Text>
-                      <Text className="font-work-sans text-xs text-gray-500">({images.length})</Text>
+                      <Text className="font-inter-bold text-caption text-[#1A1A1A]">See all</Text>
+                      <Text className="font-inter text-caption text-gray-500">({images.length})</Text>
                     </View>
                   </>
                 ) : null}
@@ -1770,14 +1770,14 @@ export default function VendorDetailScreen() {
             ) : (
               <View className="h-full w-full items-center justify-center border border-dashed border-ed-outline-variant">
                 <View className="mb-3 h-16 w-16 items-center justify-center rounded-full bg-ed-surface">
-                  <Text className="font-work-sans-bold text-2xl text-ed-on-surface-variant">
+                  <Text className="font-inter-bold text-section-title text-ed-on-surface-variant">
                     {(vendor.business_name || '?').slice(0, 2).toUpperCase()}
                   </Text>
                 </View>
-                <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+                <Text className="font-inter-bold text-body-sm text-ed-on-surface">
                   {vendor.business_name}
                 </Text>
-                <Text className="mt-1 font-work-sans text-xs text-ed-on-surface-variant">
+                <Text className="mt-1 font-inter text-caption text-ed-on-surface-variant">
                   This vendor hasn&rsquo;t uploaded photos yet.
                 </Text>
               </View>
@@ -1791,7 +1791,7 @@ export default function VendorDetailScreen() {
           <View className="mt-3 px-5">
             <View className="flex-row items-center gap-1.5 self-start rounded-full bg-[#dcfce7] px-3 py-1">
               <Ionicons name="checkmark-circle" size={13} color="#16a34a" />
-              <Text className="font-work-sans-bold text-[11px] text-[#16a34a]">Booked</Text>
+              <Text className="font-inter-bold text-label text-[#16a34a]">Booked</Text>
             </View>
           </View>
         ) : null}
@@ -1854,7 +1854,7 @@ export default function VendorDetailScreen() {
                 <View className="flex-row items-center justify-between gap-3 border-b border-ed-outline-variant pb-3">
                   <View className="flex-1 flex-row items-center gap-2">
                     <Ionicons name="location-outline" size={15} color="#9ca3af" />
-                    <Text className="flex-1 font-work-sans text-sm text-ed-on-surface" numberOfLines={1}>
+                    <Text className="flex-1 font-inter text-body-sm text-ed-on-surface" numberOfLines={1}>
                       {address}
                     </Text>
                   </View>
@@ -1867,7 +1867,7 @@ export default function VendorDetailScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Open in Maps"
                   >
-                    <Text className="font-work-sans-bold text-sm text-ed-on-surface underline">
+                    <Text className="font-inter-bold text-body-sm text-ed-on-surface underline">
                       Open map
                     </Text>
                   </Pressable>
@@ -1876,7 +1876,7 @@ export default function VendorDetailScreen() {
 
               {serviceArea.length > 0 ? (
                 <View className={address ? 'mt-4' : ''}>
-                  <Text className="mb-3 font-work-sans-bold text-[11px] uppercase tracking-[2px] text-ed-on-surface-variant">
+                  <Text className="mb-3 font-inter-bold text-label uppercase tracking-[2px] text-ed-on-surface-variant">
                     Service area
                   </Text>
                   <View className="flex-row flex-wrap gap-2">
@@ -1886,7 +1886,7 @@ export default function VendorDetailScreen() {
                         className="flex-row items-center gap-1.5 rounded-full border border-ed-outline-variant bg-ed-surface-container-low px-3.5 py-2"
                       >
                         <Ionicons name="location-outline" size={12} color="#9ca3af" />
-                        <Text className="font-work-sans-medium text-sm text-ed-on-surface">{area}</Text>
+                        <Text className="font-inter-medium text-body-sm text-ed-on-surface">{area}</Text>
                       </View>
                     ))}
                   </View>
@@ -1917,7 +1917,7 @@ export default function VendorDetailScreen() {
                     accessibilityLabel={link.label}
                   >
                     <Ionicons name={link.icon} size={18} color={editorial.onSurface} />
-                    <Text className="flex-1 font-work-sans text-sm text-ed-on-surface">{link.label}</Text>
+                    <Text className="flex-1 font-inter text-body-sm text-ed-on-surface">{link.label}</Text>
                     <Ionicons name="open-outline" size={14} color={editorial.onSurfaceVariant} />
                   </Pressable>
                 ))}
@@ -1950,7 +1950,7 @@ export default function VendorDetailScreen() {
             selectedPackage ? `Request a quote for ${selectedPackage.name}` : 'Request a quote'
           }
         >
-          <Text className="font-work-sans-bold text-sm" style={{ color: ON_ACCENT }} numberOfLines={1}>
+          <Text className="font-inter-bold text-body-sm" style={{ color: ON_ACCENT }} numberOfLines={1}>
             {selectedPackage ? `Request a quote · ${selectedPackage.name}` : 'Request a quote'}
           </Text>
         </Pressable>

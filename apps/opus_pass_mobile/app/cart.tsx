@@ -68,7 +68,7 @@ function CartLine({
           <View className="flex-row items-start justify-between gap-2">
             <Pressable onPress={onOpen} className="min-w-0 flex-1">
               <Text
-                className="font-work-sans-bold text-[15px] leading-snug text-ed-on-surface"
+                className="font-inter-bold text-body-sm leading-snug text-ed-on-surface"
                 numberOfLines={2}
               >
                 {item.name}
@@ -91,7 +91,7 @@ function CartLine({
               style={{ backgroundColor: pill.bg }}
             >
               <Text
-                className="font-work-sans-bold text-[10px] uppercase tracking-wide"
+                className="font-inter-bold text-label uppercase tracking-wide"
                 style={{ color: pill.text }}
               >
                 {item.tier} package
@@ -107,7 +107,7 @@ function CartLine({
                   className="rounded-full border border-ed-outline-variant px-2 py-0.5"
                 >
                   <Text
-                    className="font-work-sans text-[10px]"
+                    className="font-inter text-label"
                     style={{ color: editorial.onSurfaceVariant }}
                   >
                     + {addOn}
@@ -120,7 +120,7 @@ function CartLine({
           <View className="mt-2 flex-row items-center gap-1.5">
             <Ionicons name="time-outline" size={13} color={editorial.onSurfaceVariant} />
             <Text
-              className="font-work-sans text-xs"
+              className="font-inter text-caption"
               style={{ color: editorial.onSurfaceVariant }}
             >
               Delivered digitally after checkout
@@ -133,7 +133,7 @@ function CartLine({
         {item.guests != null ? (
           <View>
             <Text
-              className="mb-1 font-work-sans-bold text-[10px] uppercase tracking-wide"
+              className="mb-1 font-inter-bold text-label uppercase tracking-wide"
               style={{ color: editorial.onSurfaceVariant }}
             >
               Guests
@@ -149,7 +149,7 @@ function CartLine({
         ) : (
           <View />
         )}
-        <Text className="font-work-sans-bold text-lg text-ed-on-surface">
+        <Text className="font-inter-bold text-card-title text-ed-on-surface">
           {formatTzs(item.total)}
         </Text>
       </View>
@@ -183,13 +183,13 @@ function RecommendCard({
         />
       </View>
       <Text
-        className="mt-2.5 font-work-sans-bold text-sm leading-snug text-ed-on-surface"
+        className="mt-2.5 font-inter-bold text-body-sm leading-snug text-ed-on-surface"
         numberOfLines={2}
       >
         {product.name}
       </Text>
       {fromGuestPrice > 0 ? (
-        <Text className="mt-1 font-work-sans text-[13px] text-ed-on-surface-variant">
+        <Text className="mt-1 font-inter text-caption text-ed-on-surface-variant">
           {fromLabel} {formatTzs(fromGuestPrice)} {perGuestLabel}
         </Text>
       ) : null}
@@ -236,7 +236,7 @@ export default function CartScreen() {
       <View className="flex-row items-center justify-between px-5 pt-2">
         <BackButton />
         <Text
-          className="font-work-sans text-sm"
+          className="font-inter text-body-sm"
           style={{ color: editorial.onSurfaceVariant }}
         >
           {count === 1 ? '1 design' : `${count} designs`}
@@ -249,18 +249,18 @@ export default function CartScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="px-5 pt-4">
-          <Text className="font-playfair-bold text-2xl text-ed-on-surface">Your cart</Text>
+          <Text className="font-inter-bold text-screen-title text-ed-on-surface">Your cart</Text>
 
           {items.length === 0 ? (
             <View className="mt-6 items-center rounded-2xl border border-ed-outline-variant py-12">
               <View className="h-12 w-12 items-center justify-center rounded-full bg-ed-surface-container">
                 <Ionicons name="cart-outline" size={22} color={editorial.onSurfaceVariant} />
               </View>
-              <Text className="mt-3 font-work-sans-bold text-sm text-ed-on-surface">
+              <Text className="mt-3 font-inter-bold text-body-sm text-ed-on-surface">
                 Your cart is empty
               </Text>
               <Text
-                className="mt-1 px-10 text-center font-work-sans text-xs leading-5"
+                className="mt-1 px-10 text-center font-inter text-caption leading-5"
                 style={{ color: editorial.onSurfaceVariant }}
               >
                 Browse the collection and add a design to start your order.
@@ -272,7 +272,7 @@ export default function CartScreen() {
                 style={{ backgroundColor: editorial.onSurface }}
               >
                 <Text
-                  className="font-work-sans-bold text-xs uppercase tracking-[1px]"
+                  className="font-inter-bold text-caption uppercase tracking-[1px]"
                   style={{ color: editorial.bg }}
                 >
                   Browse designs
@@ -293,38 +293,38 @@ export default function CartScreen() {
 
               {/* Price details */}
               <View className="mt-8 border-t border-ed-outline-variant pt-6">
-                <Text className="font-work-sans-bold text-[13px] text-ed-on-surface">
+                <Text className="font-inter-bold text-caption text-ed-on-surface">
                   Price details
                 </Text>
                 <View className="mt-3 gap-2">
                   <View className="flex-row items-baseline justify-between">
                     <Text
-                      className="font-work-sans text-sm"
+                      className="font-inter text-body-sm"
                       style={{ color: editorial.onSurfaceVariant }}
                     >
                       Price ({count === 1 ? '1 design' : `${count} designs`})
                     </Text>
-                    <Text className="font-work-sans-medium text-sm text-ed-on-surface">
+                    <Text className="font-inter-medium text-body-sm text-ed-on-surface">
                       {formatTzs(subtotal)}
                     </Text>
                   </View>
                   <View className="flex-row items-baseline justify-between">
                     <Text
-                      className="font-work-sans text-sm"
+                      className="font-inter text-body-sm"
                       style={{ color: editorial.onSurfaceVariant }}
                     >
                       Delivery
                     </Text>
-                    <Text className="font-work-sans-medium text-sm text-ed-on-surface">
+                    <Text className="font-inter-medium text-body-sm text-ed-on-surface">
                       Free
                     </Text>
                   </View>
                 </View>
                 <View className="mt-3 flex-row items-baseline justify-between border-t border-ed-outline-variant pt-3">
-                  <Text className="font-work-sans-bold text-base text-ed-on-surface">
+                  <Text className="font-inter-bold text-body text-ed-on-surface">
                     Total
                   </Text>
-                  <Text className="font-work-sans-bold text-[26px] leading-none text-ed-on-surface">
+                  <Text className="font-inter-bold text-screen-title leading-none text-ed-on-surface">
                     {formatTzs(total)}
                   </Text>
                 </View>
@@ -333,7 +333,7 @@ export default function CartScreen() {
               <View className="mt-4 flex-row items-center justify-center gap-1.5">
                 <Ionicons name="shield-checkmark-outline" size={13} color="#059669" />
                 <Text
-                  className="font-work-sans text-xs"
+                  className="font-inter text-caption"
                   style={{ color: editorial.onSurfaceVariant }}
                 >
                   Secure checkout. Pay by mobile money or card.
@@ -346,11 +346,11 @@ export default function CartScreen() {
         {/* You might also like */}
         {recommended.length > 0 ? (
           <View className="mt-10 px-5">
-            <Text className="font-playfair-bold text-xl text-ed-on-surface">
+            <Text className="font-inter-bold text-section-title text-ed-on-surface">
               You might also like
             </Text>
             <Text
-              className="mt-1 font-work-sans text-sm"
+              className="mt-1 font-inter text-body-sm"
               style={{ color: editorial.onSurfaceVariant }}
             >
               {items.length > 0
@@ -380,12 +380,12 @@ export default function CartScreen() {
           <View className="flex-row items-center justify-between gap-4 px-5 py-3">
             <View>
               <Text
-                className="font-work-sans text-[11px]"
+                className="font-inter text-label"
                 style={{ color: editorial.onSurfaceVariant }}
               >
                 {count === 1 ? '1 design' : `${count} designs`}
               </Text>
-              <Text className="font-work-sans-bold text-lg text-ed-on-surface">
+              <Text className="font-inter-bold text-card-title text-ed-on-surface">
                 {formatTzs(total)}
               </Text>
             </View>
@@ -398,7 +398,7 @@ export default function CartScreen() {
               style={{ backgroundColor: ACCENT, maxWidth: '58%' }}
             >
               <Text
-                className="font-work-sans-bold text-xs uppercase tracking-[1px]"
+                className="font-inter-bold text-caption uppercase tracking-[1px]"
                 style={{ color: ON_ACCENT }}
               >
                 Checkout

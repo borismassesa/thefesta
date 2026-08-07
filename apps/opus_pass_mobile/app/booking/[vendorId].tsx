@@ -114,7 +114,7 @@ export default function BookingRequestScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8} accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={editorial.onSurface} />
         </Pressable>
-        <Text className="flex-1 font-playfair-bold text-xl text-ed-on-surface">Request a quote</Text>
+        <Text className="flex-1 font-inter-bold text-section-title text-ed-on-surface">Request a quote</Text>
       </View>
 
       <KeyboardAvoidingView
@@ -123,7 +123,7 @@ export default function BookingRequestScreen() {
       >
         <ScrollView className="flex-1" contentContainerClassName="gap-6 px-5 pb-10 pt-2">
           {vendor ? (
-            <Text className="font-work-sans text-sm text-ed-on-surface-variant">
+            <Text className="font-inter text-body-sm text-ed-on-surface-variant">
               Sending to {vendor.business_name}
             </Text>
           ) : null}
@@ -131,7 +131,7 @@ export default function BookingRequestScreen() {
           {packageName ? (
             <View className="flex-row items-center gap-2 self-start rounded-full border border-ed-outline-variant bg-ed-surface px-3 py-1.5">
               <Ionicons name="pricetag-outline" size={13} color={editorial.onSurfaceVariant} />
-              <Text className="font-work-sans-bold text-xs text-ed-on-surface">
+              <Text className="font-inter-bold text-caption text-ed-on-surface">
                 {packageName}
                 {packagePrice ? ` · TZS ${packagePrice}` : ''}
               </Text>
@@ -139,7 +139,7 @@ export default function BookingRequestScreen() {
           ) : null}
 
           <View className="gap-2">
-            <Text className="font-work-sans-bold text-sm text-ed-on-surface">Event date</Text>
+            <Text className="font-inter-bold text-body-sm text-ed-on-surface">Event date</Text>
             <Pressable
               className="flex-row items-center justify-between rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3"
               onPress={() => setShowPicker(true)}
@@ -147,7 +147,7 @@ export default function BookingRequestScreen() {
               accessibilityLabel="Choose event date"
             >
               <Text
-                className={`font-work-sans text-sm ${
+                className={`font-inter text-body-sm ${
                   eventDate ? 'text-ed-on-surface' : 'text-ed-on-surface-variant'
                 }`}
               >
@@ -171,7 +171,7 @@ export default function BookingRequestScreen() {
           </View>
 
           <View className="gap-2">
-            <Text className="font-work-sans-bold text-sm text-ed-on-surface">Guests</Text>
+            <Text className="font-inter-bold text-body-sm text-ed-on-surface">Guests</Text>
             <View className="flex-row items-center justify-between rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-2.5">
               <Pressable
                 onPress={() => setGuestCount((count) => Math.max(GUEST_STEP, count - GUEST_STEP))}
@@ -180,7 +180,7 @@ export default function BookingRequestScreen() {
               >
                 <Ionicons name="remove-circle-outline" size={24} color={editorial.onSurface} />
               </Pressable>
-              <Text className="font-work-sans-bold text-base text-ed-on-surface">{guestCount}</Text>
+              <Text className="font-inter-bold text-body text-ed-on-surface">{guestCount}</Text>
               <Pressable
                 onPress={() => setGuestCount((count) => count + GUEST_STEP)}
                 hitSlop={8}
@@ -192,7 +192,7 @@ export default function BookingRequestScreen() {
           </View>
 
           <View className="gap-2">
-            <Text className="font-work-sans-bold text-sm text-ed-on-surface">Budget (optional)</Text>
+            <Text className="font-inter-bold text-body-sm text-ed-on-surface">Budget (optional)</Text>
             <View className="flex-row flex-wrap gap-2">
               {BUDGET_OPTIONS.map((option) => {
                 const active = budget === option;
@@ -210,7 +210,7 @@ export default function BookingRequestScreen() {
                     accessibilityLabel={`Budget ${option}`}
                   >
                     <Text
-                      className={`font-work-sans text-xs ${
+                      className={`font-inter text-caption ${
                         active ? 'text-ed-on-primary' : 'text-ed-on-surface-variant'
                       }`}
                     >
@@ -223,7 +223,7 @@ export default function BookingRequestScreen() {
           </View>
 
           <View className="gap-2">
-            <Text className="font-work-sans-bold text-sm text-ed-on-surface">Message</Text>
+            <Text className="font-inter-bold text-body-sm text-ed-on-surface">Message</Text>
             <TextInput
               value={message}
               onChangeText={setMessage}
@@ -232,7 +232,7 @@ export default function BookingRequestScreen() {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
-              className="min-h-24 rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-work-sans text-sm text-ed-on-surface"
+              className="min-h-24 rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-inter text-body-sm text-ed-on-surface"
             />
           </View>
 
@@ -249,7 +249,7 @@ export default function BookingRequestScreen() {
               <ActivityIndicator color={editorial.onPrimary} />
             ) : (
               <Text
-                className={`font-work-sans-bold text-sm ${
+                className={`font-inter-bold text-body-sm ${
                   canSubmit ? 'text-ed-on-primary' : 'text-ed-on-surface-variant'
                 }`}
               >

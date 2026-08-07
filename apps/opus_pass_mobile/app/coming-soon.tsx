@@ -13,8 +13,8 @@ export default function ComingSoonScreen() {
         <BackButton />
       </View>
       <View className="flex-1 items-center justify-center px-6 pb-16">
-        <Text className="font-playfair-bold text-xl text-ed-on-surface">{title ?? 'Coming soon'}</Text>
-        <Text className="mt-2 text-center font-work-sans text-sm text-ed-on-surface-variant">
+        <Text className="font-inter-bold text-section-title text-ed-on-surface">{title ?? 'Coming soon'}</Text>
+        <Text className="mt-2 text-center font-inter text-body-sm text-ed-on-surface-variant">
           Coming soon.
         </Text>
       </View>

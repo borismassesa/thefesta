@@ -31,7 +31,7 @@ export function VendorsModeToggle({
             accessibilityLabel={item.label}
           >
             <Text
-              className={`font-work-sans-bold text-xs ${
+              className={`font-inter-bold text-caption ${
                 active ? 'text-ed-on-surface' : 'text-ed-on-surface-variant'
               }`}
             >

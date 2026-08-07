@@ -411,7 +411,7 @@ export default function ScanScreen() {
       <SafeAreaView className="flex-1 bg-ed-bg" edges={['top']}>
         <View className="flex-1 items-center justify-center px-10">
           <Ionicons name="lock-closed-outline" size={32} color={editorial.onSurfaceVariant} />
-          <Text className="mt-3 text-center font-work-sans text-sm text-ed-on-surface-variant">
+          <Text className="mt-3 text-center font-inter text-body-sm text-ed-on-surface-variant">
             This shift has ended. Enter your access code again to keep scanning.
           </Text>
           <Pressable
@@ -419,7 +419,7 @@ export default function ScanScreen() {
             onPress={() => router.replace('/scanner')}
             className="mt-5 rounded-full bg-ed-primary-container px-6 py-3"
           >
-            <Text className="font-work-sans-bold text-xs uppercase tracking-[1px] text-ed-on-primary">
+            <Text className="font-inter-bold text-caption uppercase tracking-[1px] text-ed-on-primary">
               Enter code
             </Text>
           </Pressable>
@@ -436,7 +436,7 @@ export default function ScanScreen() {
         </View>
         <View className="flex-1 items-center justify-center px-10">
           <Ionicons name="camera-outline" size={32} color={editorial.onSurfaceVariant} />
-          <Text className="mt-3 text-center font-work-sans text-sm text-ed-on-surface-variant">
+          <Text className="mt-3 text-center font-inter text-body-sm text-ed-on-surface-variant">
             {permission?.canAskAgain === false
               ? 'Camera access is blocked. Enable it for OpusPass in your device settings to scan guest passes.'
               : 'OpusPass needs your camera to scan guest entry passes.'}
@@ -447,7 +447,7 @@ export default function ScanScreen() {
               onPress={requestPermission}
               className="mt-5 rounded-full bg-ed-primary-container px-6 py-3"
             >
-              <Text className="font-work-sans-bold text-xs uppercase tracking-[1px] text-ed-on-primary">
+              <Text className="font-inter-bold text-caption uppercase tracking-[1px] text-ed-on-primary">
                 Allow camera
               </Text>
             </Pressable>
@@ -498,7 +498,7 @@ export default function ScanScreen() {
 
               <View className="min-w-0 flex-1">
                 <Text
-                  className="text-center font-work-sans-bold text-[15px] text-white"
+                  className="text-center font-inter-bold text-body-sm text-white"
                   numberOfLines={1}
                 >
                   {session.eventName ?? 'Check-in'}
@@ -513,7 +513,7 @@ export default function ScanScreen() {
                       color="rgba(255,255,255,0.65)"
                     />
                     <Text
-                      className="font-work-sans text-[11px]"
+                      className="font-inter text-label"
                       style={{ color: 'rgba(255,255,255,0.65)' }}
                       numberOfLines={1}
                     >
@@ -528,7 +528,7 @@ export default function ScanScreen() {
                         color="rgba(255,255,255,0.65)"
                       />
                       <Text
-                        className="font-work-sans text-[11px]"
+                        className="font-inter text-label"
                         style={{ color: 'rgba(255,255,255,0.65)' }}
                         numberOfLines={1}
                       >
@@ -592,7 +592,7 @@ export default function ScanScreen() {
                     it implied "live" without anything establishing that. */}
                 {headsIn > 0 ? (
                   <Text
-                    className="mt-1.5 text-center font-work-sans text-[11px]"
+                    className="mt-1.5 text-center font-inter text-label"
                     style={{ color: 'rgba(255,255,255,0.65)' }}
                   >
                     {headsIn} {headsIn === 1 ? 'person' : 'people'} through the door
@@ -643,7 +643,7 @@ export default function ScanScreen() {
               ))}
             </View>
             <Text
-              className="mt-7 font-work-sans text-sm"
+              className="mt-7 font-inter text-body-sm"
               style={{ color: 'rgba(255,255,255,0.85)' }}
             >
               Point at the QR code on the guest&apos;s ticket
@@ -669,7 +669,7 @@ export default function ScanScreen() {
                     style={{ backgroundColor: 'rgba(255,255,255,0.16)' }}
                   >
                     <Ionicons name="create-outline" size={17} color="#FFFFFF" />
-                    <Text className="font-work-sans-bold text-sm text-white">
+                    <Text className="font-inter-bold text-body-sm text-white">
                       QR not working? Check in manually
                     </Text>
                   </Pressable>
@@ -718,17 +718,17 @@ export default function ScanScreen() {
           style={{ backgroundColor: resultStyle.bg }}
         >
           <Ionicons name={resultStyle.icon} size={72} color="#FFFFFF" />
-          <Text className="mt-4 text-center font-playfair-bold text-3xl text-white">
+          <Text className="mt-4 text-center font-inter-bold text-screen-title text-white">
             {resultStyle.title}
           </Text>
           {result.guestName ? (
-            <Text className="mt-2 text-center font-work-sans-bold text-lg text-white">
+            <Text className="mt-2 text-center font-inter-bold text-card-title text-white">
               {result.guestName}
             </Text>
           ) : null}
           {result.isVip ? (
             <View className="mt-3 rounded-full bg-white/25 px-3 py-1">
-              <Text className="font-work-sans-bold text-[11px] uppercase tracking-[1px] text-white">
+              <Text className="font-inter-bold text-label uppercase tracking-[1px] text-white">
                 {result.groupTag || 'VIP'}
               </Text>
             </View>
@@ -739,16 +739,16 @@ export default function ScanScreen() {
           {result.table ? (
             <View className="mt-3 flex-row items-center gap-1.5 rounded-full bg-white/25 px-3.5 py-1.5">
               <Ionicons name="restaurant-outline" size={14} color="#FFFFFF" />
-              <Text className="font-work-sans-bold text-sm text-white">{result.table}</Text>
+              <Text className="font-inter-bold text-body-sm text-white">{result.table}</Text>
             </View>
           ) : null}
           {result.status === 'success' && result.checkedInPartySize ? (
-            <Text className="mt-3 text-center font-work-sans text-base text-white/90">
+            <Text className="mt-3 text-center font-inter text-body text-white/90">
               {result.checkedInPartySize} of {result.partySize} admitted
             </Text>
           ) : null}
           {result.message ? (
-            <Text className="mt-3 text-center font-work-sans text-sm text-white/90">
+            <Text className="mt-3 text-center font-inter text-body-sm text-white/90">
               {result.message}
             </Text>
           ) : null}
@@ -765,7 +765,7 @@ export default function ScanScreen() {
           >
             <Ionicons name="qr-code" size={17} color={resultStyle.bg} />
             <Text
-              className="font-work-sans-bold text-sm uppercase tracking-[1px]"
+              className="font-inter-bold text-body-sm uppercase tracking-[1px]"
               style={{ color: resultStyle.bg }}
             >
               Scan next guest
@@ -785,7 +785,7 @@ export default function ScanScreen() {
           >
             <Ionicons name="people-outline" size={15} color="rgba(255,255,255,0.85)" />
             <Text
-              className="font-work-sans-medium text-sm"
+              className="font-inter-medium text-body-sm"
               style={{ color: 'rgba(255,255,255,0.85)' }}
             >
               Find guest by name

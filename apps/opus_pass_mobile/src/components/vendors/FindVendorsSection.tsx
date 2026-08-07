@@ -26,7 +26,7 @@ export function FindVendorsSection() {
   return (
     <View className="gap-6 pb-4">
       <View className="gap-3 px-5">
-        <Text className="font-playfair-bold text-lg text-ed-on-surface">
+        <Text className="font-inter-bold text-card-title text-ed-on-surface">
           {city ? `Find vendors in ${city}` : 'Find vendors'}
         </Text>
 
@@ -39,7 +39,7 @@ export function FindVendorsSection() {
             placeholderTextColor={editorial.onSurfaceVariant}
             returnKeyType="search"
             autoCorrect={false}
-            className="flex-1 font-work-sans text-sm text-ed-on-surface"
+            className="flex-1 font-inter text-body-sm text-ed-on-surface"
           />
           {query.length > 0 ? (
             <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel="Clear search">
@@ -51,7 +51,7 @@ export function FindVendorsSection() {
 
       {!isSearching ? (
         <View className="gap-3 px-5">
-          <Text className="font-work-sans-bold text-sm text-ed-on-surface">Browse by category</Text>
+          <Text className="font-inter-bold text-body-sm text-ed-on-surface">Browse by category</Text>
           <View className="flex-row flex-wrap gap-3">
             {VENDOR_CATEGORIES.map((category) => (
               <Pressable
@@ -68,7 +68,7 @@ export function FindVendorsSection() {
                 />
                 <View className="absolute h-full w-full bg-black/35" />
                 <View className="flex-1 justify-end p-3">
-                  <Text className="font-work-sans-bold text-sm text-white">{category.label}</Text>
+                  <Text className="font-inter-bold text-body-sm text-white">{category.label}</Text>
                 </View>
               </Pressable>
             ))}
@@ -77,7 +77,7 @@ export function FindVendorsSection() {
       ) : null}
 
       <View className="gap-3 px-5">
-        <Text className="font-work-sans-bold text-sm text-ed-on-surface">
+        <Text className="font-inter-bold text-body-sm text-ed-on-surface">
           {isSearching ? 'Results' : 'Featured vendors'}
         </Text>
 

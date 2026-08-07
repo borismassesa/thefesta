@@ -139,7 +139,7 @@ export default function EventFormScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="mb-6 font-playfair-bold text-2xl text-ed-on-surface">
+          <Text className="mb-6 font-inter-bold text-screen-title text-ed-on-surface">
             {isNew ? 'Add an event' : 'Edit event'}
           </Text>
 
@@ -151,7 +151,7 @@ export default function EventFormScreen() {
             autoCapitalize="words"
           />
 
-          <Text className="mb-1.5 font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+          <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
             Type
           </Text>
           <View className="mb-4 flex-row flex-wrap gap-2">
@@ -167,7 +167,7 @@ export default function EventFormScreen() {
                   }}
                 >
                   <Text
-                    className="font-work-sans-semibold text-[13px]"
+                    className="font-inter-semibold text-caption"
                     style={{ color: active ? '#FFFFFF' : editorial.onSurfaceVariant }}
                   >
                     {EVENT_TYPE_LABELS[type]}
@@ -207,10 +207,10 @@ export default function EventFormScreen() {
 
           <View className="mb-6 flex-row items-center justify-between rounded-2xl border border-ed-outline-variant bg-ed-surface p-4">
             <View className="flex-1 pr-4">
-              <Text className="font-work-sans-semibold text-[15px] text-ed-on-surface">
+              <Text className="font-inter-semibold text-body-sm text-ed-on-surface">
                 Collect RSVPs
               </Text>
-              <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
+              <Text className="mt-0.5 font-inter text-caption text-ed-on-surface-variant">
                 Let guests reply to this event from your invite link.
               </Text>
             </View>
@@ -230,7 +230,7 @@ export default function EventFormScreen() {
             {saveEvent.isPending ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text className="font-work-sans-bold text-sm text-white">
+              <Text className="font-inter-bold text-body-sm text-white">
                 {isNew ? 'Add event' : 'Save changes'}
               </Text>
             )}

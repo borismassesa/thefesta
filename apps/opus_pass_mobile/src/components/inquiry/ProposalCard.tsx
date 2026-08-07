@@ -9,8 +9,8 @@ import type { InquiryDetail } from '@/lib/api/inquiries';
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row justify-between gap-3 py-1">
-      <Text className="font-work-sans text-xs text-ed-on-surface-variant">{label}</Text>
-      <Text className="flex-1 text-right font-work-sans text-xs text-ed-on-surface">{value}</Text>
+      <Text className="font-inter text-caption text-ed-on-surface-variant">{label}</Text>
+      <Text className="flex-1 text-right font-inter text-caption text-ed-on-surface">{value}</Text>
     </View>
   );
 }
@@ -71,10 +71,10 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
 
   return (
     <View className="gap-2 rounded-2xl border border-ed-outline-variant bg-ed-surface p-4">
-      <Text className="font-work-sans-bold text-sm text-ed-on-surface">Vendor's quote</Text>
+      <Text className="font-inter-bold text-body-sm text-ed-on-surface">Vendor's quote</Text>
 
       {inquiry.proposal_invoice_amount != null ? (
-        <Text className="font-playfair-bold text-2xl text-ed-on-surface">
+        <Text className="font-inter-bold text-screen-title text-ed-on-surface">
           {formatTzs(inquiry.proposal_invoice_amount)}
         </Text>
       ) : null}
@@ -91,25 +91,25 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
       </View>
 
       {inquiry.proposal_invoice_details ? (
-        <Text className="mt-1 font-work-sans text-xs leading-5 text-ed-on-surface-variant">
+        <Text className="mt-1 font-inter text-caption leading-5 text-ed-on-surface-variant">
           {inquiry.proposal_invoice_details}
         </Text>
       ) : null}
 
       {inquiry.proposal_status === 'countered' ? (
         <View className="mt-2 rounded-xl bg-ed-surface-container p-3">
-          <Text className="font-work-sans-bold text-xs text-ed-on-surface">
+          <Text className="font-inter-bold text-caption text-ed-on-surface">
             Your counter{' '}
             {inquiry.proposal_counter_amount != null
               ? `· ${formatTzs(inquiry.proposal_counter_amount)}`
               : ''}
           </Text>
           {inquiry.proposal_counter_message ? (
-            <Text className="mt-1 font-work-sans text-xs text-ed-on-surface-variant">
+            <Text className="mt-1 font-inter text-caption text-ed-on-surface-variant">
               {inquiry.proposal_counter_message}
             </Text>
           ) : null}
-          <Text className="mt-2 font-work-sans text-[11px] text-ed-on-surface-variant">
+          <Text className="mt-2 font-inter text-label text-ed-on-surface-variant">
             Waiting on the vendor to respond.
           </Text>
         </View>
@@ -117,7 +117,7 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
 
       {inquiry.proposal_status === 'accepted' ? (
         <View className="mt-2 rounded-xl bg-[#dcfce7] p-3">
-          <Text className="font-work-sans-bold text-xs text-[#16a34a]">
+          <Text className="font-inter-bold text-caption text-[#16a34a]">
             You accepted this quote.
           </Text>
         </View>
@@ -132,7 +132,7 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
               placeholder="Counter amount (TZS)"
               placeholderTextColor={editorial.onSurfaceVariant}
               keyboardType="number-pad"
-              className="rounded-xl border border-ed-outline-variant bg-ed-surface px-3 py-2.5 font-work-sans text-sm text-ed-on-surface"
+              className="rounded-xl border border-ed-outline-variant bg-ed-surface px-3 py-2.5 font-inter text-body-sm text-ed-on-surface"
             />
             <TextInput
               value={counterMessage}
@@ -140,7 +140,7 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
               placeholder="Add a note (optional)"
               placeholderTextColor={editorial.onSurfaceVariant}
               multiline
-              className="min-h-16 rounded-xl border border-ed-outline-variant bg-ed-surface px-3 py-2.5 font-work-sans text-sm text-ed-on-surface"
+              className="min-h-16 rounded-xl border border-ed-outline-variant bg-ed-surface px-3 py-2.5 font-inter text-body-sm text-ed-on-surface"
               textAlignVertical="top"
             />
             <View className="flex-row gap-2">
@@ -150,7 +150,7 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
                 accessibilityRole="button"
                 accessibilityLabel="Cancel counter"
               >
-                <Text className="font-work-sans-bold text-xs text-ed-on-surface">Cancel</Text>
+                <Text className="font-inter-bold text-caption text-ed-on-surface">Cancel</Text>
               </Pressable>
               <Pressable
                 className="flex-1 items-center rounded-full bg-ed-primary-container py-2.5"
@@ -162,7 +162,7 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
                 {counter.isPending ? (
                   <ActivityIndicator size="small" color={editorial.onPrimary} />
                 ) : (
-                  <Text className="font-work-sans-bold text-xs text-ed-on-primary">
+                  <Text className="font-inter-bold text-caption text-ed-on-primary">
                     Send counter
                   </Text>
                 )}
@@ -177,7 +177,7 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
               accessibilityRole="button"
               accessibilityLabel="Counter offer"
             >
-              <Text className="font-work-sans-bold text-xs text-ed-on-surface">Counter</Text>
+              <Text className="font-inter-bold text-caption text-ed-on-surface">Counter</Text>
             </Pressable>
             <Pressable
               className="flex-1 items-center rounded-full bg-ed-primary-container py-3"
@@ -189,7 +189,7 @@ export function ProposalCard({ inquiry }: { inquiry: InquiryDetail }) {
               {accept.isPending ? (
                 <ActivityIndicator size="small" color={editorial.onPrimary} />
               ) : (
-                <Text className="font-work-sans-bold text-xs text-ed-on-primary">Accept</Text>
+                <Text className="font-inter-bold text-caption text-ed-on-primary">Accept</Text>
               )}
             </Pressable>
           </View>

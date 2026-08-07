@@ -18,10 +18,10 @@ function CtaCard({ cta, onPress }: { cta: GoalCta; onPress: () => void }) {
     >
       <View className="flex-1 pr-4">
         <View className="flex-row items-center gap-1.5">
-          <Text className="font-work-sans-bold text-[15px] text-ed-on-surface">{cta.title}</Text>
+          <Text className="font-inter-bold text-body-sm text-ed-on-surface">{cta.title}</Text>
           <Ionicons name="arrow-forward" size={15} color={editorial.onSurface} />
         </View>
-        <Text className="mt-1 font-work-sans text-sm leading-5 text-ed-on-surface-variant">
+        <Text className="mt-1 font-inter text-body-sm leading-5 text-ed-on-surface-variant">
           {cta.subtitle}
         </Text>
       </View>
@@ -50,7 +50,7 @@ export default function GoalDetailScreen() {
           <BackButton />
         </View>
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-center font-work-sans text-sm text-ed-on-surface-variant">
+          <Text className="text-center font-inter text-body-sm text-ed-on-surface-variant">
             We couldn&rsquo;t find that goal.
           </Text>
         </View>
@@ -73,8 +73,8 @@ export default function GoalDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="px-5">
-          <Text className="font-work-sans text-sm text-ed-on-surface-variant">{stage.label}</Text>
-          <Text className="mt-1 font-playfair-bold text-3xl text-ed-on-surface">{goal.title}</Text>
+          <Text className="font-inter text-body-sm text-ed-on-surface-variant">{stage.label}</Text>
+          <Text className="mt-1 font-inter-bold text-screen-title text-ed-on-surface">{goal.title}</Text>
 
           <Pressable
             accessibilityRole="checkbox"
@@ -91,7 +91,7 @@ export default function GoalDetailScreen() {
             >
               {done ? <Ionicons name="checkmark" size={16} color="#FFFFFF" /> : null}
             </View>
-            <Text className="font-work-sans text-base text-ed-on-surface">
+            <Text className="font-inter text-body text-ed-on-surface">
               {done ? 'Goal done' : 'Mark goal as done'}
             </Text>
           </Pressable>
@@ -101,14 +101,14 @@ export default function GoalDetailScreen() {
           {/* Things to do */}
           <View className="rounded-2xl border border-ed-outline-variant bg-ed-surface p-5">
             <View className="flex-row items-start justify-between gap-3">
-              <Text className="flex-1 font-work-sans-bold text-lg text-ed-on-surface">Things to do</Text>
+              <Text className="flex-1 font-inter-bold text-card-title text-ed-on-surface">Things to do</Text>
               <Ionicons name="list" size={22} color={editorial.onSurfaceVariant} />
             </View>
             <View className="mt-3 gap-2.5">
               {goal.tasks.map((task) => (
                 <View key={task} className="flex-row items-start gap-2.5">
-                  <Text className="font-work-sans text-base leading-6 text-ed-on-surface-variant">•</Text>
-                  <Text className="flex-1 font-work-sans text-[15px] leading-6 text-ed-on-surface">
+                  <Text className="font-inter text-body leading-6 text-ed-on-surface-variant">•</Text>
+                  <Text className="flex-1 font-inter text-body-sm leading-6 text-ed-on-surface">
                     {task}
                   </Text>
                 </View>

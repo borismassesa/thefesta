@@ -22,7 +22,7 @@ export function FormField({
 
   return (
     <View className="mb-4">
-      <Text className="mb-1.5 font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+      <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
         {label}
       </Text>
       <TextInput
@@ -33,7 +33,7 @@ export function FormField({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         multiline={multiline}
-        className="rounded-2xl border border-ed-outline-variant bg-ed-surface px-4 py-3.5 font-work-sans text-[15px] text-ed-on-surface"
+        className="rounded-2xl border border-ed-outline-variant bg-ed-surface px-4 py-3.5 font-inter text-body-sm text-ed-on-surface"
         style={multiline ? { minHeight: 96, textAlignVertical: 'top' } : undefined}
       />
     </View>

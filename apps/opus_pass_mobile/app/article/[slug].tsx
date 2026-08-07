@@ -19,6 +19,7 @@ import { useLikedArticle } from '@/hooks/useLikedArticle';
 import { useArticleComments } from '@/hooks/useArticleComments';
 import { formatShortDate } from '@/lib/format-date';
 import { useTheme } from '@/theme/useTheme';
+import { FontFamily } from '@/theme/tokens';
 import type {
   AdviceIdeaBlock,
   AdviceIdeaParagraphBlock,
@@ -41,14 +42,14 @@ function initialsFromName(name: string): string {
 function RichParagraph({ block }: { block: AdviceIdeaParagraphBlock }) {
   if (!block.richText || block.richText.length === 0) {
     return (
-      <Text className="mt-3 font-work-sans text-[15px] leading-6 text-ed-on-surface">
+      <Text className="mt-3 font-inter text-body-sm leading-6 text-ed-on-surface">
         {block.text.trim()}
       </Text>
     );
   }
 
   return (
-    <Text className="mt-3 font-work-sans text-[15px] leading-6 text-ed-on-surface">
+    <Text className="mt-3 font-inter text-body-sm leading-6 text-ed-on-surface">
       {block.richText.map((span: AdviceIdeaRichSpan, index) => {
         const bold = span.marks?.some((m) => m.type === 'bold');
         const italic = span.marks?.some((m) => m.type === 'italic');
@@ -56,7 +57,7 @@ function RichParagraph({ block }: { block: AdviceIdeaParagraphBlock }) {
           <Text
             key={index}
             style={{
-              fontFamily: bold ? 'WorkSans-Bold' : undefined,
+              fontFamily: bold ? FontFamily.bold : undefined,
               fontStyle: italic ? 'italic' : undefined,
             }}
           >
@@ -90,10 +91,10 @@ function Block({ block }: { block: AdviceIdeaBlock }) {
       <View className="mt-3 gap-2">
         {block.items.map((item, index) => (
           <View key={index} className="flex-row">
-            <Text className="mr-2 font-work-sans text-[15px] text-ed-on-surface-variant">
+            <Text className="mr-2 font-inter text-body-sm text-ed-on-surface-variant">
               {block.ordered ? `${index + 1}.` : '•'}
             </Text>
-            <Text className="flex-1 font-work-sans text-[15px] leading-6 text-ed-on-surface">
+            <Text className="flex-1 font-inter text-body-sm leading-6 text-ed-on-surface">
               {item.trim()}
             </Text>
           </View>
@@ -109,7 +110,7 @@ function Section({ section }: { section: AdviceIdeaSection }) {
   return (
     <View className="mt-6">
       {section.heading.trim() ? (
-        <Text className="font-playfair-bold text-lg text-ed-on-surface">
+        <Text className="font-inter-bold text-card-title text-ed-on-surface">
           {section.heading.trim()}
         </Text>
       ) : null}
@@ -187,7 +188,7 @@ export default function ArticleScreen() {
         </View>
       ) : post.isError || !post.data ? (
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-center font-work-sans text-sm text-ed-error">
+          <Text className="text-center font-inter text-body-sm text-ed-error">
             Couldn't load this article. Pull to refresh, or try again shortly.
           </Text>
         </View>
@@ -206,12 +207,12 @@ export default function ArticleScreen() {
           ) : null}
 
           {post.data.category ? (
-            <Text className="mt-4 font-work-sans-medium text-xs uppercase tracking-wide text-ed-secondary">
+            <Text className="mt-4 font-inter-medium text-caption uppercase tracking-wide text-ed-secondary">
               {post.data.category}
             </Text>
           ) : null}
 
-          <Text className="mt-2 font-playfair-bold text-2xl leading-8 text-ed-on-surface">
+          <Text className="mt-2 font-playfair-bold text-screen-title leading-8 text-ed-on-surface">
             {post.data.title}
           </Text>
 
@@ -225,17 +226,17 @@ export default function ArticleScreen() {
                       style={{ width: 40, height: 40 }}
                     />
                   ) : (
-                    <Text className="font-work-sans-bold text-sm text-ed-on-surface-variant">
+                    <Text className="font-inter-bold text-body-sm text-ed-on-surface-variant">
                       {initialsFromName(post.data.author_name)}
                     </Text>
                   )}
                 </View>
                 <View>
-                  <Text className="font-work-sans-semibold text-sm text-ed-on-surface">
+                  <Text className="font-inter-semibold text-body-sm text-ed-on-surface">
                     {post.data.author_name}
                   </Text>
                   {post.data.author_role ? (
-                    <Text className="font-work-sans text-xs text-ed-on-surface-variant">
+                    <Text className="font-inter text-caption text-ed-on-surface-variant">
                       {post.data.author_role}
                     </Text>
                   ) : null}
@@ -243,7 +244,7 @@ export default function ArticleScreen() {
               </View>
               {post.data.read_time ? (
                 <View className="rounded-full bg-ed-surface-container px-3 py-1.5">
-                  <Text className="font-work-sans-medium text-xs text-ed-on-surface-variant">
+                  <Text className="font-inter-medium text-caption text-ed-on-surface-variant">
                     {post.data.read_time} min read
                   </Text>
                 </View>
@@ -256,7 +257,7 @@ export default function ArticleScreen() {
           ))}
 
           <View className="mt-8 border-t border-ed-outline-variant pt-6">
-            <Text className="font-playfair-bold text-lg text-ed-on-surface">
+            <Text className="font-inter-bold text-card-title text-ed-on-surface">
               Comments{comments.length > 0 ? ` (${comments.length})` : ''}
             </Text>
 
@@ -267,7 +268,7 @@ export default function ArticleScreen() {
                 placeholder="Add a comment…"
                 placeholderTextColor={editorial.onSurfaceVariant}
                 multiline
-                className="flex-1 rounded-xl border border-ed-outline-variant bg-ed-surface px-3 py-2 font-work-sans text-sm text-ed-on-surface"
+                className="flex-1 rounded-xl border border-ed-outline-variant bg-ed-surface px-3 py-2 font-inter text-body-sm text-ed-on-surface"
               />
               <Pressable
                 onPress={handlePostComment}
@@ -275,14 +276,14 @@ export default function ArticleScreen() {
                 className="rounded-xl bg-ed-primary-container px-4 py-2.5"
                 style={{ opacity: commentText.trim() ? 1 : 0.5 }}
               >
-                <Text className="font-work-sans-semibold text-sm text-ed-on-primary">
+                <Text className="font-inter-semibold text-body-sm text-ed-on-primary">
                   Post
                 </Text>
               </Pressable>
             </View>
 
             {comments.length === 0 ? (
-              <Text className="mt-4 font-work-sans text-sm text-ed-on-surface-variant">
+              <Text className="mt-4 font-inter text-body-sm text-ed-on-surface-variant">
                 No comments yet — be the first to share your thoughts.
               </Text>
             ) : (
@@ -293,14 +294,14 @@ export default function ArticleScreen() {
                     className="border-b border-ed-outline-variant pb-4"
                   >
                     <View className="flex-row items-center justify-between">
-                      <Text className="font-work-sans-semibold text-sm text-ed-on-surface">
+                      <Text className="font-inter-semibold text-body-sm text-ed-on-surface">
                         {comment.author}
                       </Text>
-                      <Text className="font-work-sans text-xs text-ed-on-surface-variant">
+                      <Text className="font-inter text-caption text-ed-on-surface-variant">
                         {formatShortDate(comment.createdAt)}
                       </Text>
                     </View>
-                    <Text className="mt-1 font-work-sans text-sm leading-5 text-ed-on-surface">
+                    <Text className="mt-1 font-inter text-body-sm leading-5 text-ed-on-surface">
                       {comment.text}
                     </Text>
                     <Pressable
@@ -315,7 +316,7 @@ export default function ArticleScreen() {
                         }
                       />
                       <Text
-                        className="font-work-sans text-xs"
+                        className="font-inter text-caption"
                         style={{
                           color: comment.liked
                             ? '#E0245E'

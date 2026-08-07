@@ -221,7 +221,7 @@ export default function ScannerGuestsScreen() {
     return (
       <SafeAreaView className="flex-1 bg-ed-bg" edges={['top']}>
         <View className="flex-1 items-center justify-center px-10">
-          <Text className="text-center font-work-sans text-sm text-ed-on-surface-variant">
+          <Text className="text-center font-inter text-body-sm text-ed-on-surface-variant">
             This shift has ended. Enter your access code again to continue.
           </Text>
           <Pressable
@@ -229,7 +229,7 @@ export default function ScannerGuestsScreen() {
             onPress={() => router.replace('/scanner')}
             className="mt-5 rounded-full bg-ed-primary-container px-6 py-3"
           >
-            <Text className="font-work-sans-bold text-xs uppercase tracking-[1px] text-ed-on-primary">
+            <Text className="font-inter-bold text-caption uppercase tracking-[1px] text-ed-on-primary">
               Enter code
             </Text>
           </Pressable>
@@ -243,10 +243,10 @@ export default function ScannerGuestsScreen() {
       <View className="flex-row items-center gap-2 px-4 pt-2">
         <BackButton />
         <View className="min-w-0 flex-1">
-          <Text className="font-work-sans-bold text-base text-ed-on-surface" numberOfLines={1}>
+          <Text className="font-inter-bold text-body text-ed-on-surface" numberOfLines={1}>
             Guest list
           </Text>
-          <Text className="font-work-sans text-xs text-ed-on-surface-variant" numberOfLines={1}>
+          <Text className="font-inter text-caption text-ed-on-surface-variant" numberOfLines={1}>
             {groupTag ?? session.eventName ?? 'This event'}
           </Text>
         </View>
@@ -298,7 +298,7 @@ export default function ScannerGuestsScreen() {
             placeholder="Search by name"
             placeholderTextColor={editorial.onSurfaceVariant}
             autoCorrect={false}
-            className="ml-2 flex-1 font-work-sans text-sm text-ed-on-surface"
+            className="ml-2 flex-1 font-inter text-body-sm text-ed-on-surface"
           />
           {query ? (
             <Pressable onPress={() => setQuery('')} hitSlop={10}>
@@ -313,7 +313,7 @@ export default function ScannerGuestsScreen() {
           <ActivityIndicator color={editorial.secondary} />
         </View>
       ) : rosterQuery.isError ? (
-        <Text className="mt-16 px-10 text-center font-work-sans text-sm text-ed-error">
+        <Text className="mt-16 px-10 text-center font-inter text-body-sm text-ed-error">
           Couldn&apos;t load the guest list. Pull down to retry.
         </Text>
       ) : (
@@ -332,7 +332,7 @@ export default function ScannerGuestsScreen() {
                 size={30}
                 color={editorial.onSurfaceVariant}
               />
-              <Text className="mt-3 text-center font-work-sans text-sm text-ed-on-surface-variant">
+              <Text className="mt-3 text-center font-inter text-body-sm text-ed-on-surface-variant">
                 {query
                   ? 'No guests match that search.'
                   : filter === 'pending'
@@ -346,12 +346,12 @@ export default function ScannerGuestsScreen() {
           renderSectionHeader={({ section }) => (
             <View className="mb-2 mt-3 flex-row items-baseline justify-between">
               <Text
-                className="shrink font-work-sans-bold text-[15px] text-ed-on-surface"
+                className="shrink font-inter-bold text-body-sm text-ed-on-surface"
                 numberOfLines={1}
               >
                 {section.title}
               </Text>
-              <Text className="ml-3 shrink-0 font-work-sans text-xs text-ed-on-surface-variant">
+              <Text className="ml-3 shrink-0 font-inter text-caption text-ed-on-surface-variant">
                 {section.subtitle}
               </Text>
             </View>
@@ -373,7 +373,7 @@ export default function ScannerGuestsScreen() {
                 <View className="min-w-0 flex-1">
                   <View className="flex-row items-center gap-2">
                     <Text
-                      className="shrink font-work-sans-bold text-sm text-ed-on-surface"
+                      className="shrink font-inter-bold text-body-sm text-ed-on-surface"
                       numberOfLines={1}
                     >
                       {item.fullName}
@@ -384,7 +384,7 @@ export default function ScannerGuestsScreen() {
                         style={{ backgroundColor: LIVE_GREEN }}
                       >
                         <Text
-                          className="font-work-sans-bold text-[9px] uppercase"
+                          className="font-inter-bold text-label uppercase"
                           style={{ color: '#1A1A1A' }}
                         >
                           VIP
@@ -396,7 +396,7 @@ export default function ScannerGuestsScreen() {
                       carries what the badge can't: arrival detail or the
                       printed code for the manual fallback. */}
                   {arrived || item.entryCode ? (
-                    <Text className="mt-0.5 font-work-sans text-xs text-ed-on-surface-variant">
+                    <Text className="mt-0.5 font-inter text-caption text-ed-on-surface-variant">
                       {arrived
                         ? `Arrived, ${item.checkedInPartySize ?? item.partySize} of ${item.partySize}`
                         : item.entryCode}

@@ -208,8 +208,8 @@ export default function ChecklistScreen() {
           </View>
         </View>
 
-        <Text className="mt-2 font-playfair-bold text-3xl text-ed-on-surface">Checklist</Text>
-        <Text className="mt-0.5 font-work-sans text-sm text-ed-on-surface-variant">
+        <Text className="mt-2 font-inter-bold text-screen-title text-ed-on-surface">Checklist</Text>
+        <Text className="mt-0.5 font-inter text-body-sm text-ed-on-surface-variant">
           {completedCount} of {totalCount} completed
         </Text>
 
@@ -222,7 +222,7 @@ export default function ChecklistScreen() {
               autoFocus
               placeholder="Search tasks"
               placeholderTextColor={editorial.onSurfaceVariant}
-              className="ml-2 flex-1 py-2.5 font-work-sans text-[15px] text-ed-on-surface"
+              className="ml-2 flex-1 py-2.5 font-inter text-body-sm text-ed-on-surface"
             />
           </View>
         ) : null}
@@ -232,9 +232,9 @@ export default function ChecklistScreen() {
         {/* Always shown, and always tappable: without a date there are no due
             dates and no month view, so this is the way to unlock both. */}
         <Pressable onPress={() => setDateOpen(true)} accessibilityRole="button" className="px-5 pt-4">
-          <Text className="font-work-sans text-[15px] text-ed-on-surface">
+          <Text className="font-inter text-body-sm text-ed-on-surface">
             Based on your wedding date:{' '}
-            <Text className="font-work-sans-semibold underline">
+            <Text className="font-inter-semibold underline">
               {hasDate ? shortDate(weddingDate) : 'Add a date'}
             </Text>
           </Text>
@@ -263,10 +263,10 @@ export default function ChecklistScreen() {
                 }}
               >
                 <Text
-                  className={`text-[15px] ${
+                  className={`text-body-sm ${
                     active
-                      ? 'font-work-sans-bold text-ed-on-surface'
-                      : 'font-work-sans text-ed-on-surface-variant'
+                      ? 'font-inter-bold text-ed-on-surface'
+                      : 'font-inter text-ed-on-surface-variant'
                   }`}
                 >
                   {mode === 'category' ? 'By category' : 'By month'}
@@ -281,10 +281,10 @@ export default function ChecklistScreen() {
           {groupBy === 'month' && !hasDate ? (
             <View className="items-center px-8 py-14">
               <Ionicons name="calendar-outline" size={28} color={editorial.onSurfaceVariant} />
-              <Text className="mt-3 text-center font-work-sans-bold text-base text-ed-on-surface">
+              <Text className="mt-3 text-center font-inter-bold text-body text-ed-on-surface">
                 Add your wedding date
               </Text>
-              <Text className="mt-1.5 text-center font-work-sans text-sm leading-5 text-ed-on-surface-variant">
+              <Text className="mt-1.5 text-center font-inter text-body-sm leading-5 text-ed-on-surface-variant">
                 Due dates are worked out from your wedding day, so the month view needs one first.
               </Text>
               <Pressable
@@ -293,11 +293,11 @@ export default function ChecklistScreen() {
                 className="mt-5 rounded-full px-5 py-3"
                 style={{ backgroundColor: editorial.secondary }}
               >
-                <Text className="font-work-sans-bold text-sm text-white">Set wedding date</Text>
+                <Text className="font-inter-bold text-body-sm text-white">Set wedding date</Text>
               </Pressable>
             </View>
           ) : groups.length === 0 ? (
-            <Text className="px-5 py-16 text-center font-work-sans text-sm text-ed-on-surface-variant">
+            <Text className="px-5 py-16 text-center font-inter text-body-sm text-ed-on-surface-variant">
               {query.trim()
                 ? `No tasks match “${query.trim()}”.`
                 : 'Nothing left here. Turn on “Show completed” to see what you have ticked off.'}
@@ -325,7 +325,7 @@ export default function ChecklistScreen() {
             className="mt-6 flex-row items-center justify-center gap-2"
           >
             <Ionicons name="refresh" size={16} color={editorial.onSurface} />
-            <Text className="font-work-sans-semibold text-[15px] text-ed-on-surface underline">
+            <Text className="font-inter-semibold text-body-sm text-ed-on-surface underline">
               Reset checklist
             </Text>
           </Pressable>
@@ -338,7 +338,7 @@ export default function ChecklistScreen() {
         accessibilityRole="button"
         className="flex-row items-center justify-between border-t border-ed-outline-variant px-5 py-4"
       >
-        <Text className="font-work-sans-semibold text-[15px]" style={{ color: editorial.secondary }}>
+        <Text className="font-inter-semibold text-body-sm" style={{ color: editorial.secondary }}>
           Add task
         </Text>
         <Ionicons name="add-circle-outline" size={26} color={editorial.secondary} />
@@ -413,7 +413,7 @@ function ChecklistGroup({
         {category ? (
           <Ionicons name={category.icon} size={22} color={category.color} style={{ marginRight: 12 }} />
         ) : null}
-        <Text className="font-work-sans-bold text-[17px] text-ed-on-surface">{group.label}</Text>
+        <Text className="font-inter-bold text-body text-ed-on-surface">{group.label}</Text>
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
           size={18}
@@ -421,7 +421,7 @@ function ChecklistGroup({
           style={{ marginLeft: 6 }}
         />
         <View className="flex-1" />
-        <Text className="font-work-sans text-[15px] text-ed-on-surface-variant">
+        <Text className="font-inter text-body-sm text-ed-on-surface-variant">
           {doneCount} / {group.tasks.length}
         </Text>
       </Pressable>
@@ -496,7 +496,7 @@ function TaskRow({
         <Pressable onPress={onOpen} className="ml-3 flex-1 flex-row items-center">
           <View className="flex-1 pr-2">
             <Text
-              className="font-work-sans text-[15px] leading-5"
+              className="font-inter text-body-sm leading-5"
               style={{
                 color: task.done ? editorial.onSurfaceVariant : editorial.onSurface,
                 textDecorationLine: task.done ? 'line-through' : 'none',
@@ -505,7 +505,7 @@ function TaskRow({
               {task.title}
             </Text>
             {task.dueDate ? (
-              <Text className="mt-0.5 font-work-sans text-[13px]">
+              <Text className="mt-0.5 font-inter text-caption">
                 {task.pastDue ? (
                   <Text style={{ color: PAST_DUE_COLOR }}>Past due · </Text>
                 ) : null}
@@ -546,21 +546,21 @@ function TaskDetailModal({
       <SafeAreaView className="flex-1 bg-ed-bg">
         <View className="flex-row items-center justify-between border-b border-ed-outline-variant px-5 py-4">
           <Pressable onPress={onClose} accessibilityRole="button">
-            <Text className="font-work-sans text-[15px] text-ed-on-surface">Close</Text>
+            <Text className="font-inter text-body-sm text-ed-on-surface">Close</Text>
           </Pressable>
-          <Text className="font-work-sans-bold text-[17px] text-ed-on-surface">Task</Text>
+          <Text className="font-inter-bold text-body text-ed-on-surface">Task</Text>
           <View style={{ width: 52 }} />
         </View>
 
         {task ? (
           <ScrollView className="flex-1" contentContainerClassName="px-5 pb-8 pt-6">
-            <Text className="font-playfair-bold text-2xl text-ed-on-surface">{task.title}</Text>
+            <Text className="font-inter-bold text-screen-title text-ed-on-surface">{task.title}</Text>
 
             <View className="mt-4 flex-row flex-wrap items-center gap-2">
               {category ? (
                 <View className="flex-row items-center gap-1.5 rounded-full bg-ed-surface-container px-3 py-1.5">
                   <Ionicons name={category.icon} size={14} color={category.color} />
-                  <Text className="font-work-sans-semibold text-[13px] text-ed-on-surface">
+                  <Text className="font-inter-semibold text-caption text-ed-on-surface">
                     {category.label}
                   </Text>
                 </View>
@@ -573,7 +573,7 @@ function TaskDetailModal({
                   }}
                 >
                   <Text
-                    className="font-work-sans-semibold text-[13px]"
+                    className="font-inter-semibold text-caption"
                     style={{ color: task.pastDue ? PAST_DUE_COLOR : editorial.onSurface }}
                   >
                     {task.pastDue ? 'Past due · ' : ''}Due {shortDate(task.dueDate)}
@@ -597,7 +597,7 @@ function TaskDetailModal({
               >
                 {task.done ? <Ionicons name="checkmark" size={16} color="#FFFFFF" /> : null}
               </View>
-              <Text className="font-work-sans text-base text-ed-on-surface">
+              <Text className="font-inter text-body text-ed-on-surface">
                 {task.done ? 'Done' : 'Mark as done'}
               </Text>
             </Pressable>
@@ -608,7 +608,7 @@ function TaskDetailModal({
               className="mt-8 flex-row items-center gap-2"
             >
               <Ionicons name="trash-outline" size={18} color={PAST_DUE_COLOR} />
-              <Text className="font-work-sans-semibold text-[15px]" style={{ color: PAST_DUE_COLOR }}>
+              <Text className="font-inter-semibold text-body-sm" style={{ color: PAST_DUE_COLOR }}>
                 Delete task
               </Text>
             </Pressable>
@@ -647,14 +647,14 @@ function FiltersModal({
       <SafeAreaView className="flex-1 bg-ed-bg">
         <View className="flex-row items-center justify-between border-b border-ed-outline-variant px-5 py-4">
           <Pressable onPress={onClose} accessibilityRole="button">
-            <Text className="font-work-sans text-[15px] text-ed-on-surface">Cancel</Text>
+            <Text className="font-inter text-body-sm text-ed-on-surface">Cancel</Text>
           </Pressable>
-          <Text className="font-work-sans-bold text-[17px] text-ed-on-surface">Filters</Text>
+          <Text className="font-inter-bold text-body text-ed-on-surface">Filters</Text>
           <View style={{ width: 52 }} />
         </View>
 
         <ScrollView className="flex-1" contentContainerClassName="px-5 pb-8 pt-5">
-          <Text className="font-work-sans-bold text-lg text-ed-on-surface">Status</Text>
+          <Text className="font-inter-bold text-card-title text-ed-on-surface">Status</Text>
           <Pressable
             accessibilityRole="checkbox"
             accessibilityState={{ checked: showCompleted }}
@@ -670,12 +670,12 @@ function FiltersModal({
             >
               {showCompleted ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
             </View>
-            <Text className="font-work-sans text-[15px] text-ed-on-surface">Show completed</Text>
+            <Text className="font-inter text-body-sm text-ed-on-surface">Show completed</Text>
           </Pressable>
 
           {monthsSelectable ? (
             <>
-              <Text className="mt-8 font-work-sans-bold text-lg text-ed-on-surface">Due date</Text>
+              <Text className="mt-8 font-inter-bold text-card-title text-ed-on-surface">Due date</Text>
               <RadioRow
                 label="All months"
                 selected={monthFilter === null}
@@ -700,7 +700,7 @@ function FiltersModal({
             className="items-center rounded-full py-4"
             style={{ backgroundColor: editorial.secondary }}
           >
-            <Text className="font-work-sans-bold text-[15px] text-white">
+            <Text className="font-inter-bold text-body-sm text-white">
               See {resultCount} task{resultCount === 1 ? '' : 's'}
             </Text>
           </Pressable>
@@ -736,7 +736,7 @@ function RadioRow({
           <View className="h-3 w-3 rounded-full" style={{ backgroundColor: editorial.secondary }} />
         ) : null}
       </View>
-      <Text className="font-work-sans text-[15px] text-ed-on-surface">{label}</Text>
+      <Text className="font-inter text-body-sm text-ed-on-surface">{label}</Text>
     </Pressable>
   );
 }
@@ -787,20 +787,20 @@ function WeddingDateModal({
       <SafeAreaView className="flex-1 bg-ed-bg">
         <View className="flex-row items-center justify-between border-b border-ed-outline-variant px-5 py-4">
           <Pressable onPress={onClose} accessibilityRole="button">
-            <Text className="font-work-sans text-[15px] text-ed-on-surface">Cancel</Text>
+            <Text className="font-inter text-body-sm text-ed-on-surface">Cancel</Text>
           </Pressable>
-          <Text className="font-work-sans-bold text-[17px] text-ed-on-surface">Wedding date</Text>
+          <Text className="font-inter-bold text-body text-ed-on-surface">Wedding date</Text>
           <View style={{ width: 52 }} />
         </View>
 
         <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView className="flex-1" contentContainerClassName="px-5 pb-8 pt-6" keyboardShouldPersistTaps="handled">
-            <Text className="font-work-sans text-sm leading-5 text-ed-on-surface-variant">
+            <Text className="font-inter text-body-sm leading-5 text-ed-on-surface-variant">
               Every task&rsquo;s due date is worked out from this, so setting it turns on the month
               view and your reminders.
             </Text>
 
-            <Text className="mb-1.5 mt-6 font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+            <Text className="mb-1.5 mt-6 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
               Date
             </Text>
             <TextInput
@@ -810,7 +810,7 @@ function WeddingDateModal({
               placeholder="2027-07-18"
               placeholderTextColor={editorial.onSurfaceVariant}
               autoCapitalize="none"
-              className="rounded-2xl border border-ed-outline-variant bg-ed-surface px-4 py-3.5 font-work-sans text-[15px] text-ed-on-surface"
+              className="rounded-2xl border border-ed-outline-variant bg-ed-surface px-4 py-3.5 font-inter text-body-sm text-ed-on-surface"
             />
           </ScrollView>
 
@@ -825,7 +825,7 @@ function WeddingDateModal({
               {saveDate.isPending ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text className="font-work-sans-bold text-[15px] text-white">Save date</Text>
+                <Text className="font-inter-bold text-body-sm text-white">Save date</Text>
               )}
             </Pressable>
           </View>
@@ -860,9 +860,9 @@ function AddTaskModal({
       <SafeAreaView className="flex-1 bg-ed-bg">
         <View className="flex-row items-center justify-between border-b border-ed-outline-variant px-5 py-4">
           <Pressable onPress={onClose} accessibilityRole="button">
-            <Text className="font-work-sans text-[15px] text-ed-on-surface">Cancel</Text>
+            <Text className="font-inter text-body-sm text-ed-on-surface">Cancel</Text>
           </Pressable>
-          <Text className="font-work-sans-bold text-[17px] text-ed-on-surface">New task</Text>
+          <Text className="font-inter-bold text-body text-ed-on-surface">New task</Text>
           <View style={{ width: 52 }} />
         </View>
 
@@ -871,7 +871,7 @@ function AddTaskModal({
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <ScrollView className="flex-1" contentContainerClassName="px-5 pb-8 pt-5" keyboardShouldPersistTaps="handled">
-            <Text className="mb-1.5 font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+            <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
               Task
             </Text>
             <TextInput
@@ -880,10 +880,10 @@ function AddTaskModal({
               autoFocus
               placeholder="Confirm the decorator"
               placeholderTextColor={editorial.onSurfaceVariant}
-              className="rounded-2xl border border-ed-outline-variant bg-ed-surface px-4 py-3.5 font-work-sans text-[15px] text-ed-on-surface"
+              className="rounded-2xl border border-ed-outline-variant bg-ed-surface px-4 py-3.5 font-inter text-body-sm text-ed-on-surface"
             />
 
-            <Text className="mb-2 mt-5 font-work-sans-medium text-xs uppercase tracking-wide text-ed-on-surface-variant">
+            <Text className="mb-2 mt-5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
               Category
             </Text>
             <View className="flex-row flex-wrap gap-2">
@@ -899,7 +899,7 @@ function AddTaskModal({
                     }}
                   >
                     <Text
-                      className="font-work-sans-semibold text-[13px]"
+                      className="font-inter-semibold text-caption"
                       style={{ color: active ? '#FFFFFF' : editorial.onSurfaceVariant }}
                     >
                       {category.label}
@@ -921,7 +921,7 @@ function AddTaskModal({
                 opacity: title.trim() === '' ? 0.5 : 1,
               }}
             >
-              <Text className="font-work-sans-bold text-[15px] text-white">Add task</Text>
+              <Text className="font-inter-bold text-body-sm text-white">Add task</Text>
             </Pressable>
           </View>
         </KeyboardAvoidingView>

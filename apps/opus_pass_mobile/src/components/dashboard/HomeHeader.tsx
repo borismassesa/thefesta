@@ -129,7 +129,7 @@ export function HomeHeader() {
               className="absolute right-1.5 top-2 h-[17px] min-w-[17px] items-center justify-center rounded-full px-1"
               style={{ backgroundColor: ACCENT }}
             >
-              <Text className="font-work-sans-bold text-[10px]" style={{ color: ON_ACCENT }}>
+              <Text className="font-inter-bold text-label" style={{ color: ON_ACCENT }}>
                 {cartCount}
               </Text>
             </View>

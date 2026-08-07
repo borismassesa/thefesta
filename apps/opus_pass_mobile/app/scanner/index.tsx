@@ -52,7 +52,7 @@ const STEPS = [
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Text className="font-work-sans-bold text-[11px] uppercase tracking-[2px] text-ed-on-surface-variant">
+    <Text className="font-inter-bold text-label uppercase tracking-[2px] text-ed-on-surface-variant">
       {children}
     </Text>
   );
@@ -103,7 +103,7 @@ function Field({
         onSubmitEditing={onSubmitEditing}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        className="flex-1 py-3.5 font-work-sans text-base text-ed-on-surface"
+        className="flex-1 py-3.5 font-inter text-body text-ed-on-surface"
       />
     </View>
   );
@@ -235,7 +235,7 @@ export default function ScannerEntryScreen() {
                   >
                     <Ionicons name="qr-code" size={14} color="#1A1A1A" />
                     <Text
-                      className="font-work-sans-bold text-[13px]"
+                      className="font-inter-bold text-caption"
                       style={{ color: '#1A1A1A' }}
                     >
                       Your shift
@@ -250,11 +250,11 @@ export default function ScannerEntryScreen() {
                 </View>
                 {/* flex-1 so the title wraps inside the row on narrow screens
                     rather than pushing the icon off-screen. */}
-                <Text className="flex-1 font-playfair-bold text-[28px] leading-[34px] text-ed-on-surface">
+                <Text className="flex-1 font-inter-bold text-screen-title leading-[34px] text-ed-on-surface">
                   OpusPass Check In
                 </Text>
               </View>
-              <Text className="mt-3 font-work-sans text-sm leading-5 text-ed-on-surface-variant">
+              <Text className="mt-3 font-inter text-body-sm leading-5 text-ed-on-surface-variant">
                 Every guest who RSVP&apos;d receives an entrance ticket. Scan its
                 QR code as they arrive to check them in.
               </Text>
@@ -281,7 +281,7 @@ export default function ScannerEntryScreen() {
                           long event name wraps. */}
                       <View className="flex-row items-start justify-between gap-3">
                         <Text
-                          className="flex-1 font-playfair-bold text-2xl text-ed-on-surface"
+                          className="flex-1 font-inter-bold text-screen-title text-ed-on-surface"
                           numberOfLines={2}
                         >
                           {activeShift.eventName ?? 'Your shift'}
@@ -291,7 +291,7 @@ export default function ScannerEntryScreen() {
                           style={{ backgroundColor: LIVE_GREEN }}
                         >
                           <Text
-                            className="font-work-sans-bold text-[10px] uppercase tracking-wide"
+                            className="font-inter-bold text-label uppercase tracking-wide"
                             style={{ color: '#1A1A1A' }}
                           >
                             Shift in progress
@@ -310,7 +310,7 @@ export default function ScannerEntryScreen() {
                             color={editorial.onSurfaceVariant}
                           />
                           <Text
-                            className="font-work-sans text-sm text-ed-on-surface-variant"
+                            className="font-inter text-body-sm text-ed-on-surface-variant"
                             numberOfLines={1}
                           >
                             {activeShift.doorLabel}
@@ -324,7 +324,7 @@ export default function ScannerEntryScreen() {
                               color={editorial.onSurfaceVariant}
                             />
                             <Text
-                              className="font-work-sans text-sm text-ed-on-surface-variant"
+                              className="font-inter text-body-sm text-ed-on-surface-variant"
                               numberOfLines={1}
                             >
                               {activeShift.attendantName}
@@ -341,7 +341,7 @@ export default function ScannerEntryScreen() {
                       >
                         <Ionicons name="qr-code" size={17} color={ON_ACCENT} />
                         <Text
-                          className="font-work-sans-bold text-sm uppercase tracking-[1px]"
+                          className="font-inter-bold text-body-sm uppercase tracking-[1px]"
                           style={{ color: ON_ACCENT }}
                         >
                           Continue scanning
@@ -359,7 +359,7 @@ export default function ScannerEntryScreen() {
                             size={15}
                             color={editorial.onSurface}
                           />
-                          <Text className="font-work-sans-semibold text-[13px] text-ed-on-surface">
+                          <Text className="font-inter-semibold text-caption text-ed-on-surface">
                             Arrivals
                           </Text>
                         </Pressable>
@@ -373,7 +373,7 @@ export default function ScannerEntryScreen() {
                             size={15}
                             color={editorial.onSurface}
                           />
-                          <Text className="font-work-sans-semibold text-[13px] text-ed-on-surface">
+                          <Text className="font-inter-semibold text-caption text-ed-on-surface">
                             Guest list
                           </Text>
                         </Pressable>
@@ -393,7 +393,7 @@ export default function ScannerEntryScreen() {
                         style={{ borderColor: colors.green }}
                       >
                         <Ionicons name="add" size={17} color={colors.green} />
-                        <Text className="font-work-sans-bold text-[13px] text-of-green">
+                        <Text className="font-inter-bold text-caption text-of-green">
                           New shift
                         </Text>
                       </Pressable>
@@ -405,7 +405,7 @@ export default function ScannerEntryScreen() {
                         style={{ borderColor: editorial.error }}
                       >
                         <Ionicons name="log-out-outline" size={16} color={editorial.error} />
-                        <Text className="font-work-sans-bold text-[13px] text-ed-error">
+                        <Text className="font-inter-bold text-caption text-ed-error">
                           End shift
                         </Text>
                       </Pressable>
@@ -440,7 +440,7 @@ export default function ScannerEntryScreen() {
                         case resolves itself server-side, so spelling it out
                         only asked the attendant to hold a rule they can't
                         act on. */}
-                    <Text className="mt-1.5 font-work-sans text-xs leading-5 text-ed-on-surface-variant">
+                    <Text className="mt-1.5 font-inter text-caption leading-5 text-ed-on-surface-variant">
                       Recorded against every guest you check in.
                     </Text>
                     <Field
@@ -462,7 +462,7 @@ export default function ScannerEntryScreen() {
                       }}
                     >
                       <Ionicons name="alert-circle" size={16} color={editorial.error} />
-                      <Text className="flex-1 font-work-sans text-sm text-ed-error">
+                      <Text className="flex-1 font-inter text-body-sm text-ed-error">
                         {error}
                       </Text>
                     </View>
@@ -485,7 +485,7 @@ export default function ScannerEntryScreen() {
                     ) : (
                       <>
                         <Text
-                          className="font-work-sans-bold text-sm uppercase tracking-[1px]"
+                          className="font-inter-bold text-body-sm uppercase tracking-[1px]"
                           style={{
                             color: canStart ? ON_ACCENT : editorial.onSurfaceVariant,
                           }}
@@ -503,7 +503,7 @@ export default function ScannerEntryScreen() {
 
                   <View className="mt-4 flex-row items-center justify-center gap-1.5">
                     <Ionicons name="lock-closed" size={12} color="#059669" />
-                    <Text className="font-work-sans text-xs text-ed-on-surface-variant">
+                    <Text className="font-inter text-caption text-ed-on-surface-variant">
                       Access codes work for one event only.
                     </Text>
                   </View>
@@ -511,7 +511,7 @@ export default function ScannerEntryScreen() {
 
                 {/* How it works — gives the lower half of the screen a job
                     instead of leaving it empty under the form. */}
-                <Text className="mt-9 font-work-sans-bold text-[11px] uppercase tracking-[2px] text-ed-on-surface-variant">
+                <Text className="mt-9 font-inter-bold text-label uppercase tracking-[2px] text-ed-on-surface-variant">
                   How a shift runs
                 </Text>
                 <View className="mt-3.5">
@@ -542,10 +542,10 @@ export default function ScannerEntryScreen() {
                         ) : null}
                       </View>
                       <View className={index < STEPS.length - 1 ? 'flex-1 pb-5' : 'flex-1'}>
-                        <Text className="font-work-sans-bold text-[13px] text-ed-on-surface">
+                        <Text className="font-inter-bold text-caption text-ed-on-surface">
                           {step.title}
                         </Text>
-                        <Text className="mt-0.5 font-work-sans text-xs leading-5 text-ed-on-surface-variant">
+                        <Text className="mt-0.5 font-inter text-caption leading-5 text-ed-on-surface-variant">
                           {step.body}
                         </Text>
                       </View>
