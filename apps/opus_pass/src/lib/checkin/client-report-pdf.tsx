@@ -24,25 +24,28 @@ import { ticketLabelFor, type CheckinReportModel } from './report-model-core'
  *
  * Renders from a FINALIZED SNAPSHOT of the canonical model, never from live
  * tables, and is therefore only reachable once an event has been explicitly
- * finalized. That gate is what stops the failure this whole redesign began
- * with: the previous report could be downloaded the night before the wedding
- * and would cheerfully wrap a keepsake around a 3% turnout figure taken twelve
- * hours before anyone arrived.
+ * finalized. That gate is what stops the failure this redesign began with: the
+ * previous report could be downloaded the night before the wedding and would
+ * wrap a keepsake around a 3% turnout figure taken twelve hours before anyone
+ * arrived.
  *
- * Six designed pages plus a suppressible appendix. The appendix carries the
- * length so the designed part stays intentional.
+ * FORMAT: the invoice's. A cover, then ONE continuous document — a single head,
+ * sections separated by the invoice's own rule-under-uppercase-label, and the
+ * letterhead fixed to the foot of every page. Content flows and paginates
+ * itself rather than being forced one-section-per-page, which left half-empty
+ * sheets and made a short report feel padded.
  *
  * No emoji anywhere: react-pdf's Helvetica drops them silently. Every mark is
  * drawn geometry from report-visuals.tsx.
  */
 
-const { BRAND, NEUTRAL, SAGE } = REPORT_COLORS
+const { BRAND, NEUTRAL } = REPORT_COLORS
 
 const s = StyleSheet.create({
   page: { fontFamily: 'Helvetica', fontSize: 10, color: '#1a1a1a', ...PDF_PAGE_PADDING },
 
-  // Cover. The one page with no document head: it identifies the event, it
-  // does not grade it, so no statistic appears here at all.
+  // Cover. The one page with no head: it identifies the event, it does not
+  // grade it, so no statistic appears on it at all.
   cover: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60 },
   coverKicker: { fontSize: 9, letterSpacing: 2.6, color: NEUTRAL, textTransform: 'uppercase' },
   coverRule: { width: 46, height: 2, backgroundColor: BRAND, marginVertical: 22 },
@@ -51,75 +54,74 @@ const s = StyleSheet.create({
   coverMeta: { marginTop: 26, fontSize: 11, color: '#4b5563', textAlign: 'center' },
   coverVenue: { marginTop: 4, fontSize: 10, color: NEUTRAL, textAlign: 'center' },
 
-  h2: { fontSize: 13, fontFamily: 'Helvetica-Bold', marginBottom: 3 },
-  sub: { fontSize: 9, color: '#6b7280', marginBottom: 12 },
-  block: { marginTop: 22 },
-  label: { fontSize: 7.5, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.3 },
-  value: { fontSize: 12, fontFamily: 'Helvetica-Bold', marginTop: 2 },
-  explainer: { marginTop: 14, fontSize: 9, color: '#4b5563', lineHeight: 1.5 },
+  // The invoice's section rhythm, verbatim: 8pt uppercase label at 0.7
+  // letter-spacing over a hairline rule.
+  sectionLabel: {
+    fontSize: 8,
+    letterSpacing: 0.7,
+    color: '#9ca3af',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    textTransform: 'uppercase',
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  intro: { fontSize: 9, color: '#6b7280', marginBottom: 10 },
+  explainer: { marginTop: 10, fontSize: 9, color: '#4b5563', lineHeight: 1.5 },
 
   highlight: {
-    marginTop: 12,
+    marginTop: 10,
     borderWidth: 1,
     borderColor: '#e6e6ea',
     borderRadius: 8,
     backgroundColor: '#faf7fc',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  highlightValue: { fontSize: 22, fontFamily: 'Helvetica-Bold', color: BRAND },
+  highlightValue: { fontSize: 20, fontFamily: 'Helvetica-Bold', color: BRAND },
   highlightLabel: { fontSize: 10, color: '#4b5563', flex: 1 },
 
   pairRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
   pair: { flex: 1, borderWidth: 1, borderColor: '#e6e6ea', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 11 },
+  label: { fontSize: 7.5, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.3 },
+  value: { fontSize: 12, fontFamily: 'Helvetica-Bold', marginTop: 2 },
 
-  // Appendix table
+  // Appendix table, on the invoice's item-row rhythm.
   tableHead: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#d8d8dc',
+    borderBottomColor: '#e5e7eb',
     paddingBottom: 5,
     marginBottom: 2,
   },
-  th: { fontSize: 7.5, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.3, fontFamily: 'Helvetica-Bold' },
+  th: { fontSize: 7, fontFamily: 'Helvetica-Bold', letterSpacing: 0.5, color: '#9ca3af', textTransform: 'uppercase' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f1f4',
+    borderBottomColor: '#f3f4f6',
   },
   cell: { fontSize: 9 },
   passCell: { fontSize: 8.5, fontFamily: 'Courier', color: '#4b5563' },
   muted: { fontSize: 9, color: NEUTRAL },
 
-  runningHead: { position: 'absolute', top: 22, left: 44, right: 44, flexDirection: 'row', justifyContent: 'space-between' },
-  runningText: { fontSize: 7.5, color: NEUTRAL },
+  // Closing prose, matching the invoice's footer paragraph treatment.
+  closing: { marginTop: 26, fontSize: 9.5, color: '#4b5563', lineHeight: 1.6 },
+  closingLead: { fontFamily: 'Helvetica-Bold', color: BRAND },
+  provenance: { marginTop: 14, fontSize: 7.5, color: NEUTRAL, lineHeight: 1.6 },
 
-  closing: { marginTop: 40, alignItems: 'center' },
-  closingH: { fontSize: 15, fontFamily: 'Helvetica-Bold', textAlign: 'center' },
-  closingBody: { marginTop: 12, fontSize: 10, color: '#4b5563', lineHeight: 1.6, textAlign: 'center', maxWidth: 380 },
-  provenance: { marginTop: 34, fontSize: 8, color: NEUTRAL, textAlign: 'center', lineHeight: 1.6 },
+  pageNumber: { position: 'absolute', top: 22, right: 44, fontSize: 7.5, color: NEUTRAL },
 })
 
 function coupleName(model: CheckinReportModel): string {
   const { partner1Name, partner2Name } = model.event
   if (partner1Name && partner2Name) return `${partner1Name}|${partner2Name}`
   return partner1Name || partner2Name || model.event.name
-}
-
-/** Continuation pages get a slim rule, not the full head: repeating the whole
- *  title block cost 150pt of every page in the old report. */
-function RunningHead({ text }: { text: string }) {
-  return (
-    <View style={s.runningHead} fixed>
-      <Text style={s.runningText}>{text}</Text>
-      <Text style={s.runningText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
-    </View>
-  )
 }
 
 export interface ClientReportOptions {
@@ -146,6 +148,7 @@ export function ClientEventReportPdf({
   const names = coupleName(model).split('|')
 
   const seatPct = formatRatePercent(rates.seatAttendance)
+
   // A door that ran past midnight, or a test scan the day before, makes the
   // first and last bucket fall on different days. Time-only axis labels would
   // then read as a short evening window instead of the span it really is.
@@ -163,28 +166,14 @@ export function ClientEventReportPdf({
     : -1
 
   // Conditional columns. The old report spent three of seven columns printing
-  // an em dash: a table where every cell is the same value is noise, not data.
-  const distinctTables = new Set(guests.map((g) => g.tableName).filter(Boolean))
-  const distinctDoors = new Set(guests.map((g) => g.door).filter(Boolean))
-  const showTable = distinctTables.size > 0
-  const showDoor = distinctDoors.size > 1
+  // an em dash: a table where every cell holds the same value is noise.
+  const showTable = new Set(guests.map((g) => g.tableName).filter(Boolean)).size > 0
+  const showDoor = new Set(guests.map((g) => g.door).filter(Boolean)).size > 1
   const soleOfficer = staff.length === 1 ? staff[0].name : null
-
-  const runningTitle = [model.event.name, eventDate].filter(Boolean).join(' · ')
-
-  const headMeta = [
-    { label: t.metaEvent, value: model.event.name },
-    { label: t.metaDate, value: eventDate },
-    { label: t.metaVenue, value: venue, wide: true },
-    {
-      label: t.metaFinalized,
-      value: formatReportDateTime(model.finalization.finalizedAt, locale),
-    },
-  ]
 
   return (
     <Document title={`${model.event.name}: ${t.coverTitle}`}>
-      {/* ── Page 1: Cover ─────────────────────────────────────────────────── */}
+      {/* ── Cover ─────────────────────────────────────────────────────────── */}
       <Page size="A4" style={s.page}>
         <View style={s.cover}>
           <PdfLogo />
@@ -205,21 +194,33 @@ export function ClientEventReportPdf({
         <PdfLetterhead />
       </Page>
 
-      {/* ── Page 2: Event Summary ─────────────────────────────────────────── */}
+      {/* ── The report itself: ONE continuous document, like the invoice ──── */}
       <Page size="A4" style={s.page}>
+        <Text
+          style={s.pageNumber}
+          fixed
+          render={({ pageNumber, totalPages }) => (pageNumber > 2 ? `${pageNumber} / ${totalPages}` : '')}
+        />
+
         <PdfDocumentHead
           title={t.eventReport}
           status="final"
           statusLabel={t.statusFinal}
-          meta={headMeta}
+          meta={[
+            { label: t.metaEvent, value: model.event.name },
+            { label: t.metaDate, value: eventDate },
+            { label: t.metaVenue, value: venue, wide: true },
+            { label: t.metaFinalized, value: formatReportDateTime(model.finalization.finalizedAt, locale) },
+          ]}
           aside={{ label: t.asideHosts, value: names.join(` ${t.coverAnd} `) }}
         />
 
-        <Text style={s.h2}>{t.summaryHeading}</Text>
-        <Text style={s.sub}>{t.summarySubtitle}</Text>
+        {/* Event summary */}
+        <Text style={[s.sectionLabel, { marginTop: 0 }]}>{t.summaryHeading}</Text>
+        <Text style={s.intro}>{t.summarySubtitle}</Text>
 
-        {/* Invitations and seats are separate tiles on purpose. 93 cards is 163
-            people here; a single "guests" number would understate the room. */}
+        {/* Invitations and seats are separate tiles on purpose: 93 cards is 163
+            people here, and one "guests" number would understate the room. */}
         <StatRow
           tiles={[
             {
@@ -240,13 +241,10 @@ export function ClientEventReportPdf({
             {
               value: seatPct ?? '—',
               label: t.tileAttendance,
-              hint: seatPct
-                ? `${counts.admittedSeats} / ${counts.confirmedSeats}`
-                : t.notYetMeasured,
+              hint: seatPct ? `${counts.admittedSeats} / ${counts.confirmedSeats}` : t.notYetMeasured,
             },
           ]}
         />
-
         {rates.seatAttendance ? (
           <RatioMeter
             numerator={rates.seatAttendance.numerator}
@@ -254,69 +252,44 @@ export function ClientEventReportPdf({
           />
         ) : null}
 
-        <View style={s.block}>
-          <Text style={s.h2}>{t.invitationBreakdown}</Text>
-          <CategoryBars
-            rows={[
-              { label: t.singleEntry, value: counts.singleInvitations },
-              { label: t.doubleEntry, value: counts.doubleInvitations },
-            ]}
-          />
-        </View>
-
-        <PdfLetterhead />
-      </Page>
-
-      {/* ── Page 3: Arrival Story ─────────────────────────────────────────── */}
-      <Page size="A4" style={s.page}>
-        <RunningHead text={runningTitle} />
-        <View style={{ marginTop: 22 }}>
-          <Text style={s.h2}>{t.arrivalHeading}</Text>
-          <Text style={s.sub}>
-            {arrivals.bucketMinutes > 0 ? t.arrivalSubtitle(arrivals.bucketMinutes) : ''}
-          </Text>
-
-          {arrivals.buckets.length > 0 ? (
-            <>
-              <ArrivalTimeline
-                bars={arrivals.buckets}
-                peakIndex={peakIndex}
-                startLabel={axisLabel(arrivals.buckets[0].startsAt)}
-                endLabel={axisLabel(arrivals.buckets[arrivals.buckets.length - 1].startsAt)}
-              />
-              <View style={s.pairRow}>
-                <View style={s.pair}>
-                  <Text style={s.label}>{t.firstGuestArrived}</Text>
-                  <Text style={s.value}>{formatReportTime(arrivals.firstAdmittedAt, locale)}</Text>
-                </View>
-                <View style={s.pair}>
-                  <Text style={s.label}>{t.peakArrivalPeriod}</Text>
-                  <Text style={s.value}>
-                    {arrivals.peak
-                      ? formatReportWindow(arrivals.peak.startsAt, arrivals.peak.endsAt, locale)
-                      : t.notRecorded}
-                  </Text>
-                </View>
-                <View style={s.pair}>
-                  <Text style={s.label}>{t.lastGuestArrived}</Text>
-                  <Text style={s.value}>{formatReportTime(arrivals.lastAdmittedAt, locale)}</Text>
-                </View>
+        {/* Arrival story */}
+        <Text style={s.sectionLabel} minPresenceAhead={200}>{t.arrivalHeading}</Text>
+        {arrivals.buckets.length > 0 ? (
+          <View wrap={false}>
+            <Text style={s.intro}>{t.arrivalSubtitle(arrivals.bucketMinutes)}</Text>
+            <ArrivalTimeline
+              bars={arrivals.buckets}
+              peakIndex={peakIndex}
+              height={104}
+              startLabel={axisLabel(arrivals.buckets[0].startsAt)}
+              endLabel={axisLabel(arrivals.buckets[arrivals.buckets.length - 1].startsAt)}
+            />
+            <View style={s.pairRow}>
+              <View style={s.pair}>
+                <Text style={s.label}>{t.firstGuestArrived}</Text>
+                <Text style={s.value}>{formatReportTime(arrivals.firstAdmittedAt, locale)}</Text>
               </View>
-            </>
-          ) : (
-            <EmptyState>{t.arrivalEmpty}</EmptyState>
-          )}
-        </View>
-        <PdfLetterhead />
-      </Page>
+              <View style={s.pair}>
+                <Text style={s.label}>{t.peakArrivalPeriod}</Text>
+                <Text style={s.value}>
+                  {arrivals.peak
+                    ? formatReportWindow(arrivals.peak.startsAt, arrivals.peak.endsAt, locale)
+                    : t.notRecorded}
+                </Text>
+              </View>
+              <View style={s.pair}>
+                <Text style={s.label}>{t.lastGuestArrived}</Text>
+                <Text style={s.value}>{formatReportTime(arrivals.lastAdmittedAt, locale)}</Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <EmptyState>{t.arrivalEmpty}</EmptyState>
+        )}
 
-      {/* ── Page 4: Check-in Performance ──────────────────────────────────── */}
-      <Page size="A4" style={s.page}>
-        <RunningHead text={runningTitle} />
-        <View style={{ marginTop: 22 }}>
-          <Text style={s.h2}>{t.performanceHeading}</Text>
-          <Text style={s.sub}>{t.performanceExplainer}</Text>
-
+        {/* Check-in performance */}
+        <Text style={s.sectionLabel} minPresenceAhead={220}>{t.performanceHeading}</Text>
+        <View wrap={false}>
           <StatRow
             tiles={[
               { value: String(doors.length), label: t.tileEntryPoints },
@@ -328,100 +301,87 @@ export function ClientEventReportPdf({
               },
             ]}
           />
-
-          {/* Framed as the system working, not as incidents survived. A bare
-              "37" beside a short label reads as a chaotic wedding when it means
-              the opposite, so this figure keeps its whole sentence. */}
+          {/* Framed as the system working, not incidents survived. A bare "5"
+              beside a short label reads as a chaotic wedding when it means the
+              opposite, so this figure keeps its whole sentence. */}
           <View style={s.highlight}>
             <Text style={s.highlightValue}>{integrity.exhaustedAttempts}</Text>
             <Text style={s.highlightLabel}>{t.blockedHeadline}</Text>
           </View>
-
+          <Text style={s.explainer}>{t.performanceExplainer}</Text>
           {doors.length > 0 ? (
-            <View style={s.block}>
-              <Text style={s.h2}>{t.doorsHeading}</Text>
-              <CategoryBars rows={doors.map((d) => ({ label: d.label, value: d.admittedSeats }))} />
-            </View>
+            <CategoryBars rows={doors.map((d) => ({ label: d.label, value: d.admittedSeats }))} />
           ) : null}
-
           {soleOfficer ? (
-            <View style={s.block}>
+            <View style={{ marginTop: 12 }}>
               <Text style={s.label}>{t.primaryOfficer}</Text>
               <Text style={s.value}>{soleOfficer}</Text>
             </View>
           ) : null}
         </View>
-        <PdfLetterhead />
-      </Page>
 
-      {/* ── Page 5: Invitation Health ─────────────────────────────────────── */}
-      <Page size="A4" style={s.page}>
-        <RunningHead text={runningTitle} />
-        <View style={{ marginTop: 22 }}>
-          <Text style={s.h2}>{t.deliveryHeading}</Text>
-
-          {delivery.attempted > 0 ? (
-            <>
-              {/* Unknowns are named, never folded into success or failure:
-                  "84 of 93 delivered" alone reads as though nine failed. */}
-              <Text style={s.sub}>{t.deliverySubtitle(delivery.attempted, delivery.noReceipt)}</Text>
-              <StatRow
-                tiles={[
-                  {
-                    value: String(delivery.confirmed),
-                    label: t.confirmedDelivered,
-                    hint: formatRatePercent(rates.confirmedDelivery) ?? t.notYetMeasured,
-                  },
-                  { value: String(delivery.read), label: t.deliveryRead },
-                  { value: String(delivery.failed), label: t.deliveryFailed },
-                ]}
+        {/* Invitation health */}
+        <Text style={s.sectionLabel} minPresenceAhead={200}>{t.deliveryHeading}</Text>
+        {delivery.attempted > 0 ? (
+          <View wrap={false}>
+            {/* Unknowns are named, never folded into success or failure:
+                "84 of 93 delivered" alone reads as though nine failed. */}
+            <Text style={s.intro}>{t.deliverySubtitle(delivery.attempted, delivery.noReceipt)}</Text>
+            <StatRow
+              tiles={[
+                {
+                  value: String(delivery.confirmed),
+                  label: t.confirmedDelivered,
+                  hint: formatRatePercent(rates.confirmedDelivery) ?? t.notYetMeasured,
+                },
+                { value: String(delivery.read), label: t.deliveryRead },
+                { value: String(delivery.failed), label: t.deliveryFailed },
+              ]}
+            />
+            {delivery.failureReasons.length > 0 ? (
+              <CategoryBars
+                rows={delivery.failureReasons.map((f) => ({ label: f.reason, value: f.count }))}
+                labelWidth={330}
               />
-              {delivery.failureReasons.length > 0 ? (
-                <View style={s.block}>
-                  <CategoryBars
-                    rows={delivery.failureReasons.map((f) => ({ label: f.reason, value: f.count }))}
-                    labelWidth={330}
-                  />
-                </View>
-              ) : null}
-            </>
-          ) : (
-            <EmptyState>{t.deliveryEmpty}</EmptyState>
-          )}
-        </View>
-        <PdfLetterhead />
-      </Page>
+            ) : null}
+          </View>
+        ) : (
+          <EmptyState>{t.deliveryEmpty}</EmptyState>
+        )}
 
-      {/* ── Page 6: Closing ───────────────────────────────────────────────── */}
-      <Page size="A4" style={s.page}>
-        <RunningHead text={runningTitle} />
-        <View style={s.closing}>
-          <PdfLogo />
-          <Text style={[s.closingH, { marginTop: 26 }]}>{t.closingHeading}</Text>
-          <Text style={s.closingBody}>{t.closingBody}</Text>
-          <Text style={s.provenance}>
-            {`${t.metaGenerated}: ${formatReportDateTime(model.generatedAt, locale)}`}
-            {'\n'}
-            {model.finalization.finalizedAt
+        {/* Closing prose, in the invoice's own footer-paragraph voice. */}
+        <Text style={s.closing} wrap={false}>
+          <Text style={s.closingLead}>{t.closingHeading}. </Text>
+          {t.closingBody}
+        </Text>
+        <Text style={s.provenance} wrap={false}>
+          {[
+            `${t.metaGenerated}: ${formatReportDateTime(model.generatedAt, locale)}`,
+            model.finalization.finalizedAt
               ? `${t.metaFinalized}: ${formatReportDateTime(model.finalization.finalizedAt, locale)}`
-              : ''}
-            {'\n'}
-            {model.finalization.version ? `${t.metaVersion}: ${model.finalization.version}` : ''}
-          </Text>
-        </View>
+              : null,
+            model.finalization.version ? `${t.metaVersion}: ${model.finalization.version}` : null,
+          ]
+            .filter(Boolean)
+            .join('   ·   ')}
+        </Text>
+
         <PdfLetterhead />
       </Page>
 
-      {/* ── Appendix ──────────────────────────────────────────────────────── */}
+      {/* The appendix takes its own page so its column header can be `fixed`.
+          A fixed element repeats across every page of the Page it belongs to,
+          so leaving it in the narrative flow stranded the table header at the
+          foot of the summary. Back matter is a separate sheet anyway. */}
       {includeAppendix ? (
         <Page size="A4" style={s.page}>
-          <RunningHead text={runningTitle} />
-          <View style={{ marginTop: 22 }}>
-            <Text style={s.h2}>{t.appendixHeading}</Text>
-            <Text style={s.sub}>
-              {`${counts.confirmedInvitations} ${t.confirmedInvitations.toLowerCase()} · ${counts.confirmedSeats} ${t.confirmedSeats.toLowerCase()}`}
-            </Text>
-
+          <Text
+            style={s.pageNumber}
+            fixed
+            render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+          />
+          <>
+            <Text style={[s.sectionLabel, { marginTop: 0 }]}>{t.appendixHeading}</Text>
             {guests.length === 0 ? (
               <EmptyState>{t.appendixEmpty}</EmptyState>
             ) : (
@@ -435,7 +395,6 @@ export function ClientEventReportPdf({
                   {showTable ? <Text style={[s.th, { width: '16%' }]}>{t.colTable}</Text> : null}
                   {showDoor ? <Text style={[s.th, { width: '16%' }]}>{t.colDoor}</Text> : null}
                 </View>
-
                 {guests.map((g) => (
                   <View key={g.invitationId} style={s.row} wrap={false}>
                     <Text style={[s.cell, { width: '26%' }]}>{g.name}</Text>
@@ -480,16 +439,13 @@ export function ClientEventReportPdf({
                 ))}
               </>
             )}
-          </View>
+          </>
           <PdfLetterhead />
         </Page>
       ) : null}
     </Document>
   )
 }
-
-/** Exported for the renderer's version dispatch. */
-export const CLIENT_REPORT_SUPPORTED_MODEL_VERSIONS = [1] as const
 
 export class UnsupportedReportModelVersionError extends Error {
   constructor(readonly modelVersion: number) {
@@ -505,10 +461,7 @@ export class UnsupportedReportModelVersionError extends Error {
  * not know. Old snapshots may be migrated forward deliberately later; they are
  * never silently treated as today's interface.
  */
-export function renderClientReport(
-  model: CheckinReportModel,
-  options?: ClientReportOptions,
-) {
+export function renderClientReport(model: CheckinReportModel, options?: ClientReportOptions) {
   switch (model.modelVersion) {
     case 1:
       return <ClientEventReportPdf model={model} options={options} />
@@ -516,6 +469,3 @@ export function renderClientReport(
       throw new UnsupportedReportModelVersionError(model.modelVersion)
   }
 }
-
-/** Kept beside the renderer so the unused-colour lint cannot drift. */
-export const CLIENT_REPORT_ACCENTS = { BRAND, SAGE } as const
