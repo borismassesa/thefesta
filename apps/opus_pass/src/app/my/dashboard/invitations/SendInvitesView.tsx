@@ -3800,11 +3800,12 @@ export default function SendInvitesView({
           the user activation Safari needs, so the popup is blocked. */}
       {recover ? (
         <div className="ovl" onClick={() => setRecover(null)}>
-          <div className="modal" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
+          <div className="modal manual" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
             <div className="mhead">
               <h3>{strings.manual_title}</h3>
               <button className="xbtn" onClick={() => setRecover(null)} aria-label={strings.preview_close}><X size={16} /></button>
             </div>
+            <div className="manbody">
             <p className="mutedp">{fmt(strings.manual_intro, { name: recover.guest.name })}</p>
 
             <div className="mancard">
@@ -3846,8 +3847,9 @@ export default function SendInvitesView({
             </ol>
 
             <p className="manwarn">{strings.manual_attach_reminder}</p>
+            </div>
 
-            <div className="mrow">
+            <div className="mrow manacts">
               {recover.cardUrl ? (
                 <button
                   className="btn ghost"
@@ -4380,8 +4382,29 @@ const css = `
 .si .rsmenupop button{ display:flex; align-items:center; gap:9px; width:100%; border:none; background:none;
   padding:9px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--ink);
   cursor:pointer; text-align:left; }
+/* Taller, and split: the body scrolls while the actions stay put. The base
+   .modal has no height cap at all, so this one used to grow until the viewport
+   simply clipped it and the buttons went off-screen. */
+.si .modal.manual{ width:min(540px,96vw); max-height:92vh; display:flex; flex-direction:column;
+  overflow:hidden; padding:22px 22px 18px; }
+.si .modal.manual .mhead{ flex:none; }
+.si .manbody{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+  margin:0 -4px; padding:0 4px; }
+/* Buttons that share the row evenly and keep their labels on one line. They
+   were wrapping to two lines each and leaving Done as an odd little pill. */
+.si .mrow.manacts{ flex:none; flex-wrap:wrap; gap:8px; margin-top:16px; padding-top:14px;
+  border-top:1px solid var(--line); }
+.si .mrow.manacts .btn{ flex:1 1 0; min-width:0; justify-content:center; white-space:nowrap;
+  padding:10px 12px; }
+.si .mrow.manacts .btn.pri{ flex:0 0 auto; padding:10px 22px; }
+@media (max-width:520px){
+  /* Stacked rather than three squeezed columns — the labels are what make
+     these usable, so they win over fitting on one line. */
+  .si .mrow.manacts .btn{ flex:1 1 100%; }
+  .si .mrow.manacts .btn.pri{ flex:1 1 100%; }
+}
 .si .mancard{ display:flex; justify-content:center; margin:14px 0; }
-.si .manimg{ width:auto; max-height:260px; border-radius:10px; box-shadow:var(--soft); }
+.si .manimg{ width:auto; max-height:300px; border-radius:10px; box-shadow:var(--soft); }
 .si .manph{ display:flex; align-items:center; gap:8px; padding:36px 18px; font-size:13px; color:var(--muted); }
 .si .manph.bad{ color:var(--bad-tx); }
 .si .mansteps{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
