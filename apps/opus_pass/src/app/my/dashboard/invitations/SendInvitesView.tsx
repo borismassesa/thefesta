@@ -92,7 +92,6 @@ import RsvpSetupPanel from '../rsvps/RsvpSetupPanel'
 import RsvpTracker from '../rsvps/RsvpTracker'
 import { createCheckinRealtimeClient } from '@/lib/checkin/realtimeClient'
 import { checkinChannelName, type CheckinBroadcastPayload } from '@/lib/checkin/shared'
-import type { CheckinReportData } from '@/lib/checkin-report-pdf'
 
 /** Short stable digest of the ticket's visible fields — appended to the
  *  preview image URL so a save produces a new URL, and the browser can
@@ -961,40 +960,6 @@ export default function SendInvitesView({
   }
 
   // ── Downloadable / shareable check-in report ───────────────────────────────
-  /** Ticket label a guest is admitted on (Single/Double), from the headcount
-   *  actually let in when known, else what they RSVP'd for. */
-  const ticketLabelOf = (g: SendGuestRow) =>
-    (g.checkedInPartySize ?? g.rsvpPartySize ?? g.assignedPartySize) >= 2
-      ? strings.party_double
-      : strings.party_single
-
-  function buildReportData(): CheckinReportData {
-    const rows = attendingGuests.map((g) => ({
-      name: g.name,
-      passId: g.passId,
-      ticket: ticketLabelOf(g),
-      table: g.tableName,
-      door: g.checkedInAt ? g.checkedInDoor : null,
-      attendant: g.checkedInAt ? g.checkedInBy : null,
-      arrivedAt: g.checkedInAt ? formatClock(g.checkedInAt) : null,
-    }))
-    return {
-      eventName: headingName,
-      eventDate: event.dateLabel ?? null,
-      venue: event.venue ?? null,
-      generatedAt: new Date().toLocaleString(undefined, {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      totalAttending: attendingCount,
-      totalArrived: arrivedCount,
-      rows,
-    }
-  }
-
   /** Plain-text fallback for share targets that can't take a file attachment
    *  (older browsers) — pasteable straight into WhatsApp. */
   function buildReportText(): string {
@@ -1013,11 +978,16 @@ export default function SendInvitesView({
     return lines.join('\n')
   }
 
+  /** The report is assembled and rendered entirely on the server from this
+   *  event id — the browser no longer supplies any of its figures, so what the
+   *  couple downloads is the database's account of the door rather than the
+   *  page's. */
   async function fetchReportBlob(): Promise<Blob> {
+    if (!selectedEventId) throw new Error('No event selected')
     const res = await fetch('/api/checkin-report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildReportData()),
+      body: JSON.stringify({ eventId: selectedEventId }),
     })
     if (!res.ok) throw new Error('Report request failed')
     return res.blob()

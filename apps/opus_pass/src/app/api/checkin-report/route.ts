@@ -1,42 +1,36 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
 import { createElement, type ReactElement } from 'react'
-import { CheckinReportPdf, type CheckinReportData } from '@/lib/checkin-report-pdf'
+import { CheckinReportPdf } from '@/lib/checkin-report-pdf'
+import { buildCheckinReportData } from '@/lib/checkin/report-data'
+import { getDashboardUser } from '@/lib/dashboard/auth'
+import { resolveOwnedEventId } from '@/lib/dashboard/queries'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { clientIp, withinRateLimit, RATE_LIMITED_RESPONSE } from '@/lib/checkin/rate-limit'
 
 export const runtime = 'nodejs'
 
-// Generous but bounded — a full guest list for a very large wedding still fits
-// well under this; guards against an abusive/malformed body.
-const MAX_BODY_BYTES = 500 * 1024
-// A wedding guest list never approaches this; the cap stops a body that is
-// small in bytes but pathological in row count from driving a long,
-// event-loop-blocking render on this unauthenticated route.
-const MAX_ROWS = 5000
-
-function isValidPayload(body: unknown): body is CheckinReportData {
-  if (!body || typeof body !== 'object') return false
-  const b = body as Record<string, unknown>
-  return (
-    typeof b.eventName === 'string' &&
-    typeof b.generatedAt === 'string' &&
-    typeof b.totalAttending === 'number' &&
-    typeof b.totalArrived === 'number' &&
-    Array.isArray(b.rows) &&
-    b.rows.length <= MAX_ROWS
-  )
-}
+// The report names real guests, so the request carries an event id and nothing
+// else. This route used to accept the entire report as a JSON body and render
+// it verbatim, with no auth: any caller could produce an OpusPass-branded PDF
+// listing names of their choosing, and a couple's own figures were whatever
+// their browser happened to send. Every number now comes from the database,
+// for an event the signed-in couple is verified to own.
+const MAX_BODY_BYTES = 4 * 1024
 
 export async function POST(req: NextRequest) {
-  // The route reads no DB, but it is unauthenticated and renders a PDF (CPU),
-  // so cap how often one caller can trigger a render.
+  const user = await getDashboardUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Rendering a PDF is CPU-bound, so it stays rate limited even now that the
+  // caller must be signed in. Keyed by user as well as IP: one couple behind a
+  // shared NAT should not be able to throttle another's downloads.
   const supabase = createSupabaseServerClient()
-  if (!(await withinRateLimit(supabase, `checkin-report:${clientIp(req)}`, 20, 60))) {
+  if (!(await withinRateLimit(supabase, `checkin-report:${user.id}:${clientIp(req)}`, 20, 60))) {
     return NextResponse.json(RATE_LIMITED_RESPONSE, { status: 429 })
   }
 
-  // Enforce the size cap on the bytes actually received, not the client-supplied
+  // Enforce the cap on bytes actually received, not the client-supplied
   // Content-Length header, which a non-browser caller can understate.
   let raw: string
   try {
@@ -54,19 +48,29 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
-  if (!isValidPayload(body)) {
-    return NextResponse.json({ error: 'Invalid check-in report payload' }, { status: 400 })
+  const eventId = (body as { eventId?: unknown } | null)?.eventId
+  if (typeof eventId !== 'string' || !eventId) {
+    return NextResponse.json({ error: 'Missing eventId' }, { status: 400 })
   }
 
+  // Ownership, not merely authentication: a signed-in couple must not be able
+  // to render another couple's guest list by swapping the id.
+  const ownedEventId = await resolveOwnedEventId(user.id, eventId)
+  if (!ownedEventId) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+
   try {
+    const data = await buildCheckinReportData(user.id, ownedEventId)
+    if (!data) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+
     const pdf = await renderToBuffer(
-      createElement(CheckinReportPdf, { data: body }) as ReactElement<DocumentProps>,
+      createElement(CheckinReportPdf, { data }) as ReactElement<DocumentProps>,
     )
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'attachment; filename="OpusPass-Checkin-Report.pdf"',
-        'Cache-Control': 'no-store',
+        // Names a real guest list; must never sit in a shared cache.
+        'Cache-Control': 'no-store, private',
       },
     })
   } catch (err) {
