@@ -19,6 +19,7 @@ import { useLikedArticle } from '@/hooks/useLikedArticle';
 import { useArticleComments } from '@/hooks/useArticleComments';
 import { formatShortDate } from '@/lib/format-date';
 import { useTheme } from '@/theme/useTheme';
+import { FontFamily } from '@/theme/tokens';
 import type {
   AdviceIdeaBlock,
   AdviceIdeaParagraphBlock,
@@ -56,7 +57,7 @@ function RichParagraph({ block }: { block: AdviceIdeaParagraphBlock }) {
           <Text
             key={index}
             style={{
-              fontFamily: bold ? 'WorkSans-Bold' : undefined,
+              fontFamily: bold ? FontFamily.bold : undefined,
               fontStyle: italic ? 'italic' : undefined,
             }}
           >

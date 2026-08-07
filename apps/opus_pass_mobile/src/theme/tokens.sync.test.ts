@@ -133,3 +133,43 @@ test('the Tailwind config really does generate these utilities', async () => {
     );
   }
 });
+
+test('no source file references a font that is no longer loaded', async () => {
+  // The token tests above only prove the SCALE is clean. This proves the app
+  // is. The typography migration rewrote Tailwind classNames and missed four
+  // inline `fontFamily:` styles — including the bottom tab bar, on nearly
+  // every screen — which kept naming Work Sans after the file was deleted.
+  // Nothing crashed; the text just quietly rendered in the system font. Only
+  // a scan of the real sources catches that.
+  const { readdir, readFile } = await import('node:fs/promises');
+  const { dirname, join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+
+  // import.meta.dirname is undefined under the tsx loader, so derive it.
+  const here = dirname(fileURLToPath(import.meta.url));
+
+  const retired = ['WorkSans', 'SpaceGrotesk', 'DancingScript', 'PlayfairDisplay-SemiBold'];
+  const roots = [join(here, '../../app'), join(here, '../../src')];
+
+  async function* sources(dir: string): AsyncGenerator<string> {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) yield* sources(full);
+      else if (/\.tsx?$/.test(entry.name)) yield full;
+    }
+  }
+
+  const offenders: string[] = [];
+  for (const root of roots) {
+    for await (const file of sources(root)) {
+      // This test names the retired fonts itself, so skip it.
+      if (file.endsWith('tokens.sync.test.ts')) continue;
+      const text = await readFile(file, 'utf8');
+      for (const font of retired) {
+        if (text.includes(font)) offenders.push(`${file.split('/opus_pass_mobile/')[1]} -> ${font}`);
+      }
+    }
+  }
+
+  assert.deepEqual(offenders, [], 'these render in the system font, silently');
+});
