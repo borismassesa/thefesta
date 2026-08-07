@@ -52,6 +52,8 @@ test('initials skip titles and joining words, not the name itself', () => {
   assert.equal(initialsOf('Bwana na Bibi Juma Kileo'), 'JK');
   assert.equal(initialsOf('Dr. Asha Mwakalinga'), 'AM');
   assert.equal(initialsOf('The Massesa Family'), 'M');
+  // A nickname in brackets initials on its letter, not its punctuation.
+  assert.equal(initialsOf('Mary Mary (Mhasibu)'), 'MM');
   // Nothing but titles still beats showing "?" next to a visible name.
   assert.equal(initialsOf('Mr & Mrs'), 'MM');
 });

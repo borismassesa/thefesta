@@ -44,9 +44,16 @@ const NAME_NOISE = new Set([
 
 /** Is this word a real name part, rather than a title or a joining word? */
 function isNamePart(word: string): boolean {
-  const bare = word.replace(/[.,]/g, '').toLowerCase();
+  const bare = initialCharOf(word) ? word.replace(/[^\p{L}\p{N}]/gu, '').toLowerCase() : '';
   // Requires a letter, so "&", "+" and stray punctuation drop out too.
   return /\p{L}/u.test(bare) && !NAME_NOISE.has(bare);
+}
+
+/** First LETTER of a word, skipping punctuation a couple types around a
+ *  nickname — "(Mhasibu)" initials as M, not "(". */
+function initialCharOf(word: string): string {
+  const letter = /\p{L}/u.exec(word);
+  return letter ? letter[0] : '';
 }
 
 /**
@@ -61,8 +68,11 @@ export function initialsOf(fullName: string): string {
   const parts = words.filter(isNamePart);
   const usable = parts.length > 0 ? parts : words;
   if (usable.length === 0) return '?';
-  const first = usable[0][0] ?? '';
-  const last = usable.length > 1 ? (usable[usable.length - 1][0] ?? '') : '';
+  const first = initialCharOf(usable[0]) || (usable[0][0] ?? '');
+  const last =
+    usable.length > 1
+      ? initialCharOf(usable[usable.length - 1]) || (usable[usable.length - 1][0] ?? '')
+      : '';
   return (first + last).toUpperCase();
 }
 
