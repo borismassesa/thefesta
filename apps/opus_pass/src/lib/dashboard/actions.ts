@@ -41,7 +41,7 @@ import { deliverEntrancePasses } from './entrance-pass-send'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import { formatInviteGuestName, type LinkRequestKind } from '@/lib/whatsapp/types'
 import { getSmsProvider } from '@/lib/sms'
-import { deriveAssetToken } from '@/lib/cards/asset-tokens'
+import { cardRenderVariant, deriveAssetToken } from '@/lib/cards/asset-tokens'
 import { prepareGuestCardAsset, type PrepareFailureCode } from '@/lib/cards/prepare-guest-asset'
 import { invitationPartner2Required, parseInvitationCoordinates } from './invitation-event-details'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
@@ -3594,7 +3594,6 @@ async function resolveDefaultEventId(explicit?: string): Promise<string | null> 
   return events[0]?.id ?? null
 }
 
-const INVITE_CARD_VARIANT = 'whatsapp_header_v1'
 
 type GuestCardHeaderResult =
   | { ok: true; url: string }
@@ -3631,22 +3630,34 @@ async function guestCardHeaderUrl(
   user: Awaited<ReturnType<typeof requireDashboardUser>>,
   eventId: string,
   guestId: string,
-  known?: { releaseId?: string; guestOwned?: boolean },
+  known?: { releaseId?: string },
 ): Promise<GuestCardHeaderResult> {
-  if (!known?.guestOwned) {
-    const { data: guest } = await createDashboardClient()
-      .from('guest_contacts')
-      .select('id')
-      .eq('id', guestId)
-      .eq('user_id', user.id)
-      .maybeSingle<{ id: string }>()
-    if (!guest) return { ok: false, code: 'GUEST_NOT_OWNED' }
-  }
+  // The name is read HERE, fresh, every time — never taken from the caller.
+  //
+  // It decides which asset this is, and prepareGuestCardAsset re-reads it to
+  // draw the card. If those two names can differ, the row gets keyed by one
+  // name while holding a picture of another, and reverting the edit later
+  // serves the wrong picture from the "matching" key: the frozen-wrong-name
+  // bug, reopened.
+  //
+  // They CAN differ when a caller passes a captured name. sendWhatsAppInvites
+  // reads the roster once and then loops for as long as the Meta calls take,
+  // so a name corrected mid-send would be stale by the time its guest came up.
+  // One indexed read per guest is a cheap price for removing that race by
+  // construction rather than by asking people not to edit during a send.
+  const { data: guest } = await createDashboardClient()
+    .from('guest_contacts')
+    .select('id, full_name')
+    .eq('id', guestId)
+    .eq('user_id', user.id)
+    .maybeSingle<{ id: string; full_name: string | null }>()
+  if (!guest) return { ok: false, code: 'GUEST_NOT_OWNED' }
+  const guestName = guest.full_name
 
   const releaseId = known?.releaseId ?? await currentCardReleaseId(user, eventId)
   if (!releaseId) return { ok: false, code: 'DESIGN_RELEASE_NOT_FOUND' }
 
-  const subject = { designReleaseId: releaseId, guestId, renderVariant: INVITE_CARD_VARIANT }
+  const subject = { designReleaseId: releaseId, guestId, renderVariant: cardRenderVariant(guestName) }
   const prepared = await prepareGuestCardAsset(subject)
   if (!prepared.ok) return prepared
   const token = deriveAssetToken(subject)
@@ -3754,7 +3765,7 @@ export async function sendWhatsAppInvites(guestIds?: string[], eventId?: string)
 
     // Prepare before spending a credit or contacting Meta. Every recipient
     // gets a URL bound to their own name and the current approved release.
-    const card = await guestCardHeaderUrl(user, resolvedEventId, g.id, { releaseId, guestOwned: true })
+    const card = await guestCardHeaderUrl(user, resolvedEventId, g.id, { releaseId })
     if (!card.ok) {
       summary.failed += 1
       summary.results.push({
@@ -3913,7 +3924,7 @@ export async function sendWhatsAppTestInvite(
 
   const releaseId = await currentCardReleaseId(user, resolvedEventId)
   if (!releaseId) return { ok: false, dryRun: !provider.live, error: 'no released card found for this event' }
-  const card = await guestCardHeaderUrl(user, resolvedEventId, guest.id, { releaseId, guestOwned: true })
+  const card = await guestCardHeaderUrl(user, resolvedEventId, guest.id, { releaseId })
   if (!card.ok) {
     return { ok: false, dryRun: !provider.live, error: `card preparation failed (${card.code})` }
   }

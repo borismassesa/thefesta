@@ -17,6 +17,32 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 const DOMAIN = 'opus-card-asset'
 const VERSION = 'v1'
 
+/**
+ * The render variant for a guest's invitation card.
+ *
+ * The guest's NAME is drawn into the PNG, but the asset is unique on
+ * (design_release_id, guest_id, render_variant) — so with a fixed variant the
+ * first render was frozen forever. Correcting a spelling produced a conflict on
+ * that key, the existing row came back, and the couple kept receiving a card
+ * addressed the old way. The only escape was deleting the guest and adding them
+ * again, which mints a new guest_id, burns an invitation credit, and loses the
+ * guest's RSVP and pass ID with it.
+ *
+ * Folding the name into the variant makes the asset identity match what the
+ * asset actually contains. A rename now renders a new card; the old one keeps
+ * its own row and token, so a link already sitting in somebody's WhatsApp keeps
+ * resolving to the card they were actually sent.
+ *
+ * Callers must all derive this the same way or the preview and the send would
+ * address different assets — which is the entire class of bug this fixes. Pass
+ * the stored full_name, exactly as the renderer reads it.
+ */
+export function cardRenderVariant(guestName: string | null | undefined): string {
+  const normalised = (guestName ?? '').trim().replace(/\s+/g, ' ')
+  const digest = createHash('sha256').update(normalised).digest('hex').slice(0, 10)
+  return `whatsapp_header_v1.n${digest}`
+}
+
 export type TokenSubject = {
   designReleaseId: string
   guestId: string

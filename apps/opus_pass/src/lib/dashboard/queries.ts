@@ -2,12 +2,11 @@ import 'server-only'
 import { createDashboardClient } from './supabase'
 import { getDashboardUser, requireDashboardUser } from './auth'
 import type { CardInviteFields } from './sms-invite'
-import { deriveAssetToken } from '@/lib/cards/asset-tokens'
+import { cardRenderVariant, deriveAssetToken } from '@/lib/cards/asset-tokens'
 import { prepareGuestCardAsset } from '@/lib/cards/prepare-guest-asset'
 
 /** Must match the variant the send pipeline prepares, or the page would render
  *  a second copy of every card under a different token. */
-const INVITE_CARD_VARIANT = 'whatsapp_header_v1'
 import { eatDateParts, eventInviteUrl, eventSlugBase, firstNameOf, formatLongDate, formatLongDateSw, formatSwahiliTime, formatTicketDate, hasEatTimeComponent, publicOrigin, slugBaseOf } from './share'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import { eventTypeLabel, eventTypeLabelSw, ticketIntroLabel } from './types'
@@ -997,7 +996,7 @@ export async function getPublicRsvpData(token: string): Promise<PublicRsvpData |
     const subject = {
       designReleaseId: row.current_release_id,
       guestId: guest.id,
-      renderVariant: INVITE_CARD_VARIANT,
+      renderVariant: cardRenderVariant(guest.full_name),
     }
     const prepared = await prepareGuestCardAsset(subject)
     if (!prepared.ok) continue
