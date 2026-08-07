@@ -14,7 +14,8 @@ import {
   Stop,
   StyleSheet,
 } from '@react-pdf/renderer'
-import type { StoredOrder } from '@/lib/cart-storage'
+import { QUOTE_VALID_DAYS, type StoredOrder } from '@/lib/cart-storage'
+import { MPESA_LIPA_NAMBA, MPESA_SEND_MONEY } from '@/lib/payments/lipa-namba'
 import { INVOICE_LOGO_PNG_BASE64 } from '@/lib/invoice-logo'
 
 const BRAND = '#5c2d8c'
@@ -59,6 +60,19 @@ function formatPaidOn(iso: string): string {
   return `${date}, ${time} EAT`
 }
 
+/**
+ * TZS per card behind a line total, for the top-up line's "20 x TZS 1,500".
+ * Uses the rate actually charged when the order recorded it; otherwise derives
+ * it, and only when it divides exactly — a rounded rate that does not multiply
+ * back to the total is worse than no rate at all on a document about money.
+ */
+function unitRate(item: StoredOrder['items'][number]): number | null {
+  if (typeof item.pricePerGuest === 'number' && item.pricePerGuest > 0) return item.pricePerGuest
+  const guests = item.guests ?? 0
+  if (guests > 0 && item.total > 0 && item.total % guests === 0) return item.total / guests
+  return null
+}
+
 /** Coloured tier pill — mirrors the classic/signature swatches used on the cart card. */
 function tierPillColors(item: StoredOrder['items'][number]): { bg: string; fg: string } {
   const key = (item.tierId ?? item.tier ?? '').toLowerCase()
@@ -81,6 +95,7 @@ const s = StyleSheet.create({
   logo: { height: 30, width: 93 },
   docTitle: { alignItems: 'flex-end' },
   h1: { fontSize: 21, letterSpacing: 2.4, fontFamily: 'Helvetica-Bold' },
+  docSubtitle: { marginTop: 3, fontSize: 9, letterSpacing: 1.4, color: BRAND, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase' },
   paid: {
     marginTop: 7,
     paddingVertical: 4,
@@ -119,6 +134,7 @@ const s = StyleSheet.create({
   itemThumb: { width: 34, height: 48, borderRadius: 3, objectFit: 'cover' },
   itemMain: { flex: 1 },
   itemName: { fontFamily: 'Helvetica-Bold', fontSize: 11, color: '#111827' },
+  itemSub: { fontSize: 9, color: '#6b7280', marginTop: 3 },
   itemMetaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, marginTop: 7 },
   itemMetaLabel: {
     width: 46,
@@ -197,6 +213,7 @@ const s = StyleSheet.create({
   payRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 2.5 },
   payRowLabel: { width: 104, fontSize: 9, color: '#6b7280' },
   payRowVal: { flex: 1, fontSize: 9.5, color: '#111827' },
+  payNote: { marginTop: 9, fontSize: 8.5, color: '#6b7280', lineHeight: 1.5 },
   footer: {
     marginTop: 34,
     paddingTop: 16,
@@ -206,6 +223,33 @@ const s = StyleSheet.create({
     color: '#9ca3af',
     lineHeight: 1.6,
     textAlign: 'center',
+  },
+  /**
+   * A quotation puts its terms BESIDE the how-to-pay card, not below it.
+   *
+   * The invoice's closing blocks are centred, bottom-anchored and `wrap={false}`,
+   * so on any document with more than one line item they don't fit in what is
+   * left of the page and jump to a nearly empty page two. On an invoice that is
+   * cosmetic. On a quotation those words are the terms — how long the price
+   * holds, and that nothing is reserved — and terms that arrive on a page of
+   * their own, detached from the prices they qualify, are terms someone can
+   * reasonably say they never saw. The pay card is 260pt in a 507pt column, so
+   * the space they move into was empty anyway.
+   */
+  quoteCols: { flexDirection: 'row', alignItems: 'flex-start', gap: 20 },
+  quoteTerms: { flex: 1, marginTop: 8 },
+  quoteTermsText: { fontSize: 8.5, color: '#6b7280', lineHeight: 1.55 },
+  quoteSupport: {
+    marginTop: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#faf7fd',
+    borderWidth: 1,
+    borderColor: '#ece3f5',
+    fontSize: 8.5,
+    color: '#6b7280',
+    lineHeight: 1.55,
   },
   supportNote: {
     marginTop: 14,
@@ -312,16 +356,35 @@ const LinkedInIcon = () => (
   </Svg>
 )
 
-function ItemRow({ item }: { item: StoredOrder['items'][number] }) {
+function ItemRow({
+  item,
+  topup,
+  quotation,
+}: {
+  item: StoredOrder['items'][number]
+  topup?: boolean
+  quotation?: boolean
+}) {
   const pill = tierPillColors(item)
   // react-pdf can only render remote PNG/JPG; guard so an unsupported format
   // (e.g. webp) or a relative path can never throw and break the whole invoice.
   const thumb = item.image && /^https?:\/\/.+\.(jpe?g|png)(\?|#|$)/i.test(item.image) ? item.image : null
+  // A top-up line carries the parent card's name, so printed on its own it
+  // reads as a second card the couple bought. Naming the quantity is the line.
+  const rate = topup && item.guests ? unitRate(item) : null
   return (
     <View style={s.itemRow} wrap={false}>
       {thumb ? <Image style={s.itemThumb} src={thumb} /> : null}
       <View style={s.itemMain}>
-        <Text style={s.itemName}>{item.name}</Text>
+        <Text style={s.itemName}>
+          {topup && item.guests ? `${item.guests} extra digital cards` : item.name}
+        </Text>
+        {topup ? (
+          <Text style={s.itemSub}>
+            For {item.name}
+            {rate ? ` · ${item.guests} x ${tzs(rate)}` : ''}
+          </Text>
+        ) : null}
         {item.tier ? (
           <View style={s.itemMetaRow}>
             <Text style={s.itemMetaLabel}>Package</Text>
@@ -345,14 +408,21 @@ function ItemRow({ item }: { item: StoredOrder['items'][number] }) {
         ) : null}
         <View style={s.delivery}>
           <ClockIcon />
-          <Text style={{ fontSize: 9, color: '#6b7280' }}>Delivered within 48-72 hours</Text>
+          <Text style={{ fontSize: 9, color: '#6b7280' }}>
+            {topup
+              ? 'Uses the design you already approved. No new design work.'
+              : quotation
+                ? // The clock starts at payment, not at the date on this page.
+                  'Delivered within 48-72 hours of payment'
+                : 'Delivered within 48-72 hours'}
+          </Text>
         </View>
       </View>
       <View style={s.itemRight}>
         {item.guests != null ? (
           <View style={s.guestBlock}>
-            <Text style={s.guestLabel}>Guests</Text>
-            <Text style={s.guestPill}>{item.guests}</Text>
+            <Text style={s.guestLabel}>{topup ? 'Added' : 'Guests'}</Text>
+            <Text style={s.guestPill}>{topup ? `+${item.guests}` : item.guests}</Text>
           </View>
         ) : null}
         <Text style={s.itemPrice}>{tzs(item.total)}</Text>
@@ -371,7 +441,7 @@ function PaymentCard({ order }: { order: StoredOrder }) {
   const pay = order.payment!
   const verifying = order.paymentStatus === 'verifying'
   const badge = verifying
-    ? { bg: '#fffbeb', border: '#fcd34d', fg: '#b45309', text: `${pay.provider} — verifying payment` }
+    ? { bg: '#fffbeb', border: '#fcd34d', fg: '#b45309', text: `${pay.provider} · verifying payment` }
     : { bg: '#ecfdf5', border: '#6ee7b7', fg: '#047857', text: `Paid via ${pay.provider}` }
   const paidOn = formatPaidOn(order.paidAt)
   const rows: Array<{ label: string; value: string; bold?: boolean }> = []
@@ -402,43 +472,135 @@ function PaymentCard({ order }: { order: StoredOrder }) {
   )
 }
 
+/**
+ * Where the money goes, on a document raised before any of it has moved.
+ *
+ * Reuses the payment card's chrome so a quotation and its eventual invoice look
+ * like the same family, but states instructions rather than a receipt.
+ *
+ * The numbers are imported rather than read off the order: they are OpusFesta's
+ * own merchant details, identical on every quotation, and lipa-namba.ts exists
+ * precisely so there is one copy of them. Both routes are listed because not
+ * every payer's phone or bank app can reach a Lipa Namba till, and the payer
+ * here is often not the person who built the cart.
+ *
+ * No card row: checkout hides card payment until Selcom is enabled
+ * (CheckoutClient's visibleMethods), so offering it here would name a method
+ * that does not exist yet.
+ */
+function HowToPay() {
+  const rows: Array<{ label: string; value: string; bold?: boolean }> = [
+    { label: 'M-Pesa Lipa Namba', value: MPESA_LIPA_NAMBA, bold: true },
+    { label: 'M-Pesa', value: MPESA_SEND_MONEY, bold: true },
+  ]
+  return (
+    // Narrower than the invoice's payment card: the terms sit beside it, and
+    // the 28pt this gives back is what keeps that column off a hyphen.
+    <View style={[s.payCard, { width: 232 }]}>
+      <View style={[s.payBadge, { backgroundColor: '#f5f0fa', borderColor: '#d9c7ec' }]}>
+        <Svg width={11} height={11} viewBox="0 0 24 24">
+          <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" fill="none" stroke={BRAND} strokeWidth={2} />
+          <Path d="M3 5v14a2 2 0 0 0 2 2h16v-5" fill="none" stroke={BRAND} strokeWidth={2} />
+          <Path d="M18 12a2 2 0 0 0 0 4h4v-4Z" fill="none" stroke={BRAND} strokeWidth={2} />
+        </Svg>
+        <Text style={[s.payBadgeText, { color: BRAND }]}>Payment not yet received</Text>
+      </View>
+      {rows.map((row) => (
+        <View key={row.label} style={s.payRow}>
+          <Text style={s.payRowLabel}>{row.label}</Text>
+          <Text style={row.bold ? [s.payRowVal, { fontFamily: 'Helvetica-Bold' }] : s.payRowVal}>
+            {row.value}
+          </Text>
+        </View>
+      ))}
+      {/* No URL in here. This card is ~200pt wide and react-pdf hyphenates
+          across line breaks, which split the domain as "opusfes-ta.com" — a
+          broken address is worse than none, and the letterhead carries it. */}
+      <Text style={s.payNote}>
+        Pay to either number above, then send us the SMS on WhatsApp and we will raise the order.
+      </Text>
+    </View>
+  )
+}
+
+/**
+ * A top-up buys sending capacity on a card that is already designed, approved
+ * and released. Everything this document says about production — a delivery
+ * window, "prepared and activated within 48-72 hours", a free round of
+ * revisions — describes work that a top-up does not commission, and printing it
+ * on a top-up invoice promises the couple a delivery that will never happen.
+ * So the production language is switched out wherever `topup` is set, and the
+ * parent purchase is named so the invoice is legible on its own.
+ */
 export function InvoicePdf({ order }: { order: StoredOrder }) {
+  const quotation = order.documentKind === 'quotation'
   const paidDate = formatDate(order.paidAt)
   const eventDate = order.eventDate ? formatDate(order.eventDate) : ''
   const verifying = order.paymentStatus === 'verifying'
+  const topup = order.orderKind === 'topup'
+  // Derived here, not passed: the validity window is a rule, and computing it
+  // from the issue date in the document means the printed date can never
+  // disagree with the rule the cart applied.
+  const validUntil = quotation ? formatDate(order.paidAt, QUOTE_VALID_DAYS) : ''
   return (
-    <Document title={`OpusFesta-Invoice-${order.ref}`}>
+    <Document title={`OpusFesta-${quotation ? 'Quotation' : 'Invoice'}-${order.ref}`}>
       <Page size="A4" style={s.page}>
         <View style={s.top}>
           <Image style={s.logo} src={{ data: Buffer.from(INVOICE_LOGO_PNG_BASE64, 'base64'), format: 'png' }} />
           <View style={s.docTitle}>
-            <Text style={s.h1}>INVOICE</Text>
-            <Text
-              style={[
-                s.paid,
-                verifying
-                  ? { backgroundColor: '#fffbeb', borderColor: '#fcd34d', color: '#b45309' }
-                  : { backgroundColor: '#ecfdf5', borderColor: '#6ee7b7', color: '#047857' },
-              ]}
-            >
-              {verifying ? 'PAYMENT VERIFYING' : 'PAID'}
-            </Text>
+            <Text style={s.h1}>{quotation ? 'QUOTATION' : 'INVOICE'}</Text>
+            {topup ? <Text style={s.docSubtitle}>Top-up</Text> : null}
+            {quotation ? (
+              // Not the green PAID chip in another colour: this states what the
+              // document is worth and until when, which is the one thing a
+              // quotation has to carry that an invoice does not.
+              <Text style={[s.paid, { backgroundColor: '#f5f0fa', borderColor: '#d9c7ec', color: BRAND }]}>
+                {validUntil ? `VALID UNTIL ${validUntil.toUpperCase()}` : 'QUOTATION'}
+              </Text>
+            ) : (
+              <Text
+                style={[
+                  s.paid,
+                  verifying
+                    ? { backgroundColor: '#fffbeb', borderColor: '#fcd34d', color: '#b45309' }
+                    : { backgroundColor: '#ecfdf5', borderColor: '#6ee7b7', color: '#047857' },
+                ]}
+              >
+                {verifying ? 'PAYMENT VERIFYING' : 'PAID'}
+              </Text>
+            )}
           </View>
         </View>
 
         <View style={s.meta}>
           <View style={s.metaGrid}>
             <View style={s.mi}>
-              <Text style={s.label}>Order ID</Text>
+              <Text style={s.label}>{quotation ? 'Quotation no.' : 'Order ID'}</Text>
               <Text style={s.val}>{order.ref}</Text>
             </View>
             {paidDate ? (
               <View style={s.mi}>
-                <Text style={s.label}>{verifying ? 'Order date' : 'Payment date'}</Text>
+                <Text style={s.label}>
+                  {quotation ? 'Quotation date' : verifying ? 'Order date' : 'Payment date'}
+                </Text>
                 <Text>{paidDate}</Text>
               </View>
             ) : null}
-            {paidDate ? (
+            {quotation ? (
+              validUntil ? (
+                <View style={s.mi}>
+                  <Text style={s.label}>Valid until</Text>
+                  <Text style={s.val}>{validUntil}</Text>
+                </View>
+              ) : null
+            ) : topup ? (
+              order.parentRef ? (
+                <View style={s.mi}>
+                  <Text style={s.label}>Added to order</Text>
+                  <Text style={s.val}>{order.parentRef}</Text>
+                </View>
+              ) : null
+            ) : paidDate ? (
               <View style={s.mi}>
                 <Text style={s.label}>Delivery window</Text>
                 <Text>{formatDate(order.paidAt, 2)} - {formatDate(order.paidAt, 3)}</Text>
@@ -451,29 +613,41 @@ export function InvoicePdf({ order }: { order: StoredOrder }) {
               </View>
             ) : null}
           </View>
-          <View style={s.billedTo}>
-            <Text style={s.label}>Billed to</Text>
-            {order.contact.name ? (
-              <View style={s.btRow}>
-                <Text style={s.btVal}>{order.contact.name}</Text>
-                <UserIcon />
-              </View>
-            ) : null}
-            <View style={s.btRow}>
-              <Text style={{ color: '#4b5563' }}>{order.contact.email}</Text>
-              <MailIcon />
+          {/* Every line is guarded, and the block disappears entirely when
+              nothing is known. A quotation is usually pulled from the cart
+              before checkout has asked for any of this, and an empty "Billed
+              to" with two bare icons reads as a document that failed to load. */}
+          {order.contact.name || order.contact.email || order.contact.phone ? (
+            <View style={s.billedTo}>
+              <Text style={s.label}>{quotation ? 'Prepared for' : 'Billed to'}</Text>
+              {order.contact.name ? (
+                <View style={s.btRow}>
+                  <Text style={s.btVal}>{order.contact.name}</Text>
+                  <UserIcon />
+                </View>
+              ) : null}
+              {order.contact.email ? (
+                <View style={s.btRow}>
+                  <Text style={{ color: '#4b5563' }}>{order.contact.email}</Text>
+                  <MailIcon />
+                </View>
+              ) : null}
+              {order.contact.phone ? (
+                <View style={s.btRow}>
+                  <Text style={{ color: '#4b5563' }}>{order.contact.phone}</Text>
+                  <PhoneIcon />
+                </View>
+              ) : null}
             </View>
-            <View style={s.btRow}>
-              <Text style={{ color: '#4b5563' }}>{order.contact.phone}</Text>
-              <PhoneIcon />
-            </View>
-          </View>
+          ) : null}
         </View>
 
-        <Text style={s.sectionLabel}>Order summary</Text>
+        <Text style={s.sectionLabel}>
+          {quotation ? 'Quotation summary' : topup ? 'Top-up summary' : 'Order summary'}
+        </Text>
         <View>
           {order.items.map((item, i) => (
-            <ItemRow key={i} item={item} />
+            <ItemRow key={i} item={item} topup={topup} quotation={quotation} />
           ))}
         </View>
 
@@ -488,17 +662,50 @@ export function InvoicePdf({ order }: { order: StoredOrder }) {
               <Text style={s.totalNum}>-{tzs(order.discount)}</Text>
             </View>
           ) : null}
-          <View style={s.totalRow}>
-            <Text style={s.totalLabel}>Delivery</Text>
-            <Text style={s.totalNum}>Free</Text>
-          </View>
+          {/* Nothing is shipped or delivered on a top-up, so a "Delivery: Free"
+              line would be inventing a fulfilment step that does not exist. */}
+          {topup ? null : (
+            <View style={s.totalRow}>
+              <Text style={s.totalLabel}>Delivery</Text>
+              <Text style={s.totalNum}>Free</Text>
+            </View>
+          )}
           <View style={s.grandRow}>
-            <Text style={s.grand}>{verifying ? 'Total' : 'Total paid'}</Text>
+            <Text style={s.grand}>{quotation ? 'Total due' : verifying ? 'Total' : 'Total paid'}</Text>
             <Text style={s.grand}>{tzs(order.total)}</Text>
           </View>
         </View>
 
-        {order.payment || order.paymentLabel ? (
+        {quotation ? (
+          <View style={s.pay} wrap={false}>
+            <Text style={s.label}>How to pay</Text>
+            <View style={s.quoteCols}>
+              <HowToPay />
+              <View style={s.quoteTerms}>
+                <Text style={s.quoteTermsText}>
+                  This is a quotation, not a bill. The prices above are held until{' '}
+                  <Text style={{ fontFamily: 'Helvetica-Bold', color: '#1a1a1a' }}>
+                    {validUntil || 'the date shown'}
+                  </Text>
+                  . Nothing is reserved and no card enters design until payment is received.
+                </Text>
+                {/* Kept short on purpose. This column is ~200pt wide and
+                    react-pdf hyphenates whatever straddles a line break, which
+                    turned a longer version of this sentence into "What-sApp". */}
+                <Text style={s.quoteSupport}>
+                  <Text style={{ fontFamily: 'Helvetica-Bold', color: BRAND }}>
+                    Need a change?{' '}
+                  </Text>
+                  WhatsApp{' '}
+                  <Text style={{ fontFamily: 'Helvetica-Bold', color: '#1a1a1a' }}>
+                    +255 799 202 171
+                  </Text>{' '}
+                  and quote this number. Guest counts and add-ons can still change.
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : order.payment || order.paymentLabel ? (
           <View style={s.pay} wrap={false}>
             <Text style={s.label}>Payment method</Text>
             {order.payment ? (
@@ -509,17 +716,53 @@ export function InvoicePdf({ order }: { order: StoredOrder }) {
           </View>
         ) : null}
 
+        {/* Quotations say all of this beside the pay card instead (see
+            quoteCols), so these two blocks are skipped entirely rather than
+            rendered empty — s.footer carries a top rule that would otherwise
+            print as a stray line across the page. */}
+        {quotation ? null : (
+          <>
         <Text style={s.footer} wrap={false}>
-          Thank you for choosing OpusPass. Your invitation will be prepared and activated within
-          48-72 hours. We look forward to being part of your special day.
+          {topup ? (
+            verifying ? (
+              <>
+                Thank you. These cards are added to your event as soon as this payment is confirmed,
+                usually within a few hours. Nothing else is being designed or delivered.
+              </>
+            ) : (
+              <>
+                Thank you. These cards have been added to your event and are ready to send now. They
+                use the design you already approved, so there is nothing new to deliver.
+              </>
+            )
+          ) : (
+            <>
+              Thank you for choosing OpusPass. Your invitation will be prepared and activated within
+              48-72 hours. We look forward to being part of your special day.
+            </>
+          )}
         </Text>
 
         <Text style={s.supportNote} wrap={false}>
-          <Text style={{ fontFamily: 'Helvetica-Bold', color: BRAND }}>Need changes? </Text>
-          Message us on WhatsApp at{' '}
-          <Text style={{ fontFamily: 'Helvetica-Bold', color: '#1a1a1a' }}>+255 799 202 171</Text> within
-          48-72 hours of delivery — one free round of revisions is included.
+          {topup ? (
+            <>
+              <Text style={{ fontFamily: 'Helvetica-Bold', color: BRAND }}>Questions? </Text>
+              Message us on WhatsApp at{' '}
+              <Text style={{ fontFamily: 'Helvetica-Bold', color: '#1a1a1a' }}>+255 799 202 171</Text>{' '}
+              and quote this reference. A top-up adds sending capacity only. It does not change the
+              card design.
+            </>
+          ) : (
+            <>
+              <Text style={{ fontFamily: 'Helvetica-Bold', color: BRAND }}>Need changes? </Text>
+              Message us on WhatsApp at{' '}
+              <Text style={{ fontFamily: 'Helvetica-Bold', color: '#1a1a1a' }}>+255 799 202 171</Text>{' '}
+              within 48-72 hours of delivery. One free round of revisions is included.
+            </>
+          )}
         </Text>
+          </>
+        )}
 
         <View style={s.letterhead} fixed>
           <View style={s.lhCols}>

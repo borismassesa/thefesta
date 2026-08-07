@@ -3,13 +3,14 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ShoppingBag, Trash2, ShieldCheck, ArrowRight, Clock, Minus, Plus } from 'lucide-react'
+import { ShoppingBag, Trash2, ShieldCheck, ArrowRight, Clock, Minus, Plus, FileText, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import CheckoutStepper from '@/components/digital-cards/CheckoutStepper'
 import { InvitationVisual, type Treatment } from '@/components/guests/InvitationVisual'
 import { ProductInfo } from '@/components/guests/productInfo'
 import type { CatalogProduct } from '@/data/digital-cards-products'
 import { useCart, MIN_GUESTS } from '@/components/providers/CartProvider'
+import { getContact, getOrCreateQuoteRef, type StoredOrder } from '@/lib/cart-storage'
 import { useT } from '@/components/providers/UIStringsProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -306,12 +307,94 @@ export default function CartClient({
   // Digital product — prices are final (VAT-inclusive) and delivery is free.
   const discount = 0
   const total = subtotal - discount
+  const [quoteBusy, setQuoteBusy] = useState(false)
 
   const handleApplyCoupon = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     toast(t('coupon_none_active'), {
       description: t('coupon_none_active_desc'),
     })
+  }
+
+  /**
+   * The cart, priced, as a document someone else can pay from.
+   *
+   * Shaped as a StoredOrder because /api/invoice renders that and nothing else;
+   * `documentKind: 'quotation'` is what stops it claiming to be a paid invoice.
+   * The reference is derived from the cart's contents, so re-downloading an
+   * unchanged cart hands back the same quotation number.
+   */
+  function buildQuotation(): StoredOrder {
+    const signature = JSON.stringify(
+      items.map((i) => [i.id, i.guests ?? 0, i.total, i.addOns ?? []]),
+    )
+    const contact = getContact()
+    return {
+      ref: getOrCreateQuoteRef(signature),
+      documentKind: 'quotation',
+      // The issue date. The document derives "valid until" from it, so the
+      // validity window can never disagree with when it was raised.
+      paidAt: new Date().toISOString(),
+      contact: {
+        name: contact?.fullName || undefined,
+        email: contact?.email ?? '',
+        phone: contact?.phone ?? '',
+      },
+      // No `payment` block: nothing has been paid, and the document's "How to
+      // pay" section imports OpusFesta's own numbers rather than being handed
+      // them. Setting it here would imply a transaction that does not exist.
+      items: items.map((i) => ({
+        id: i.id,
+        name: i.name,
+        summary: i.summary,
+        total: i.total,
+        image: i.image,
+        tier: i.tier,
+        tierId: i.tierId,
+        guests: i.guests,
+        pricePerGuest: i.pricePerGuest,
+        addOns: i.addOns,
+        addOnItems: i.addOnItems,
+      })),
+      subtotal,
+      discount,
+      total,
+    }
+  }
+
+  async function downloadQuotation() {
+    setQuoteBusy(true)
+    try {
+      const quote = buildQuotation()
+      const res = await fetch('/api/invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quote),
+      })
+      if (!res.ok) throw new Error('Quotation request failed')
+      const blob = await res.blob()
+      const filename = `OpusFesta-Quotation-${quote.ref}.pdf`
+      const file = new File([blob], filename, { type: 'application/pdf' })
+      // Sharing beats downloading here: the point of a quotation is to get it
+      // to whoever is paying, and on a phone that is the WhatsApp share sheet.
+      if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] }) && navigator.share) {
+        await navigator.share({ files: [file], title: filename })
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return // share sheet dismissed
+      toast.error(t('quote_failed'))
+    } finally {
+      setQuoteBusy(false)
+    }
   }
 
   return (
@@ -491,6 +574,22 @@ export default function CartClient({
                   {t('checkout_cta')}
                   {items.length > 0 && <ArrowRight size={15} className="shrink-0" />}
                 </Link>
+                {/* For the couple who isn't the one paying: a priced document
+                    they can send to a parent, a sponsor or a company. */}
+                <button
+                  type="button"
+                  onClick={downloadQuotation}
+                  disabled={items.length === 0 || quoteBusy}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-6 py-3 text-[13px] font-semibold text-gray-700 transition hover:bg-gray-50 disabled:pointer-events-none disabled:text-gray-400"
+                >
+                  {quoteBusy ? (
+                    <Loader2 size={15} className="shrink-0 animate-spin" />
+                  ) : (
+                    <FileText size={15} className="shrink-0" />
+                  )}
+                  {t('quote_cta')}
+                </button>
+                <p className="-mt-1 text-xs text-muted-foreground">{t('quote_hint')}</p>
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <p className="text-muted-foreground">{t('we_accept')}</p>
                   <div className="flex flex-wrap items-center gap-1.5">

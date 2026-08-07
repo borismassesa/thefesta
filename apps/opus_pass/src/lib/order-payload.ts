@@ -34,6 +34,10 @@ export function parseOrder(raw: unknown): StoredOrder | null {
       tier: str(i.tier, 60) || undefined,
       tierId: str(i.tierId, 60) || undefined,
       guests: typeof i.guests === 'number' && Number.isFinite(i.guests) ? i.guests : undefined,
+      pricePerGuest:
+        typeof i.pricePerGuest === 'number' && Number.isFinite(i.pricePerGuest)
+          ? i.pricePerGuest
+          : undefined,
       addOns: Array.isArray(i.addOns)
         ? i.addOns.slice(0, MAX_ADDONS).map((a) => str(a, 200)).filter(Boolean)
         : undefined,
@@ -63,6 +67,16 @@ export function parseOrder(raw: unknown): StoredOrder | null {
     payment,
     paymentRef: str(o.paymentRef, 40) || undefined,
     paymentStatus: o.paymentStatus === 'verifying' || o.paymentStatus === 'paid' ? o.paymentStatus : undefined,
+    // A top-up invoice reads as a second card purchase unless the renderer
+    // knows what it is, so the kind and the parent it was added to have to
+    // survive the round-trip. Neither carries any authority — they only pick
+    // the wording on a document built entirely from the posted payload.
+    orderKind: o.orderKind === 'topup' ? 'topup' : 'purchase',
+    parentRef: str(o.parentRef, 40) || null,
+    // Same reasoning: the renderer cannot tell a quotation from a paid invoice
+    // once this survives the round-trip, and a quotation that renders as an
+    // invoice tells the reader money changed hands when none has.
+    documentKind: o.documentKind === 'quotation' ? 'quotation' : 'invoice',
     contact: {
       name: str(contact.name, 120) || undefined,
       email: str(contact.email, 200),

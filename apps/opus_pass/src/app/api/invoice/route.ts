@@ -3,7 +3,7 @@ import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
 import { createElement, type ReactElement } from 'react'
 import { InvoicePdf } from '@/lib/invoice-pdf'
 import { MAX_ORDER_BODY_BYTES, parseOrder, readOrderPayload } from '@/lib/order-payload'
-import { getOrderByRef, orderRowToStoredOrder } from '@/lib/payments/orders'
+import { getOrderByRef, getOrderRefById, orderRowToStoredOrder } from '@/lib/payments/orders'
 import type { StoredOrder } from '@/lib/cart-storage'
 
 export const runtime = 'nodejs'
@@ -14,10 +14,13 @@ async function pdfResponse(order: StoredOrder): Promise<NextResponse> {
       createElement(InvoicePdf, { order }) as ReactElement<DocumentProps>,
     )
     const safeRef = order.ref.replace(/[^A-Za-z0-9_-]/g, '') || 'order'
+    // The filename is the first thing a finance desk reads in their downloads
+    // folder, so it has to say which of the two documents this is.
+    const kind = order.documentKind === 'quotation' ? 'Quotation' : 'Invoice'
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="OpusFesta-Invoice-${safeRef}.pdf"`,
+        'Content-Disposition': `attachment; filename="OpusFesta-${kind}-${safeRef}.pdf"`,
         'Cache-Control': 'no-store',
       },
     })
@@ -53,7 +56,11 @@ export async function POST(req: NextRequest) {
     if (!row) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
-    return pdfResponse(orderRowToStoredOrder(row))
+    // A top-up's invoice names the purchase it was added to, so the parent ref
+    // is resolved here rather than left null — this route is the only path to
+    // the admin/email copy of the PDF.
+    const parentRef = row.parent_order_id ? await getOrderRefById(row.parent_order_id) : null
+    return pdfResponse(orderRowToStoredOrder(row, parentRef))
   }
 
   let order: StoredOrder | null
