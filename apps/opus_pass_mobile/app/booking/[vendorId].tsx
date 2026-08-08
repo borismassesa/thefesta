@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { withAuthGate } from '@/components/auth/withAuthGate';
 import {
   ActivityIndicator,
   Alert,
@@ -41,7 +42,7 @@ function budgetBucketForPrice(price: string | undefined): string | null {
   return '10M+';
 }
 
-export default function BookingRequestScreen() {
+function BookingRequestScreen() {
   const router = useRouter();
   const { editorial } = useTheme();
   const { vendorId, package: packageName, price: packagePrice } = useLocalSearchParams<{
@@ -262,3 +263,6 @@ export default function BookingRequestScreen() {
     </SafeAreaView>
   );
 }
+
+/** Signed-in only. Wrapper, not a route group — see withAuthGate. */
+export default withAuthGate(BookingRequestScreen);

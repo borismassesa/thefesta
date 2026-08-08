@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { withAuthGate } from '@/components/auth/withAuthGate';
 import {
   ActivityIndicator,
   Alert,
@@ -54,7 +55,7 @@ function isoToDateInput(iso: string | null): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function EventFormScreen() {
+function EventFormScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { editorial } = useTheme();
@@ -240,3 +241,6 @@ export default function EventFormScreen() {
     </SafeAreaView>
   );
 }
+
+/** Signed-in only. Wrapper, not a route group — see withAuthGate. */
+export default withAuthGate(EventFormScreen);

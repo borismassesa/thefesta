@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSignIn } from '@clerk/clerk-expo';
 import type { SignInResource, SignInSecondFactor, AttemptSecondFactorParams } from '@clerk/types';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AuthField } from '@/components/auth/AuthField';
+import { AuthSubmit } from '@/components/auth/AuthSubmit';
+import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons';
 import { BackButton } from '@/components/navigation/BackButton';
-import { getErrorMessage } from '@/lib/errors';
+import { getClerkErrorCode, getErrorMessage } from '@/lib/errors';
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -31,13 +34,18 @@ type Step =
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
+  // Sign-up hands the address over when the email is already registered, so
+  // the user doesn't retype what they just typed.
+  const params = useLocalSearchParams<{ email?: string }>();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(params.email ?? '');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<Step>({ name: 'identifier' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Held apart from `error` because it renders an action, not a sentence.
+  const [unknownEmail, setUnknownEmail] = useState(false);
 
   const finishSignIn = async (createdSessionId: string) => {
     if (!setActive) return;
@@ -88,6 +96,7 @@ export default function SignInScreen() {
     if (!isLoaded || !signIn || !isValidEmail(email) || loading) return;
     setLoading(true);
     setError('');
+    setUnknownEmail(false);
     try {
       const result = await signIn.create({ identifier: email });
       if (result.status === 'complete' && result.createdSessionId) {
@@ -113,7 +122,12 @@ export default function SignInScreen() {
 
       setError("This account signs in a way that isn't supported here yet. Try the web app instead.");
     } catch (err) {
-      setError(getErrorMessage(err, "Couldn't find that account"));
+      // "No such identifier" is an invitation to sign up, not an error to read.
+      if (getClerkErrorCode(err) === 'form_identifier_not_found') {
+        setUnknownEmail(true);
+      } else {
+        setError(getErrorMessage(err, "Couldn't find that account"));
+      }
     } finally {
       setLoading(false);
     }
@@ -130,7 +144,16 @@ export default function SignInScreen() {
         setError('Sign in could not be completed. Please try again.');
       }
     } catch (err) {
-      setError(getErrorMessage(err, 'Incorrect password'));
+      // This instance has enforce_hibp_on_sign_in on, so a correct password
+      // that has since appeared in a breach is refused here. Resetting is the
+      // only way through, so say that rather than "incorrect password".
+      if (getClerkErrorCode(err) === 'form_password_pwned') {
+        setError(
+          'This password has appeared in a data breach, so it can no longer be used. Use “Forgot password?” to set a new one.',
+        );
+      } else {
+        setError(getErrorMessage(err, 'Incorrect password'));
+      }
     } finally {
       setLoading(false);
     }
@@ -224,68 +247,74 @@ export default function SignInScreen() {
       <View className="px-4 pt-2">
         <BackButton />
       </View>
-      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, justifyContent: 'center' }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+      {/* Top-aligned and scrollable rather than vertically centred. Centring
+          only works while the content is shorter than the visible area, and
+          these screens grew past that once social sign-in was added — the
+          overflow then sits outside the scroll view's frame, where it still
+          draws but no longer receives touches. */}
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 64 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
+      >
           <Text className="font-playfair-bold text-display text-ed-on-surface">OpusPass</Text>
           <Text className="mt-2 font-inter-semibold text-screen-title text-ed-on-surface">{heading}</Text>
           <Text className="mt-1 font-inter text-body-sm text-ed-on-surface-variant">{subheading}</Text>
 
           <View className="mt-8 gap-4">
             {step.name === 'identifier' ? (
-              <View>
-                <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
-                  Email
-                </Text>
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="you@example.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  autoFocus
-                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-inter text-body text-ed-on-surface"
-                />
-              </View>
+              <AuthField
+                label="Email"
+                value={email}
+                onChangeText={(next) => {
+                  setEmail(next);
+                  setUnknownEmail(false);
+                }}
+                placeholder="you@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                autoFocus
+              />
             ) : null}
 
             {step.name === 'password' ? (
               <View>
-                <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
-                  Password
-                </Text>
-                <TextInput
+                <AuthField
+                  label="Password"
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••••"
                   secureTextEntry
                   autoComplete="password"
                   autoFocus
-                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-inter text-body text-ed-on-surface"
                 />
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { email } })}
+                  className="mt-2 self-start"
+                >
+                  <Text className="font-inter-medium text-body-sm text-ed-secondary">Forgot password?</Text>
+                </Pressable>
               </View>
             ) : null}
 
             {step.name === 'email_code' ? (
               <View>
-                <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
-                  Verification code
-                </Text>
-                <TextInput
+                <AuthField
+                  label="Verification code"
+                  code
                   value={code}
                   onChangeText={setCode}
                   placeholder="123456"
                   keyboardType="number-pad"
                   maxLength={6}
                   autoFocus
-                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-inter text-body tracking-[4px] text-ed-on-surface"
                 />
-                <Pressable onPress={handleResendCode} className="mt-2 self-start">
+                <Pressable accessibilityRole="button" onPress={handleResendCode} className="mt-2 self-start">
                   <Text className="font-inter-medium text-body-sm text-ed-secondary">Resend code</Text>
                 </Pressable>
               </View>
@@ -293,10 +322,9 @@ export default function SignInScreen() {
 
             {step.name === 'second_factor' ? (
               <View>
-                <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
-                  {SECOND_FACTOR_LABEL[step.strategy]}
-                </Text>
-                <TextInput
+                <AuthField
+                  label={SECOND_FACTOR_LABEL[step.strategy]}
+                  code
                   value={code}
                   onChangeText={setCode}
                   placeholder={step.strategy === 'backup_code' ? 'Enter backup code' : '123456'}
@@ -304,19 +332,39 @@ export default function SignInScreen() {
                   autoCapitalize="none"
                   maxLength={step.strategy === 'backup_code' ? undefined : 6}
                   autoFocus
-                  className="rounded-xl border border-ed-outline-variant bg-ed-surface px-4 py-3 font-inter text-body tracking-[4px] text-ed-on-surface"
                 />
                 {step.strategy === 'phone_code' || step.strategy === 'email_code' ? (
-                  <Pressable onPress={handleResendSecondFactorCode} className="mt-2 self-start">
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleResendSecondFactorCode}
+                    className="mt-2 self-start"
+                  >
                     <Text className="font-inter-medium text-body-sm text-ed-secondary">Resend code</Text>
                   </Pressable>
                 ) : null}
               </View>
             ) : null}
 
+            {unknownEmail ? (
+              <View className="rounded-xl border border-ed-outline-variant bg-ed-surface p-4">
+                <Text className="font-inter text-body-sm text-ed-on-surface">
+                  We couldn&apos;t find an account for {email}.
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push({ pathname: '/(auth)/sign-up', params: { email } })}
+                  className="mt-2 self-start"
+                >
+                  <Text className="font-inter-semibold text-body-sm text-ed-secondary">Create an account</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             {error ? <Text className="font-inter text-body-sm text-ed-error">{error}</Text> : null}
 
-            <Pressable
+            <AuthSubmit
+              label={step.name === 'identifier' ? 'Continue' : 'Sign in'}
+              loading={loading}
               onPress={
                 step.name === 'identifier'
                   ? handleContinue
@@ -326,18 +374,27 @@ export default function SignInScreen() {
                       ? handleCodeSubmit
                       : handleSecondFactorSubmit
               }
-              disabled={loading}
-              className={`mt-2 items-center rounded-xl bg-ed-primary-container py-3.5 ${
-                loading ? 'opacity-50' : ''
-              }`}
-            >
-              <Text className="font-inter-semibold text-body text-ed-on-primary">
-                {loading ? 'Please wait…' : step.name === 'identifier' ? 'Continue' : 'Sign in'}
-              </Text>
-            </Pressable>
+            />
 
-            {step.name !== 'identifier' ? (
+            {step.name === 'identifier' ? (
+              <>
+                {/* Ordered before the social buttons deliberately — see the note
+                    on SocialAuthButtons. Anything rendered after it stops
+                    receiving touches. */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push({ pathname: '/(auth)/sign-up', params: { email } })}
+                  className="items-center py-2"
+                >
+                  <Text className="font-inter-medium text-body-sm text-ed-on-surface-variant">
+                    New to OpusPass? <Text className="text-ed-secondary">Create an account</Text>
+                  </Text>
+                </Pressable>
+                <SocialAuthButtons onSuccess={() => router.replace('/')} disabled={loading} />
+              </>
+            ) : (
               <Pressable
+                accessibilityRole="button"
                 onPress={() => {
                   setStep({ name: 'identifier' });
                   setError('');
@@ -350,10 +407,9 @@ export default function SignInScreen() {
                   Use a different email
                 </Text>
               </Pressable>
-            ) : null}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
