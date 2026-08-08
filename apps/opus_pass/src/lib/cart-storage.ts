@@ -54,6 +54,9 @@ export type StoredOrderItem = {
   tier?: string
   tierId?: string
   guests?: number
+  /** TZS per guest actually charged — lets the invoice show the rate behind the
+   *  line total. Absent on orders placed before priceOrder recorded it. */
+  pricePerGuest?: number
   addOns?: string[]
   /** Structured form of `addOns`. Absent on orders placed before this shipped. */
   addOnItems?: StoredOrderAddOn[]
@@ -103,6 +106,16 @@ export type StoredOrder = {
    *  lib/payments/orders.ts); a locally-built optimistic snapshot won't have
    *  it yet, which currentStageIndex() treats the same as 'not_started'. */
   fulfillmentStatus?: FulfillmentStatus
+  /**
+   * Which document this payload renders as.
+   *
+   * 'quotation' is a priced offer for a cart that has NOT been paid for and has
+   * no order behind it — the thing a couple sends to whoever actually pays (a
+   * parent, a sponsor, a company finance desk). It must never claim money was
+   * received, so every "paid" assertion in invoice-pdf.tsx branches on this.
+   * Absent means 'invoice', so every existing payload is unaffected.
+   */
+  documentKind?: 'invoice' | 'quotation'
   /** 'topup' = extra digital cards bought against an order that was already
    *  designed and released. Shown as its own line under that parent rather than
    *  as a separate purchase, because it produced no new card. */
@@ -202,6 +215,42 @@ export function getPendingTemplateIds(type: TemplateCardType, eventId?: string |
     }
   }
   return ids
+}
+
+/** How long a quotation holds its prices. Tier prices are CMS-editable, so a
+ *  quote with no expiry is an open-ended promise the catalogue can't keep.
+ *  Change this and the PDF follows, but the cart's `quote_hint` CMS string
+ *  spells the number out in words — update that too. */
+export const QUOTE_VALID_DAYS = 3
+
+const QUOTE_KEY = 'of_quote_ref'
+
+/**
+ * The quotation number for the cart as it currently stands.
+ *
+ * Deliberately NOT the order-ref format: nothing is ordered, and a support
+ * agent handed a `OF-2026-…` that matches no row would go looking for a lost
+ * order. `QT-` says what it is.
+ *
+ * Stable while the cart is: re-downloading the same selection returns the same
+ * number, because a finance desk holding two PDFs with different numbers for
+ * one quote has no way to tell they are the same offer. Change the cart and the
+ * number changes with it, which is correct — it is a different offer.
+ */
+export function getOrCreateQuoteRef(signature: string): string {
+  const stored = read<{ signature: string; ref: string }>(QUOTE_KEY)
+  if (stored && stored.signature === signature && stored.ref) return stored.ref
+  const ref = generateQuoteRef()
+  write(QUOTE_KEY, { signature, ref })
+  return ref
+}
+
+function generateQuoteRef(): string {
+  if (typeof crypto === 'undefined' || !crypto.randomUUID) {
+    throw new Error('Web Crypto API not available — cannot generate a quotation reference')
+  }
+  const token = crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()
+  return `QT-${new Date().getFullYear()}-${token}`
 }
 
 export function generateOrderRef(): string {

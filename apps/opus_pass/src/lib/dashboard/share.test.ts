@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { firstNameOf, fullNameOf, greetingNameOf, splitStoredGuestName } from './share'
+import { firstNameOf, greetingNameOf, splitStoredGuestName } from './share'
 
 /**
  * Honorific stripping for greetings.
@@ -11,12 +11,11 @@ import { firstNameOf, fullNameOf, greetingNameOf, splitStoredGuestName } from '.
 
 test('a plain name is returned untouched', () => {
   assert.equal(firstNameOf('Boris Massesa'), 'Boris')
-  assert.equal(fullNameOf('Boris Massesa'), 'Boris Massesa')
 })
 
 test('a single leading title is skipped', () => {
   assert.equal(firstNameOf('Mr Boris Massesa'), 'Boris')
-  assert.equal(fullNameOf('Mr. Boris Massesa'), 'Boris Massesa')
+  assert.equal(firstNameOf('Mr. Boris Massesa'), 'Boris')
 })
 
 test('Swahili honorifics are skipped too', () => {
@@ -28,7 +27,6 @@ test('a compound "Mr & Mrs" greets the name, not the ampersand', () => {
   // The title dropdown offers "Mr & Mrs" for a couple invited on one row, so
   // the connector has to be skipped along with the two honorifics.
   assert.equal(firstNameOf('Mr & Mrs Boris Massesa'), 'Boris')
-  assert.equal(fullNameOf('Mr & Mrs Boris Massesa'), 'Boris Massesa')
   assert.equal(firstNameOf('Mr and Mrs Boris Massesa'), 'Boris')
 })
 
@@ -41,7 +39,6 @@ test('a guest whose first name is Swahili for "and" keeps it', () => {
 test('a name that is nothing but titles falls back to the whole input', () => {
   assert.equal(firstNameOf('Mr'), 'Mr')
   assert.equal(firstNameOf('Mr & Mrs'), 'Mr & Mrs')
-  assert.equal(fullNameOf('Mr & Mrs'), 'Mr & Mrs')
 })
 
 // ── greetingNameOf ────────────────────────────────────────────────────────

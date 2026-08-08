@@ -347,6 +347,10 @@ export interface CartStrings {
   // Checkout CTA + trust
   checkout_cta: string
   we_accept: string
+  // Downloadable quotation — a priced offer for whoever is actually paying
+  quote_cta: string
+  quote_hint: string
+  quote_failed: string
   secure_note: string
   // Cross-sell
   explore_title_has: string
@@ -1066,6 +1070,12 @@ export interface DashboardSendStrings {
   checkin_report_title: string // {event}
   checkin_toast_report_failed: string
   checkin_toast_report_copied: string
+  // Downloadable / shareable invite & delivery report (Digital Cards tab)
+  invite_report_download: string
+  invite_report_share: string
+  invite_report_title: string // {event}
+  invite_report_toast_failed: string
+  invite_report_toast_copied: string
   // Personal invites (Targeted) mode
   targeted_tag: string
   targeted_title: string
@@ -1263,6 +1273,11 @@ export interface DashboardSendStrings {
   row_send_manually: string
   row_download_card: string
   row_download_pass: string
+  row_needs_number: string
+  row_mark_attending: string
+  bulk_mark_attending: string
+  mark_attending_done: string
+  mark_attending_none: string
   row_card_downloaded: string // {name}
   row_copy_message: string
   row_send_sms: string
@@ -1679,6 +1694,9 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     total_label: 'Total',
     checkout_cta: 'Continue to checkout',
     we_accept: 'We accept:',
+    quote_cta: 'Download quotation',
+    quote_hint: 'A priced PDF you can send to whoever is paying. Prices held for 3 days.',
+    quote_failed: 'Could not generate the quotation. Please try again.',
     secure_note: 'Secure checkout · designs delivered within 48-72 hours',
     explore_title_has: 'You might also like',
     explore_title_empty: 'Explore digital card designs',
@@ -2308,6 +2326,11 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     checkin_report_title: '{event}: Check-in report',
     checkin_toast_report_failed: 'Could not generate the report. Please try again.',
     checkin_toast_report_copied: 'Check-in report copied. Paste it to share.',
+    invite_report_download: 'Download report',
+    invite_report_share: 'Share',
+    invite_report_title: '{event}: Invite report',
+    invite_report_toast_failed: 'Could not generate the invite report. Please try again.',
+    invite_report_toast_copied: 'Invite report copied. Paste it to share.',
     targeted_tag: 'Targeted',
     targeted_title: 'Personal invites',
     targeted_desc:
@@ -2493,6 +2516,11 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     row_send_manually: 'Send manually via WhatsApp',
     row_download_card: 'Download card',
     row_download_pass: 'Download entrance pass',
+    row_needs_number: 'Add a phone number to send. The card can still be downloaded.',
+    row_mark_attending: 'Mark attending (unlocks pass)',
+    bulk_mark_attending: 'Mark attending',
+    mark_attending_done: '{n} now admissible at the door',
+    mark_attending_none: 'Nobody to mark. Guests who already replied are left alone.',
     row_card_downloaded: "Saved {name}'s card",
     row_copy_message: 'Copy message',
     row_send_sms: 'Send SMS',

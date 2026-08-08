@@ -1,4 +1,5 @@
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { withAuthGate } from '@/components/auth/withAuthGate';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,7 +9,7 @@ import { useMyInquiries } from '@/hooks/useInquiries';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { InquiryStatusBadge } from '@/components/inquiry/InquiryStatusBadge';
 
-export default function InquiriesScreen() {
+function InquiriesScreen() {
   const router = useRouter();
   const { editorial } = useTheme();
   const { data, isLoading, error } = useMyInquiries();
@@ -69,3 +70,6 @@ export default function InquiriesScreen() {
     </SafeAreaView>
   );
 }
+
+/** Signed-in only. Wrapper, not a route group — see withAuthGate. */
+export default withAuthGate(InquiriesScreen);

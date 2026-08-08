@@ -34,6 +34,38 @@ function assertSupabaseEnvConfigured() {
   );
 }
 
+export type GetClerkToken = (options?: { template?: string }) => Promise<string | null>;
+
+/**
+ * Builds a Clerk-authenticated Supabase client outside React.
+ *
+ * Split out of the hook below so provisioning — which runs from a button
+ * handler on a screen that has never mounted a data hook — can resolve
+ * `requesting_user_id()` for itself instead of depending on a query cache
+ * entry that doesn't exist yet.
+ */
+export function createAuthenticatedSupabase(getToken: GetClerkToken): SupabaseClient {
+  assertSupabaseEnvConfigured();
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      fetch: async (url, options: RequestInit = {}) => {
+        const clerkToken = await getToken({ template: 'supabase' });
+        const headers = new Headers(options.headers);
+        if (clerkToken) {
+          headers.set('Authorization', `Bearer ${clerkToken}`);
+        }
+        return fetch(url, { ...options, headers });
+      },
+    },
+  });
+}
+
 /**
  * Supabase client with the Clerk JWT injected — for host-side surfaces
  * (guest list, pledges, invitation management). Mirrors the same `supabase`
@@ -42,25 +74,5 @@ function assertSupabaseEnvConfigured() {
 export function useAuthenticatedSupabase(): SupabaseClient {
   const { getToken } = useAuth();
 
-  return useMemo(() => {
-    assertSupabaseEnvConfigured();
-
-    return createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-      global: {
-        fetch: async (url, options: RequestInit = {}) => {
-          const clerkToken = await getToken({ template: 'supabase' });
-          const headers = new Headers(options.headers);
-          if (clerkToken) {
-            headers.set('Authorization', `Bearer ${clerkToken}`);
-          }
-          return fetch(url, { ...options, headers });
-        },
-      },
-    });
-  }, [getToken]);
+  return useMemo(() => createAuthenticatedSupabase(getToken), [getToken]);
 }

@@ -41,7 +41,7 @@ import { deliverEntrancePasses } from './entrance-pass-send'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
 import { formatInviteGuestName, type LinkRequestKind } from '@/lib/whatsapp/types'
 import { getSmsProvider } from '@/lib/sms'
-import { deriveAssetToken } from '@/lib/cards/asset-tokens'
+import { cardRenderVariant, deriveAssetToken } from '@/lib/cards/asset-tokens'
 import { prepareGuestCardAsset, type PrepareFailureCode } from '@/lib/cards/prepare-guest-asset'
 import { invitationPartner2Required, parseInvitationCoordinates } from './invitation-event-details'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
@@ -789,6 +789,45 @@ export async function deleteGuests(guestIds: string[]): Promise<number> {
     .delete()
     .in('id', guestIds)
     .eq('user_id', user.id)
+    .select('id')
+  if (error) throw new Error(error.message)
+  revalidateDashboard()
+  return data?.length ?? 0
+}
+
+/**
+ * Mark guests as attending, so a hand-delivered pass works at the door.
+ *
+ * The couple sends a card and an entrance pass by hand whenever WhatsApp
+ * refuses to deliver. Until the guest is attending that pass is half a
+ * product: it renders, but checkin_admit_guest() carries its own
+ * `rsvp_status = 'attending'` predicate and turns them away at the gate.
+ *
+ * This is the supported way to close that gap. It is a couple-initiated
+ * admission, not a forged reply: `responded_at` is left alone, so the RSVP
+ * figures still count real replies and the roster is not quietly inflated
+ * with answers nobody gave.
+ *
+ * Consumes no credit. rsvp_status and credit_consumptions are separate
+ * ledgers, and this touches only the first.
+ */
+export async function markGuestsAttending(guestIds: string[], eventId?: string): Promise<number> {
+  const user = await requireDashboardUser()
+  const supabase = createDashboardClient()
+  if (!guestIds.length) return 0
+  const resolvedEventId = await resolveDefaultEventId(eventId)
+  if (!resolvedEventId) throw new Error('Set up an event first.')
+
+  // Only guests who have not already answered. Overwriting a real "attending"
+  // is a no-op, but overwriting a real "declined" would erase somebody's
+  // decision, and this action exists to unlock a door — not to change minds.
+  const { data, error } = await supabase
+    .from('guest_invitations')
+    .update({ rsvp_status: 'attending' })
+    .eq('user_id', user.id)
+    .eq('event_id', resolvedEventId)
+    .eq('rsvp_status', 'pending')
+    .in('guest_contact_id', guestIds)
     .select('id')
   if (error) throw new Error(error.message)
   revalidateDashboard()
@@ -3555,7 +3594,6 @@ async function resolveDefaultEventId(explicit?: string): Promise<string | null> 
   return events[0]?.id ?? null
 }
 
-const INVITE_CARD_VARIANT = 'whatsapp_header_v1'
 
 type GuestCardHeaderResult =
   | { ok: true; url: string }
@@ -3592,22 +3630,34 @@ async function guestCardHeaderUrl(
   user: Awaited<ReturnType<typeof requireDashboardUser>>,
   eventId: string,
   guestId: string,
-  known?: { releaseId?: string; guestOwned?: boolean },
+  known?: { releaseId?: string },
 ): Promise<GuestCardHeaderResult> {
-  if (!known?.guestOwned) {
-    const { data: guest } = await createDashboardClient()
-      .from('guest_contacts')
-      .select('id')
-      .eq('id', guestId)
-      .eq('user_id', user.id)
-      .maybeSingle<{ id: string }>()
-    if (!guest) return { ok: false, code: 'GUEST_NOT_OWNED' }
-  }
+  // The name is read HERE, fresh, every time — never taken from the caller.
+  //
+  // It decides which asset this is, and prepareGuestCardAsset re-reads it to
+  // draw the card. If those two names can differ, the row gets keyed by one
+  // name while holding a picture of another, and reverting the edit later
+  // serves the wrong picture from the "matching" key: the frozen-wrong-name
+  // bug, reopened.
+  //
+  // They CAN differ when a caller passes a captured name. sendWhatsAppInvites
+  // reads the roster once and then loops for as long as the Meta calls take,
+  // so a name corrected mid-send would be stale by the time its guest came up.
+  // One indexed read per guest is a cheap price for removing that race by
+  // construction rather than by asking people not to edit during a send.
+  const { data: guest } = await createDashboardClient()
+    .from('guest_contacts')
+    .select('id, full_name')
+    .eq('id', guestId)
+    .eq('user_id', user.id)
+    .maybeSingle<{ id: string; full_name: string | null }>()
+  if (!guest) return { ok: false, code: 'GUEST_NOT_OWNED' }
+  const guestName = guest.full_name
 
   const releaseId = known?.releaseId ?? await currentCardReleaseId(user, eventId)
   if (!releaseId) return { ok: false, code: 'DESIGN_RELEASE_NOT_FOUND' }
 
-  const subject = { designReleaseId: releaseId, guestId, renderVariant: INVITE_CARD_VARIANT }
+  const subject = { designReleaseId: releaseId, guestId, renderVariant: cardRenderVariant(guestName) }
   const prepared = await prepareGuestCardAsset(subject)
   if (!prepared.ok) return prepared
   const token = deriveAssetToken(subject)
@@ -3715,7 +3765,7 @@ export async function sendWhatsAppInvites(guestIds?: string[], eventId?: string)
 
     // Prepare before spending a credit or contacting Meta. Every recipient
     // gets a URL bound to their own name and the current approved release.
-    const card = await guestCardHeaderUrl(user, resolvedEventId, g.id, { releaseId, guestOwned: true })
+    const card = await guestCardHeaderUrl(user, resolvedEventId, g.id, { releaseId })
     if (!card.ok) {
       summary.failed += 1
       summary.results.push({
@@ -3874,7 +3924,7 @@ export async function sendWhatsAppTestInvite(
 
   const releaseId = await currentCardReleaseId(user, resolvedEventId)
   if (!releaseId) return { ok: false, dryRun: !provider.live, error: 'no released card found for this event' }
-  const card = await guestCardHeaderUrl(user, resolvedEventId, guest.id, { releaseId, guestOwned: true })
+  const card = await guestCardHeaderUrl(user, resolvedEventId, guest.id, { releaseId })
   if (!card.ok) {
     return { ok: false, dryRun: !provider.live, error: `card preparation failed (${card.code})` }
   }

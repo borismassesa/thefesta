@@ -185,8 +185,13 @@ export async function POST(request: Request) {
     isVip: /vip/i.test(groupTag ?? ''),
     tableName: seatAssignment?.seating_tables?.name ?? null,
     rsvpStatus: invitation.rsvp_status,
-    /** False when the guest is no longer attending — /scan would refuse them. */
-    admissible: invitation.rsvp_status === 'attending',
+    /** Always true for an invitation this route found: /scan admits any invited
+     *  guest now, whatever they replied. Kept in the response because the
+     *  scanner apps read it, and because what is admissible is a door rule that
+     *  may narrow again — not something a device should re-derive from
+     *  `rsvpStatus`. The status itself is still returned, so an attendant can
+     *  see that this guest declined and use their judgement. */
+    admissible: true,
     rsvpdPartySize,
     alreadyAdmitted: alreadyIn,
     remainingAllowance: Math.max(0, rsvpdPartySize - alreadyIn),

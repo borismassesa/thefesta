@@ -63,6 +63,7 @@ import {
   createGuest,
   deleteGuest,
   deleteGuests,
+  markGuestsAttending,
   recordSend,
   type WhatsAppSendSummary,
   type WhatsAppSendResult,
@@ -74,7 +75,6 @@ import {
   inviteMessage,
   reminderMessage,
   greetingNameOf,
-  fullNameOf,
   saveDateUrl,
   normalizePhone,
 } from '@/lib/dashboard/share'
@@ -93,6 +93,7 @@ import RsvpTracker from '../rsvps/RsvpTracker'
 import { createCheckinRealtimeClient } from '@/lib/checkin/realtimeClient'
 import { checkinChannelName, type CheckinBroadcastPayload } from '@/lib/checkin/shared'
 import type { CheckinReportData } from '@/lib/checkin-report-pdf'
+import type { InviteReportData, InviteReportRow } from '@/lib/invite-report'
 
 /** Short stable digest of the ticket's visible fields — appended to the
  *  preview image URL so a save produces a new URL, and the browser can
@@ -267,6 +268,16 @@ function formatClock(iso: string): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+/** Date + clock for a send timestamp (e.g. "7 Aug, 16:12"). Arrivals happen on
+ *  one evening and need no date; invitations go out over weeks. Formatted here
+ *  rather than inside the PDF because /api/invite-report renders on a UTC
+ *  server and only the browser knows the couple's timezone. */
+function formatStamp(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${formatClock(iso)}`
+}
+
 /** A door scan received live over the broadcast channel, newest-first. */
 interface LiveArrival {
   name: string
@@ -384,6 +395,9 @@ export default function SendInvitesView({
   const [liveArrivals, setLiveArrivals] = useState<LiveArrival[]>([])
   const [checkinConnected, setCheckinConnected] = useState(false)
   const [reportBusy, setReportBusy] = useState(false)
+  /** Separate from reportBusy on purpose: that one drives the check-in report's
+   *  buttons on another tab, and a shared flag would grey those out too. */
+  const [inviteReportBusy, setInviteReportBusy] = useState(false)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [sendingRow, setSendingRow] = useState<string | null>(null)
@@ -873,9 +887,11 @@ export default function SendInvitesView({
   const entrancePreviewGuest = guests.find((g) => g.status === 'attending') ?? null
 
   /** The entrance-pass template body for one guest, interpolated exactly as
-   *  sendEntrancePasses does. {{1}} is formatInviteGuestName, NOT fullNameOf:
-   *  the real send keeps the guest's title, so stripping it here would show
-   *  the couple a name their guest never receives. */
+   *  sendEntrancePasses does. {{1}} is the guest's complete stored name in
+   *  both places now, title included: formatInviteGuestName here, and
+   *  templateParam(g.full_name) in the real send. They only agree on the
+   *  title because that send stopped stripping it — until then this preview
+   *  showed the couple a name their guest never received. */
   const entrancePassBodyFor = (name: string | null) =>
     ENTRANCE_PASS_TEMPLATE.body
       .replace('{{1}}', formatInviteGuestName(name, 'Amina'))
@@ -1067,6 +1083,138 @@ export default function SendInvitesView({
       }
     } finally {
       setReportBusy(false)
+    }
+  }
+
+  // ── Downloadable / shareable invite & delivery report ──────────────────────
+  /**
+   * Built from the whole scoped roster, never from `visible` — a report that
+   * silently reflects whichever filter happened to be on would make two
+   * downloads of the same event disagree with each other.
+   */
+  function buildInviteReportData(): InviteReportData {
+    const rows: InviteReportRow[] = guests.map((g) => {
+      // The WhatsApp attempt is the precise one. loggedSendAt only stands in
+      // for guests with no WhatsApp invite row at all (an SMS or wa.me share).
+      const at = g.delivery?.at ?? g.loggedSendAt
+      return {
+        name: g.name,
+        // The number the send would actually use — the same one that picks
+        // `channel`, so the two columns can never contradict each other.
+        phone: g.whatsappPhone ?? g.phone,
+        channel: g.channel,
+        delivery: g.delivery?.state ?? null,
+        failureReason: g.delivery?.state === 'failed' ? g.delivery.reason : null,
+        sharedByHand: !g.delivery && Boolean(g.loggedSendAt),
+        sentAt: at ? formatStamp(at) : null,
+        rsvp:
+          g.status === 'attending'
+            ? 'attending'
+            : g.status === 'declined'
+              ? 'declined'
+              : g.status === 'maybe'
+                ? 'maybe'
+                : 'none',
+        partySize: g.rsvpPartySize,
+      }
+    })
+    return {
+      eventName: headingName,
+      eventDate: event.dateLabel ?? null,
+      venue: event.venue ?? null,
+      generatedAt: new Date().toLocaleString(undefined, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      invited: funnel.invited,
+      delivered: funnel.delivered,
+      undelivered: funnel.undelivered,
+      viewed: funnel.viewed,
+      responded: funnel.rsvpd,
+      creditsUsed: quota.used,
+      creditsPurchased: quota.purchased,
+      rows,
+    }
+  }
+
+  /** Plain-text fallback for share targets that can't take a file. Uses the CMS
+   *  strings rather than the PDF's own hardcoded English, matching
+   *  buildReportText above — this one lands in a chat, not on a page. */
+  function buildInviteReportText(): string {
+    const lines = [
+      fmt(strings.invite_report_title, { event: headingName }),
+      [
+        `${funnel.invited} ${strings.funnel_invited}`,
+        `${funnel.delivered} ${strings.funnel_delivered}`,
+        `${funnel.viewed} ${strings.funnel_viewed}`,
+        `${funnel.rsvpd} ${strings.funnel_rsvpd}`,
+      ].join(' · '),
+      '',
+    ]
+    for (const g of guests) {
+      const state = g.delivery ? strings[`delivery_${g.delivery.state}`] : g.statusLabel
+      const reason = g.delivery?.reason ? ` (${g.delivery.reason})` : ''
+      lines.push(`${g.name} — ${state}${reason}`)
+    }
+    return lines.join('\n')
+  }
+
+  async function fetchInviteReportBlob(): Promise<Blob> {
+    const res = await fetch('/api/invite-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildInviteReportData()),
+    })
+    if (!res.ok) throw new Error('Invite report request failed')
+    return res.blob()
+  }
+
+  const inviteReportFilename = `${headingName.replace(/[^A-Za-z0-9 _-]/g, '').trim() || 'OpusPass'}-Invite-Report.pdf`
+
+  async function downloadInviteReport() {
+    setInviteReportBusy(true)
+    try {
+      const blob = await fetchInviteReportBlob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = inviteReportFilename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error(strings.invite_report_toast_failed)
+    } finally {
+      setInviteReportBusy(false)
+    }
+  }
+
+  async function shareInviteReport() {
+    setInviteReportBusy(true)
+    try {
+      const blob = await fetchInviteReportBlob()
+      const file = new File([blob], inviteReportFilename, { type: 'application/pdf' })
+      const canShareFile = typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })
+      if (canShareFile && navigator.share) {
+        await navigator.share({ files: [file], title: fmt(strings.invite_report_title, { event: headingName }) })
+        return
+      }
+      await navigator.clipboard.writeText(buildInviteReportText())
+      toast.success(strings.invite_report_toast_copied)
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return // user cancelled the share sheet
+      try {
+        await navigator.clipboard.writeText(buildInviteReportText())
+        toast.success(strings.invite_report_toast_copied)
+      } catch {
+        toast.error(strings.invite_report_toast_failed)
+      }
+    } finally {
+      setInviteReportBusy(false)
     }
   }
 
@@ -1594,6 +1742,28 @@ export default function SendInvitesView({
     } catch {
       return false
     }
+  }
+
+  /**
+   * Make a hand-delivered pass work at the gate.
+   *
+   * Sending a card and a ticket by hand is only half the job: the door checks
+   * rsvp_status, so a guest who never replied is turned away holding a real
+   * pass. Marking them attending is the supported way to close that, and it
+   * unlocks the ticket download in the same move.
+   */
+  function markAttending(ids: string[]) {
+    if (!ids.length) return
+    startTransition(async () => {
+      try {
+        const n = await markGuestsAttending(ids, eventId)
+        if (n === 0) toast(strings.mark_attending_none)
+        else toast.success(fmt(strings.mark_attending_done, { n }))
+        router.refresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : strings.mark_attending_none)
+      }
+    })
   }
 
   function rowShare(g: SendGuestRow, channel: 'whatsapp' | 'sms' | 'copy') {
@@ -2666,6 +2836,26 @@ export default function SendInvitesView({
       {/* Funnel + quota — Digital Cards only; Entrance Pass has its own
        *  quota bar in the event context card above. */}
       {sendTab === 'cards' && event.hasPaidOrder ? (
+        <>
+        {/* Deliberately NOT gated on funnel.invited: a couple who has sent
+            nothing yet is exactly who needs the "still to invite" list. */}
+        <div className="funnelbar">
+          <button
+            className="btn ghost"
+            disabled={inviteReportBusy || guests.length === 0}
+            onClick={downloadInviteReport}
+          >
+            {inviteReportBusy ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
+            {strings.invite_report_download}
+          </button>
+          <button
+            className="btn ghost"
+            disabled={inviteReportBusy || guests.length === 0}
+            onClick={shareInviteReport}
+          >
+            <Share2 size={14} /> {strings.invite_report_share}
+          </button>
+        </div>
         <div className="funnel">
           <div className="fc"><div className="fcicon"><Send size={13} /></div><div className="n">{funnel.invited}</div><div className="l">{strings.funnel_invited}</div></div>
           <div className="fc"><div className="fcicon"><CheckCheck size={13} /></div><div className="n">{funnel.delivered}</div><div className="l"><span className="ar">→</span> {strings.funnel_delivered}</div></div>
@@ -2687,6 +2877,7 @@ export default function SendInvitesView({
           <div className="fc"><div className="fcicon"><Eye size={13} /></div><div className="n">{funnel.viewed}</div><div className="l"><span className="ar">→</span> {strings.funnel_viewed}</div></div>
           <div className="fc"><div className="fcicon"><CalendarCheck size={13} /></div><div className="n">{funnel.rsvpd}</div><div className="l"><span className="ar">→</span> {strings.funnel_rsvpd}</div></div>
         </div>
+        </>
       ) : null}
 
       {/* Live Check-ins — a live door summary plus the attending roster, each
@@ -2719,7 +2910,10 @@ export default function SendInvitesView({
                 <div className="lfhead">{strings.checkin_just_arrived}</div>
                 {liveArrivals.map((a, i) => (
                   <div key={`${a.at}-${i}`} className="lf">
-                    <span className="lfname">{fullNameOf(a.name)}</span>
+                    {/* Honorific included: whoever is watching the door is
+                        matching this against the ticket in the guest's hand,
+                        which prints the stored name in full. */}
+                    <span className="lfname">{a.name}</span>
                     <span className="lfmeta">
                       {a.duplicate ? `${strings.checkin_duplicate} · ` : ''}
                       {a.door} · {formatClock(a.at)}
@@ -2882,6 +3076,15 @@ export default function SendInvitesView({
             {selected.size > 0 ? (
               <button className="btn ghost danger" disabled={pending} onClick={() => setConfirmBulkDelete(true)}>
                 <Trash2 size={14} /> {strings.bulk_delete}
+              </button>
+            ) : null}
+            {/* Hand-delivering to a batch: one press makes every unanswered
+                guest in the selection admissible, which is what turns their
+                downloaded pass into one the door will accept. Card tabs only —
+                on the Pass Ticket tab everyone already is. */}
+            {selected.size > 0 && isCardSendTab ? (
+              <button className="btn ghost" disabled={pending} onClick={() => markAttending([...selected])}>
+                <Ticket size={14} /> {strings.bulk_mark_attending}
               </button>
             ) : null}
             <button className="btn ghost" disabled={pending} onClick={() => setNewGuest({ name: '', phone: '' })}>
@@ -3186,22 +3389,34 @@ export default function SendInvitesView({
                           // so the couple still sees it before it goes.
                           const reviewable = hasPhone(g)
                           if (!reviewable) {
+                            // No number, so nothing can be sent — but the card
+                            // still exists and this is precisely the guest who
+                            // gets handed one in person. Without the download
+                            // here the row offered a disabled button and no way
+                            // out at all.
                             return (
-                              <button
-                                className="ia send"
-                                disabled={pending || !hasPhone(g)}
-                                title={effectiveChannel(g) === 'whatsapp' ? strings.row_whatsapp : strings.row_sms}
-                                onClick={() => rowShare(g, effectiveChannel(g))}
-                              >
-                                {sendingRow === g.id ? (
-                                  <Loader2 size={14} className="spin" />
-                                ) : g.status === 'none' ? (
+                              <>
+                                <button
+                                  className="ia send"
+                                  disabled
+                                  title={strings.row_needs_number}
+                                >
                                   <Send size={13} />
-                                ) : (
-                                  <RotateCcw size={13} />
-                                )}
-                                {g.status === 'none' ? strings.row_send : strings.row_resend}
-                              </button>
+                                  {g.status === 'none' ? strings.row_send : strings.row_resend}
+                                </button>
+                                <button
+                                  className="ia"
+                                  disabled={pending}
+                                  title={strings.row_download_card}
+                                  onClick={() => downloadCardDirect(g)}
+                                >
+                                  {sendingRow === g.id ? (
+                                    <Loader2 size={14} className="spin" />
+                                  ) : (
+                                    <Download size={15} />
+                                  )}
+                                </button>
+                              </>
                             )
                           }
                           if (g.status === 'none') {
@@ -3306,12 +3521,27 @@ export default function SendInvitesView({
                                         <Download size={13} /> {strings.row_download_card}
                                       </button>
                                     ) : null}
-                                    {/* Ticket download lives on the Pass Ticket
-                                        tab only. Offering it here would hand out
-                                        tickets for guests who have not replied,
-                                        and the door refuses those — a real pass
-                                        that fails at the gate is worse than
-                                        none. Mark them attending first. */}
+                                    {/* The door refuses a guest who has not
+                                        replied, so a hand-delivered pass only
+                                        works once they are marked attending.
+                                        That is what this does, and why the
+                                        ticket download sits behind it. */}
+                                    {g.status !== 'attending' && g.status !== 'declined' ? (
+                                      <button
+                                        role="menuitem"
+                                        onClick={() => { setResendMenuId(null); markAttending([g.id]) }}
+                                      >
+                                        <Ticket size={13} /> {strings.row_mark_attending}
+                                      </button>
+                                    ) : null}
+                                    {g.status === 'attending' ? (
+                                      <button
+                                        role="menuitem"
+                                        onClick={() => { setResendMenuId(null); downloadTicket(g) }}
+                                      >
+                                        <Ticket size={13} /> {strings.row_download_pass}
+                                      </button>
+                                    ) : null}
                                     {(() => {
                                       const until = heldBackUntil(g)
                                       return (
@@ -3737,11 +3967,12 @@ export default function SendInvitesView({
           the user activation Safari needs, so the popup is blocked. */}
       {recover ? (
         <div className="ovl" onClick={() => setRecover(null)}>
-          <div className="modal" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
+          <div className="modal manual" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
             <div className="mhead">
               <h3>{strings.manual_title}</h3>
               <button className="xbtn" onClick={() => setRecover(null)} aria-label={strings.preview_close}><X size={16} /></button>
             </div>
+            <div className="manbody">
             <p className="mutedp">{fmt(strings.manual_intro, { name: recover.guest.name })}</p>
 
             <div className="mancard">
@@ -3760,7 +3991,7 @@ export default function SendInvitesView({
                 <div>
                   <b>{strings.manual_step_download}</b>
                   <button
-                    className="btn ghost"
+                    className={`btn manstep ${recover.downloaded ? 'ghost' : 'dl'}`}
                     disabled={!recover.cardUrl}
                     onClick={() => recover.cardUrl && downloadPreparedCard(recover.guest, recover.cardUrl)}
                   >
@@ -3773,7 +4004,7 @@ export default function SendInvitesView({
                 <div>
                   <b>{strings.manual_step_open}</b>
                   <button
-                    className={`btn ${recover.downloaded ? 'send' : 'ghost'}`}
+                    className="btn manstep wa"
                     onClick={() => openWhatsAppFor(recover.guest)}
                   >
                     <MessageCircle size={14} /> {strings.manual_open_whatsapp}
@@ -3783,8 +4014,9 @@ export default function SendInvitesView({
             </ol>
 
             <p className="manwarn">{strings.manual_attach_reminder}</p>
+            </div>
 
-            <div className="mrow">
+            <div className="mrow manacts">
               {recover.cardUrl ? (
                 <button
                   className="btn ghost"
@@ -4125,6 +4357,9 @@ const css = `
   /* The busy spinner stays: it is the only signal that a send is in flight. */
   .si .prodpanel .dp em, .si .livedot.on, .si .lf{ animation:none; }
   .si .btn:hover{ transform:none; } }
+/* Sibling of .funnel, never a child: that grid would lay the buttons out as
+   two more funnel cards. */
+.si .funnelbar{ display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 .si .funnel{ display:grid; grid-template-columns:repeat(4,1fr) 1.5fr; gap:12px; }
 .si .fc{ position:relative; background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px 18px; box-shadow:var(--soft); }
 .si .fcicon{ position:absolute; top:14px; right:14px; width:26px; height:26px; border-radius:50%;
@@ -4317,8 +4552,42 @@ const css = `
 .si .rsmenupop button{ display:flex; align-items:center; gap:9px; width:100%; border:none; background:none;
   padding:9px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--ink);
   cursor:pointer; text-align:left; }
+/* Taller, and split: the body scrolls while the actions stay put. The base
+   .modal has no height cap at all, so this one used to grow until the viewport
+   simply clipped it and the buttons went off-screen. */
+.si .modal.manual{ width:min(540px,96vw); max-height:92vh; display:flex; flex-direction:column;
+  overflow:hidden; padding:22px 22px 18px; }
+.si .modal.manual .mhead{ flex:none; }
+.si .manbody{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+  margin:0 -4px; padding:0 4px; }
+/* Buttons that share the row evenly and keep their labels on one line. They
+   were wrapping to two lines each and leaving Done as an odd little pill. */
+.si .mrow.manacts{ flex:none; flex-wrap:wrap; gap:8px; margin-top:16px; padding-top:14px;
+  border-top:1px solid var(--line); }
+.si .mrow.manacts .btn{ flex:1 1 0; min-width:0; justify-content:center; white-space:nowrap;
+  padding:10px 12px; }
+.si .mrow.manacts .btn.pri{ flex:0 0 auto; padding:10px 22px; }
+@media (max-width:520px){
+  /* Stacked rather than three squeezed columns — the labels are what make
+     these usable, so they win over fitting on one line. */
+  .si .mrow.manacts .btn{ flex:1 1 100%; }
+  .si .mrow.manacts .btn.pri{ flex:1 1 100%; }
+}
+/* The two steps are what the modal exists for, so they are filled, not
+   outlined. White-on-white read as disabled, which is exactly wrong for the
+   only two things there are to do here. */
+.si .btn.manstep{ padding:10px 18px; font-size:13px; }
+.si .btn.manstep.dl{ background:var(--purple); color:#fff; }
+.si .btn.manstep.dl:hover{ filter:brightness(1.08); }
+/* WhatsApp's own green: the button opens WhatsApp, so it should look like it
+   rather than like a generic secondary action. */
+.si .btn.manstep.wa{ background:var(--wa); color:#fff; }
+.si .btn.manstep.wa:hover{ filter:brightness(1.06); }
+/* Once the card is saved, step one steps back so step two is the obvious
+   next move. */
+.si .btn.manstep.ghost{ background:#fff; color:var(--muted); border:1px solid var(--line); }
 .si .mancard{ display:flex; justify-content:center; margin:14px 0; }
-.si .manimg{ width:auto; max-height:260px; border-radius:10px; box-shadow:var(--soft); }
+.si .manimg{ width:auto; max-height:300px; border-radius:10px; box-shadow:var(--soft); }
 .si .manph{ display:flex; align-items:center; gap:8px; padding:36px 18px; font-size:13px; color:var(--muted); }
 .si .manph.bad{ color:var(--bad-tx); }
 .si .mansteps{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }

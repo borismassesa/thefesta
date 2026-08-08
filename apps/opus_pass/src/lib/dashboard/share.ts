@@ -78,16 +78,11 @@ export function greetingNameOf(name: string): string {
   return i === -1 ? trimmed : words.slice(0, i + 1).join(' ')
 }
 
-/** Full name with any leading title stripped ("Mr Boris Massesa" ->
- *  "Boris Massesa"), for contexts that want the whole name but not the
- *  honorific — e.g. an entrance-pass ticket greeting. Falls back to the
- *  full input if nothing usable remains after stripping. */
-export function fullNameOf(name: string): string {
-  const trimmed = name.trim()
-  const words = trimmed.split(/\s+/)
-  const i = skipTitles(words)
-  return i === -1 ? trimmed : words.slice(i).join(' ')
-}
+/* fullNameOf lived here: the whole name with the leading title stripped
+ * ("Mr Boris Massesa" -> "Boris Massesa"). Its two callers were the
+ * entrance-pass message and the live check-in feed, and both now show the
+ * stored name in full so they agree with the ticket the guest is holding.
+ * Nothing wants a name with the honorific removed any more. */
 
 /** Slugify free text for a URL handle: lowercase, ASCII, dash-separated. */
 export function slugify(input: string): string {

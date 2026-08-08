@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { withAuthGate } from '@/components/auth/withAuthGate';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -7,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/navigation/BackButton';
 import { useCoupleProfile } from '@/hooks/useDashboard';
 import { formatShortDate } from '@/lib/format-date';
+import { queryClient } from '@/lib/query-client';
 import { useTheme } from '@/theme/useTheme';
 import { coupleFirstNames } from '@/types/dashboard';
 import type { ThemePreference } from '@/theme/ColorSchemeProvider';
@@ -69,7 +71,7 @@ function ProfileRow({
   );
 }
 
-export default function ProfileScreen() {
+function ProfileScreen() {
   const { user } = useUser();
   const { signOut } = useAuth();
   const router = useRouter();
@@ -92,6 +94,10 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await signOut();
+      // Drop every cached query with the session. `internal-user-id` is
+      // staleTime: Infinity, so without this a second sign-in in the same app
+      // run would keep the previous user's id and key their writes to it.
+      queryClient.clear();
     } finally {
       setSigningOut(false);
     }
@@ -195,3 +201,6 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
+
+/** Signed-in only. Wrapper, not a route group — see withAuthGate. */
+export default withAuthGate(ProfileScreen);

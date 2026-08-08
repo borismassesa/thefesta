@@ -107,7 +107,10 @@ export async function POST(request: Request) {
       'id, guest_contact_id, entry_code, pass_id, party_size, checked_in_at, checked_in_party_size, checked_in_door, checked_in_by, guest_contacts(full_name, group_tag)'
     )
     .eq('event_id', eventId)
-    .eq('rsvp_status', 'attending')
+  // Every invited guest, not only the ones who replied. This roster is what the
+  // scanner falls back to when it is offline or when a pass will not scan, so a
+  // guest missing from it cannot be admitted by hand either — which is exactly
+  // the situation the door change set out to fix.
 
   // Seat collection assignments → each guest's table name. One event-wide
   // read (not per-guest) mapped by contact id, so the roster can show where

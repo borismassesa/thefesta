@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { withAuthGate } from '@/components/auth/withAuthGate';
 import {
   ActivityIndicator,
   Alert,
@@ -20,7 +21,7 @@ import { publicInviteMessage, publicInviteUrl, formatLongDate } from '@/lib/shar
 import { useTheme } from '@/theme/useTheme';
 import { coupleFirstNames } from '@/types/dashboard';
 
-export default function WebsiteShareScreen() {
+function WebsiteShareScreen() {
   const { editorial } = useTheme();
   const profile = useCoupleProfile();
   const upcoming = useUpcomingEvents();
@@ -220,3 +221,6 @@ function ShareAction({
     </Pressable>
   );
 }
+
+/** Signed-in only. Wrapper, not a route group — see withAuthGate. */
+export default withAuthGate(WebsiteShareScreen);

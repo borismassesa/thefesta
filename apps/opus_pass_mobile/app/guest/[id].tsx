@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { withAuthGate } from '@/components/auth/withAuthGate';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,7 +26,7 @@ function nullable(value: string): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
-export default function GuestFormScreen() {
+function GuestFormScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { editorial } = useTheme();
@@ -176,3 +177,6 @@ export default function GuestFormScreen() {
     </SafeAreaView>
   );
 }
+
+/** Signed-in only. Wrapper, not a route group — see withAuthGate. */
+export default withAuthGate(GuestFormScreen);

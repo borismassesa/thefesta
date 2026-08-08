@@ -138,3 +138,48 @@ export function candidateScannerAccessHashes(input: string): string[] {
   if (normalized && normalized !== raw) hashes.push(hashScannerAccessToken(normalized))
   return hashes
 }
+
+/**
+ * Short-lived link to a rendered check-in report.
+ *
+ * The mobile scanner cannot POST its way to a viewable PDF: opening a
+ * document means handing a URL to the browser, and a URL is a GET. Rather
+ * than putting the attendant's access token in that URL, where it would land
+ * in browser history and outlive the download, the app exchanges its token
+ * for one of these — scoped to a single event, valid for minutes, and good
+ * for nothing but reading that one report.
+ */
+export interface ReportTokenPayload {
+  eventId: string
+  /** Unix ms. Deliberately short: this is a link that gets shared by accident. */
+  expiresAt: number
+}
+
+export function signReportToken(payload: ReportTokenPayload): string {
+  const body = b64urlEncode(JSON.stringify(payload))
+  const sig = createHmac('sha256', getCheckinSecret()).update(body).digest('base64url')
+  return `${body}.${sig}`
+}
+
+/** Verify + decode a report link token. Null on tamper, malformation or expiry. */
+export function verifyReportToken(token: string): ReportTokenPayload | null {
+  const parts = token.split('.')
+  if (parts.length !== 2) return null
+  const [body, sig] = parts
+  const expected = createHmac('sha256', getCheckinSecret()).update(body).digest('base64url')
+
+  const sigBuf = Buffer.from(sig)
+  const expectedBuf = Buffer.from(expected)
+  if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) return null
+
+  try {
+    const parsed = JSON.parse(b64urlDecode(body))
+    if (typeof parsed?.eventId !== 'string' || typeof parsed?.expiresAt !== 'number') return null
+    // Expiry is checked here, not by the caller: a caller that forgets makes
+    // the link permanent, which is the one property it must never have.
+    if (parsed.expiresAt < Date.now()) return null
+    return parsed as ReportTokenPayload
+  } catch {
+    return null
+  }
+}

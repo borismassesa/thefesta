@@ -3,19 +3,20 @@ import {
   ActivityIndicator,
   Pressable,
   SectionList,
-  Share,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BackButton } from '@/components/navigation/BackButton';
 import { PartyBadge } from '@/components/scanner/PartyBadge';
-import { validateScannerSession } from '@/lib/api/checkin';
-import { arrivedHeads, expectedHeads } from '@/lib/scannerRoster';
+import { reportLink, validateScannerSession } from '@/lib/api/checkin';
+import { getErrorMessage } from '@/lib/errors';
+import { arrivedHeads } from '@/lib/scannerRoster';
 import { useScannerSession } from '@/hooks/useScannerSession';
 import { useTheme } from '@/theme/useTheme';
 import type { RosterEntry } from '@/types/checkin';
@@ -25,18 +26,6 @@ const LIVE_GREEN = '#9FE870';
 
 function timeOf(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-const REPORT_MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
-/** "As at 21:04, 18 Jul 2027" — a shared report needs to say when it was taken,
- *  since arrivals keep coming after it's sent. */
-function reportStamp(d: Date): string {
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return `As at ${time}, ${d.getDate()} ${REPORT_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 /**
@@ -126,6 +115,8 @@ export default function ArrivalsScreen() {
   const { session, isLoading: sessionLoading } = useScannerSession();
 
   const [query, setQuery] = useState('');
+  const [reportOpening, setReportOpening] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const rosterQuery = useQuery({
     queryKey: ['scanner', 'roster', eventId],
@@ -183,43 +174,34 @@ export default function ArrivalsScreen() {
   const headsIn = arrivedHeads(arrived);
 
   /**
-   * End-of-night summary, handed off through the native share sheet (WhatsApp,
-   * email, notes). Plain text rather than a file: attendants send this to the
-   * couple on WhatsApp, and there's no export/storage pipeline on mobile yet.
+   * Open the check-in report as a PDF.
+   *
+   * The same document, from the same renderer, that the couple downloads from
+   * their dashboard. This screen used to build its own plain-text summary and
+   * push it through the share sheet, which meant the report an attendant
+   * handed over at the end of the night and the one the couple downloaded were
+   * two different documents describing the same event.
+   *
+   * Opened in a browser rather than written to a file: it keeps the scanner
+   * free of native file and sharing modules, so this works on the dev client
+   * already installed, and the phone's own PDF viewer already offers save,
+   * print and share better than a bespoke screen would.
    */
-  const shareReport = () => {
-    const roster = rosterQuery.data ?? [];
-    const notArrived = roster.filter((g) => !g.checkedInAt);
-    const expected = expectedHeads(roster);
-
-    const lines = [
-      `${session?.eventName ?? 'Event'} — arrivals`,
-      reportStamp(new Date()),
-      '',
-      `${headsIn} of ${expected} guests through the door`,
-      `${arrived.length} of ${totalGuests} invitations scanned`,
-      '',
-      `ARRIVED (${arrived.length})`,
-      ...(arrived.length > 0
-        ? [...arrived]
-            // Oldest first reads as the order people actually walked in.
-            .sort((a, b) => a.checkedInAt.localeCompare(b.checkedInAt))
-            .map((g) => {
-              const heads = g.checkedInPartySize ?? g.partySize;
-              const door = g.checkedInDoor ? ` · ${g.checkedInDoor}` : '';
-              return `${timeOf(g.checkedInAt)}  ${g.fullName}${heads > 1 ? ` (${heads})` : ''}${door}`;
-            })
-        : ['None yet']),
-      '',
-      `NOT ARRIVED (${notArrived.length})`,
-      ...(notArrived.length > 0
-        ? notArrived.map((g) => `${g.fullName}${g.partySize > 1 ? ` (${g.partySize})` : ''}`)
-        : ['Everyone is in']),
-    ];
-
-    Share.share({ message: lines.join('\n') }).catch(() => {
-      // Share sheet dismissed — nothing to recover from.
-    });
+  const openReport = async () => {
+    if (!session || reportOpening) return;
+    setReportOpening(true);
+    setReportError(null);
+    try {
+      const url = await reportLink(session.eventId, session.accessToken);
+      await WebBrowser.openBrowserAsync(url);
+    } catch (err) {
+      // Named inline rather than thrown away: this is the end of a shift and
+      // the attendant needs to know whether to try again or go and tell
+      // somebody the report never came.
+      setReportError(getErrorMessage(err, "Couldn't open the report."));
+    } finally {
+      setReportOpening(false);
+    }
   };
 
   if (sessionLoading) {
@@ -260,13 +242,17 @@ export default function ArrivalsScreen() {
         <BackButton />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Share arrivals report"
-          onPress={shareReport}
+          accessibilityLabel="Download arrivals report"
+          onPress={() => void openReport()}
           disabled={rosterQuery.isPending}
           className="h-10 flex-row items-center gap-1.5 rounded-full bg-ed-surface-container px-4"
           style={{ opacity: rosterQuery.isPending ? 0.5 : 1 }}
         >
-          <Ionicons name="share-outline" size={16} color={editorial.onSurface} />
+          {reportOpening ? (
+            <ActivityIndicator size="small" color={editorial.onSurface} />
+          ) : (
+            <Ionicons name="download-outline" size={16} color={editorial.onSurface} />
+          )}
           <Text className="font-inter-semibold text-caption text-ed-on-surface">Report</Text>
         </Pressable>
       </View>
@@ -304,10 +290,10 @@ export default function ArrivalsScreen() {
           </View>
           <Pressable
             accessibilityRole="button"
-            onPress={shareReport}
+            onPress={() => void openReport()}
             className="flex-row items-center justify-center gap-2 border-t border-ed-outline-variant py-4"
           >
-            <Ionicons name="share-outline" size={17} color={editorial.onSurface} />
+            <Ionicons name="download-outline" size={17} color={editorial.onSurface} />
             <Text className="font-inter-semibold text-body-sm text-ed-on-surface">
               Send the couple the final report
             </Text>
@@ -368,6 +354,25 @@ export default function ArrivalsScreen() {
               className="ml-2 flex-1 font-inter text-body-sm text-ed-on-surface"
             />
           </View>
+        </View>
+      ) : null}
+
+      {/* Sits under the header, next to the button that failed. A report that
+          silently does not arrive is the kind of thing nobody notices until
+          the couple asks for it a week later. */}
+      {reportError ? (
+        <View
+          accessibilityRole="alert"
+          className="mx-5 mb-2 flex-row items-start gap-2 rounded-token-md px-3 py-2"
+          style={{ backgroundColor: `${editorial.error}1A` }}
+        >
+          <Ionicons name="alert-circle" size={16} color={editorial.error} style={{ marginTop: 1 }} />
+          <Text
+            className="min-w-0 flex-1 font-inter text-caption"
+            style={{ color: editorial.error }}
+          >
+            {reportError}
+          </Text>
         </View>
       ) : null}
 

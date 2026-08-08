@@ -366,17 +366,20 @@ async function readAllowance(
   let generated = 0
   let generatedAt: string | null = null
   if (releaseIds.length > 0) {
-    // Count and newest timestamp in one read: the row set can run to one per
-    // guest, and the page only needs "how many" and "when did that finish".
-    const { data, count } = await createSupabaseServerClient()
+    // Counted per GUEST, not per row. A guest can own several ready assets —
+    // correcting a name renders a fresh card and leaves the old one in place,
+    // deliberately, so links already sent keep resolving. Counting rows would
+    // report "40 generated" for 20 guests each corrected once, which reads as
+    // the couple being billed twice for a typo.
+    const { data } = await createSupabaseServerClient()
       .from('invitation_card_delivery_assets')
-      .select('created_at', { count: 'exact' })
+      .select('guest_id, created_at')
       .in('design_release_id', releaseIds)
       .eq('status', 'ready')
       .order('created_at', { ascending: false })
-      .limit(1)
-    generated = count ?? 0
-    generatedAt = ((data ?? []) as { created_at: string }[])[0]?.created_at ?? null
+    const rows = (data ?? []) as { guest_id: string; created_at: string }[]
+    generated = new Set(rows.map((r) => r.guest_id)).size
+    generatedAt = rows[0]?.created_at ?? null
   }
 
   return {

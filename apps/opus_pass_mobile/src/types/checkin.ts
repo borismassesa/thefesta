@@ -31,7 +31,7 @@ export interface RosterEntry {
   /** The guest's own number, for telling two similar names apart on a manual
    *  admission. WhatsApp number when there is one.
    *
-   *  NOT carried by the roster: /validate returns every attending guest at
+   *  NOT carried by the roster: /validate returns every invited guest at
    *  once, and a personal field there would put the whole guest list's numbers
    *  on the device for the shift. This is populated per guest from /lookup, so
    *  it is null both when the couple recorded no number AND before the lookup
@@ -81,7 +81,8 @@ export type ValidateSessionResult =
  * Outcome of one scan.
  *  - success: admitted, `checkedInPartySize` recorded
  *  - duplicate: this pass was already used (first scan wins)
- *  - invalid: not a genuine pass, wrong event, or no longer attending
+ *  - invalid: not a genuine pass, or a pass for a different event. NOT an
+ *    unanswered RSVP any more: an invitation is enough to be admitted.
  *  - error: transport/server failure — retryable, nothing was recorded
  */
 export interface CheckinScanResult {
