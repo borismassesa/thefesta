@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { useSocialAuth } from '@/hooks/useSocialAuth';
+import { useSocialAuth, type SocialResult } from '@/hooks/useSocialAuth';
 import { useTheme } from '@/theme/useTheme';
 
 /** Matches the py-3.5 + text height of the Google button beside it. */
@@ -10,20 +10,17 @@ const APPLE_BUTTON_HEIGHT = 50;
 
 type SocialAuthButtonsProps = {
   onSuccess: () => void;
+  /**
+   * Called when the provider authenticated the person but Clerk still needs a
+   * name to finish the sign-up. Screens that can ask for one handle this;
+   * without a handler the person is told to sign up by email instead.
+   */
+  onNeedsName?: () => void;
   disabled?: boolean;
 };
 
-/**
- * Google and Apple sign-in, under an "or" divider.
- *
- * Render this LAST in its container. The native Apple button leaves the
- * region below it unable to receive touches — siblings placed after this
- * component draw normally and look completely fine, but every tap on them is
- * swallowed. It cost a while to find precisely because nothing errors: the
- * control simply does nothing. Both auth screens therefore put their
- * "Sign in" / "Create an account" footer link above this, not below.
- */
-export function SocialAuthButtons({ onSuccess, disabled = false }: SocialAuthButtonsProps) {
+/** Google and Apple sign-in, under an "or" divider. */
+export function SocialAuthButtons({ onSuccess, onNeedsName, disabled = false }: SocialAuthButtonsProps) {
   const { isAppleAvailable, signInWithGoogle, signInWithApple } = useSocialAuth();
   const { editorial, effective } = useTheme();
   const [pending, setPending] = useState(false);
@@ -31,15 +28,21 @@ export function SocialAuthButtons({ onSuccess, disabled = false }: SocialAuthBut
 
   const busy = pending || disabled;
 
-  const run = async (flow: () => Promise<{ status: string; message?: string }>) => {
+  const run = async (flow: () => Promise<SocialResult>) => {
     if (busy) return;
     setPending(true);
     setError('');
     try {
       const result = await flow();
       // A dismissed sheet is a decision, not a failure — say nothing.
-      if (result.status === 'success') onSuccess();
-      else if (result.status === 'error') setError(result.message ?? 'Something went wrong');
+      if (result.status === 'success') {
+        onSuccess();
+      } else if (result.status === 'needs-name') {
+        if (onNeedsName) onNeedsName();
+        else setError('We need your name to finish. Please create your account with an email address.');
+      } else if (result.status === 'error') {
+        setError(result.message);
+      }
     } finally {
       setPending(false);
     }
@@ -67,15 +70,8 @@ export function SocialAuthButtons({ onSuccess, disabled = false }: SocialAuthBut
       </Pressable>
 
       {Platform.OS === 'ios' && isAppleAvailable ? (
-        // Wrapped in a plain View with an explicit height on purpose. The
-        // native Apple button does not report a height to Yoga under the New
-        // Architecture, so laying it out directly here left the parent
-        // under-measured — and in React Native a child that falls outside its
-        // parent's bounds still draws but stops receiving touches. That made
-        // every control rendered after this component (the "Create an
-        // account" and "Sign in" links) silently untappable while looking
-        // perfectly fine. Keeping the measured box a plain View makes the
-        // surrounding layout independent of what the native view reports.
+        // Sized by a plain View so the surrounding layout doesn't depend on
+        // what the native Apple button reports to Yoga.
         <View style={{ height: APPLE_BUTTON_HEIGHT }}>
           <AppleAuthentication.AppleAuthenticationButton
             buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}

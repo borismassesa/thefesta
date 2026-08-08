@@ -27,7 +27,16 @@ const RESEND_COOLDOWN_SECONDS = 30;
 /** How long to wait on Clerk before admitting something is wrong. */
 const STALL_THRESHOLD_MS = 15_000;
 
-type Step = { name: 'details' } | { name: 'verify' } | { name: 'provisioning' };
+type Step =
+  | { name: 'details' }
+  | { name: 'verify' }
+  /**
+   * Reached from a social sign-in that authenticated the person but left Clerk
+   * without a name. Apple only discloses the name on the very first
+   * authorisation, so anyone returning after a failed attempt lands here.
+   */
+  | { name: 'complete_profile' }
+  | { name: 'provisioning' };
 
 export default function SignUpScreen() {
   const { signUp, setActive, isLoaded } = useSignUp();
@@ -64,6 +73,46 @@ export default function SignUpScreen() {
     const timer = setTimeout(() => setCooldown((seconds) => seconds - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
+
+  // A social sign-in can hand this screen a sign-up that is already
+  // authenticated and only missing a name. Clerk keeps that resource on the
+  // client, so arriving here is enough to pick it up and ask.
+  useEffect(() => {
+    if (!isLoaded || !signUp || step.name !== 'details') return;
+    if (signUp.status !== 'missing_requirements') return;
+
+    const missing = signUp.missingFields ?? [];
+    if (missing.some((field) => field === 'first_name' || field === 'last_name')) {
+      setStep({ name: 'complete_profile' });
+    }
+  }, [isLoaded, signUp, step.name]);
+
+  const handleCompleteProfile = async () => {
+    if (!isLoaded || !signUp || loading) return;
+
+    const name = splitFullName(fullName);
+    if (!name) {
+      setError('Please enter your first and last name.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const result = await signUp.update({ firstName: name.firstName, lastName: name.lastName });
+
+      if (result.status === 'complete' && result.createdSessionId) {
+        await finishSignUp(result.createdSessionId, name.firstName);
+        return;
+      }
+
+      setError("That didn't complete your account. Please sign up with an email address instead.");
+    } catch (err) {
+      setError(getErrorMessage(err, "Couldn't save your name"));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const goToSignIn = (prefill: string) => {
     // push, not replace: replace() is a no-op when it targets the entry
@@ -210,16 +259,32 @@ export default function SignUpScreen() {
       >
           <Text className="font-playfair-bold text-display text-ed-on-surface">OpusPass</Text>
           <Text className="mt-2 font-inter-semibold text-screen-title text-ed-on-surface">
-            {step.name === 'details' ? 'Create your account' : 'Check your email'}
+            {step.name === 'details'
+              ? 'Create your account'
+              : step.name === 'complete_profile'
+                ? 'One last thing'
+                : 'Check your email'}
           </Text>
           <Text className="mt-1 font-inter text-body-sm text-ed-on-surface-variant">
             {step.name === 'details'
               ? 'Start planning your wedding in one place.'
-              : `We sent a 6-digit code to ${email}.`}
+              : step.name === 'complete_profile'
+                ? "Apple keeps your name private, so we'll need it here."
+                : `We sent a 6-digit code to ${email}.`}
           </Text>
 
           <View className="mt-8 gap-4">
-            {step.name === 'details' ? (
+            {step.name === 'complete_profile' ? (
+              <AuthField
+                label="Your name"
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Ada Lovelace"
+                autoCapitalize="words"
+                autoComplete="name"
+                autoFocus
+              />
+            ) : step.name === 'details' ? (
               <>
                 <AuthField
                   label="Your name"
@@ -313,20 +378,40 @@ export default function SignUpScreen() {
             {error ? <Text className="font-inter text-body-sm text-ed-error">{error}</Text> : null}
 
             <AuthSubmit
-              label={step.name === 'details' ? 'Create account' : 'Verify email'}
+              label={
+                step.name === 'details'
+                  ? 'Create account'
+                  : step.name === 'complete_profile'
+                    ? 'Finish signing up'
+                    : 'Verify email'
+              }
               loading={loading}
-              onPress={step.name === 'details' ? handleCreate : handleVerify}
+              onPress={
+                step.name === 'details'
+                  ? handleCreate
+                  : step.name === 'complete_profile'
+                    ? handleCompleteProfile
+                    : handleVerify
+              }
             />
 
-            {/* No "Already have an account?" footer here on purpose. A Pressable
-                in that position on this screen renders but never receives
-                touches — verified on device, handler never fires — while the
-                identical markup works on sign-in. Rather than ship a link that
-                silently does nothing, this screen relies on the back button,
-                and the "already registered" panel above carries its own
-                sign-in action for the case that actually matters. */}
-            {step.name === 'details' ? (
-              <SocialAuthButtons onSuccess={() => router.replace('/')} disabled={loading} />
+            {step.name === 'complete_profile' ? null : step.name === 'details' ? (
+              <>
+                <Pressable accessibilityRole="button" onPress={() => goToSignIn(email)} className="items-center py-2">
+                  <Text className="font-inter-medium text-body-sm text-ed-on-surface-variant">
+                    Already have an account? <Text className="text-ed-secondary">Sign in</Text>
+                  </Text>
+                </Pressable>
+                <SocialAuthButtons
+                  onSuccess={() => router.replace('/')}
+                  onNeedsName={() => {
+                    setFullName('');
+                    setError('');
+                    setStep({ name: 'complete_profile' });
+                  }}
+                  disabled={loading}
+                />
+              </>
             ) : (
               <Pressable
                 accessibilityRole="button"

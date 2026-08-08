@@ -378,9 +378,6 @@ export default function SignInScreen() {
 
             {step.name === 'identifier' ? (
               <>
-                {/* Ordered before the social buttons deliberately — see the note
-                    on SocialAuthButtons. Anything rendered after it stops
-                    receiving touches. */}
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => router.push({ pathname: '/(auth)/sign-up', params: { email } })}
@@ -390,7 +387,13 @@ export default function SignInScreen() {
                     New to OpusPass? <Text className="text-ed-secondary">Create an account</Text>
                   </Text>
                 </Pressable>
-                <SocialAuthButtons onSuccess={() => router.replace('/')} disabled={loading} />
+                <SocialAuthButtons
+                  onSuccess={() => router.replace('/')}
+                  // The pending sign-up lives on Clerk's client, so sign-up
+                  // picks it up on arrival and asks for the missing name.
+                  onNeedsName={() => router.push('/(auth)/sign-up')}
+                  disabled={loading}
+                />
               </>
             ) : (
               <Pressable

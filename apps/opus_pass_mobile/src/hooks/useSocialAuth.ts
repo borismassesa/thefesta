@@ -9,13 +9,34 @@ import { ensureProvisioned } from '@/lib/provisioning';
 export type SocialResult =
   | { status: 'success' }
   | { status: 'cancelled' }
+  /**
+   * Authenticated, but Clerk can't finish the sign-up without a name. Apple
+   * discloses the name only on the very first authorisation, so returning
+   * users arrive with nothing to fill it from and have to be asked.
+   */
+  | { status: 'needs-name' }
   | { status: 'error'; message: string };
 
 type FlowResult = {
   createdSessionId: string | null;
   setActive?: (params: { session: string }) => Promise<void>;
-  signUp?: { emailAddress?: string | null; firstName?: string | null } | null;
+  signUp?: {
+    emailAddress?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    status?: string | null;
+    missingFields?: string[];
+    update?: (params: { firstName?: string; lastName?: string }) => Promise<{
+      status?: string | null;
+      createdSessionId?: string | null;
+    }>;
+  } | null;
 };
+
+/** Turns Clerk's snake_case missing-field names into something readable. */
+function describeMissingFields(fields: string[]): string {
+  return fields.map((f) => f.replace(/_/g, ' ')).join(', ');
+}
 
 /**
  * Google and Apple sign-in.
@@ -51,12 +72,46 @@ export function useSocialAuth() {
 
   const finish = useCallback(
     async (result: FlowResult): Promise<SocialResult> => {
-      if (!result.createdSessionId || !result.setActive) {
-        // No session and no throw means the user backed out of the sheet.
+      let sessionId = result.createdSessionId;
+
+      // No session, but a sign-up was started: the provider authenticated the
+      // person and Clerk transferred them to a sign-up that it can't complete
+      // on its own. This instance requires a first and last name, and Apple
+      // only discloses the name on the very first authorisation — so a second
+      // attempt lands here with nothing to fill them in from. Treating this as
+      // a cancel is what made the button look like it did nothing at all.
+      if (!sessionId && result.signUp?.status === 'missing_requirements') {
+        const missing = result.signUp.missingFields ?? [];
+        const { firstName, lastName } = result.signUp;
+
+        if (firstName && lastName && result.signUp.update) {
+          const updated = await result.signUp.update({ firstName, lastName });
+          sessionId = updated.createdSessionId ?? null;
+        }
+
+        if (!sessionId) {
+          // Only the name is genuinely askable in-app; anything else missing
+          // is a configuration problem the person can't solve, so say so.
+          const onlyNameMissing =
+            missing.length > 0 && missing.every((f) => f === 'first_name' || f === 'last_name');
+
+          if (onlyNameMissing) return { status: 'needs-name' };
+
+          return {
+            status: 'error',
+            message: missing.length
+              ? `Apple didn't share enough to finish signing up (needs ${describeMissingFields(missing)}). Create your account with an email address instead.`
+              : "Apple sign-in couldn't be completed. Create your account with an email address instead.",
+          };
+        }
+      }
+
+      if (!sessionId || !result.setActive) {
+        // Nothing started at all — the person backed out of the sheet.
         return { status: 'cancelled' };
       }
 
-      await result.setActive({ session: result.createdSessionId });
+      await result.setActive({ session: sessionId });
 
       // A first-time social sign-in creates the Clerk user but nothing in our
       // database, and there is no form here to ask for a name — so take the
