@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { withAuthGate } from '@/components/auth/withAuthGate';
 import {
   ActivityIndicator,
   Alert,
@@ -20,7 +21,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ProposalCard } from '@/components/inquiry/ProposalCard';
 import { InquiryStatusBadge } from '@/components/inquiry/InquiryStatusBadge';
 
-export default function InquiryDetailScreen() {
+function InquiryDetailScreen() {
   const router = useRouter();
   const { editorial } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -150,3 +151,6 @@ export default function InquiryDetailScreen() {
     </SafeAreaView>
   );
 }
+
+/** Signed-in only. Wrapper, not a route group — see withAuthGate. */
+export default withAuthGate(InquiryDetailScreen);

@@ -12,6 +12,12 @@ type ClerkApiUser = {
   first_name: string | null;
   last_name: string | null;
   image_url: string | null;
+  public_metadata?: Record<string, unknown>;
+};
+
+const JSON_HEADERS = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
 };
 
 async function fetchClerkUser(clerkUserId: string): Promise<ClerkApiUser | null> {
@@ -143,6 +149,80 @@ async function provisionUser(
   return null;
 }
 
+/**
+ * Minimal account setup for a client that only needs a usable account, not a
+ * finished onboarding wizard — currently OpusPass mobile sign-up.
+ *
+ * It exists as its own branch because reusing `type: "couple"` for this would
+ * be destructive: that branch upserts couple_profiles with a full payload, so
+ * PostgREST turns a conflict into DO UPDATE and blanks the preferences and
+ * onboarding timestamp of anyone who already onboarded on the web. Everything
+ * here is insert-if-absent, and no existing value is ever overwritten.
+ *
+ * Always answers 200 once the users row exists. The Clerk metadata write is
+ * a convenience for other surfaces; the caller's own re-read of
+ * requesting_user_id() is what actually tells it the account works, so a
+ * failed PATCH must not read as "provisioning failed".
+ */
+async function handleProvision(
+  supabase: ReturnType<typeof createClient>,
+  clerkUserId: string,
+  supabaseUserId: string,
+  partner1Name: unknown,
+): Promise<Response> {
+  // partner1_name is NOT NULL. The client sends a real name; this is only a
+  // guard against an empty string reaching the insert.
+  const name = typeof partner1Name === "string" && partner1Name.trim().length > 0
+    ? partner1Name.trim()
+    : "Partner 1";
+
+  // ignoreDuplicates => ON CONFLICT DO NOTHING: an existing profile is left
+  // exactly as it is. A first insert fires ensure_couple_account_on_profile,
+  // which is how the couple_accounts workspace row gets created.
+  const { error: profileError } = await supabase
+    .from("couple_profiles")
+    .upsert({ user_id: supabaseUserId, partner1_name: name }, {
+      onConflict: "user_id",
+      ignoreDuplicates: true,
+    });
+
+  if (profileError) {
+    // The users row is what unblocks the client, so a profile failure is
+    // logged and reported, not fatal.
+    console.error("Failed to insert couple profile during provision:", profileError);
+  }
+
+  // `role` is deliberately not written. It is a legacy enum (user_role) that
+  // has no 'couple' member, so setting it fails the whole statement with
+  // 22P02 and silently takes onboarding_complete down with it — which is how
+  // this was found. The column's own comment says product code must not touch
+  // it, and loadDashboardUser doesn't either.
+  const { error: flagError } = await supabase
+    .from("users")
+    .update({ onboarding_complete: true })
+    .eq("id", supabaseUserId);
+
+  if (flagError) {
+    console.error("Failed to set onboarding_complete during provision:", flagError);
+  }
+
+  // Merge rather than replace: patchClerkMetadata sends public_metadata
+  // wholesale, so writing a bare object here would wipe flags another app set.
+  const clerkUser = await fetchClerkUser(clerkUserId);
+  const existing = clerkUser?.public_metadata ?? {};
+  const metadataSynced = await patchClerkMetadata(clerkUserId, {
+    ...existing,
+    supabaseUserId,
+    onboardingComplete: existing.onboardingComplete ?? true,
+    userType: existing.userType ?? "couple",
+  });
+
+  return new Response(
+    JSON.stringify({ success: true, supabaseUserId, metadataSynced, profileCreated: !profileError }),
+    { status: 200, headers: JSON_HEADERS },
+  );
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -217,6 +297,16 @@ Deno.serve(async (req: Request) => {
     }
 
     const { type, profile } = await req.json();
+
+    if (type === "provision") {
+      if (!supabaseUserId) {
+        return new Response(
+          JSON.stringify({ error: "Failed to provision account. Please try again." }),
+          { status: 500, headers: JSON_HEADERS },
+        );
+      }
+      return await handleProvision(supabaseAuth, clerkUserId, supabaseUserId, profile?.partner1_name);
+    }
 
     if (type === "couple") {
       // Insert couple profile

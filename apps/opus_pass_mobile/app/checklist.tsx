@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { withAuthGate } from '@/components/auth/withAuthGate';
 import {
   ActivityIndicator,
   Alert,
@@ -54,7 +55,7 @@ interface Group {
   tasks: ResolvedTask[];
 }
 
-export default function ChecklistScreen() {
+function ChecklistScreen() {
   const { editorial } = useTheme();
   const {
     tasks,
@@ -929,3 +930,6 @@ function AddTaskModal({
     </Modal>
   );
 }
+
+/** Signed-in only. Wrapper, not a route group — see withAuthGate. */
+export default withAuthGate(ChecklistScreen);
