@@ -275,33 +275,31 @@ export default function ScannerEntryScreen() {
                 {activeShift ? (
                   <>
                     <View className="rounded-3xl border border-ed-outline-variant bg-ed-surface p-5">
-                      {/* Title and status share a row, the status pinned
-                          right. `items-start` so the pill sits on the title's
-                          first line rather than drifting to the middle when a
-                          long event name wraps. */}
-                      <View className="flex-row items-start justify-between gap-3">
+                      {/* Status sits on its own row above the event identity,
+                          pushed to the right edge. Keeping it out of the name's
+                          row leaves the couple/event name the full width to
+                          wrap into. */}
+                      <View
+                        className="self-end rounded-full px-2.5 py-1"
+                        style={{ backgroundColor: LIVE_GREEN }}
+                      >
                         <Text
-                          className="flex-1 font-inter-bold text-screen-title text-ed-on-surface"
-                          numberOfLines={2}
+                          className="font-inter-bold text-label uppercase"
+                          style={{ color: '#1A1A1A' }}
                         >
-                          {activeShift.eventName ?? 'Your shift'}
+                          Shift in progress
                         </Text>
-                        <View
-                          className="mt-1 shrink-0 rounded-full px-2.5 py-1"
-                          style={{ backgroundColor: LIVE_GREEN }}
-                        >
-                          <Text
-                            className="font-inter-bold text-label uppercase tracking-wide"
-                            style={{ color: '#1A1A1A' }}
-                          >
-                            Shift in progress
-                          </Text>
-                        </View>
                       </View>
 
-                      {/* Door and attendant as separate icon-led facts. A dot
-                          separator ran them together as one string, which read
-                          as though the person belonged to the gate name. */}
+                      <Text
+                        className="mt-3 font-inter-bold text-screen-title leading-[34px] text-ed-on-surface"
+                        numberOfLines={2}
+                      >
+                        {activeShift.eventName ?? 'Your shift'}
+                      </Text>
+
+                      {/* Operational facts sit below the identity and may wrap
+                          independently without constraining the headline. */}
                       <View className="mt-3 flex-row flex-wrap items-center gap-x-5 gap-y-1.5">
                         <View className="flex-row items-center gap-1.5">
                           <MaterialCommunityIcons
