@@ -44,7 +44,28 @@ export function isProductBadge(v: unknown): v is ProductBadge {
   return typeof v === 'string' && (PRODUCT_BADGES as readonly string[]).includes(v)
 }
 
-/** Display metadata for each badge: emoji, label, and pill tone classes. */
+/**
+ * Display metadata for each badge: emoji, label, and pill tone classes.
+ *
+ * These pills sit ON TOP of the card artwork, which is overwhelmingly ivory,
+ * cream and gold. The previous pale-tint fills measured 1.01:1 to 1.12:1
+ * against that artwork — the pill and the invitation behind it were the same
+ * value, so the badge read as a smudge rather than a label. Deep brand fills
+ * with white text put every badge at 3:1 or better against ivory while staying
+ * legible on the dark cards (burgundy, forest) too.
+ *
+ * The white ring is load-bearing, not decoration: on a dark card the deep fill
+ * alone drops to ~2.7:1 against the background, and the ring is what keeps the
+ * pill's edge readable there.
+ *
+ * Colours come from the brand palette's `deep` steps (see vendors_portal
+ * brand-palette.ts). Champagne is the one exception — its deep step (#B07F2C)
+ * only reaches 3.5:1 with white text, under AA for 11px, so this uses the same
+ * hue and saturation stepped 14% darker to clear 4.5:1.
+ *
+ * Sage/green is deliberately NOT used here: the Emerald Principle reserves it
+ * for booking, publish and success states, and these are promotional labels.
+ */
 export const BADGE_META: Record<
   ProductBadge,
   { emoji: string; label: string; className: string }
@@ -52,16 +73,19 @@ export const BADGE_META: Record<
   most_popular: {
     emoji: '🟡',
     label: 'Most Popular',
-    className: 'bg-amber-50 text-amber-800 ring-amber-200',
+    // champagne deep, darkened to 4.63:1 with white text
+    className: 'bg-[#976D26] text-white ring-white/70',
   },
   premium: {
     emoji: '✨',
     label: 'Premium Template',
-    className: 'bg-[#F4ECDD] text-[#8A6D1F] ring-[#E2CF9E]',
+    // lavender deep — brand primary, 5.6:1 with white text
+    className: 'bg-[#7E5896] text-white ring-white/70',
   },
   trending: {
     emoji: '🔥',
     label: 'Trending This Week',
-    className: 'bg-rose-50 text-rose-700 ring-rose-200',
+    // rose deep — 5.3:1 with white text
+    className: 'bg-[#A84F66] text-white ring-white/70',
   },
 }

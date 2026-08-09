@@ -216,14 +216,20 @@ export default function ProductEditor({
             <p className="text-[11px] text-gray-500 -mt-2">
               The portrait card cover visitors see in the catalog, landing surfaces, and first slide of the
               public detail page. Upload a flattened <strong>PNG or WebP</strong> at a{' '}
-              <strong>3:4 portrait ratio</strong>. Keep editable SVG artwork in the Artwork &amp; fields tab.
+              <strong>5:7 portrait ratio</strong> — ideally <strong>1500 x 2100</strong>. Keep editable SVG
+              artwork in the Artwork &amp; fields tab.
+            </p>
+            <p className="rounded-lg border border-[#F0DFF6] bg-[#FCF7FF] px-3 py-2 text-[11px] text-[#6B4E8C]">
+              The public frames are 5:7 and crop anything taller or wider, so a 3:4 or 2:3 export loses its
+              top and bottom edges. Much larger exports are not sharper either: the catalog tile is about
+              170 CSS px wide, so past ~1500px you only add weight.
             </p>
             <ImageUploadField
               label="Hero preview image"
               value={product.image_url}
               onChange={(v) => set('image_url', v)}
               pathPrefix={IMAGE_PREFIX}
-              previewAspect="aspect-[3/4]"
+              previewAspect="aspect-[5/7]"
               previewWidth="max-w-[160px]"
               accept="raster"
             />
