@@ -10,7 +10,8 @@ import { InvitationVisual, type Treatment } from '@/components/guests/Invitation
 import { ProductInfo } from '@/components/guests/productInfo'
 import type { CatalogProduct } from '@/data/digital-cards-products'
 import { useCart, MIN_GUESTS } from '@/components/providers/CartProvider'
-import { getContact, getOrCreateQuoteRef, type StoredOrder } from '@/lib/cart-storage'
+import { buildQuotation } from '@/lib/quotation'
+import { downloadInvoice } from '@/lib/invoice'
 import { useT } from '@/components/providers/UIStringsProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -316,89 +317,10 @@ export default function CartClient({
     })
   }
 
-  /**
-   * The cart, priced, as a document someone else can pay from.
-   *
-   * Shaped as a StoredOrder because /api/invoice renders that and nothing else;
-   * `documentKind: 'quotation'` is what stops it claiming to be a paid invoice.
-   * The reference is derived from the cart's contents, so re-downloading an
-   * unchanged cart hands back the same quotation number.
-   */
-  function buildQuotation(): StoredOrder {
-    // Sorted by id, and by add-on within a line, because the signature has to
-    // describe the offer rather than the array. Re-adding a design already in
-    // the cart moves it to the end (CartProvider.addItem drops and re-appends),
-    // so an order-sensitive signature would mint a second quotation number for
-    // a cart nobody actually changed.
-    const signature = JSON.stringify(
-      items
-        .map((i) => [i.id, i.guests ?? 0, i.total, [...(i.addOns ?? [])].sort()] as const)
-        .sort((a, b) => a[0].localeCompare(b[0])),
-    )
-    const contact = getContact()
-    return {
-      ref: getOrCreateQuoteRef(signature),
-      documentKind: 'quotation',
-      // The issue date. The document derives "valid until" from it, so the
-      // validity window can never disagree with when it was raised.
-      paidAt: new Date().toISOString(),
-      contact: {
-        name: contact?.fullName || undefined,
-        email: contact?.email ?? '',
-        phone: contact?.phone ?? '',
-      },
-      // No `payment` block: nothing has been paid, and the document's "How to
-      // pay" section imports OpusFesta's own numbers rather than being handed
-      // them. Setting it here would imply a transaction that does not exist.
-      items: items.map((i) => ({
-        id: i.id,
-        name: i.name,
-        summary: i.summary,
-        total: i.total,
-        image: i.image,
-        tier: i.tier,
-        tierId: i.tierId,
-        guests: i.guests,
-        pricePerGuest: i.pricePerGuest,
-        addOns: i.addOns,
-        addOnItems: i.addOnItems,
-      })),
-      subtotal,
-      discount,
-      total,
-    }
-  }
-
   async function downloadQuotation() {
     setQuoteBusy(true)
     try {
-      const quote = buildQuotation()
-      const res = await fetch('/api/invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(quote),
-      })
-      if (!res.ok) throw new Error('Quotation request failed')
-      const blob = await res.blob()
-      const filename = `OpusFesta-Quotation-${quote.ref}.pdf`
-      const file = new File([blob], filename, { type: 'application/pdf' })
-      // Sharing beats downloading here: the point of a quotation is to get it
-      // to whoever is paying, and on a phone that is the WhatsApp share sheet.
-      if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] }) && navigator.share) {
-        await navigator.share({ files: [file], title: filename })
-        return
-      }
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return // share sheet dismissed
-      toast.error(t('quote_failed'))
+      await downloadInvoice(buildQuotation({ items, subtotal, discount, total }))
     } finally {
       setQuoteBusy(false)
     }

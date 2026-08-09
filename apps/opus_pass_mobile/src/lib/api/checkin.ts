@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { scannerGuestDisplayName } from '@opusfesta/lib';
 import { resolveApiOrigin } from '@/lib/api/apiOrigin';
 import { publicOrigin } from '@/lib/share';
 import type {
@@ -135,11 +136,23 @@ export function resolveAccessCode(token: string): Promise<ResolveCodeResult> {
 }
 
 /** Confirm the access code is still valid and fetch the event + guest roster. */
-export function validateScannerSession(
+export async function validateScannerSession(
   eventId: string,
   token: string
 ): Promise<ValidateSessionResult> {
-  return postJson<ValidateSessionResult>('validate', { eventId, token }, { cannotAdmit: true });
+  const result = await postJson<ValidateSessionResult>(
+    'validate',
+    { eventId, token },
+    { cannotAdmit: true }
+  );
+  if (!result.ok) return result;
+  return {
+    ...result,
+    roster: result.roster.map((guest) => ({
+      ...guest,
+      fullName: scannerGuestDisplayName(guest.fullName),
+    })),
+  };
 }
 
 export interface SubmitScanInput {
@@ -169,8 +182,11 @@ export interface SubmitScanInput {
   attendantName?: string;
 }
 
-export function submitScan(input: SubmitScanInput): Promise<CheckinScanResult> {
-  return postJson<CheckinScanResult>('scan', input);
+export async function submitScan(input: SubmitScanInput): Promise<CheckinScanResult> {
+  const result = await postJson<CheckinScanResult>('scan', input);
+  return result.guestName
+    ? { ...result, guestName: scannerGuestDisplayName(result.guestName) }
+    : result;
 }
 
 export interface LookupInput {
@@ -215,8 +231,11 @@ export type LookupResult =
  * admission. This one cannot write. Admission is a separate submitScan call
  * the attendant makes after seeing who they are looking at.
  */
-export function lookupAdmission(input: LookupInput): Promise<LookupResult> {
-  return postJson<LookupResult>('lookup', input, { cannotAdmit: true });
+export async function lookupAdmission(input: LookupInput): Promise<LookupResult> {
+  const result = await postJson<LookupResult>('lookup', input, { cannotAdmit: true });
+  return result.status === 'found'
+    ? { ...result, guestName: scannerGuestDisplayName(result.guestName) }
+    : result;
 }
 
 export interface AmendPartySizeInput {
@@ -267,6 +286,9 @@ export async function reportLink(eventId: string, accessToken: string): Promise<
   return `${resolveApiOrigin(publicOrigin(), Constants.expoConfig?.hostUri ?? '', __DEV__)}${result.path}`;
 }
 
-export function amendPartySize(input: AmendPartySizeInput): Promise<CheckinScanResult> {
-  return postJson<CheckinScanResult>('amend', input);
+export async function amendPartySize(input: AmendPartySizeInput): Promise<CheckinScanResult> {
+  const result = await postJson<CheckinScanResult>('amend', input);
+  return result.guestName
+    ? { ...result, guestName: scannerGuestDisplayName(result.guestName) }
+    : result;
 }

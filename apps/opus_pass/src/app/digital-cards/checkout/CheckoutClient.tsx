@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Smartphone, ShieldCheck, AlertCircle, Mail, Clock, Sparkles, MapPin, Pencil, Copy, Check, Loader2, Lock } from 'lucide-react'
+import { Smartphone, ShieldCheck, AlertCircle, Mail, Clock, Sparkles, MapPin, Pencil, Copy, Check, Loader2, Lock, FileText } from 'lucide-react'
 import CheckoutStepper from '@/components/digital-cards/CheckoutStepper'
 import { useCart } from '@/components/providers/CartProvider'
+import { buildQuotation } from '@/lib/quotation'
+import { downloadInvoice } from '@/lib/invoice'
 import {
   getContact,
   getLastOrder,
@@ -175,6 +177,9 @@ export default function CheckoutClient({ events }: { events: CheckoutEvent[] }) 
   const tf = useT('checkout-form')
   const tp = useT('checkout-payment')
   const ts = useT('checkout-summary')
+  // The quotation button is identical on the cart and here, so it reads the
+  // same 'cart' strings rather than getting a second copy that can drift.
+  const tq = useT('cart')
 
   // Single-event couples (the common case) never see a picker — their one
   // event is assigned automatically. Multi-event couples must choose.
@@ -193,6 +198,25 @@ export default function CheckoutClient({ events }: { events: CheckoutEvent[] }) 
   const [payError, setPayError] = useState<string | null>(null)
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current) }, [])
+
+  const [quoteBusy, setQuoteBusy] = useState(false)
+
+  /**
+   * The same quotation the cart offers, available here too.
+   *
+   * This is where a couple usually realises they need one: they have seen the
+   * total and are staring at a payment form for money they are not the one
+   * spending. By this step the contact details are filled in, so the document
+   * comes out addressed to them rather than anonymous.
+   */
+  async function downloadQuotation() {
+    setQuoteBusy(true)
+    try {
+      await downloadInvoice(buildQuotation({ items, subtotal, discount, total }))
+    } finally {
+      setQuoteBusy(false)
+    }
+  }
 
   const [mobilePhone, setMobilePhone] = useState('')
   const [payerName, setPayerName] = useState('')
@@ -905,6 +929,22 @@ export default function CheckoutClient({ events }: { events: CheckoutEvent[] }) 
                   <span className="text-base font-semibold text-gray-900">{ts('total_label')}</span>
                   <span className="text-xl font-semibold text-gray-900 tabular-nums">{formatTzs(total)}</span>
                 </div>
+                {/* For the couple who isn't the one paying: a priced document
+                    they can send to a parent, a sponsor or a company. */}
+                <button
+                  type="button"
+                  onClick={downloadQuotation}
+                  disabled={items.length === 0 || quoteBusy}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-[13px] font-semibold text-gray-700 transition hover:bg-gray-50 disabled:pointer-events-none disabled:text-gray-400"
+                >
+                  {quoteBusy ? (
+                    <Loader2 size={15} className="shrink-0 animate-spin" />
+                  ) : (
+                    <FileText size={15} className="shrink-0" />
+                  )}
+                  {tq('quote_cta')}
+                </button>
+                <p className="text-center text-xs text-muted-foreground">{tq('quote_hint')}</p>
               </CardContent>
             </Card>
 

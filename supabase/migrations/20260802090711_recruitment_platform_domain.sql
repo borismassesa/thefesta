@@ -508,6 +508,9 @@ CREATE TABLE IF NOT EXISTS public.recruitment_candidate_documents (
   sha256 text,
   malware_scan_status text NOT NULL DEFAULT 'pending'
     CHECK (malware_scan_status IN ('pending', 'clean', 'quarantined', 'failed')),
+  malware_scan_attempts integer NOT NULL DEFAULT 0 CHECK (malware_scan_attempts >= 0),
+  malware_scan_error text,
+  malware_scanned_at timestamptz,
   contains_sensitive_data boolean NOT NULL DEFAULT true,
   retention_until date,
   created_by_actor_type text NOT NULL DEFAULT 'candidate',
@@ -713,12 +716,26 @@ CREATE TABLE IF NOT EXISTS public.recruitment_reference_checks (
   relationship text,
   status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'requested', 'received', 'reviewed', 'cancelled')),
   response jsonb NOT NULL DEFAULT '{}'::jsonb,
+  candidate_consent_at timestamptz,
+  access_token_hash text UNIQUE,
+  access_expires_at timestamptz,
   requested_at timestamptz,
   received_at timestamptz,
   reviewed_by uuid REFERENCES public.workforce_employees(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- CREATE TABLE IF NOT EXISTS does not reconcile an earlier, narrower table.
+-- Keep the domain migration replay-safe for installations that piloted
+-- reference checks before candidate consent and token expiry were added.
+ALTER TABLE public.recruitment_reference_checks
+  ADD COLUMN IF NOT EXISTS candidate_consent_at timestamptz,
+  ADD COLUMN IF NOT EXISTS access_token_hash text,
+  ADD COLUMN IF NOT EXISTS access_expires_at timestamptz;
+CREATE UNIQUE INDEX IF NOT EXISTS recruitment_reference_checks_access_token_hash_key
+  ON public.recruitment_reference_checks(access_token_hash)
+  WHERE access_token_hash IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.recruitment_background_checks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -734,11 +751,14 @@ CREATE TABLE IF NOT EXISTS public.recruitment_background_checks (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS recruitment_background_checks_application_type_idx
+  ON public.recruitment_background_checks (application_id, check_type);
+
 CREATE TABLE IF NOT EXISTS public.recruitment_candidate_portal_tasks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   candidate_id uuid NOT NULL REFERENCES public.recruitment_candidates(id) ON DELETE CASCADE,
   application_id uuid REFERENCES public.recruitment_applications(id) ON DELETE CASCADE,
-  task_type text NOT NULL CHECK (task_type IN ('questionnaire', 'document_upload', 'availability', 'notice_acknowledgement', 'offer_response', 'signature', 'privacy_request')),
+  task_type text NOT NULL CHECK (task_type IN ('questionnaire', 'document_upload', 'availability', 'notice_acknowledgement', 'offer_response', 'signature', 'privacy_request', 'background_check_consent')),
   title text NOT NULL,
   instructions text,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -878,6 +898,7 @@ CREATE TABLE IF NOT EXISTS public.recruitment_interviews (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   application_id uuid NOT NULL REFERENCES public.recruitment_applications(id) ON DELETE CASCADE,
   interview_stage_id uuid REFERENCES public.recruitment_interview_stages(id) ON DELETE SET NULL,
+  scorecard_template_id uuid REFERENCES public.recruitment_scorecard_templates(id) ON DELETE SET NULL,
   title text NOT NULL,
   interview_type text NOT NULL,
   status text NOT NULL DEFAULT 'draft'
@@ -1111,9 +1132,15 @@ CREATE TABLE IF NOT EXISTS public.recruitment_messages (
   provider_message_id text,
   sent_by uuid REFERENCES public.workforce_employees(id) ON DELETE SET NULL,
   sent_at timestamptz,
+  related_entity_type text,
+  related_entity_id uuid,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS recruitment_messages_automation_dedupe_idx
+  ON public.recruitment_messages (template_id, related_entity_type, related_entity_id)
+  WHERE template_id IS NOT NULL AND related_entity_type IS NOT NULL AND related_entity_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.recruitment_message_recipients (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1266,6 +1293,21 @@ CREATE TABLE IF NOT EXISTS public.recruitment_offer_responses (
   user_agent text,
   note text,
   responded_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.recruitment_offer_signature_certificates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  response_id uuid NOT NULL UNIQUE REFERENCES public.recruitment_offer_responses(id) ON DELETE RESTRICT,
+  offer_id uuid NOT NULL REFERENCES public.recruitment_offers(id) ON DELETE RESTRICT,
+  offer_version integer NOT NULL CHECK (offer_version > 0),
+  offer_document_id uuid REFERENCES public.recruitment_offer_documents(id) ON DELETE SET NULL,
+  document_sha256 text,
+  signed_name text NOT NULL,
+  signed_at timestamptz NOT NULL DEFAULT now(),
+  ip_hash text,
+  user_agent text,
+  evidence jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS public.recruitment_hiring_conversions (
@@ -1439,6 +1481,14 @@ CREATE TABLE IF NOT EXISTS public.recruitment_agency_submissions (
   external_reference text,
   submitted_name text NOT NULL,
   submitted_email text NOT NULL,
+  submitted_by_contact_id uuid,
+  consent_confirmed_at timestamptz,
+  consent_evidence jsonb NOT NULL DEFAULT '{}'::jsonb,
+  resume_storage_bucket text,
+  resume_storage_path text,
+  resume_original_filename text,
+  resume_mime_type text,
+  resume_byte_size bigint CHECK (resume_byte_size IS NULL OR resume_byte_size >= 0),
   ownership_expires_at timestamptz,
   status text NOT NULL DEFAULT 'submitted'
     CHECK (status IN ('submitted', 'accepted', 'duplicate', 'rejected', 'converted')),
@@ -1972,12 +2022,106 @@ REVOKE ALL ON FUNCTION public.recruitment_candidate_withdraw_application(uuid, u
 GRANT EXECUTE ON FUNCTION public.recruitment_candidate_withdraw_application(uuid, uuid, text)
   TO service_role;
 
+CREATE OR REPLACE FUNCTION public.recruitment_submit_reference_response(
+  p_token_hash text,
+  p_response jsonb
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_check public.recruitment_reference_checks%ROWTYPE;
+BEGIN
+  IF length(COALESCE(p_token_hash, '')) <> 64 OR jsonb_typeof(COALESCE(p_response, '{}'::jsonb)) <> 'object' THEN
+    RAISE EXCEPTION 'Reference request is invalid' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO v_check FROM public.recruitment_reference_checks
+  WHERE access_token_hash = p_token_hash FOR UPDATE;
+  IF NOT FOUND OR v_check.status <> 'requested' OR v_check.access_expires_at < now() THEN
+    RAISE EXCEPTION 'Reference request is unavailable' USING ERRCODE = '42501';
+  END IF;
+  IF length(btrim(COALESCE(p_response->>'relationship_confirmation', ''))) < 2
+    OR length(btrim(COALESCE(p_response->>'strengths', ''))) < 10
+    OR length(btrim(COALESCE(p_response->>'comments', ''))) < 10
+    OR COALESCE(p_response->>'rehire', '') NOT IN ('yes', 'no', 'unsure') THEN
+    RAISE EXCEPTION 'Complete all required reference fields' USING ERRCODE = '23514';
+  END IF;
+  UPDATE public.recruitment_reference_checks SET
+    response = p_response,
+    status = 'received',
+    received_at = now(),
+    access_token_hash = NULL,
+    updated_at = now()
+  WHERE id = v_check.id;
+  INSERT INTO public.recruitment_audit_events
+    (event_type, entity_type, entity_id, actor_type, metadata)
+  VALUES ('reference.received', 'reference_check', v_check.id, 'external_referee',
+    jsonb_build_object('application_id', v_check.application_id));
+  RETURN v_check.id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recruitment_submit_reference_response(text, jsonb)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recruitment_submit_reference_response(text, jsonb)
+  TO service_role;
+
+CREATE OR REPLACE FUNCTION public.recruitment_candidate_respond_background_consent(
+  p_task_id uuid,
+  p_candidate_id uuid,
+  p_consented boolean
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_task public.recruitment_candidate_portal_tasks%ROWTYPE;
+  v_check public.recruitment_background_checks%ROWTYPE;
+BEGIN
+  SELECT * INTO v_task FROM public.recruitment_candidate_portal_tasks
+  WHERE id = p_task_id AND candidate_id = p_candidate_id
+    AND task_type = 'background_check_consent'
+    AND status IN ('pending', 'in_progress') FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Consent task is unavailable' USING ERRCODE = '42501'; END IF;
+  SELECT * INTO v_check FROM public.recruitment_background_checks
+  WHERE id = (v_task.payload->>'background_check_id')::uuid
+    AND application_id = v_task.application_id FOR UPDATE;
+  IF NOT FOUND OR v_check.status <> 'consent_requested' THEN
+    RAISE EXCEPTION 'Background check request is unavailable' USING ERRCODE = '23514';
+  END IF;
+  UPDATE public.recruitment_background_checks SET
+    candidate_consent_at = CASE WHEN p_consented THEN now() ELSE NULL END,
+    status = CASE WHEN p_consented THEN 'in_progress' ELSE 'cancelled' END,
+    updated_at = now()
+  WHERE id = v_check.id;
+  UPDATE public.recruitment_candidate_portal_tasks SET
+    status = 'completed', completed_at = now(), updated_at = now()
+  WHERE id = v_task.id;
+  INSERT INTO public.recruitment_audit_events
+    (event_type, entity_type, entity_id, actor_type, metadata)
+  VALUES ('background_check.consent_responded', 'background_check', v_check.id, 'candidate',
+    jsonb_build_object('consented', p_consented, 'candidate_id', p_candidate_id));
+  RETURN v_check.id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recruitment_candidate_respond_background_consent(uuid, uuid, boolean)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recruitment_candidate_respond_background_consent(uuid, uuid, boolean)
+  TO service_role;
+
 CREATE OR REPLACE FUNCTION public.recruitment_candidate_respond_offer(
   p_offer_id uuid,
   p_candidate_id uuid,
   p_response text,
   p_typed_signature text DEFAULT NULL,
-  p_note text DEFAULT NULL
+  p_note text DEFAULT NULL,
+  p_ip_hash text DEFAULT NULL,
+  p_user_agent text DEFAULT NULL
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -1990,6 +2134,8 @@ DECLARE
   c public.recruitment_candidates%ROWTYPE;
   v_conversion_id uuid;
   v_requisition_id uuid;
+  v_response_id uuid;
+  v_offer_document public.recruitment_offer_documents%ROWTYPE;
 BEGIN
   IF p_response NOT IN ('accepted', 'declined', 'question') THEN
     RAISE EXCEPTION 'Invalid offer response' USING ERRCODE = '23514';
@@ -2012,10 +2158,25 @@ BEGIN
   END IF;
 
   INSERT INTO public.recruitment_offer_responses
-    (offer_id, response, candidate_name, candidate_email, typed_signature, note)
-  VALUES (o.id, p_response, c.full_name, c.primary_email, p_typed_signature, p_note);
+    (offer_id, response, candidate_name, candidate_email, typed_signature, ip_hash, user_agent, note)
+  VALUES (o.id, p_response, c.full_name, c.primary_email, p_typed_signature,
+    left(p_ip_hash, 128), left(p_user_agent, 500), p_note)
+  RETURNING id INTO v_response_id;
 
   IF p_response = 'accepted' THEN
+    SELECT document.* INTO v_offer_document
+    FROM public.recruitment_offer_documents document
+    JOIN public.recruitment_offer_versions version ON version.id = document.offer_version_id
+    WHERE document.offer_id = o.id AND version.version = o.version
+      AND document.document_type = 'offer_letter'
+    ORDER BY document.created_at DESC LIMIT 1;
+    INSERT INTO public.recruitment_offer_signature_certificates
+      (response_id, offer_id, offer_version, offer_document_id, document_sha256,
+       signed_name, ip_hash, user_agent, evidence)
+    VALUES (v_response_id, o.id, o.version, v_offer_document.id, v_offer_document.sha256,
+      btrim(p_typed_signature), left(p_ip_hash, 128), left(p_user_agent, 500),
+      jsonb_build_object('method', 'typed_signature', 'candidate_id', c.id,
+        'application_id', a.id, 'document_hash_present', v_offer_document.sha256 IS NOT NULL));
     UPDATE public.recruitment_offers SET status = 'accepted' WHERE id = o.id;
     UPDATE public.recruitment_applications
     SET status = 'hired', candidate_facing_status = 'Hired'
@@ -2066,10 +2227,10 @@ BEGIN
             WHERE opening.requisition_id = r.id AND opening.status = 'filled') >= r.headcount THEN 'filled'
           ELSE 'partially_filled'
         END,
-        filled_at = CASE
+        closed_at = CASE
           WHEN (SELECT count(*) FROM public.recruitment_requisition_openings opening
             WHERE opening.requisition_id = r.id AND opening.status = 'filled') >= r.headcount THEN now()
-          ELSE r.filled_at
+          ELSE r.closed_at
         END
       WHERE r.id = v_requisition_id;
     END IF;
@@ -2090,9 +2251,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.recruitment_candidate_respond_offer(uuid, uuid, text, text, text)
+REVOKE ALL ON FUNCTION public.recruitment_candidate_respond_offer(uuid, uuid, text, text, text, text, text)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.recruitment_candidate_respond_offer(uuid, uuid, text, text, text)
+GRANT EXECUTE ON FUNCTION public.recruitment_candidate_respond_offer(uuid, uuid, text, text, text, text, text)
   TO service_role;
 
 CREATE OR REPLACE FUNCTION public.recruitment_candidate_submit_assessment(
@@ -2213,6 +2374,257 @@ GRANT EXECUTE ON FUNCTION public.recruitment_candidate_register_document(
   uuid, uuid, uuid, text, text, text, text, text, bigint, text
 ) TO service_role;
 
+CREATE OR REPLACE FUNCTION public.recruitment_submit_public_application(
+  p_job_id uuid,
+  p_payload jsonb,
+  p_answers jsonb DEFAULT '[]'::jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_posting public.recruitment_job_postings%ROWTYPE;
+  v_candidate_id uuid;
+  v_application_id uuid;
+  v_reference text;
+  v_answer jsonb;
+  v_question public.recruitment_application_questions%ROWTYPE;
+  v_flagged_keys text[] := ARRAY[]::text[];
+  v_message_id uuid;
+  v_now timestamptz := now();
+BEGIN
+  IF jsonb_typeof(COALESCE(p_payload, '{}'::jsonb)) <> 'object'
+    OR jsonb_typeof(COALESCE(p_answers, '[]'::jsonb)) <> 'array' THEN
+    RAISE EXCEPTION 'Invalid application payload' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_posting
+  FROM public.recruitment_job_postings
+  WHERE workforce_job_id = p_job_id
+  FOR SHARE;
+  IF NOT FOUND
+    OR v_posting.status <> 'published'
+    OR v_posting.visibility NOT IN ('public', 'unlisted')
+    OR (v_posting.publish_at IS NOT NULL AND v_posting.publish_at > v_now)
+    OR (v_posting.unpublish_at IS NOT NULL AND v_posting.unpublish_at <= v_now) THEN
+    RAISE EXCEPTION 'This vacancy is not accepting applications' USING ERRCODE = '23514';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.workforce_jobs job
+    WHERE job.id = p_job_id AND job.status = 'Open'
+      AND (job.closing_date IS NULL OR job.closing_date >= current_date)
+  ) THEN
+    RAISE EXCEPTION 'This vacancy is not accepting applications' USING ERRCODE = '23514';
+  END IF;
+
+  IF length(btrim(COALESCE(p_payload->>'full_name', ''))) < 2
+    OR p_payload->>'email' IS NULL
+    OR p_payload->>'application_consent_at' IS NULL THEN
+    RAISE EXCEPTION 'Required candidate data is missing' USING ERRCODE = '23502';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(p_answers) supplied
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.recruitment_application_questions question
+      WHERE question.id = (supplied->>'question_id')::uuid
+        AND question.posting_id = v_posting.id
+        AND question.requirement_stage = 'application'
+    )
+  ) THEN
+    RAISE EXCEPTION 'An application answer does not belong to this posting' USING ERRCODE = '23514';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.recruitment_application_questions question
+    WHERE question.posting_id = v_posting.id
+      AND question.requirement_stage = 'application'
+      AND question.is_required
+      AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(p_answers) supplied
+        WHERE supplied->>'question_id' = question.id::text
+          AND supplied ? 'answer'
+          AND supplied->'answer' <> 'null'::jsonb
+          AND supplied->'answer' <> '""'::jsonb
+          AND supplied->'answer' <> '[]'::jsonb
+          AND supplied->'answer' <> 'false'::jsonb
+      )
+  ) THEN
+    RAISE EXCEPTION 'A required application answer is missing' USING ERRCODE = '23502';
+  END IF;
+
+  INSERT INTO public.recruitment_candidates (
+    primary_email, full_name, preferred_name, phone, country, city,
+    current_position, current_organization, years_experience, linkedin_url,
+    portfolio_url, source_summary, last_activity_at
+  ) VALUES (
+    lower(btrim(p_payload->>'email')), btrim(p_payload->>'full_name'),
+    NULLIF(btrim(p_payload->>'preferred_name'), ''), NULLIF(btrim(p_payload->>'phone'), ''),
+    NULLIF(btrim(p_payload->>'country'), ''), NULLIF(btrim(p_payload->>'city'), ''),
+    NULLIF(btrim(p_payload->>'current_position'), ''),
+    NULLIF(btrim(p_payload->>'current_organization'), ''),
+    NULLIF(p_payload->>'years_experience', '')::numeric,
+    NULLIF(btrim(p_payload->>'linkedin_url'), ''),
+    NULLIF(btrim(p_payload->>'portfolio_url'), ''),
+    'Careers Page', v_now
+  )
+  ON CONFLICT (normalized_email) DO UPDATE SET
+    full_name = EXCLUDED.full_name,
+    preferred_name = COALESCE(EXCLUDED.preferred_name, recruitment_candidates.preferred_name),
+    phone = COALESCE(EXCLUDED.phone, recruitment_candidates.phone),
+    country = COALESCE(EXCLUDED.country, recruitment_candidates.country),
+    city = COALESCE(EXCLUDED.city, recruitment_candidates.city),
+    current_position = COALESCE(EXCLUDED.current_position, recruitment_candidates.current_position),
+    current_organization = COALESCE(EXCLUDED.current_organization, recruitment_candidates.current_organization),
+    years_experience = COALESCE(EXCLUDED.years_experience, recruitment_candidates.years_experience),
+    linkedin_url = COALESCE(EXCLUDED.linkedin_url, recruitment_candidates.linkedin_url),
+    portfolio_url = COALESCE(EXCLUDED.portfolio_url, recruitment_candidates.portfolio_url),
+    last_activity_at = v_now
+  RETURNING id INTO v_candidate_id;
+
+  v_reference := COALESCE(NULLIF(p_payload->>'application_reference', ''),
+    'OF-' || to_char(v_now, 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)));
+  INSERT INTO public.recruitment_applications (
+    candidate_id, job_id, posting_id, application_reference, status,
+    candidate_facing_status, source, cover_letter, salary_expectation,
+    earliest_start_date, work_authorized, weekend_available, submitted_at
+  ) VALUES (
+    v_candidate_id, p_job_id, v_posting.id, v_reference, 'submitted',
+    'Application received', 'Careers Page', NULLIF(p_payload->>'cover_letter', ''),
+    NULLIF(p_payload->>'salary_expectation', ''),
+    NULLIF(p_payload->>'earliest_start_date', '')::date,
+    NULLIF(p_payload->>'work_authorized', '')::boolean,
+    NULLIF(p_payload->>'weekend_available', '')::boolean, v_now
+  ) RETURNING id INTO v_application_id;
+
+  INSERT INTO public.recruitment_application_sources (
+    application_id, source_type, source_name, campaign, medium, referrer_url, metadata
+  ) VALUES (
+    v_application_id,
+    CASE WHEN NULLIF(p_payload->>'utm_source', '') IS NULL THEN 'careers_site' ELSE 'campaign' END,
+    COALESCE(NULLIF(p_payload->>'utm_source', ''), 'Careers website'),
+    NULLIF(p_payload->>'utm_campaign', ''), NULLIF(p_payload->>'utm_medium', ''),
+    NULLIF(p_payload->>'referrer_url', ''), '{"immutable_original":true}'::jsonb
+  );
+
+  IF NULLIF(p_payload->>'resume_storage_path', '') IS NOT NULL THEN
+    INSERT INTO public.recruitment_candidate_documents (
+      candidate_id, application_id, document_type, storage_bucket, storage_path,
+      original_filename, mime_type, byte_size, malware_scan_status,
+      contains_sensitive_data, created_by_actor_type
+    ) VALUES (
+      v_candidate_id, v_application_id, 'resume', 'careers',
+      p_payload->>'resume_storage_path', NULLIF(p_payload->>'resume_filename', ''),
+      NULLIF(p_payload->>'resume_mime_type', ''),
+      NULLIF(p_payload->>'resume_byte_size', '')::bigint, 'pending', true, 'candidate'
+    );
+  END IF;
+
+  FOR v_answer IN SELECT value FROM jsonb_array_elements(p_answers)
+  LOOP
+    SELECT * INTO STRICT v_question
+    FROM public.recruitment_application_questions
+    WHERE id = (v_answer->>'question_id')::uuid AND posting_id = v_posting.id;
+
+    INSERT INTO public.recruitment_application_answers (
+      application_id, question_id, question_key, question_label, answer
+    ) VALUES (
+      v_application_id, v_question.id, v_question.key, v_question.label, v_answer->'answer'
+    );
+
+    IF v_question.question_type = 'file'
+      AND NULLIF(v_answer->'answer'->>'storage_path', '') IS NOT NULL THEN
+      INSERT INTO public.recruitment_candidate_documents (
+        candidate_id, application_id, document_type, storage_bucket, storage_path,
+        original_filename, mime_type, byte_size, malware_scan_status,
+        contains_sensitive_data, created_by_actor_type
+      ) VALUES (
+        v_candidate_id, v_application_id, 'other', 'careers',
+        v_answer->'answer'->>'storage_path',
+        NULLIF(v_answer->'answer'->>'original_filename', ''),
+        NULLIF(v_answer->'answer'->>'mime_type', ''),
+        NULLIF(v_answer->'answer'->>'byte_size', '')::bigint,
+        'pending', true, 'candidate'
+      );
+    END IF;
+
+    IF v_question.is_knockout
+      AND v_question.knockout_rule ? 'expected'
+      AND lower(btrim(v_answer->'answer' #>> '{}')) <>
+          lower(btrim(v_question.knockout_rule->>'expected')) THEN
+      v_flagged_keys := array_append(v_flagged_keys, v_question.key);
+    END IF;
+  END LOOP;
+
+  IF cardinality(v_flagged_keys) > 0 THEN
+    UPDATE public.recruitment_applications
+    SET status = 'eligibility_review', candidate_facing_status = 'Under review'
+    WHERE id = v_application_id;
+  END IF;
+
+  INSERT INTO public.recruitment_candidate_consents (
+    candidate_id, consent_type, notice_version, granted_at, source, evidence
+  )
+  SELECT v_candidate_id, consent_type, p_payload->>'privacy_notice_version', v_now,
+    'careers_site', jsonb_build_object('application_id', v_application_id)
+  FROM unnest(ARRAY[
+    'application_processing'::text,
+    CASE WHEN (p_payload->>'talent_pool_consent')::boolean THEN 'talent_pool' END,
+    CASE WHEN (p_payload->>'career_updates_consent')::boolean THEN 'career_updates' END
+  ]) consent_type
+  WHERE consent_type IS NOT NULL;
+
+  INSERT INTO public.recruitment_messages (
+    candidate_id, application_id, channel, subject, body, status, approval_status
+  ) VALUES (
+    v_candidate_id, v_application_id, 'email',
+    'Application received — ' || v_posting.public_title,
+    'Hello ' || COALESCE(NULLIF(p_payload->>'preferred_name', ''), split_part(p_payload->>'full_name', ' ', 1)) || E',\n\nWe received your application for ' || v_posting.public_title || '. Your reference is ' || v_reference || E'.\n\nThank you,\nOpusFesta People Team',
+    'queued', 'not_required'
+  ) RETURNING id INTO v_message_id;
+  INSERT INTO public.recruitment_message_recipients (
+    message_id, recipient_type, address, display_name
+  ) VALUES (v_message_id, 'to', lower(btrim(p_payload->>'email')), p_payload->>'full_name');
+
+  INSERT INTO public.recruitment_candidate_notices (
+    candidate_id, application_id, notice_type, title, body, version
+  ) VALUES (
+    v_candidate_id, v_application_id, 'application_received', 'Application received',
+    'We received your application for ' || v_posting.public_title || '. Reference: ' || v_reference || '.', '1'
+  );
+
+  INSERT INTO public.recruitment_audit_events (
+    event_type, entity_type, entity_id, actor_type, metadata
+  ) VALUES (
+    'application.submitted', 'application', v_application_id, 'candidate',
+    jsonb_build_object('job_id', p_job_id, 'posting_id', v_posting.id,
+      'application_reference', v_reference, 'source', 'careers_site',
+      'eligibility_review_question_keys', to_jsonb(v_flagged_keys),
+      'automated_decision', false)
+  );
+
+  RETURN jsonb_build_object(
+    'application_id', v_application_id,
+    'candidate_id', v_candidate_id,
+    'reference', v_reference,
+    'eligibility_review', cardinality(v_flagged_keys) > 0
+  );
+EXCEPTION
+  WHEN unique_violation THEN
+    RAISE EXCEPTION 'An application using this email already exists for this role'
+      USING ERRCODE = '23505';
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recruitment_submit_public_application(uuid, jsonb, jsonb)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recruitment_submit_public_application(uuid, jsonb, jsonb)
+  TO service_role;
+
 CREATE OR REPLACE FUNCTION public.recruitment_transition_application(
   p_application_id uuid,
   p_target_status text,
@@ -2290,6 +2702,122 @@ $$;
 REVOKE ALL ON FUNCTION public.recruitment_transition_application(uuid, text, uuid, text, text)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.recruitment_transition_application(uuid, text, uuid, text, text)
+  TO service_role;
+
+CREATE OR REPLACE FUNCTION public.recruitment_queue_rejection_message(
+  p_application_id uuid,
+  p_template_id uuid,
+  p_actor_employee_id uuid,
+  p_scheduled_for timestamptz DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  a public.recruitment_applications%ROWTYPE;
+  c public.recruitment_candidates%ROWTYPE;
+  j public.workforce_jobs%ROWTYPE;
+  template public.recruitment_message_templates%ROWTYPE;
+  v_message_id uuid;
+  v_subject text;
+  v_body text;
+BEGIN
+  SELECT * INTO a FROM public.recruitment_applications WHERE id = p_application_id;
+  IF NOT FOUND OR a.status <> 'rejected' THEN
+    RAISE EXCEPTION 'A rejected application is required' USING ERRCODE = '23514';
+  END IF;
+  SELECT * INTO c FROM public.recruitment_candidates WHERE id = a.candidate_id;
+  SELECT * INTO j FROM public.workforce_jobs WHERE id = a.job_id;
+  SELECT * INTO template FROM public.recruitment_message_templates
+  WHERE id = p_template_id AND status = 'active' AND channel = 'email'
+    AND category = 'rejection';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'An active rejection email template is required' USING ERRCODE = '23514';
+  END IF;
+  v_subject := replace(replace(replace(COALESCE(template.subject_template, 'Application update'),
+    '{{candidate.first_name}}', split_part(c.full_name, ' ', 1)),
+    '{{candidate.full_name}}', c.full_name), '{{job.title}}', j.title);
+  v_body := replace(replace(replace(template.body_template,
+    '{{candidate.first_name}}', split_part(c.full_name, ' ', 1)),
+    '{{candidate.full_name}}', c.full_name), '{{job.title}}', j.title);
+  INSERT INTO public.recruitment_messages (
+    candidate_id, application_id, template_id, channel, subject, body, status,
+    scheduled_for, approval_status, sent_by
+  ) VALUES (
+    c.id, a.id, template.id, 'email', v_subject, v_body, 'queued',
+    p_scheduled_for, 'pending', p_actor_employee_id
+  ) RETURNING id INTO v_message_id;
+  INSERT INTO public.recruitment_message_recipients
+    (message_id, recipient_type, address, display_name)
+  VALUES (v_message_id, 'to', c.primary_email, c.full_name);
+  INSERT INTO public.recruitment_message_events (message_id, event_type, metadata)
+  VALUES (v_message_id, 'queued_for_approval',
+    jsonb_build_object('actor_employee_id', p_actor_employee_id));
+  INSERT INTO public.recruitment_audit_events
+    (event_type, entity_type, entity_id, actor_type, metadata)
+  VALUES ('rejection.communication_queued', 'application', a.id, 'employee',
+    jsonb_build_object('message_id', v_message_id, 'template_id', template.id,
+      'actor_employee_id', p_actor_employee_id, 'approval_required', true));
+  RETURN v_message_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recruitment_queue_rejection_message(uuid, uuid, uuid, timestamptz)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recruitment_queue_rejection_message(uuid, uuid, uuid, timestamptz)
+  TO service_role;
+
+CREATE OR REPLACE FUNCTION public.recruitment_bulk_reject_applications(
+  p_application_ids uuid[],
+  p_actor_employee_id uuid,
+  p_reason_code text,
+  p_note text,
+  p_template_id uuid
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_application_id uuid;
+  v_count integer := 0;
+BEGIN
+  IF cardinality(p_application_ids) < 1 OR cardinality(p_application_ids) > 100 THEN
+    RAISE EXCEPTION 'Choose between 1 and 100 applications' USING ERRCODE = '23514';
+  END IF;
+  IF cardinality(p_application_ids) <> (
+    SELECT count(DISTINCT id) FROM public.recruitment_applications
+    WHERE id = ANY(p_application_ids)
+  ) THEN
+    RAISE EXCEPTION 'One or more applications are unavailable' USING ERRCODE = 'P0002';
+  END IF;
+  PERFORM 1 FROM public.recruitment_applications
+  WHERE id = ANY(p_application_ids) ORDER BY id FOR UPDATE;
+  FOREACH v_application_id IN ARRAY p_application_ids LOOP
+    PERFORM public.recruitment_transition_application(
+      v_application_id, 'rejected', p_actor_employee_id, p_reason_code, p_note
+    );
+    PERFORM public.recruitment_queue_rejection_message(
+      v_application_id, p_template_id, p_actor_employee_id, NULL
+    );
+    v_count := v_count + 1;
+  END LOOP;
+  INSERT INTO public.recruitment_audit_events
+    (event_type, entity_type, actor_type, metadata)
+  VALUES ('application.bulk_rejected', 'application_batch', 'employee',
+    jsonb_build_object('application_ids', p_application_ids, 'count', v_count,
+      'reason_code', p_reason_code, 'template_id', p_template_id,
+      'actor_employee_id', p_actor_employee_id));
+  RETURN v_count;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recruitment_bulk_reject_applications(uuid[], uuid, text, text, uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recruitment_bulk_reject_applications(uuid[], uuid, text, text, uuid)
   TO service_role;
 
 CREATE OR REPLACE FUNCTION public.recruitment_submit_employee_referral(
@@ -2521,6 +3049,130 @@ GRANT EXECUTE ON FUNCTION public.recruitment_schedule_interview(
   uuid, timestamptz, timestamptz, text, text, text, uuid, text, uuid
 ) TO service_role;
 
+CREATE OR REPLACE FUNCTION public.recruitment_add_interview_participant(
+  p_interview_id uuid,
+  p_employee_id uuid,
+  p_participant_role text,
+  p_actor_employee_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  i public.recruitment_interviews%ROWTYPE;
+  v_template_id uuid;
+BEGIN
+  IF p_participant_role NOT IN ('lead', 'interviewer', 'observer', 'coordinator') THEN
+    RAISE EXCEPTION 'Invalid participant role' USING ERRCODE = '23514';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_employee_id::text, 0));
+  SELECT * INTO i FROM public.recruitment_interviews
+  WHERE id = p_interview_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Interview not found' USING ERRCODE = 'P0002'; END IF;
+  IF i.status IN ('completed', 'cancelled', 'no_show') THEN
+    RAISE EXCEPTION 'Interview participants are locked' USING ERRCODE = '55000';
+  END IF;
+  IF i.starts_at IS NOT NULL AND i.ends_at IS NOT NULL AND EXISTS (
+    SELECT 1
+    FROM public.recruitment_interview_participants participant
+    JOIN public.recruitment_interviews other ON other.id = participant.interview_id
+    WHERE participant.employee_id = p_employee_id
+      AND other.id <> i.id
+      AND other.status IN ('scheduled', 'confirmed')
+      AND tstzrange(other.starts_at, other.ends_at, '[)') &&
+          tstzrange(i.starts_at, i.ends_at, '[)')
+  ) THEN
+    RAISE EXCEPTION 'Employee has a conflicting interview' USING ERRCODE = '23P01';
+  END IF;
+
+  INSERT INTO public.recruitment_interview_participants
+    (interview_id, employee_id, participant_role)
+  VALUES (i.id, p_employee_id, p_participant_role)
+  ON CONFLICT (interview_id, employee_id) DO UPDATE
+    SET participant_role = EXCLUDED.participant_role;
+
+  SELECT COALESCE(i.scorecard_template_id, stage.scorecard_template_id)
+  INTO v_template_id
+  FROM public.recruitment_interview_stages stage
+  WHERE stage.id = i.interview_stage_id;
+  v_template_id := COALESCE(v_template_id, i.scorecard_template_id);
+  IF p_participant_role IN ('lead', 'interviewer') AND v_template_id IS NOT NULL THEN
+    INSERT INTO public.recruitment_scorecards
+      (application_id, interview_id, template_id, reviewer_employee_id)
+    VALUES (i.application_id, i.id, v_template_id, p_employee_id)
+    ON CONFLICT (application_id, interview_id, reviewer_employee_id) DO NOTHING;
+  END IF;
+
+  INSERT INTO public.recruitment_calendar_sync_queue
+    (interview_id, provider, status, attempt, last_error)
+  VALUES (i.id, 'google_calendar', 'queued', 0, NULL)
+  ON CONFLICT (interview_id) DO UPDATE SET
+    status = 'queued', attempt = 0, last_error = NULL, synced_at = NULL;
+  INSERT INTO public.recruitment_audit_events
+    (event_type, entity_type, entity_id, actor_type, metadata)
+  VALUES ('interview.participant_added', 'interview', i.id, 'employee',
+    jsonb_build_object('employee_id', p_employee_id, 'participant_role', p_participant_role,
+      'actor_employee_id', p_actor_employee_id));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recruitment_add_interview_participant(uuid, uuid, text, uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recruitment_add_interview_participant(uuid, uuid, text, uuid)
+  TO service_role;
+
+CREATE OR REPLACE FUNCTION public.recruitment_assign_interview_scorecard(
+  p_interview_id uuid,
+  p_template_id uuid,
+  p_actor_employee_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  i public.recruitment_interviews%ROWTYPE;
+BEGIN
+  SELECT * INTO i FROM public.recruitment_interviews WHERE id = p_interview_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Interview not found' USING ERRCODE = 'P0002'; END IF;
+  IF i.status IN ('completed', 'cancelled', 'no_show') OR EXISTS (
+    SELECT 1 FROM public.recruitment_scorecards
+    WHERE interview_id = i.id AND status IN ('submitted', 'locked')
+  ) THEN
+    RAISE EXCEPTION 'Scorecard assignment is locked' USING ERRCODE = '55000';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.recruitment_scorecard_templates
+    WHERE id = p_template_id AND status = 'active'
+  ) THEN
+    RAISE EXCEPTION 'Active scorecard template not found' USING ERRCODE = '23514';
+  END IF;
+
+  DELETE FROM public.recruitment_scorecards
+  WHERE interview_id = i.id AND status = 'draft';
+  UPDATE public.recruitment_interviews SET scorecard_template_id = p_template_id WHERE id = i.id;
+  INSERT INTO public.recruitment_scorecards
+    (application_id, interview_id, template_id, reviewer_employee_id)
+  SELECT i.application_id, i.id, p_template_id, participant.employee_id
+  FROM public.recruitment_interview_participants participant
+  WHERE participant.interview_id = i.id
+    AND participant.participant_role IN ('lead', 'interviewer')
+  ON CONFLICT (application_id, interview_id, reviewer_employee_id) DO NOTHING;
+  INSERT INTO public.recruitment_audit_events
+    (event_type, entity_type, entity_id, actor_type, metadata)
+  VALUES ('interview.scorecard_assigned', 'interview', i.id, 'employee',
+    jsonb_build_object('template_id', p_template_id, 'actor_employee_id', p_actor_employee_id));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recruitment_assign_interview_scorecard(uuid, uuid, uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recruitment_assign_interview_scorecard(uuid, uuid, uuid)
+  TO service_role;
+
 CREATE OR REPLACE FUNCTION public.recruitment_set_interview_status(
   p_interview_id uuid,
   p_target_status text,
@@ -2549,6 +3201,11 @@ BEGIN
       completed_at = CASE WHEN p_target_status = 'completed' THEN now() ELSE completed_at END,
       internal_note = CASE WHEN p_note IS NOT NULL THEN p_note ELSE internal_note END
   WHERE id = i.id;
+  INSERT INTO public.recruitment_calendar_sync_queue
+    (interview_id, provider, status, attempt, last_error)
+  VALUES (i.id, 'google_calendar', 'queued', 0, NULL)
+  ON CONFLICT (interview_id) DO UPDATE SET
+    status = 'queued', attempt = 0, last_error = NULL, synced_at = NULL;
   INSERT INTO public.recruitment_audit_events
     (event_type, entity_type, entity_id, actor_type, metadata)
   VALUES ('interview.' || p_target_status, 'interview', i.id, 'employee',
@@ -2646,6 +3303,110 @@ REVOKE ALL ON FUNCTION public.recruitment_submit_interview_feedback(
 ) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.recruitment_submit_interview_feedback(
   uuid, uuid, text[], text, text, text, text, boolean, text, boolean
+) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.recruitment_submit_interview_scorecard(
+  p_interview_id uuid,
+  p_employee_id uuid,
+  p_assigned_competencies text[],
+  p_evidence text,
+  p_red_flags text,
+  p_recommendation text,
+  p_confidence text,
+  p_conflict_declared boolean,
+  p_conflict_note text,
+  p_ratings jsonb,
+  p_submit boolean
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_feedback_id uuid;
+  v_scorecard public.recruitment_scorecards%ROWTYPE;
+  v_rating jsonb;
+  v_criterion public.recruitment_scorecard_criteria%ROWTYPE;
+BEGIN
+  v_feedback_id := public.recruitment_submit_interview_feedback(
+    p_interview_id, p_employee_id, p_assigned_competencies, p_evidence,
+    p_red_flags, p_recommendation, p_confidence, p_conflict_declared,
+    p_conflict_note, p_submit
+  );
+  IF jsonb_typeof(COALESCE(p_ratings, '[]'::jsonb)) <> 'array' THEN
+    RAISE EXCEPTION 'Invalid scorecard ratings' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_scorecard FROM public.recruitment_scorecards
+  WHERE interview_id = p_interview_id AND reviewer_employee_id = p_employee_id
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    IF jsonb_array_length(COALESCE(p_ratings, '[]'::jsonb)) > 0 THEN
+      RAISE EXCEPTION 'No scorecard is assigned' USING ERRCODE = '23514';
+    END IF;
+    RETURN v_feedback_id;
+  END IF;
+  IF v_scorecard.status IN ('submitted', 'locked') THEN
+    RAISE EXCEPTION 'Submitted scorecard is locked' USING ERRCODE = '55000';
+  END IF;
+  IF p_submit AND EXISTS (
+    SELECT 1
+    FROM public.recruitment_scorecard_criteria criterion
+    JOIN public.recruitment_scorecard_sections section ON section.id = criterion.section_id
+    WHERE section.template_id = v_scorecard.template_id
+      AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(COALESCE(p_ratings, '[]'::jsonb)) rating
+        WHERE rating->>'criterion_id' = criterion.id::text
+          AND NULLIF(rating->>'rating', '') IS NOT NULL
+      )
+  ) THEN
+    RAISE EXCEPTION 'Complete every scorecard criterion before submitting' USING ERRCODE = '23514';
+  END IF;
+
+  FOR v_rating IN SELECT value FROM jsonb_array_elements(COALESCE(p_ratings, '[]'::jsonb))
+  LOOP
+    SELECT criterion.* INTO v_criterion
+    FROM public.recruitment_scorecard_criteria criterion
+    JOIN public.recruitment_scorecard_sections section ON section.id = criterion.section_id
+    WHERE criterion.id = (v_rating->>'criterion_id')::uuid
+      AND section.template_id = v_scorecard.template_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Scorecard criterion does not belong to the assigned template' USING ERRCODE = '23514';
+    END IF;
+    IF (v_rating->>'rating')::numeric < 1
+      OR (v_rating->>'rating')::numeric > v_criterion.rating_scale THEN
+      RAISE EXCEPTION 'Scorecard rating is outside its scale' USING ERRCODE = '23514';
+    END IF;
+    INSERT INTO public.recruitment_scorecard_ratings
+      (scorecard_id, criterion_id, rating, comment)
+    VALUES (v_scorecard.id, v_criterion.id, (v_rating->>'rating')::numeric,
+      NULLIF(btrim(v_rating->>'comment'), ''))
+    ON CONFLICT (scorecard_id, criterion_id) DO UPDATE SET
+      rating = EXCLUDED.rating, comment = EXCLUDED.comment;
+  END LOOP;
+
+  UPDATE public.recruitment_scorecards SET
+    recommendation = p_recommendation,
+    overall_comment = NULLIF(btrim(p_evidence), ''),
+    status = CASE WHEN p_submit THEN 'submitted' ELSE 'draft' END,
+    submitted_at = CASE WHEN p_submit THEN now() ELSE NULL END
+  WHERE id = v_scorecard.id;
+  IF p_submit THEN
+    INSERT INTO public.recruitment_audit_events
+      (event_type, entity_type, entity_id, actor_type, metadata)
+    VALUES ('scorecard.submitted', 'scorecard', v_scorecard.id, 'employee',
+      jsonb_build_object('interview_id', p_interview_id, 'employee_id', p_employee_id));
+  END IF;
+  RETURN v_feedback_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recruitment_submit_interview_scorecard(
+  uuid, uuid, text[], text, text, text, text, boolean, text, jsonb, boolean
+) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recruitment_submit_interview_scorecard(
+  uuid, uuid, text[], text, text, text, text, boolean, text, jsonb, boolean
 ) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.recruitment_create_offer(
@@ -2797,7 +3558,6 @@ AS $$
 DECLARE
   o public.recruitment_offers%ROWTYPE;
   s public.recruitment_offer_approvals%ROWTYPE;
-  v_next public.recruitment_offer_approvals%ROWTYPE;
   v_status text;
 BEGIN
   SELECT * INTO o FROM public.recruitment_offers WHERE id = p_offer_id FOR UPDATE;
@@ -2830,7 +3590,7 @@ BEGIN
     UPDATE public.recruitment_offers SET status = 'withdrawn' WHERE id = o.id;
     v_status := 'withdrawn';
   ELSE
-    SELECT * INTO v_next FROM public.recruitment_offer_approvals
+    PERFORM 1 FROM public.recruitment_offer_approvals
     WHERE offer_id = o.id AND status = 'pending' ORDER BY sequence LIMIT 1;
     IF FOUND THEN v_status := 'pending_approval';
     ELSE UPDATE public.recruitment_offers SET status = 'approved' WHERE id = o.id; v_status := 'approved'; END IF;
@@ -2922,7 +3682,6 @@ DECLARE
   a public.recruitment_applications%ROWTYPE;
   o public.recruitment_offers%ROWTYPE;
   c public.recruitment_candidates%ROWTYPE;
-  j public.workforce_jobs%ROWTYPE;
   v_employee_id uuid;
   v_employee_code text;
 BEGIN
@@ -2932,7 +3691,6 @@ BEGIN
   SELECT * INTO a FROM public.recruitment_applications WHERE id = conv.application_id;
   SELECT * INTO o FROM public.recruitment_offers WHERE id = conv.offer_id;
   SELECT * INTO c FROM public.recruitment_candidates WHERE id = a.candidate_id;
-  SELECT * INTO j FROM public.workforce_jobs WHERE id = a.job_id;
   IF o.status <> 'accepted' OR a.status <> 'hired' THEN
     RAISE EXCEPTION 'Accepted offer and hired application are required' USING ERRCODE = '23514';
   END IF;
@@ -3269,6 +4027,11 @@ CREATE TABLE IF NOT EXISTS public.recruitment_agency_contacts (
   UNIQUE (agency_id, email)
 );
 
+ALTER TABLE public.recruitment_agency_submissions
+  ADD CONSTRAINT recruitment_agency_submissions_submitted_by_contact_id_fkey
+  FOREIGN KEY (submitted_by_contact_id) REFERENCES public.recruitment_agency_contacts(id)
+  ON DELETE SET NULL;
+
 CREATE TABLE IF NOT EXISTS public.recruitment_agency_job_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   agency_id uuid NOT NULL REFERENCES public.recruitment_agencies(id) ON DELETE CASCADE,
@@ -3306,6 +4069,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_source public.recruitment_candidates%ROWTYPE;
+  v_locked_count integer;
 BEGIN
   IF p_surviving_candidate_id = p_merged_candidate_id THEN
     RAISE EXCEPTION 'Candidates must be different';
@@ -3317,7 +4081,9 @@ BEGIN
   PERFORM 1 FROM public.recruitment_candidates
     WHERE id IN (p_surviving_candidate_id, p_merged_candidate_id)
     ORDER BY id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Candidate not found'; END IF;
+  SELECT count(*) INTO v_locked_count FROM public.recruitment_candidates
+  WHERE id IN (p_surviving_candidate_id, p_merged_candidate_id);
+  IF v_locked_count <> 2 THEN RAISE EXCEPTION 'Candidate not found'; END IF;
   SELECT * INTO STRICT v_source FROM public.recruitment_candidates WHERE id = p_merged_candidate_id;
 
   IF EXISTS (
@@ -3339,17 +4105,76 @@ BEGIN
     p_actor_employee_id, btrim(p_reason)
   );
 
-  UPDATE public.recruitment_applications SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
-  UPDATE public.recruitment_candidate_documents SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
-  UPDATE public.recruitment_candidate_notes SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
-  UPDATE public.recruitment_referrals SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
-  UPDATE public.recruitment_agency_submissions SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
-  UPDATE public.recruitment_privacy_requests SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  INSERT INTO public.recruitment_candidate_contacts
+    (candidate_id, contact_type, value, normalized_value, is_primary, verified_at, created_at)
+  SELECT p_surviving_candidate_id, contact_type, value, normalized_value, false, verified_at, created_at
+  FROM public.recruitment_candidate_contacts WHERE candidate_id = p_merged_candidate_id
+  ON CONFLICT (candidate_id, contact_type, value) DO NOTHING;
+  DELETE FROM public.recruitment_candidate_contacts WHERE candidate_id = p_merged_candidate_id;
 
+  INSERT INTO public.recruitment_candidate_demographics
+    (candidate_id, voluntary_payload, notice_version, consented_at, withdrawn_at,
+      reporting_region, created_at, updated_at)
+  SELECT p_surviving_candidate_id, voluntary_payload, notice_version, consented_at,
+    withdrawn_at, reporting_region, created_at, updated_at
+  FROM public.recruitment_candidate_demographics WHERE candidate_id = p_merged_candidate_id
+  ON CONFLICT (candidate_id) DO NOTHING;
+  DELETE FROM public.recruitment_candidate_demographics WHERE candidate_id = p_merged_candidate_id;
+
+  UPDATE public.recruitment_candidate_experience SET candidate_id = p_surviving_candidate_id
+  WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_candidate_education SET candidate_id = p_surviving_candidate_id
+  WHERE candidate_id = p_merged_candidate_id;
   INSERT INTO public.recruitment_candidate_skills (candidate_id, skill, proficiency, years_experience)
   SELECT p_surviving_candidate_id, skill, proficiency, years_experience
   FROM public.recruitment_candidate_skills WHERE candidate_id = p_merged_candidate_id
   ON CONFLICT (candidate_id, skill) DO NOTHING;
+  DELETE FROM public.recruitment_candidate_skills WHERE candidate_id = p_merged_candidate_id;
+
+  INSERT INTO public.recruitment_candidate_preferences
+    (candidate_id, preferred_departments, preferred_locations, preferred_employment_types,
+      salary_expectation_min, salary_expectation_max, currency, remote_preference,
+      earliest_start_date, work_authorized, willing_to_relocate, updated_at)
+  SELECT p_surviving_candidate_id, preferred_departments, preferred_locations,
+    preferred_employment_types, salary_expectation_min, salary_expectation_max,
+    currency, remote_preference, earliest_start_date, work_authorized,
+    willing_to_relocate, updated_at
+  FROM public.recruitment_candidate_preferences WHERE candidate_id = p_merged_candidate_id
+  ON CONFLICT (candidate_id) DO NOTHING;
+  DELETE FROM public.recruitment_candidate_preferences WHERE candidate_id = p_merged_candidate_id;
+
+  INSERT INTO public.recruitment_candidate_saved_jobs (candidate_id, job_id, saved_at)
+  SELECT p_surviving_candidate_id, job_id, saved_at
+  FROM public.recruitment_candidate_saved_jobs WHERE candidate_id = p_merged_candidate_id
+  ON CONFLICT (candidate_id, job_id) DO NOTHING;
+  DELETE FROM public.recruitment_candidate_saved_jobs WHERE candidate_id = p_merged_candidate_id;
+  INSERT INTO public.recruitment_candidate_tags (candidate_id, tag_id, added_by, created_at)
+  SELECT p_surviving_candidate_id, tag_id, added_by, created_at
+  FROM public.recruitment_candidate_tags WHERE candidate_id = p_merged_candidate_id
+  ON CONFLICT (candidate_id, tag_id) DO NOTHING;
+  DELETE FROM public.recruitment_candidate_tags WHERE candidate_id = p_merged_candidate_id;
+
+  UPDATE public.recruitment_applications SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_candidate_documents SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_candidate_notes SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_candidate_consents SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_candidate_portal_tasks SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_candidate_notices SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_candidate_availability SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_accommodation_requests SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_messages SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_referrals SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_agency_submissions SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_privacy_requests SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_legal_holds SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+  UPDATE public.recruitment_analytics_events SET candidate_id = p_surviving_candidate_id WHERE candidate_id = p_merged_candidate_id;
+
+  INSERT INTO public.recruitment_talent_pool_members
+    (pool_id, candidate_id, status, added_by, added_at, removed_at)
+  SELECT pool_id, p_surviving_candidate_id, status, added_by, added_at, removed_at
+  FROM public.recruitment_talent_pool_members WHERE candidate_id = p_merged_candidate_id
+  ON CONFLICT (pool_id, candidate_id) DO NOTHING;
+  DELETE FROM public.recruitment_talent_pool_members WHERE candidate_id = p_merged_candidate_id;
 
   UPDATE public.recruitment_candidates SET
     preferred_name = coalesce(preferred_name, v_source.preferred_name),
@@ -3383,6 +4208,85 @@ REVOKE ALL ON FUNCTION public.recruitment_merge_candidates(uuid, uuid, uuid, tex
 GRANT EXECUTE ON FUNCTION public.recruitment_merge_candidates(uuid, uuid, uuid, text)
   TO service_role;
 
+CREATE OR REPLACE FUNCTION public.recruitment_detect_candidate_duplicates(
+  p_limit integer DEFAULT 250
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_inserted integer;
+BEGIN
+  IF p_limit < 1 OR p_limit > 2000 THEN
+    RAISE EXCEPTION 'Duplicate scan limit must be between 1 and 2000' USING ERRCODE = '23514';
+  END IF;
+  WITH candidate_pairs AS (
+    SELECT
+      first.id AS candidate_id,
+      second.id AS possible_duplicate_id,
+      ARRAY_REMOVE(ARRAY[
+        CASE WHEN length(regexp_replace(COALESCE(first.phone, ''), '\D', '', 'g')) >= 7
+          AND regexp_replace(COALESCE(first.phone, ''), '\D', '', 'g') =
+              regexp_replace(COALESCE(second.phone, ''), '\D', '', 'g') THEN 'phone' END,
+        CASE WHEN NULLIF(lower(btrim(first.linkedin_url)), '') IS NOT NULL
+          AND lower(btrim(first.linkedin_url)) = lower(btrim(second.linkedin_url)) THEN 'linkedin' END,
+        CASE WHEN lower(btrim(first.full_name)) = lower(btrim(second.full_name)) THEN 'name' END,
+        CASE WHEN NULLIF(lower(btrim(first.current_organization)), '') IS NOT NULL
+          AND lower(btrim(first.current_organization)) = lower(btrim(second.current_organization)) THEN 'organization' END,
+        CASE WHEN NULLIF(lower(btrim(first.city)), '') IS NOT NULL
+          AND lower(btrim(first.city)) = lower(btrim(second.city)) THEN 'city' END
+      ]::text[], NULL) AS matched_fields
+    FROM public.recruitment_candidates first
+    JOIN public.recruitment_candidates second ON first.id < second.id
+    WHERE first.status NOT IN ('anonymized', 'deleted')
+      AND second.status NOT IN ('anonymized', 'deleted')
+      AND (
+        (length(regexp_replace(COALESCE(first.phone, ''), '\D', '', 'g')) >= 7
+          AND regexp_replace(COALESCE(first.phone, ''), '\D', '', 'g') =
+              regexp_replace(COALESCE(second.phone, ''), '\D', '', 'g'))
+        OR (NULLIF(lower(btrim(first.linkedin_url)), '') IS NOT NULL
+          AND lower(btrim(first.linkedin_url)) = lower(btrim(second.linkedin_url)))
+        OR (lower(btrim(first.full_name)) = lower(btrim(second.full_name))
+          AND (
+            (NULLIF(lower(btrim(first.current_organization)), '') IS NOT NULL
+              AND lower(btrim(first.current_organization)) = lower(btrim(second.current_organization)))
+            OR (NULLIF(lower(btrim(first.city)), '') IS NOT NULL
+              AND lower(btrim(first.city)) = lower(btrim(second.city)))
+          ))
+      )
+    ORDER BY GREATEST(first.last_activity_at, second.last_activity_at) DESC
+    LIMIT p_limit
+  ), scored AS (
+    SELECT *, CASE
+      WHEN matched_fields @> ARRAY['phone', 'linkedin']::text[] THEN 0.99
+      WHEN matched_fields @> ARRAY['phone']::text[] THEN 0.94
+      WHEN matched_fields @> ARRAY['linkedin']::text[] THEN 0.92
+      WHEN matched_fields @> ARRAY['name', 'organization']::text[] THEN 0.82
+      ELSE 0.72
+    END AS confidence
+    FROM candidate_pairs
+  )
+  INSERT INTO public.recruitment_duplicate_matches
+    (candidate_id, possible_duplicate_id, matched_fields, confidence)
+  SELECT candidate_id, possible_duplicate_id, matched_fields, confidence FROM scored
+  ON CONFLICT (candidate_id, possible_duplicate_id) DO NOTHING;
+  GET DIAGNOSTICS v_inserted = ROW_COUNT;
+  INSERT INTO public.recruitment_audit_events
+    (event_type, entity_type, actor_type, metadata)
+  VALUES ('candidate.duplicate_scan_completed', 'candidate', 'system',
+    jsonb_build_object('pairs_created', v_inserted, 'scan_limit', p_limit,
+      'automated_merge', false));
+  RETURN v_inserted;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recruitment_detect_candidate_duplicates(integer)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recruitment_detect_candidate_duplicates(integer)
+  TO service_role;
+
 CREATE OR REPLACE FUNCTION public.recruitment_lock_submitted_feedback()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
@@ -3397,6 +4301,40 @@ DROP TRIGGER IF EXISTS trg_recruitment_lock_submitted_feedback ON public.recruit
 CREATE TRIGGER trg_recruitment_lock_submitted_feedback
   BEFORE UPDATE OR DELETE ON public.recruitment_interview_feedback
   FOR EACH ROW EXECUTE FUNCTION public.recruitment_lock_submitted_feedback();
+
+CREATE OR REPLACE FUNCTION public.recruitment_lock_submitted_scorecard()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF OLD.status IN ('submitted', 'locked') AND NEW IS DISTINCT FROM OLD THEN
+    RAISE EXCEPTION 'Submitted scorecard is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_recruitment_lock_submitted_scorecard ON public.recruitment_scorecards;
+CREATE TRIGGER trg_recruitment_lock_submitted_scorecard
+  BEFORE UPDATE OR DELETE ON public.recruitment_scorecards
+  FOR EACH ROW EXECUTE FUNCTION public.recruitment_lock_submitted_scorecard();
+
+CREATE OR REPLACE FUNCTION public.recruitment_lock_submitted_scorecard_rating()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.recruitment_scorecards scorecard
+    WHERE scorecard.id = OLD.scorecard_id AND scorecard.status IN ('submitted', 'locked')
+  ) THEN
+    RAISE EXCEPTION 'Submitted scorecard ratings are immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_recruitment_lock_submitted_scorecard_rating
+  ON public.recruitment_scorecard_ratings;
+CREATE TRIGGER trg_recruitment_lock_submitted_scorecard_rating
+  BEFORE UPDATE OR DELETE ON public.recruitment_scorecard_ratings
+  FOR EACH ROW EXECUTE FUNCTION public.recruitment_lock_submitted_scorecard_rating();
 
 -- ---------------------------------------------------------------------------
 -- State transitions and immutable history
@@ -3503,7 +4441,7 @@ BEGIN
     (OLD.status = 'approved' AND NEW.status IN ('draft', 'scheduled', 'published', 'archived')) OR
     (OLD.status = 'scheduled' AND NEW.status IN ('draft', 'published', 'archived')) OR
     (OLD.status = 'published' AND NEW.status IN ('paused', 'closed', 'archived')) OR
-    (OLD.status = 'paused' AND NEW.status IN ('published', 'closed', 'archived')) OR
+    (OLD.status = 'paused' AND NEW.status IN ('draft', 'published', 'closed', 'archived')) OR
     (OLD.status = 'closed' AND NEW.status IN ('published', 'archived'))
   ) THEN
     RAISE EXCEPTION 'Invalid posting transition: % -> %', OLD.status, NEW.status USING ERRCODE = '23514';
@@ -3571,8 +4509,18 @@ CREATE TRIGGER trg_recruitment_document_access_immutable
 
 DROP TRIGGER IF EXISTS trg_recruitment_audit_immutable ON public.recruitment_audit_events;
 CREATE TRIGGER trg_recruitment_audit_immutable
-  BEFORE UPDATE OR DELETE ON public.recruitment_audit_events
-  FOR EACH ROW EXECUTE FUNCTION public.recruitment_prevent_mutation();
+BEFORE UPDATE OR DELETE ON public.recruitment_audit_events
+FOR EACH ROW EXECUTE FUNCTION public.recruitment_prevent_mutation();
+
+DROP TRIGGER IF EXISTS trg_recruitment_offer_responses_immutable ON public.recruitment_offer_responses;
+CREATE TRIGGER trg_recruitment_offer_responses_immutable
+BEFORE UPDATE OR DELETE ON public.recruitment_offer_responses
+FOR EACH ROW EXECUTE FUNCTION public.recruitment_prevent_mutation();
+
+DROP TRIGGER IF EXISTS trg_recruitment_offer_signature_certificates_immutable ON public.recruitment_offer_signature_certificates;
+CREATE TRIGGER trg_recruitment_offer_signature_certificates_immutable
+BEFORE UPDATE OR DELETE ON public.recruitment_offer_signature_certificates
+FOR EACH ROW EXECUTE FUNCTION public.recruitment_prevent_mutation();
 
 -- ---------------------------------------------------------------------------
 -- Compatibility projection: legacy candidate writes -> canonical ATS
@@ -3590,7 +4538,11 @@ DECLARE
   v_reference text;
   v_status text;
   v_candidate_status text;
+  v_sync_status boolean := true;
 BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    v_sync_status := NEW.stage IS DISTINCT FROM OLD.stage;
+  END IF;
   v_reference := COALESCE(NEW.application_reference, 'OF-' || upper(substr(replace(NEW.id::text, '-', ''), 1, 12)));
   v_status := CASE NEW.stage
     WHEN 'Applied' THEN 'submitted'
@@ -3648,8 +4600,14 @@ BEGIN
   ON CONFLICT (legacy_workforce_candidate_id) DO UPDATE SET
     candidate_id = EXCLUDED.candidate_id,
     job_id = EXCLUDED.job_id,
-    status = EXCLUDED.status,
-    candidate_facing_status = EXCLUDED.candidate_facing_status,
+    status = CASE
+      WHEN v_sync_status THEN EXCLUDED.status
+      ELSE recruitment_applications.status
+    END,
+    candidate_facing_status = CASE
+      WHEN v_sync_status THEN EXCLUDED.candidate_facing_status
+      ELSE recruitment_applications.candidate_facing_status
+    END,
     source = EXCLUDED.source,
     cover_letter = COALESCE(EXCLUDED.cover_letter, recruitment_applications.cover_letter),
     salary_expectation = COALESCE(EXCLUDED.salary_expectation, recruitment_applications.salary_expectation),
@@ -3726,6 +4684,12 @@ CREATE INDEX IF NOT EXISTS idx_recruitment_candidates_name
   ON public.recruitment_candidates USING gin (to_tsvector('simple', full_name || ' ' || COALESCE(current_position, '') || ' ' || COALESCE(current_organization, '')));
 CREATE INDEX IF NOT EXISTS idx_recruitment_candidates_activity
   ON public.recruitment_candidates (last_activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recruitment_candidates_phone_normalized
+  ON public.recruitment_candidates ((regexp_replace(COALESCE(phone, ''), '\D', '', 'g')))
+  WHERE phone IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_recruitment_candidates_linkedin_normalized
+  ON public.recruitment_candidates ((lower(btrim(linkedin_url))))
+  WHERE linkedin_url IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_recruitment_applications_pipeline
   ON public.recruitment_applications (job_id, status, last_stage_changed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_recruitment_applications_candidate
@@ -3834,6 +4798,62 @@ VALUES
   ('Talent community', 'talent_community', 'talent_community', 'owned'),
   ('Manual import', 'manual_import', 'manual', 'offline')
 ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO public.recruitment_message_templates
+  (name, channel, category, language_code, subject_template, body_template, variables, status)
+VALUES
+  ('Application received', 'email', 'application_received', 'en', 'Application received — {{job.title}}', 'Hello {{candidate.first_name}},\n\nWe received your application for {{job.title}}. Your reference is {{application.reference}}.\n\nThank you,\nOpusFesta People Team', ARRAY['candidate.first_name','job.title','application.reference'], 'active'),
+  ('Application received', 'email', 'application_received', 'sw', 'Tumepokea ombi lako — {{job.title}}', 'Habari {{candidate.first_name}},\n\nTumepokea ombi lako la nafasi ya {{job.title}}. Namba yako ya kumbukumbu ni {{application.reference}}.\n\nAsante,\nTimu ya Watu ya OpusFesta', ARRAY['candidate.first_name','job.title','application.reference'], 'active'),
+  ('Screening invitation', 'email', 'screening', 'en', 'A conversation about {{job.title}}', 'Hello {{candidate.first_name}},\n\nWe would like to invite you to an introductory conversation about {{job.title}}. Please use the candidate portal to review the details.', ARRAY['candidate.first_name','job.title'], 'active'),
+  ('Screening invitation', 'email', 'screening', 'sw', 'Mazungumzo kuhusu {{job.title}}', 'Habari {{candidate.first_name}},\n\nTungependa kukualika kwenye mazungumzo ya awali kuhusu {{job.title}}. Tafadhali angalia maelezo kwenye tovuti ya mwombaji.', ARRAY['candidate.first_name','job.title'], 'active'),
+  ('Interview invitation', 'email', 'interview', 'en', 'Interview invitation — {{job.title}}', 'Hello {{candidate.first_name}},\n\nYou are invited to the next interview for {{job.title}}. Date: {{interview.starts_at}}. Details and rescheduling are available in your candidate portal.', ARRAY['candidate.first_name','job.title','interview.starts_at'], 'active'),
+  ('Interview invitation', 'email', 'interview', 'sw', 'Mwaliko wa usaili — {{job.title}}', 'Habari {{candidate.first_name}},\n\nUmealikwa kwenye usaili unaofuata wa {{job.title}}. Tarehe: {{interview.starts_at}}. Maelezo na kubadili muda vinapatikana kwenye tovuti ya mwombaji.', ARRAY['candidate.first_name','job.title','interview.starts_at'], 'active'),
+  ('Interview reminder', 'email', 'interview_reminder', 'en', 'Reminder — {{job.title}} interview', 'Hello {{candidate.first_name}},\n\nThis is a reminder about your {{job.title}} interview at {{interview.starts_at}}.', ARRAY['candidate.first_name','job.title','interview.starts_at'], 'active'),
+  ('Interview reminder', 'email', 'interview_reminder', 'sw', 'Kikumbusho — usaili wa {{job.title}}', 'Habari {{candidate.first_name}},\n\nHiki ni kikumbusho cha usaili wako wa {{job.title}} saa {{interview.starts_at}}.', ARRAY['candidate.first_name','job.title','interview.starts_at'], 'active'),
+  ('Assessment invitation', 'email', 'assessment', 'en', 'Assessment for {{job.title}}', 'Hello {{candidate.first_name}},\n\nYour next step for {{job.title}} is an assessment. Instructions and the due date are in your candidate portal.', ARRAY['candidate.first_name','job.title'], 'active'),
+  ('Assessment invitation', 'email', 'assessment', 'sw', 'Zoezi la tathmini kwa {{job.title}}', 'Habari {{candidate.first_name}},\n\nHatua inayofuata kwa {{job.title}} ni zoezi la tathmini. Maelekezo na tarehe ya mwisho vipo kwenye tovuti ya mwombaji.', ARRAY['candidate.first_name','job.title'], 'active'),
+  ('Information request', 'email', 'information_request', 'en', 'Information needed for {{job.title}}', 'Hello {{candidate.first_name}},\n\nWe need a little more information to continue reviewing your application for {{job.title}}. Please open your candidate portal.', ARRAY['candidate.first_name','job.title'], 'active'),
+  ('Information request', 'email', 'information_request', 'sw', 'Taarifa zinahitajika kwa {{job.title}}', 'Habari {{candidate.first_name}},\n\nTunahitaji taarifa zaidi ili kuendelea kupitia ombi lako la {{job.title}}. Tafadhali fungua tovuti ya mwombaji.', ARRAY['candidate.first_name','job.title'], 'active'),
+  ('Application outcome', 'email', 'rejection', 'en', 'Update on your {{job.title}} application', 'Hello {{candidate.first_name}},\n\nThank you for the time you invested in the process for {{job.title}}. We will not be progressing your application further on this occasion. We appreciate your interest in OpusFesta.', ARRAY['candidate.first_name','job.title'], 'active'),
+  ('Application outcome', 'email', 'rejection', 'sw', 'Taarifa kuhusu ombi lako la {{job.title}}', 'Habari {{candidate.first_name}},\n\nAsante kwa muda uliowekeza kwenye mchakato wa {{job.title}}. Kwa sasa hatutaendelea na ombi lako. Tunashukuru kwa nia yako kwa OpusFesta.', ARRAY['candidate.first_name','job.title'], 'active'),
+  ('Talent community consent', 'email', 'talent_consent', 'en', 'Confirm your OpusFesta talent community preferences', 'Hello {{candidate.first_name}},\n\nPlease review and confirm how you would like OpusFesta to retain and use your profile for future roles.', ARRAY['candidate.first_name'], 'active'),
+  ('Talent community consent', 'email', 'talent_consent', 'sw', 'Thibitisha mapendeleo yako ya jumuiya ya vipaji ya OpusFesta', 'Habari {{candidate.first_name}},\n\nTafadhali kagua na uthibitishe jinsi unavyotaka OpusFesta ihifadhi na kutumia wasifu wako kwa nafasi zijazo.', ARRAY['candidate.first_name'], 'active'),
+  ('Offer ready', 'email', 'offer', 'en', 'Your offer for {{job.title}}', 'Hello {{candidate.first_name}},\n\nYour offer for {{job.title}} is ready. Review the complete terms and respond securely in your candidate portal before {{offer.expires_at}}.', ARRAY['candidate.first_name','job.title','offer.expires_at'], 'active'),
+  ('Offer ready', 'email', 'offer', 'sw', 'Ofa yako ya {{job.title}}', 'Habari {{candidate.first_name}},\n\nOfa yako ya {{job.title}} iko tayari. Kagua masharti yote na ujibu kwa usalama kwenye tovuti ya mwombaji kabla ya {{offer.expires_at}}.', ARRAY['candidate.first_name','job.title','offer.expires_at'], 'active'),
+  ('Reference request', 'email', 'reference', 'en', 'Reference request for {{candidate.full_name}}', 'Hello,\n\n{{candidate.full_name}} has named you as a referee. Please use the secure link provided to share your reference.', ARRAY['candidate.full_name'], 'active'),
+  ('Reference request', 'email', 'reference', 'sw', 'Ombi la rejea kwa {{candidate.full_name}}', 'Habari,\n\n{{candidate.full_name}} amekutaja kama mtoa rejea. Tafadhali tumia kiungo salama kilichotolewa kushiriki rejea yako.', ARRAY['candidate.full_name'], 'active'),
+  ('Withdrawal confirmation', 'email', 'withdrawal', 'en', 'Application withdrawn — {{job.title}}', 'Hello {{candidate.first_name}},\n\nWe have recorded the withdrawal of your application for {{job.title}}. Thank you for letting us know.', ARRAY['candidate.first_name','job.title'], 'active'),
+  ('Withdrawal confirmation', 'email', 'withdrawal', 'sw', 'Ombi limeondolewa — {{job.title}}', 'Habari {{candidate.first_name}},\n\nTumerekodi kuondolewa kwa ombi lako la {{job.title}}. Asante kwa kutujulisha.', ARRAY['candidate.first_name','job.title'], 'active')
+ON CONFLICT (name, channel, language_code) DO UPDATE SET
+  category = EXCLUDED.category,
+  subject_template = EXCLUDED.subject_template,
+  body_template = EXCLUDED.body_template,
+  variables = EXCLUDED.variables;
+
+INSERT INTO public.recruitment_message_template_versions
+  (template_id, version, subject_template, body_template, change_summary)
+SELECT id, 1, subject_template, body_template, 'Initial approved bilingual recruitment template'
+FROM public.recruitment_message_templates
+WHERE status = 'active'
+ON CONFLICT (template_id, version) DO NOTHING;
+
+INSERT INTO public.recruitment_automation_rules
+  (name, trigger_event, conditions, actions, status, priority)
+SELECT seed.name, 'scheduled.maintenance', seed.conditions, seed.actions, 'active', seed.priority
+FROM (VALUES
+  ('Candidate interview reminders', '{"hours_before":24}'::jsonb,
+    '[{"type":"candidate_interview_reminder"}]'::jsonb, 10),
+  ('Stalled application alerts', '{"days_in_stage":3}'::jsonb,
+    '[{"type":"alert_stalled_applications"}]'::jsonb, 20),
+  ('Overdue scorecard reminders', '{"hours_overdue":24}'::jsonb,
+    '[{"type":"remind_overdue_scorecards"}]'::jsonb, 30),
+  ('Expiring offer alerts', '{"hours_before":48}'::jsonb,
+    '[{"type":"notify_expiring_offers"}]'::jsonb, 40)
+) AS seed(name, conditions, actions, priority)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.recruitment_automation_rules existing
+  WHERE existing.name = seed.name
+);
 
 INSERT INTO public.recruitment_referral_programs (
   name, rules, reward_description, status

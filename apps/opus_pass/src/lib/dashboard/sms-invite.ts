@@ -24,6 +24,7 @@
  */
 
 import { paletteNames } from './color-names'
+import { ticketTypeLabel } from './types'
 
 /** The card's filled-in details. Every value is optional: a design can be
  *  released with only some fields set, and half a line is worse than none. */
@@ -81,7 +82,7 @@ const SWAHILI_WEEKDAYS = [
 
 /** How the ticket is named to a guest — the same words the pass itself uses. */
 function cardTypeLabel(partySize: number): string {
-  return partySize >= 2 ? 'Double' : 'Single'
+  return ticketTypeLabel(partySize)
 }
 
 /**

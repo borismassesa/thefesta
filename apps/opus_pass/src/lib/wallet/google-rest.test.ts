@@ -34,6 +34,7 @@ const CONFIG = {
   serviceAccountEmail: 'opuspass-wallet-issuer@opusfesta-498919.iam.gserviceaccount.com',
   privateKey,
   origin: 'https://opuspass.opusfesta.com',
+  assetOrigin: 'https://opuspass.opusfesta.com',
 }
 
 const MODEL: WalletPassModel = {

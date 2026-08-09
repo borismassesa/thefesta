@@ -81,7 +81,12 @@ import {
 import { formatInviteGuestName, INVITE_TEMPLATE, ENTRANCE_PASS_TEMPLATE } from '@/lib/whatsapp/types'
 import { buildSmsInvite, cardDateLabel } from '@/lib/dashboard/sms-invite'
 import { buildManualInvite, manualWhatsAppUrl } from '@/lib/dashboard/manual-invite'
-import { EVENT_TYPE_LABELS } from '@/lib/dashboard/types'
+import {
+  DOUBLE_TICKET_PARTY,
+  EVENT_TYPE_LABELS,
+  WAKWE_TICKET_PARTY,
+  ticketPartyFor,
+} from '@/lib/dashboard/types'
 import type { EventType, TicketLanguage } from '@/lib/dashboard/types'
 import type { SendInvitesData, SendGuestRow } from '@/lib/dashboard/queries'
 import type { RsvpsDashboardCopy } from '@/lib/cms/dashboard-copy'
@@ -93,6 +98,7 @@ import RsvpTracker from '../rsvps/RsvpTracker'
 import { createCheckinRealtimeClient } from '@/lib/checkin/realtimeClient'
 import { checkinChannelName, type CheckinBroadcastPayload } from '@/lib/checkin/shared'
 import type { CheckinReportData } from '@/lib/checkin-report-pdf'
+import { CHECKIN_TIME_ZONE, checkinTicketLabel } from '@/lib/checkin-report-data'
 import type { InviteReportData, InviteReportRow } from '@/lib/invite-report'
 
 /** Short stable digest of the ticket's visible fields — appended to the
@@ -261,21 +267,27 @@ function waText(text: string) {
  *  grammatically-correct lowercase noun mid-sentence ("kuhudhuria harusi ya"). */
 const capitalize = (v: string) => (v ? v.charAt(0).toUpperCase() + v.slice(1) : v)
 
-/** Short wall-clock for an arrival timestamp (e.g. "18:42"). */
+/** Short Dar es Salaam wall-clock for an arrival timestamp (e.g. "18:42"). */
 function formatClock(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: CHECKIN_TIME_ZONE,
+  })
 }
 
-/** Date + clock for a send timestamp (e.g. "7 Aug, 16:12"). Arrivals happen on
- *  one evening and need no date; invitations go out over weeks. Formatted here
- *  rather than inside the PDF because /api/invite-report renders on a UTC
- *  server and only the browser knows the couple's timezone. */
+/** Date + clock for a send timestamp (e.g. "7 Aug, 16:12"). Arrivals
+ *  happen on one evening and need no date; invitations go out over weeks. */
 function formatStamp(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return `${d.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${formatClock(iso)}`
+  return `${d.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: CHECKIN_TIME_ZONE,
+  })}, ${formatClock(iso)}`
 }
 
 /** A door scan received live over the broadcast channel, newest-first. */
@@ -974,13 +986,31 @@ export default function SendInvitesView({
     }
   }
 
+  /**
+   * A seat count in the sold ticket's own words, from the CMS so both locales
+   * get their own wording. Floors onto a ticket the same way ticketTypeLabel
+   * does: writes snap party size onto a sold size, but reads only floor it at
+   * 1, so a legacy row holding 3 still reads as a Double.
+   */
+  const partyStringFor = (seats: number) => {
+    const size = ticketPartyFor(seats)
+    if (size === WAKWE_TICKET_PARTY) return strings.party_wakwe
+    return size === DOUBLE_TICKET_PARTY ? strings.party_double : strings.party_single
+  }
+
   // ── Downloadable / shareable check-in report ───────────────────────────────
-  /** Ticket label a guest is admitted on (Single/Double), from the headcount
-   *  actually let in when known, else what they RSVP'd for. */
+  /** Ticket allocated to the invitation (Single/Double/Wakwe). How many of
+   *  that party arrived is a turnout fact and must not rename the ticket: a
+   *  partially arrived Wakwe is still the ten-admission Wakwe they held.
+   *
+   *  Uses checkinTicketLabel, NOT the CMS partyStringFor the rest of this
+   *  screen speaks in. partyStringFor floors onto a sold ticket, so a legacy
+   *  row holding 9 reads "Double" — fine for on-screen ticket talk, wrong on a
+   *  report, and wrong in a way that hides seven admissions. The door renders
+   *  this same document from the same exact-match helper, and two copies of one
+   *  report that disagree are worse than either wording alone. */
   const ticketLabelOf = (g: SendGuestRow) =>
-    (g.checkedInPartySize ?? g.rsvpPartySize ?? g.assignedPartySize) >= 2
-      ? strings.party_double
-      : strings.party_single
+    checkinTicketLabel(g.rsvpPartySize ?? g.assignedPartySize)
 
   function buildReportData(): CheckinReportData {
     const rows = attendingGuests.map((g) => ({
@@ -996,12 +1026,13 @@ export default function SendInvitesView({
       eventName: headingName,
       eventDate: event.dateLabel ?? null,
       venue: event.venue ?? null,
-      generatedAt: new Date().toLocaleString(undefined, {
+      generatedAt: new Date().toLocaleString('en-GB', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: CHECKIN_TIME_ZONE,
       }),
       totalAttending: attendingCount,
       totalArrived: arrivedCount,
@@ -1509,11 +1540,9 @@ export default function SendInvitesView({
 
   /** Seats this guest's ticket covers, in the sold ticket's own language. */
   function partyLabelFor(g: SendGuestRow, mode: 'invite' | 'pass'): string | null {
-    // Party size is clamped 1..2 on write, and the rest of this console reads
-    // it the same way — anything above one is the Double ticket.
     const seats = mode === 'pass' ? (g.rsvpPartySize ?? g.assignedPartySize) : g.assignedPartySize
     if (!seats) return null
-    return seats >= 2 ? strings.party_double : strings.party_single
+    return partyStringFor(seats)
   }
 
   /**

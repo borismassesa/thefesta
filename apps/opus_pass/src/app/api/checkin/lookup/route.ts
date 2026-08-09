@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { scannerGuestDisplayName } from '@opusfesta/lib'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { candidateScannerAccessHashes } from '@/lib/checkin/tokens'
 import { RATE_LIMITED_RESPONSE, withinRateLimit } from '@/lib/checkin/rate-limit'
@@ -179,7 +180,7 @@ export async function POST(request: Request) {
     invitationId: invitation.id,
     passId: invitation.pass_id,
     entryCode: invitation.entry_code,
-    guestName: guest?.full_name ?? 'Guest',
+    guestName: scannerGuestDisplayName(guest?.full_name),
     guestPhone: guest?.whatsapp_phone?.trim() || guest?.phone?.trim() || null,
     groupTag,
     isVip: /vip/i.test(groupTag ?? ''),

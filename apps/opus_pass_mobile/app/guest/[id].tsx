@@ -7,6 +7,7 @@ import { BackButton } from '@/components/navigation/BackButton';
 import { FormField } from '@/components/guests/FormField';
 import { useGuests, useSaveGuest } from '@/hooks/useGuests';
 import { getErrorMessage } from '@/lib/errors';
+import { TICKET_TYPES, ticketPartyFor } from '@/lib/tickets';
 import { useTheme } from '@/theme/useTheme';
 import type { GuestContactDraft } from '@/types/dashboard';
 
@@ -144,12 +145,46 @@ function GuestFormScreen() {
             placeholder="Bride's family"
             autoCapitalize="words"
           />
-          <FormField
-            label="Seats"
-            value={String(draft.max_party_size)}
-            onChangeText={(v) => set('max_party_size', Math.max(1, Number(v.replace(/\D/g, '')) || 1))}
-            keyboardType="number-pad"
-          />
+          {/* A ticket picker, not a free seat count: the server snaps whatever
+              it is given onto a sold ticket, so a typed "5" came back as a
+              Double with no explanation. These are the three tickets that
+              exist, and each says how many people its QR admits. */}
+          <View className="mb-4">
+            <Text className="mb-1.5 font-inter-medium text-caption uppercase tracking-wide text-ed-on-surface-variant">
+              Ticket type
+            </Text>
+            <View className="flex-row gap-2">
+              {TICKET_TYPES.map(({ size, label }) => {
+                const active = ticketPartyFor(draft.max_party_size) === size;
+                return (
+                  <Pressable
+                    key={size}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    onPress={() => set('max_party_size', size)}
+                    className="flex-1 items-center rounded-2xl border py-3"
+                    style={{
+                      borderColor: active ? editorial.secondary : editorial.outlineVariant,
+                      backgroundColor: active ? editorial.secondaryContainer : editorial.surface,
+                    }}
+                  >
+                    <Text
+                      className="font-inter-semibold text-body-sm"
+                      style={{ color: active ? editorial.onSecondaryContainer : editorial.onSurface }}
+                    >
+                      {label}
+                    </Text>
+                    <Text
+                      className="font-inter text-caption"
+                      style={{ color: active ? editorial.onSecondaryContainer : editorial.onSurfaceVariant }}
+                    >
+                      {size === 1 ? '1 person' : `${size} people`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
           <FormField
             label="Notes"
             value={draft.notes ?? ''}

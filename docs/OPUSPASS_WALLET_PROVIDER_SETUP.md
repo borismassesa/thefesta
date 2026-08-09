@@ -276,6 +276,9 @@ GOOGLE_WALLET_ENABLED="true"
 GOOGLE_WALLET_ISSUER_ID=""
 GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL=""
 GOOGLE_WALLET_PRIVATE_KEY=""
+# Deployed environments: leave empty, it falls back to NEXT_PUBLIC_OPUS_PASS_URL.
+# Local development: REQUIRED, see below.
+GOOGLE_WALLET_ASSET_BASE_URL=""
 
 APPLE_WALLET_ENABLED="true"
 APPLE_WALLET_PASS_TYPE_ID="pass.com.opusfesta.opuspass.entry"
@@ -325,6 +328,7 @@ credential. The codes appear in `wallet_passes.last_error_code`.
 | `token_http_401` / `token_http_400` | The service-account key is wrong, revoked, or the clock is badly skewed. |
 | `token_unreachable` | Could not reach `oauth2.googleapis.com`. |
 | `class_http_403` / `object_http_403` | The service account is not a Developer on the issuer. See 1.6. |
+| `class_http_400` | The class was rejected. On a local machine this is almost always the logo: see "Provisioning from a local machine" below. |
 | `class_http_404` after a create | The issuer ID is wrong. |
 | `object_http_400` | The object was rejected. Usually a malformed class reference or a bad field. |
 | `object_patch_http_403` | The object exists but could not be refreshed. Same cause as above. |
@@ -334,6 +338,33 @@ credential. The codes appear in `wallet_passes.last_error_code`.
 Retrying is always safe: the class is upserted and the object's id is derived
 from the credential, so a repeat produces the same object rather than a second
 admission.
+
+### Provisioning from a local machine
+
+The class embeds the OpusPass logo by URL and **Google's servers fetch it**, so
+that URL has to be reachable from the public internet. It is not the same thing
+as the origin the app is served from, which on a developer's machine is
+`http://localhost:3008`.
+
+Deriving one from the other is what produced a `class_http_400` on every class
+create, with nothing in the error naming the cause: the adapter reports codes
+rather than Google's text, because Google echoes the request in its error
+payloads and the request body carries the admission credential.
+
+So the two are separate variables, and a non-HTTPS asset origin now withholds
+the button with an explicit message instead of reaching Google at all:
+
+```
+NEXT_PUBLIC_OPUS_PASS_URL      where the app is served (localhost is fine)
+GOOGLE_WALLET_ASSET_BASE_URL   what Google fetches (public HTTPS, always)
+```
+
+Deployed environments need only the first; the second falls back to it and is
+already public HTTPS there. Locally, set both:
+
+```bash
+GOOGLE_WALLET_ASSET_BASE_URL=https://opuspass.opusfesta.com npx tsx --env-file=.env.local scripts/provision-wallet-proof-pass.ts
+```
 
 ---
 

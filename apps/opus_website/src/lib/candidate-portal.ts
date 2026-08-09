@@ -4,6 +4,7 @@ import { cache } from 'react'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase'
+import { candidatePortalTestEmail } from '@/lib/candidate-portal-test-identity'
 
 export type PortalCandidate = {
   id: string
@@ -19,6 +20,21 @@ export type PortalCandidate = {
 }
 
 export const requirePortalCandidate = cache(async (): Promise<PortalCandidate | null> => {
+  const testEmail = candidatePortalTestEmail(
+    process.env.NODE_ENV,
+    process.env.RECRUITMENT_E2E_CANDIDATE_EMAIL,
+  )
+  if (testEmail) {
+    const supabase = createSupabaseServerClient()
+    const { data, error } = await supabase
+      .from('recruitment_candidates')
+      .select('id, full_name, preferred_name, primary_email, phone, country, city, timezone, candidate_clerk_user_id, status')
+      .eq('normalized_email', testEmail)
+      .maybeSingle<PortalCandidate>()
+    if (error) throw error
+    return data
+  }
+
   const { userId } = await auth()
   if (!userId) redirect('/sign-in?redirect_url=%2Fcareers%2Fcandidate')
   const user = await currentUser()
@@ -29,12 +45,13 @@ export const requirePortalCandidate = cache(async (): Promise<PortalCandidate | 
   }
 
   const supabase = createSupabaseServerClient()
-  let { data: candidate, error } = await supabase
+  const candidateResult = await supabase
     .from('recruitment_candidates')
     .select('id, full_name, preferred_name, primary_email, phone, country, city, timezone, candidate_clerk_user_id, status')
     .eq('normalized_email', email)
     .maybeSingle<PortalCandidate>()
-  if (error) throw error
+  if (candidateResult.error) throw candidateResult.error
+  let candidate = candidateResult.data
   if (!candidate) return null
   if (candidate.candidate_clerk_user_id && candidate.candidate_clerk_user_id !== userId) {
     throw new Error('This candidate profile is already linked to another account. Contact People Ops for help.')

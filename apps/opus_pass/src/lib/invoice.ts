@@ -21,7 +21,12 @@ import type { StoredOrder } from '@/lib/cart-storage'
 export async function downloadInvoice(order: StoredOrder): Promise<void> {
   if (typeof document === 'undefined') return
 
-  const filename = `OpusFesta-Invoice-${order.ref.replace(/[^A-Za-z0-9_-]/g, '') || 'order'}.pdf`
+  const noun = order.documentKind === 'quotation' ? 'quotation' : 'invoice'
+
+  // Quotations render through the same route and the same document, so they
+  // ride this delivery ladder too — they only differ in what they are called.
+  const kind = order.documentKind === 'quotation' ? 'Quotation' : 'Invoice'
+  const filename = `OpusFesta-${kind}-${order.ref.replace(/[^A-Za-z0-9_-]/g, '') || 'order'}.pdf`
 
   const isTouch =
     typeof window.matchMedia === 'function' &&
@@ -39,7 +44,7 @@ export async function downloadInvoice(order: StoredOrder): Promise<void> {
         // the user instead. (Network exceptions still fall through: the form
         // POST goes via the browser's own navigation stack, which can succeed
         // where fetch is blocked.)
-        toast.error('Could not download the invoice', {
+        toast.error(`Could not download the ${noun}`, {
           description: 'Please try again, or contact us on WhatsApp at +255 799 202 171.',
         })
         return
@@ -57,7 +62,7 @@ export async function downloadInvoice(order: StoredOrder): Promise<void> {
     }
   }
 
-  submitDownloadForm(order)
+  submitDownloadForm(order, noun)
 }
 
 /**
@@ -65,7 +70,7 @@ export async function downloadInvoice(order: StoredOrder): Promise<void> {
  * handled by the browser's native download path, which works even where
  * `navigator.share` and Blob-URL anchors don't (older Android WebViews).
  */
-function submitDownloadForm(order: StoredOrder): void {
+function submitDownloadForm(order: StoredOrder, noun: string): void {
   const frameName = `invoice-dl-${Date.now()}`
   const iframe = document.createElement('iframe')
   iframe.name = frameName
@@ -90,7 +95,7 @@ function submitDownloadForm(order: StoredOrder): void {
   try {
     form.submit()
   } catch {
-    toast.error('Could not download the invoice', {
+    toast.error(`Could not download the ${noun}`, {
       description: 'Please try again, or contact us on WhatsApp at +255 799 202 171.',
     })
   } finally {

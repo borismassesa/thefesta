@@ -251,7 +251,7 @@ export function GuestConfirmCard({
                 value={guest.phone ?? (phonePending ? 'Checking…' : 'Not recorded')}
               />
               {/* Named in the language the tickets are sold in — the guest is
-                  holding a Single or a Double, not "1 ct". */}
+                  holding a Single, a Double or a Wakwe, not "1 ct". */}
               <DetailRow
                 icon="pricetag-outline"
                 label="Ticket type"
@@ -270,7 +270,9 @@ export function GuestConfirmCard({
               PartySizeSheet's typed input because passes are overwhelmingly
               Singles and Doubles — the whole correction is one tap on minus —
               and unlike the scan path the party size is known before
-              admitting, so no second sheet is needed. */}
+              admitting, so no second sheet is needed. A Wakwe short of its ten
+              costs several taps, which is the rare case paying for the common
+              one; the sheet is still there on the scan path. */}
           {!arrived && guest.partySize > 1 ? (
             <View className="mb-3 flex-row items-center justify-between rounded-2xl border border-ed-outline-variant bg-ed-surface px-4 py-3">
               <View className="min-w-0 flex-1 pr-3">

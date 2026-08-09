@@ -124,8 +124,11 @@ test('clampArrived offers exactly the range the server records: 1..party_size', 
 test('party badges speak the language the tickets are sold in', () => {
   assert.equal(partySizeLabel(1), 'Single');
   assert.equal(partySizeLabel(2), 'Double');
-  // Hand-entered special invitations can exceed a Double; fall back to count.
+  assert.equal(partySizeLabel(10), 'Wakwe');
+  // Counts that match no sold ticket fall back rather than being floored onto
+  // the nearest one — at the door, understating a headcount turns people away.
   assert.equal(partySizeLabel(6), 'Party of 6');
+  assert.equal(partySizeLabel(11), 'Party of 11');
 });
 
 test('grouping preserves every row, so no guest becomes unreachable', () => {

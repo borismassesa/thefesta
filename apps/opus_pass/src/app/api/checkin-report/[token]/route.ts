@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server'
+import { scannerGuestDisplayName } from '@opusfesta/lib'
 import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
 import { createElement, type ReactElement } from 'react'
 import { CheckinReportPdf, type CheckinReportData } from '@/lib/checkin-report-pdf'
+import {
+  checkinTicketLabel,
+  formatCheckinDate,
+  formatCheckinDateTime,
+  formatCheckinTime,
+} from '@/lib/checkin-report-data'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { verifyReportToken } from '@/lib/checkin/tokens'
 import { clientIp, withinRateLimit } from '@/lib/checkin/rate-limit'
@@ -23,18 +30,6 @@ import { clientIp, withinRateLimit } from '@/lib/checkin/rate-limit'
  */
 
 export const runtime = 'nodejs'
-
-/** Tanzanian local time — the wall clock the door actually worked to. */
-const EVENT_TIME_ZONE = 'Africa/Dar_es_Salaam'
-
-function clock(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: EVENT_TIME_ZONE,
-  })
-}
 
 /** Strip the audit label down to the attendant's name, as the arrivals log does. */
 function attendantOf(checkedInBy: string | null): string | null {
@@ -81,7 +76,7 @@ export async function GET(
   const { data: invitations, error } = await supabase
     .from('guest_invitations')
     .select(
-      'guest_contact_id, pass_id, party_size, checked_in_at, checked_in_party_size, checked_in_door, checked_in_by, guest_contacts(full_name)'
+      'guest_contact_id, pass_id, party_size, checked_in_at, checked_in_door, checked_in_by, guest_contacts(full_name)'
     )
     .eq('event_id', payload.eventId)
     .eq('rsvp_status', 'attending')
@@ -104,16 +99,16 @@ export async function GET(
   const rows = (invitations ?? [])
     .map((inv) => {
       const contact = inv.guest_contacts as unknown as { full_name: string } | null
-      const heads = inv.checked_in_party_size ?? inv.party_size ?? 1
       return {
-        name: contact?.full_name ?? 'Guest',
+        name: scannerGuestDisplayName(contact?.full_name),
         passId: inv.pass_id,
-        // Same wording the tickets are sold in, matching the dashboard.
-        ticket: heads >= 2 ? 'Double' : 'Single',
+        // The ticket's allowance, not how many happened to arrive: a Wakwe
+        // stays a ten-admission Wakwe even when only part of the party came.
+        ticket: checkinTicketLabel(inv.party_size),
         table: tableByGuest.get(inv.guest_contact_id as string) ?? null,
         door: inv.checked_in_at ? inv.checked_in_door : null,
         attendant: inv.checked_in_at ? attendantOf(inv.checked_in_by) : null,
-        arrivedAt: inv.checked_in_at ? clock(inv.checked_in_at) : null,
+        arrivedAt: inv.checked_in_at ? formatCheckinTime(inv.checked_in_at) : null,
         // Sort key only, dropped before the row reaches the PDF: arrivedAt is
         // a formatted clock, so "10:05 AM" sorts before "9:14 AM" as text.
         arrivedIso: inv.checked_in_at,
@@ -130,24 +125,9 @@ export async function GET(
 
   const data: CheckinReportData = {
     eventName: event?.name ?? 'Event',
-    eventDate: event?.starts_at
-      ? new Date(event.starts_at).toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-          timeZone: EVENT_TIME_ZONE,
-        })
-      : null,
+    eventDate: event?.starts_at ? formatCheckinDate(event.starts_at) : null,
     venue: event?.venue_name ?? null,
-    generatedAt: new Date().toLocaleString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: EVENT_TIME_ZONE,
-    }),
+    generatedAt: formatCheckinDateTime(new Date().toISOString()),
     totalAttending: rows.length,
     totalArrived: rows.filter((r) => r.arrivedAt).length,
     rows,

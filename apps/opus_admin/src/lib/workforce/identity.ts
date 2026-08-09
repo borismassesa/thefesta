@@ -1,7 +1,12 @@
 import { cache } from 'react'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
-import { escapeLike, getCallerEmail, getCallerPermissions } from '@/lib/admin-auth'
+import {
+  escapeLike,
+  getCallerEmail,
+  getCallerPermissions,
+  isAdminAuthDisabled,
+} from '@/lib/admin-auth'
 import { recordAuditEvent } from '@/lib/audit-log'
 import {
   EMPTY_TEAM_SCOPE,
@@ -128,14 +133,13 @@ async function tryLinkClerkId(
  * Cached per request so a Workspace layout and its page share one round trip.
  */
 export const getSelfIdentity = cache(async (): Promise<SelfIdentityResult> => {
-  const { userId } = await auth()
+  const { userId } = isAdminAuthDisabled() ? { userId: null } : await auth()
 
   // No Clerk session. Normally that is UNAUTHENTICATED, but the local
   // DISABLE_ADMIN_AUTH bypass grants 'owner' without ever creating one, so a
   // developer would otherwise see "please sign in" on every Workspace page
   // while the rest of the dashboard worked. getCallerEmail already owns that
-  // rule (real session wins; placeholder only when there is no session at
-  // all), so we defer to it rather than re-deriving the bypass here.
+  // rule, so we defer to it rather than re-deriving the bypass here.
   //
   // Identity repair is deliberately skipped on this path: there is no Clerk
   // user to link, and writing a placeholder id would corrupt a real row.

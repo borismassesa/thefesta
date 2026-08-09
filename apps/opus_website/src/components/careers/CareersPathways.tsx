@@ -1,16 +1,12 @@
 import {
   ArrowDown,
-  BadgeCheck,
   BriefcaseBusiness,
   Camera,
   Cpu,
-  GraduationCap,
   HeartHandshake,
   Lightbulb,
-  MapPin,
   Palette,
   Plane,
-  ShieldCheck,
   Sparkles,
   Users,
 } from 'lucide-react'
@@ -39,21 +35,12 @@ const BENEFITS = [
   { title: 'Rest and wellbeing', copy: 'Thoughtful leave, humane working rhythms and recovery after demanding event periods.', icon: HeartHandshake },
 ]
 
-const FAQS = [
-  ['How long does recruitment take?', 'Most processes take two to four weeks. The role page shows the actual stages, and we will tell you if timing changes.'],
-  ['Can I apply for more than one role?', 'Yes. Apply where your experience genuinely fits; each application is reviewed separately.'],
-  ['Do you accept internships and graduate applications?', 'Yes. Early-career roles are published alongside permanent openings, and you can also join the talent community.'],
-  ['Will I receive feedback?', 'Every applicant receives a closing update. More detailed feedback depends on how far you progressed and the nature of the assessment.'],
-  ['Does OpusFesta support remote work?', 'Some product and technology roles can be remote or hybrid. Operations and studio roles are often on-site or field-based; each vacancy is explicit.'],
-  ['Does OpusFesta charge recruitment fees?', 'Never. OpusFesta does not ask candidates to pay application, interview, placement or processing fees.'],
-]
-
 export default function CareersPathways() {
   return (
     <>
       <section id="teams" className="mx-auto max-w-[1240px] scroll-mt-24 px-6 py-24 md:py-32">
         <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
-          <div className="lg:sticky lg:top-28 lg:self-start">
+          <div>
             <span className="mb-7 inline-block rounded-full border border-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">Teams</span>
             <h2 className="max-w-md text-4xl font-medium leading-[1.05] tracking-[-0.04em] md:text-6xl">Many crafts. One celebration.</h2>
             <p className="mt-7 max-w-md text-lg leading-8 text-black/60">You might build the product, make the film, run the venue or grow the partnership. The guest experience connects the work.</p>
@@ -89,16 +76,13 @@ export default function CareersPathways() {
               </li>
             ))}
           </ol>
-          <div className="mt-10 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/5 p-5 text-sm text-white/70">
-            <ShieldCheck className="h-5 w-5 shrink-0" /> Automated recommendations never make the final rejection decision.
-          </div>
         </div>
       </section>
 
       <section id="benefits" className="mx-auto max-w-[1240px] px-6 py-24 md:py-32">
         <div className="mb-14 text-center">
           <span className="mb-7 inline-block rounded-full border border-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">How we support the work</span>
-          <h2 className="mx-auto max-w-3xl text-4xl font-medium leading-[1.05] tracking-[-0.04em] md:text-6xl">Benefits shaped around real work.</h2>
+          <h2 className="mx-auto text-4xl font-medium leading-[1.05] tracking-[-0.04em] md:text-6xl">Benefits shaped around real work.</h2>
           <p className="mx-auto mt-6 max-w-2xl leading-7 text-black/55">Exact benefits depend on role, contract and location. Your vacancy and offer will always state what applies.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -109,30 +93,6 @@ export default function CareersPathways() {
               <p className="mt-3 text-sm leading-6 text-black/60">{copy}</p>
             </article>
           ))}
-        </div>
-        <div className="mt-5 grid gap-4 rounded-[30px] border border-black/10 p-7 md:grid-cols-3 md:items-center md:p-9">
-          <div className="flex items-center gap-3"><MapPin className="h-5 w-5" /><span className="font-medium">Tanzania-first</span></div>
-          <div className="flex items-center gap-3"><GraduationCap className="h-5 w-5" /><span className="font-medium">Early careers welcome</span></div>
-          <div className="flex items-center gap-3"><BadgeCheck className="h-5 w-5" /><span className="font-medium">Skills over pedigree</span></div>
-        </div>
-      </section>
-
-      <section id="faq" className="border-t border-black/10 bg-white">
-        <div className="mx-auto grid max-w-[1100px] gap-12 px-6 py-24 md:grid-cols-[0.65fr_1.35fr] md:py-32">
-          <div>
-            <span className="mb-7 inline-block rounded-full border border-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">Candidate FAQ</span>
-            <h2 className="text-4xl font-medium tracking-[-0.04em] md:text-5xl">Good questions, answered plainly.</h2>
-          </div>
-          <div className="border-t border-black/15">
-            {FAQS.map(([question, answer]) => (
-              <details key={question} className="group border-b border-black/15 py-6">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-lg font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">
-                  {question}<span className="text-2xl font-light transition-transform group-open:rotate-45">+</span>
-                </summary>
-                <p className="max-w-2xl pt-4 leading-7 text-black/60">{answer}</p>
-              </details>
-            ))}
-          </div>
         </div>
       </section>
     </>

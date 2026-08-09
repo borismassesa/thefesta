@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { bucketArrivals, bucketMinutesFor, ticketLabel, type ReportArrival } from './checkin-report'
+import {
+  CHECKIN_TIME_ZONE,
+  bucketArrivals,
+  bucketMinutesFor,
+  formatReportDateTime,
+  formatReportLongDateTime,
+  formatReportTime,
+  ticketLabel,
+  type ReportArrival,
+} from './checkin-report'
 
 const MIN = 60 * 1000
 
@@ -13,11 +22,29 @@ function arrival(iso: string, partySize = 1): ReportArrival {
 test('party size uses the sold ticket names, not "party of N"', () => {
   assert.equal(ticketLabel(1), 'Single')
   assert.equal(ticketLabel(2), 'Double')
+  assert.equal(ticketLabel(10), 'Wakwe')
 })
 
-test('party size above a Double falls back to a counted label', () => {
+test('a size between two sold tickets falls back to a counted label', () => {
+  // Exact match, not a floor: calling 9 a "Double" would understate the report
+  // by seven people.
   assert.equal(ticketLabel(3), 'Party of 3')
+  assert.equal(ticketLabel(9), 'Party of 9')
   assert.equal(ticketLabel(12), 'Party of 12')
+})
+
+test('report clocks use Dar es Salaam time instead of the viewer time zone', () => {
+  assert.equal(CHECKIN_TIME_ZONE, 'Africa/Dar_es_Salaam')
+  const iso = '2026-08-08T21:30:00.000Z'
+  assert.equal(formatReportTime(iso), '00:30')
+  assert.equal(formatReportDateTime(iso), '9 Aug 2026, 00:30')
+})
+
+test('the letterhead date is long form, on the same clock, comma-joined', () => {
+  // "at" is what toLocaleString would join with, and it reads nothing like the
+  // timestamps in the rest of the report.
+  const iso = '2026-08-08T21:30:00.000Z'
+  assert.equal(formatReportLongDateTime(iso), '9 August 2026, 00:30')
 })
 
 // ---------------------------------------------------------------- bucket width

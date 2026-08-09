@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import {
   Area,
   AreaChart,
@@ -15,7 +15,15 @@ import {
   YAxis,
 } from 'recharts'
 import { Download, DoorOpen, Printer, ShieldCheck, UserRoundX, Users } from 'lucide-react'
-import { bucketArrivals, ticketLabel, type ReportArrival } from '@/lib/checkin-report'
+import {
+  bucketArrivals,
+  formatReportDateTime,
+  formatReportLongDateTime,
+  formatReportTime,
+  ticketLabel,
+  type ReportArrival,
+} from '@/lib/checkin-report'
+import { PrintLetterhead, PrintLetterheadFooter, type LetterheadMeta } from '@/components/PrintLetterhead'
 import type { AttendantAssignment } from '../actions'
 import type { CheckinBaseline } from './CheckinEventClient'
 
@@ -37,20 +45,6 @@ const ACCENT_TINT = '#F0DFF6'
 /** One step off the surface — recessive, hairline, solid. */
 const GRID = '#e5e7eb'
 
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-}
-
 function csvCell(value: string | number): string {
   const text = String(value)
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
@@ -60,10 +54,12 @@ function csvCell(value: string | number): string {
 
 function Figure({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)] print:border-gray-300 print:shadow-none">
-      <div className="text-[12px] font-medium text-gray-500">{label}</div>
-      <div className="mt-2 text-[28px] leading-none font-semibold tracking-tight text-gray-900">{value}</div>
-      {hint ? <div className="mt-2 text-[11px] text-gray-400">{hint}</div> : null}
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)] print:break-inside-avoid print:border-gray-300 print:p-3 print:shadow-none">
+      <div className="text-[12px] font-medium text-gray-500 print:text-[11px]">{label}</div>
+      <div className="mt-2 text-[28px] leading-none font-semibold tracking-tight text-gray-900 print:mt-1.5 print:text-[24px]">
+        {value}
+      </div>
+      {hint ? <div className="mt-2 text-[11px] text-gray-400 print:mt-1.5 print:text-[10px]">{hint}</div> : null}
     </div>
   )
 }
@@ -99,12 +95,42 @@ function Empty({ children }: { children: ReactNode }) {
   return <p className="px-5 py-8 text-center text-sm text-gray-400">{children}</p>
 }
 
+/** Drawing width of a chart that shares the printed row with one other. */
+const PRINT_HALF_WIDTH = 460
+/** Drawing width of a chart that owns the full printed row. */
+const PRINT_FULL_WIDTH = 960
+
 /**
- * Recharts' ResponsiveContainer logs a "width(-1) height(-1)" warning if it
- * renders before its parent has a measured size. Same ready-gate the admin
- * dashboard's Charts.tsx uses.
+ * A chart card that survives the trip to paper.
+ *
+ * On screen the chart is sized by ResponsiveContainer, with the ready-gate
+ * the admin dashboard's Charts.tsx uses (Recharts logs "width(-1)
+ * height(-1)" if it renders before its parent has been measured).
+ *
+ * Print gets a second copy at a fixed drawing size instead. A responsive
+ * chart measures itself against the browser window and keeps that width
+ * when the page reflows to A4 — which is why the printed cards used to
+ * hold a chart half their width. The fixed copy carries a viewBox, so the
+ * print stylesheet can stretch it to whatever the paper column really is
+ * without redrawing anything.
  */
-function ChartFrame({ title, hint, height = 220, children }: { title: string; hint?: string; height?: number; children: ReactNode }) {
+function ChartFrame({
+  title,
+  hint,
+  height = 220,
+  printWidth = PRINT_HALF_WIDTH,
+  empty,
+  chart,
+}: {
+  title: string
+  hint?: string
+  height?: number
+  printWidth?: number
+  /** Shown in place of the chart when there is nothing to plot. */
+  empty?: ReactNode
+  /** Receives the size props to spread: none on screen, fixed for print. */
+  chart: ((size: { width?: number; height?: number }) => ReactElement) | null
+}) {
   const frameRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
   useEffect(() => {
@@ -120,12 +146,27 @@ function ChartFrame({ title, hint, height = 220, children }: { title: string; hi
   }, [])
 
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)] print:break-inside-avoid print:border-gray-300 print:shadow-none">
+    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)] print:break-inside-avoid print:border-gray-300 print:p-4 print:shadow-none">
       <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
       {hint ? <p className="mt-0.5 text-xs text-gray-500">{hint}</p> : null}
-      <div ref={frameRef} className="mt-4 w-full" style={{ height }}>
-        {ready ? children : null}
-      </div>
+      {chart ? (
+        <>
+          <div ref={frameRef} className="mt-4 w-full print:hidden" style={{ height }}>
+            {ready ? (
+              <ResponsiveContainer width="100%" height="100%">
+                {chart({})}
+              </ResponsiveContainer>
+            ) : null}
+          </div>
+          <div className="checkin-print-chart mt-4 hidden print:block">
+            {chart({ width: printWidth, height })}
+          </div>
+        </>
+      ) : (
+        <div className="mt-4 flex w-full items-center justify-center text-center" style={{ height }}>
+          {empty}
+        </div>
+      )}
     </section>
   )
 }
@@ -180,14 +221,22 @@ export default function CheckinReportClient({
   const hasFlow = points.length > 1
   const peak = points.reduce((best, p) => (p.count > best ? p.count : best), 0)
 
-  const eventMeta = [
-    baseline.event?.eventType?.replace(/_/g, ' '),
-    baseline.event?.startsAt ? formatDateTime(baseline.event.startsAt) : null,
-    [baseline.event?.venueName, baseline.event?.city].filter(Boolean).join(', ') || null,
-    baseline.event?.coupleName,
+  // Letterhead meta block: the lines an ops debrief has to be able to read off
+  // a filed sheet. Date first, then who and where, then the snapshot clock.
+  const venue = [baseline.event?.venueName, baseline.event?.city].filter(Boolean).join(', ')
+  const eventType = baseline.event?.eventType?.replace(/_/g, ' ')
+  const letterheadMeta: LetterheadMeta[] = [
+    {
+      label: 'Date',
+      value: baseline.event?.startsAt ? formatReportLongDateTime(baseline.event.startsAt) : 'Not scheduled',
+    },
   ]
-    .filter(Boolean)
-    .join(' · ')
+  if (eventType) {
+    letterheadMeta.push({ label: 'Event', value: eventType.charAt(0).toUpperCase() + eventType.slice(1) })
+  }
+  if (venue) letterheadMeta.push({ label: 'Venue', value: venue })
+  if (baseline.event?.coupleName) letterheadMeta.push({ label: 'Client', value: baseline.event.coupleName })
+  letterheadMeta.push({ label: 'Generated', value: formatReportLongDateTime(report.generatedAt) })
 
   function exportCsv() {
     const lines = [
@@ -197,7 +246,7 @@ export default function CheckinReportClient({
           csvCell(a.guestName),
           csvCell(ticketLabel(a.partySize)),
           csvCell(a.doorLabel ?? 'Unrecorded'),
-          csvCell(a.checkedInAt),
+          csvCell(formatReportDateTime(a.checkedInAt)),
         ].join(','),
       ),
       ...report.noShows.map((n) => [csvCell(n.guestName), csvCell(ticketLabel(n.partySize)), '', 'DID NOT ARRIVE'].join(',')),
@@ -212,20 +261,41 @@ export default function CheckinReportClient({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="checkin-report-print-root space-y-5">
+      {/* The report owns the paper geometry. Screen breakpoints (including the
+          desktop-only notice) must never decide what reaches Print / Save PDF. */}
+      <style>{`
+        @page { size: A4 landscape; margin: 12mm; }
+        @media print {
+          html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+          .checkin-report-print-root {
+            width: 100% !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          /* The fixed-size print chart drawn by ChartFrame carries a viewBox,
+             so releasing its width lets it scale to the real paper column
+             instead of keeping the width it was measured at on screen. */
+          .checkin-print-chart .recharts-wrapper,
+          .checkin-print-chart .recharts-wrapper svg {
+            width: 100% !important;
+            height: auto !important;
+          }
+        }
+      `}</style>
+
       {/* Letterhead. On screen the event identity lives in the app header,
           which is chrome a printed report can't rely on — so the print sheet
-          carries its own title block instead. */}
+          carries the company letterhead and its own title block instead. */}
       <div className="hidden print:block">
-        <h1 className="text-xl font-bold text-gray-900">{baseline.event?.name ?? 'Event'}</h1>
-        <p className="mt-1 text-sm text-gray-600 capitalize">{eventMeta}</p>
-        <p className="mt-1 text-xs text-gray-500">Check-in report</p>
+        <PrintLetterhead title={baseline.event?.name ?? 'Event'} subtitle="Check-in report" meta={letterheadMeta} />
       </div>
 
-      {/* Report meta + actions. The actions themselves never print. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Report meta + actions. Neither prints: the snapshot time is a
+          letterhead line above, and the actions are screen chrome. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <p className="text-xs text-gray-500">
-          Snapshot taken {formatDateTime(report.generatedAt)}. Reload for current figures.
+          Snapshot taken {formatReportDateTime(report.generatedAt)}. Reload for current figures.
         </p>
         <div className="flex items-center gap-2 print:hidden">
           <button
@@ -245,7 +315,10 @@ export default function CheckinReportClient({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* Four figures, one line. Print gets the column count stated outright:
+          paper never matches a screen breakpoint, and the last printout came
+          out as a 2 × 2 block because it was left to `lg:`. */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 print:grid-cols-4 print:gap-3">
         <Figure label="Expected" value={String(totalAttending)} hint="RSVP'd attending" />
         <Figure label="Checked in" value={String(totalCheckedIn)} hint={`${guestsIn} on ticket count`} />
         <Figure label="Attendance" value={`${pct}%`} hint="of expected invitations" />
@@ -269,40 +342,45 @@ export default function CheckinReportClient({
       {/* Two time views of the same scans: pace, then progress. Deliberately
           two charts rather than bars + line on one frame — that would need a
           second y-axis, which always misleads. */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2 print:grid-cols-2 print:gap-4">
         <ChartFrame
           title="Arrival flow"
           hint={hasFlow ? `Guests scanned per ${bucketMinutes} minutes · peak ${peak}` : 'Guests scanned per interval'}
-        >
-          {hasFlow ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
-                <CartesianGrid stroke={GRID} strokeWidth={1} vertical={false} />
-                <XAxis dataKey="label" tick={AXIS_TICK} tickLine={false} axisLine={{ stroke: GRID }} minTickGap={24} />
-                <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} allowDecimals={false} width={40} />
-                <Tooltip
-                  cursor={{ fill: ACCENT_TINT, fillOpacity: 0.5 }}
-                  content={<ChartTooltip unit="arrivals" />}
-                />
-                <Bar dataKey="count" fill={ACCENT} maxBarSize={24} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex h-full items-center justify-center text-center">
-              <p className="max-w-[30ch] text-xs text-gray-400">
-                The arrival pace appears here once guests start scanning at the door.
-              </p>
-            </div>
-          )}
-        </ChartFrame>
+          empty={
+            <p className="max-w-[30ch] text-xs text-gray-400">
+              The arrival pace appears here once guests start scanning at the door.
+            </p>
+          }
+          chart={
+            hasFlow
+              ? (size) => (
+                  <BarChart {...size} data={points} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+                    <CartesianGrid stroke={GRID} strokeWidth={1} vertical={false} />
+                    <XAxis dataKey="label" tick={AXIS_TICK} tickLine={false} axisLine={{ stroke: GRID }} minTickGap={24} />
+                    <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} allowDecimals={false} width={40} />
+                    <Tooltip
+                      cursor={{ fill: ACCENT_TINT, fillOpacity: 0.5 }}
+                      content={<ChartTooltip unit="arrivals" />}
+                    />
+                    <Bar dataKey="count" fill={ACCENT} maxBarSize={24} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                )
+              : null
+          }
+        />
 
         <ChartFrame
           title="Cumulative arrivals"
           hint="Running total against the expected guest count"
-        >
-          {hasFlow ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+          empty={
+            <p className="max-w-[30ch] text-xs text-gray-400">
+              Progress toward the {totalAttending} expected guests will plot here as scans come in.
+            </p>
+          }
+          chart={
+            hasFlow
+              ? (size) => (
+                <AreaChart {...size} data={points} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
                 <defs>
                   <linearGradient id="arrivalsWash" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={ACCENT} stopOpacity={0.18} />
@@ -339,16 +417,11 @@ export default function CheckinReportClient({
                   dot={false}
                   activeDot={{ r: 4, fill: ACCENT, stroke: '#ffffff', strokeWidth: 2 }}
                 />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex h-full items-center justify-center text-center">
-              <p className="max-w-[30ch] text-xs text-gray-400">
-                Progress toward the {totalAttending} expected guests will plot here as scans come in.
-              </p>
-            </div>
-          )}
-        </ChartFrame>
+                </AreaChart>
+                )
+              : null
+          }
+        />
       </div>
 
       {/* Nominal categories — door names carry no order — so every bar takes
@@ -357,45 +430,44 @@ export default function CheckinReportClient({
         title="Arrivals by door"
         hint="Guests admitted at each entrance"
         height={Math.max(140, doorCounts.length * 44 + 40)}
-      >
-        {doorCounts.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={doorCounts} layout="vertical" margin={{ top: 4, right: 40, bottom: 4, left: 8 }}>
-              <CartesianGrid stroke={GRID} strokeWidth={1} horizontal={false} />
-              <XAxis type="number" tick={AXIS_TICK} tickLine={false} axisLine={false} allowDecimals={false} />
-              <YAxis
-                type="category"
-                dataKey="doorLabel"
-                tick={{ fill: '#374151', fontSize: 12 }}
-                tickLine={false}
-                axisLine={false}
-                width={130}
-              />
-              <Tooltip cursor={{ fill: ACCENT_TINT, fillOpacity: 0.5 }} content={<ChartTooltip unit="arrivals" />} />
-              <Bar dataKey="count" fill={ACCENT} maxBarSize={24} radius={[0, 4, 4, 0]}>
-                <LabelList dataKey="count" position="right" fill="#374151" fontSize={12} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex h-full items-center justify-center text-center">
-            <p className="text-xs text-gray-400">No guests were scanned through any door.</p>
-          </div>
-        )}
-      </ChartFrame>
+        printWidth={PRINT_FULL_WIDTH}
+        empty={<p className="text-xs text-gray-400">No guests were scanned through any door.</p>}
+        chart={
+          doorCounts.length > 0
+            ? (size) => (
+                <BarChart {...size} data={doorCounts} layout="vertical" margin={{ top: 4, right: 40, bottom: 4, left: 8 }}>
+                  <CartesianGrid stroke={GRID} strokeWidth={1} horizontal={false} />
+                  <XAxis type="number" tick={AXIS_TICK} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <YAxis
+                    type="category"
+                    dataKey="doorLabel"
+                    tick={{ fill: '#374151', fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={130}
+                  />
+                  <Tooltip cursor={{ fill: ACCENT_TINT, fillOpacity: 0.5 }} content={<ChartTooltip unit="arrivals" />} />
+                  <Bar dataKey="count" fill={ACCENT} maxBarSize={24} radius={[0, 4, 4, 0]}>
+                    <LabelList dataKey="count" position="right" fill="#374151" fontSize={12} />
+                  </Bar>
+                </BarChart>
+              )
+            : null
+        }
+      />
 
       <Section title="Door window" icon={<DoorOpen className="h-3.5 w-3.5 text-[#7E5896]" />}>
         <dl className="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-3">
           <div className="bg-white px-5 py-4">
             <dt className="text-xs text-gray-400">First arrival</dt>
             <dd className="mt-1 text-sm font-semibold text-gray-900">
-              {firstScan ? formatDateTime(firstScan) : 'No arrivals'}
+              {firstScan ? formatReportDateTime(firstScan) : 'No arrivals'}
             </dd>
           </div>
           <div className="bg-white px-5 py-4">
             <dt className="text-xs text-gray-400">Last arrival</dt>
             <dd className="mt-1 text-sm font-semibold text-gray-900">
-              {lastScan ? formatDateTime(lastScan) : 'No arrivals'}
+              {lastScan ? formatReportDateTime(lastScan) : 'No arrivals'}
             </dd>
           </div>
           <div className="bg-white px-5 py-4">
@@ -429,12 +501,12 @@ export default function CheckinReportClient({
                   <tr key={a.id}>
                     <td className="px-5 py-2.5 font-medium text-gray-900">{a.attendantName}</td>
                     <td className="px-5 py-2.5 text-gray-600">{a.doorLabel}</td>
-                    <td className="px-5 py-2.5 text-gray-500">{formatDateTime(a.createdAt)}</td>
+                    <td className="px-5 py-2.5 text-gray-500">{formatReportDateTime(a.createdAt)}</td>
                     <td className="px-5 py-2.5 text-gray-500">
-                      {a.lastUsedAt ? formatDateTime(a.lastUsedAt) : 'Never used'}
+                      {a.lastUsedAt ? formatReportDateTime(a.lastUsedAt) : 'Never used'}
                     </td>
                     <td className="px-5 py-2.5 text-gray-500">
-                      {a.revokedAt ? `Revoked ${formatDateTime(a.revokedAt)}` : `Expires ${formatDateTime(a.expiresAt)}`}
+                      {a.revokedAt ? `Revoked ${formatReportDateTime(a.revokedAt)}` : `Expires ${formatReportDateTime(a.expiresAt)}`}
                     </td>
                   </tr>
                 ))}
@@ -464,7 +536,7 @@ export default function CheckinReportClient({
                     <td className="px-5 py-2.5 font-medium text-gray-900">{a.guestName}</td>
                     <td className="px-5 py-2.5 text-gray-600">{ticketLabel(a.partySize)}</td>
                     <td className="px-5 py-2.5 text-gray-600">{a.doorLabel ?? 'Unrecorded'}</td>
-                    <td className="px-5 py-2.5 tabular-nums text-gray-500">{formatTime(a.checkedInAt)}</td>
+                    <td className="px-5 py-2.5 tabular-nums text-gray-500">{formatReportTime(a.checkedInAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -493,6 +565,10 @@ export default function CheckinReportClient({
           </ul>
         )}
       </Section>
+
+      <div className="hidden print:block">
+        <PrintLetterheadFooter className="mt-6" />
+      </div>
     </div>
   )
 }

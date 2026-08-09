@@ -241,7 +241,7 @@ export const DASHBOARD_COPY_FALLBACKS: DashboardCopyBySlug = {
     import_title: 'Upload spreadsheet',
     import_upload_title: 'Upload a .csv or .xlsx file',
     import_upload_hint:
-      'Required: Name / Jina. Optional: Phone / Namba ya Simu, Email / Barua Pepe, Ticket Type (Single or Double). Extra columns are ignored. Only sheets with a recognized Name header are imported.',
+      'Required: Name / Jina. Optional: Phone / Namba ya Simu, Email / Barua Pepe, Ticket Type (Single, Double or Wakwe). Extra columns are ignored. Only sheets with a recognized Name header are imported.',
     import_rules_title: 'What your file needs',
     import_rules_items: [
       'One guest per row. A couple invited together is one row, not two.',
@@ -254,7 +254,7 @@ export const DASHBOARD_COPY_FALLBACKS: DashboardCopyBySlug = {
       'In a multi-sheet workbook, every sheet with a recognized Name / Jina header is imported; Review, Summary and Instructions sheets are skipped.',
     ].join('\n'),
     import_rules_note:
-      'Use Single or Double in Ticket Type. Blank or unrecognized ticket values import as Single.',
+      'Use Single, Double or Wakwe in Ticket Type. Wakwe admits ten people on one QR code. Blank or unrecognized ticket values import as Single.',
     toast_added: 'Guest added',
     toast_updated: 'Guest updated',
     toast_removed: 'Guest removed',

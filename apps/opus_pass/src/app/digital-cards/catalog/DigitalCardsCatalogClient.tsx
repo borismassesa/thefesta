@@ -567,8 +567,15 @@ export function ProductCard({
         className="relative block aspect-[5/7] overflow-hidden rounded-sm bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06),0_8px_16px_-8px_rgba(0,0,0,0.12)] transition-[transform,box-shadow] duration-300 ease-out group-hover:-translate-y-1 group-hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_18px_32px_-12px_rgba(0,0,0,0.18)]"
       >
         <span className="absolute inset-0">
+          {/* The Image below is deliberately NOT `unoptimized`: next.config already
+              disables the optimizer in dev (where it intermittently 504s), so that
+              prop only ever took effect in production — shipping the raw upload with
+              no srcset. Hero files run from ~1000px to 4267px wide into a tile that
+              is ~170 CSS px, and the browser's own downscale visibly softens fine
+              linework and small type. quality 90 (allowlisted in next.config)
+              because this is the product artwork itself. */}
           {cardImage ? (
-            <Image src={cardImage} alt="" fill sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw" className="object-cover" unoptimized />
+            <Image src={cardImage} alt="" fill sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw" className="object-cover" quality={90} />
           ) : (
             <InvitationVisual treatment={product.treatment} />
           )}

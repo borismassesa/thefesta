@@ -24,13 +24,13 @@ export interface CheckinReportRow {
    *  reconciled against what a guest was told. Null on invitations that
    *  predate Pass IDs. */
   passId: string | null
-  /** "Single" / "Double" ticket label. */
+  /** "Single" / "Double" / "Wakwe" or an exact legacy party count. */
   ticket: string
   /** Seating-plan table name; null when the guest isn't seated yet. */
   table: string | null
   door: string | null
   attendant: string | null
-  /** Pre-formatted arrival clock (e.g. "8:24 PM"); null if not yet arrived. */
+  /** Pre-formatted Dar es Salaam arrival clock (e.g. "8:24 PM"); null if not yet arrived. */
   arrivedAt: string | null
 }
 

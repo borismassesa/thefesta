@@ -14,8 +14,8 @@ export default function RequisitionForm({ employees }: { employees: EmployeeOpti
   return (
     <form action={action} className="space-y-6">
       {state.error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">{state.error}</div>}
-      <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-950">Position and ownership</h2>
+      <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Position and ownership</h2>
         <div className="mt-5 grid gap-5 md:grid-cols-2">
           <label className={label}>Position title<input className={input} name="title" required minLength={3} /></label>
           <label className={label}>Brand<input className={input} name="brand" defaultValue="OpusFesta" required /></label>
@@ -30,8 +30,8 @@ export default function RequisitionForm({ employees }: { employees: EmployeeOpti
         </div>
       </section>
 
-      <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-950">Budget and timing</h2>
+      <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Budget and timing</h2>
         <div className="mt-5 grid gap-5 md:grid-cols-2">
           <label className={label}>Salary minimum (TZS)<input className={input} name="salary_min_tzs" type="number" min="0" step="1" /></label>
           <label className={label}>Salary maximum (TZS)<input className={input} name="salary_max_tzs" type="number" min="0" step="1" /></label>
@@ -41,8 +41,8 @@ export default function RequisitionForm({ employees }: { employees: EmployeeOpti
         <label className="mt-5 flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700"><input type="checkbox" name="budget_confirmed" className="h-4 w-4 rounded border-gray-300 text-[#5B2D8E] focus:ring-[#7E5896]" />Budget is confirmed for this request</label>
       </section>
 
-      <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-950">Business case and role profile</h2>
+      <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Business case and role profile</h2>
         <div className="mt-5 space-y-5">
           <label className={label}>Business justification<textarea className={input} name="reason" rows={4} required minLength={20} /></label>
           <label className={label}>Responsibilities <span className="font-normal text-gray-400">(one per line)</span><textarea className={input} name="responsibilities" rows={5} /></label>

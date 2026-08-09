@@ -48,7 +48,7 @@ import { isEmailConfigured, sendEmail } from '@/lib/email'
 import { pledgeRequestEmail } from './pledge-email'
 import { sendGiftClaimReceipts, type ReceiptGift, type ReceiptLang } from './gift-registry-receipt'
 import { GIFT_CATALOG } from './gift-catalog'
-import { MAX_TICKET_PARTY } from './types'
+import { MAX_SELF_SERVICE_PARTY, MAX_TICKET_PARTY, ticketPartyFor } from './types'
 import type { GuestImportRow } from './guest-import-rows'
 import {
   findDuplicates,
@@ -456,7 +456,7 @@ function composeName(parts: Array<string | null | undefined>): string {
 }
 
 function ticketPartySize(value: number | null | undefined): number {
-  return Math.min(MAX_TICKET_PARTY, Math.max(1, Number(value) || 1))
+  return ticketPartyFor(value)
 }
 
 function guestColumnsFromInput(input: GuestInput): Record<string, unknown> {
@@ -478,9 +478,9 @@ function guestColumnsFromInput(input: GuestInput): Record<string, unknown> {
     }))
     .filter((c) => c.first_name || c.last_name)
 
-  // Derive a sensible max_party_size if the caller didn't pin one, capped at
-  // the Single/Double ticket limit (a plus-one + children can push the
-  // derived count higher, but an invite never covers more than two seats).
+  // Derive a sensible max_party_size if the caller didn't pin one, snapped
+  // onto a sold ticket (a plus-one + children can push the derived count to
+  // any number, but an invite only ever covers a Single, Double or Wakwe).
   const hasPlusOne = plusOneNameUnknown || Boolean(plusOneFirst) || Boolean(plusOneLast)
   const derivedParty = 1 + (hasPlusOne ? 1 : 0) + children.length
   const max_party_size = ticketPartySize(input.max_party_size ?? derivedParty)
@@ -1003,7 +1003,9 @@ export async function updateRsvp(invitationId: string, update: RsvpUpdate): Prom
   const supabase = createDashboardClient()
   const patch: Record<string, unknown> = { ...update }
   if (typeof update.party_size === 'number') {
-    patch.party_size = Math.min(MAX_TICKET_PARTY, Math.max(1, update.party_size))
+    // The host is editing, so a Wakwe-sized party is allowed here; snapping
+    // keeps the stored count on a ticket the door can name.
+    patch.party_size = ticketPartyFor(update.party_size)
   }
   if (update.rsvp_status) patch.responded_at = new Date().toISOString()
   const { error } = await supabase
@@ -2112,7 +2114,9 @@ export async function submitPublicInviteRsvp(
     return { ok: false, error: 'RSVPs for this celebration have closed.' }
   }
 
-  const partySize = Math.max(1, Math.min(Number(input.partySize) || 1, MAX_TICKET_PARTY))
+  // Self-registration off a shared link: a stranger may claim a Double at
+  // most. Wakwe only ever comes from the host's roster.
+  const partySize = Math.max(1, Math.min(Number(input.partySize) || 1, MAX_SELF_SERVICE_PARTY))
 
   // Reuse this phone's prior self-registration; never touch a host-added guest.
   const { data: existing } = await supabase

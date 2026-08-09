@@ -22,7 +22,11 @@ import {
   withdrawCandidateApplication,
 } from './actions';
 import OfferDocumentButton from './OfferDocumentButton';
-import { AssessmentTaskForm, DocumentTaskForm } from './PortalTaskForms';
+import {
+  AssessmentTaskForm,
+  BackgroundCheckConsentForm,
+  DocumentTaskForm,
+} from './PortalTaskForms';
 import CandidateAvailabilityForm from './CandidateAvailabilityForm';
 
 export const dynamic = 'force-dynamic';
@@ -54,34 +58,49 @@ export default async function CandidatePortalPage() {
   }
 
   const supabase = createSupabaseServerClient();
-  const [applications, tasks, notices, preferences, consents, savedJobs] = await Promise.all([
-    supabase
-      .from('recruitment_applications')
-      .select(
-        'id, job_id, application_reference, status, candidate_facing_status, submitted_at, created_at'
-      )
-      .eq('candidate_id', candidate.id)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('recruitment_candidate_portal_tasks')
-      .select(
-        'id, application_id, task_type, title, instructions, status, due_at'
-      )
-      .eq('candidate_id', candidate.id)
-      .in('status', ['pending', 'in_progress'])
-      .order('due_at', { ascending: true, nullsFirst: false }),
-    supabase
-      .from('recruitment_candidate_notices')
-      .select(
-        'id, application_id, title, body, version, published_at, acknowledged_at'
-      )
-      .eq('candidate_id', candidate.id)
-      .order('published_at', { ascending: false })
-      .limit(20),
-    supabase.from('recruitment_candidate_preferences').select('*').eq('candidate_id', candidate.id).maybeSingle(),
-    supabase.from('recruitment_candidate_consents').select('consent_type, granted_at, withdrawn_at').eq('candidate_id', candidate.id).order('created_at', { ascending: false }),
-    supabase.from('recruitment_candidate_saved_jobs').select('job_id, saved_at, workforce_jobs(title, slug, department, location, status)').eq('candidate_id', candidate.id).order('saved_at', { ascending: false }),
-  ]);
+  const [applications, tasks, notices, preferences, consents, savedJobs] =
+    await Promise.all([
+      supabase
+        .from('recruitment_applications')
+        .select(
+          'id, job_id, application_reference, status, candidate_facing_status, submitted_at, created_at'
+        )
+        .eq('candidate_id', candidate.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('recruitment_candidate_portal_tasks')
+        .select(
+          'id, application_id, task_type, title, instructions, status, due_at'
+        )
+        .eq('candidate_id', candidate.id)
+        .in('status', ['pending', 'in_progress'])
+        .order('due_at', { ascending: true, nullsFirst: false }),
+      supabase
+        .from('recruitment_candidate_notices')
+        .select(
+          'id, application_id, title, body, version, published_at, acknowledged_at'
+        )
+        .eq('candidate_id', candidate.id)
+        .order('published_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('recruitment_candidate_preferences')
+        .select('*')
+        .eq('candidate_id', candidate.id)
+        .maybeSingle(),
+      supabase
+        .from('recruitment_candidate_consents')
+        .select('consent_type, granted_at, withdrawn_at')
+        .eq('candidate_id', candidate.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('recruitment_candidate_saved_jobs')
+        .select(
+          'job_id, saved_at, workforce_jobs(title, slug, department, location, status)'
+        )
+        .eq('candidate_id', candidate.id)
+        .order('saved_at', { ascending: false }),
+    ]);
   if (applications.error) throw applications.error;
   if (tasks.error) throw tasks.error;
   if (notices.error) throw notices.error;
@@ -171,8 +190,37 @@ export default async function CandidatePortalPage() {
           <h2 className="text-xl font-semibold">Saved roles</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {(savedJobs.data ?? []).map((saved) => {
-              const job = Array.isArray(saved.workforce_jobs) ? saved.workforce_jobs[0] : saved.workforce_jobs;
-              return <article key={saved.job_id} className="rounded-xl bg-gray-50 p-4"><Link href={`/careers/jobs/${job?.slug}`} className="font-semibold underline">{job?.title ?? 'Role'}</Link><p className="mt-1 text-sm text-gray-500">{job?.department} · {job?.location}</p><form action={toggleCandidateSavedJob.bind(null, saved.job_id, 'remove')} className="mt-3"><button className="text-xs font-semibold text-rose-700">Remove saved role</button></form></article>;
+              const job = Array.isArray(saved.workforce_jobs)
+                ? saved.workforce_jobs[0]
+                : saved.workforce_jobs;
+              return (
+                <article
+                  key={saved.job_id}
+                  className="rounded-xl bg-gray-50 p-4"
+                >
+                  <Link
+                    href={`/careers/jobs/${job?.slug}`}
+                    className="font-semibold underline"
+                  >
+                    {job?.title ?? 'Role'}
+                  </Link>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {job?.department} · {job?.location}
+                  </p>
+                  <form
+                    action={toggleCandidateSavedJob.bind(
+                      null,
+                      saved.job_id,
+                      'remove'
+                    )}
+                    className="mt-3"
+                  >
+                    <button className="text-xs font-semibold text-rose-700">
+                      Remove saved role
+                    </button>
+                  </form>
+                </article>
+              );
             })}
           </div>
         </section>
@@ -307,6 +355,9 @@ export default async function CandidatePortalPage() {
                     applicationId={task.application_id}
                   />
                 )}
+                {task.task_type === 'background_check_consent' && (
+                  <BackgroundCheckConsentForm taskId={task.id} />
+                )}
               </article>
             ))}
           </div>
@@ -362,7 +413,10 @@ export default async function CandidatePortalPage() {
                     Open meeting link
                   </a>
                 )}
-                <CandidateAvailabilityForm applicationId={interview.application_id} defaultTimezone={candidate.timezone ?? 'Africa/Dar_es_Salaam'} />
+                <CandidateAvailabilityForm
+                  applicationId={interview.application_id}
+                  defaultTimezone={candidate.timezone ?? 'Africa/Dar_es_Salaam'}
+                />
                 <details className="mt-3">
                   <summary className="cursor-pointer text-sm font-semibold text-gray-700">
                     Reschedule or request accommodation
@@ -574,8 +628,131 @@ export default async function CandidatePortalPage() {
       </section>
 
       <section className="mt-10 grid gap-5 lg:grid-cols-2">
-        <div className="rounded-2xl bg-white p-6 shadow-sm"><h2 className="text-xl font-semibold">Job preferences</h2><p className="mt-2 text-sm text-gray-600">Used only for matching roles you have asked us to consider.</p><form action={updateCandidatePreferences} className="mt-4 grid gap-3 sm:grid-cols-2"><input name="departments" defaultValue={preferences.data?.preferred_departments?.join(', ') ?? ''} placeholder="Departments, comma-separated" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" /><input name="locations" defaultValue={preferences.data?.preferred_locations?.join(', ') ?? ''} placeholder="Locations, comma-separated" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" /><input name="employment_types" defaultValue={preferences.data?.preferred_employment_types?.join(', ') ?? ''} placeholder="Employment types" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" /><select name="remote_preference" defaultValue={preferences.data?.remote_preference ?? ''} className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm"><option value="">No workplace preference</option><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select><input name="salary_min" type="number" min="0" defaultValue={preferences.data?.salary_expectation_min ?? ''} placeholder="Minimum salary TZS" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" /><input name="salary_max" type="number" min="0" defaultValue={preferences.data?.salary_expectation_max ?? ''} placeholder="Maximum salary TZS" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" /><input name="earliest_start_date" type="date" defaultValue={preferences.data?.earliest_start_date ?? ''} className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" /><label className="flex items-center gap-2 text-sm"><input name="willing_to_relocate" type="checkbox" defaultChecked={preferences.data?.willing_to_relocate ?? false} /> Willing to relocate</label><button className="rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white sm:col-span-2">Save preferences</button></form></div>
-        <div className="rounded-2xl bg-white p-6 shadow-sm"><h2 className="text-xl font-semibold">Communication choices</h2><p className="mt-2 text-sm text-gray-600">Optional consent can be withdrawn at any time without affecting an active application.</p><div className="mt-4 space-y-3">{([['talent_pool', 'Future role consideration'], ['career_updates', 'Career and talent updates'], ['sms', 'SMS recruitment messages']] as const).map(([type, label]) => { const active = (consents.data ?? []).some((consent) => consent.consent_type === type && consent.granted_at && !consent.withdrawn_at); return <div key={type} className="flex items-center justify-between rounded-xl bg-gray-50 p-3"><div><p className="text-sm font-semibold">{label}</p><p className="text-xs text-gray-500">{active ? 'Active' : 'Not active'}</p></div><form action={updateCandidateConsent.bind(null, type, active ? 'withdraw' : 'grant')}><button className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold">{active ? 'Withdraw' : 'Grant'}</button></form></div> })}</div></div>
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Job preferences</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Used only for matching roles you have asked us to consider.
+          </p>
+          <form
+            action={updateCandidatePreferences}
+            className="mt-4 grid gap-3 sm:grid-cols-2"
+          >
+            <input
+              name="departments"
+              defaultValue={
+                preferences.data?.preferred_departments?.join(', ') ?? ''
+              }
+              placeholder="Departments, comma-separated"
+              className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
+            />
+            <input
+              name="locations"
+              defaultValue={
+                preferences.data?.preferred_locations?.join(', ') ?? ''
+              }
+              placeholder="Locations, comma-separated"
+              className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
+            />
+            <input
+              name="employment_types"
+              defaultValue={
+                preferences.data?.preferred_employment_types?.join(', ') ?? ''
+              }
+              placeholder="Employment types"
+              className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
+            />
+            <select
+              name="remote_preference"
+              defaultValue={preferences.data?.remote_preference ?? ''}
+              className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">No workplace preference</option>
+              <option value="onsite">On-site</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="remote">Remote</option>
+            </select>
+            <input
+              name="salary_min"
+              type="number"
+              min="0"
+              defaultValue={preferences.data?.salary_expectation_min ?? ''}
+              placeholder="Minimum salary TZS"
+              className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
+            />
+            <input
+              name="salary_max"
+              type="number"
+              min="0"
+              defaultValue={preferences.data?.salary_expectation_max ?? ''}
+              placeholder="Maximum salary TZS"
+              className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
+            />
+            <input
+              name="earliest_start_date"
+              type="date"
+              defaultValue={preferences.data?.earliest_start_date ?? ''}
+              className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                name="willing_to_relocate"
+                type="checkbox"
+                defaultChecked={preferences.data?.willing_to_relocate ?? false}
+              />{' '}
+              Willing to relocate
+            </label>
+            <button className="rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white sm:col-span-2">
+              Save preferences
+            </button>
+          </form>
+        </div>
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Communication choices</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Optional consent can be withdrawn at any time without affecting an
+            active application.
+          </p>
+          <div className="mt-4 space-y-3">
+            {(
+              [
+                ['talent_pool', 'Future role consideration'],
+                ['career_updates', 'Career and talent updates'],
+                ['sms', 'SMS recruitment messages'],
+              ] as const
+            ).map(([type, label]) => {
+              const active = (consents.data ?? []).some(
+                (consent) =>
+                  consent.consent_type === type &&
+                  consent.granted_at &&
+                  !consent.withdrawn_at
+              );
+              return (
+                <div
+                  key={type}
+                  className="flex items-center justify-between rounded-xl bg-gray-50 p-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold">{label}</p>
+                    <p className="text-xs text-gray-500">
+                      {active ? 'Active' : 'Not active'}
+                    </p>
+                  </div>
+                  <form
+                    action={updateCandidateConsent.bind(
+                      null,
+                      type,
+                      active ? 'withdraw' : 'grant'
+                    )}
+                  >
+                    <button className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold">
+                      {active ? 'Withdraw' : 'Grant'}
+                    </button>
+                  </form>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </section>
 
       {(notices.data ?? []).length > 0 && (

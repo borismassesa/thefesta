@@ -3,6 +3,7 @@ import 'server-only'
 import { cache } from 'react'
 import { auth } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
+import { isAdminAuthDisabled } from '@/lib/admin-auth'
 import type {
   NotificationCategory,
   NotificationPriority,
@@ -28,7 +29,7 @@ type Row = {
 // The signed-in staff member's employee row. Cached per request so the bell
 // and any other consumer share one round-trip.
 export const getCallerEmployeeId = cache(async (): Promise<string | null> => {
-  if (!hasSupabaseAdminConfig()) return null
+  if (isAdminAuthDisabled() || !hasSupabaseAdminConfig()) return null
   const { userId } = await auth()
   if (!userId) return null
   const supabase = createSupabaseAdminClient()

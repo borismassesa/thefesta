@@ -1,4 +1,5 @@
 import type { RosterEntry } from '@/types/checkin';
+import { DOUBLE_TICKET_PARTY, SINGLE_TICKET_PARTY, WAKWE_TICKET_PARTY } from './tickets';
 
 /**
  * Derivations shared by every scanner screen.
@@ -163,12 +164,18 @@ export function countLabel(guestCount: number, heads: number): string {
 
 /**
  * Badge text for a party size, in the language the tickets are sold in:
- * passes come as Single or Double, so those words are what the guest is
- * holding and what the attendant should read. Larger parties (special
+ * passes come as Single, Double or Wakwe, so those words are what the guest is
+ * holding and what the attendant should read. Other counts (special
  * invitations the couple entered by hand) fall back to the count.
+ *
+ * Exact match, not a floor: at the door a count between two sold sizes must
+ * not be named after the smaller ticket. Mirrors ticketLabel in
+ * opus_admin/src/lib/checkin-report.ts.
  */
 export function partySizeLabel(partySize: number): string {
-  if (partySize === 1) return 'Single';
-  if (partySize === 2) return 'Double';
+  if (partySize === SINGLE_TICKET_PARTY) return 'Single';
+  if (partySize === DOUBLE_TICKET_PARTY) return 'Double';
+  // Wakwe: the in-laws' ten-on-one-QR ticket.
+  if (partySize === WAKWE_TICKET_PARTY) return 'Wakwe';
   return `Party of ${partySize}`;
 }

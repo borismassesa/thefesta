@@ -298,8 +298,9 @@ const sections: NavSection[] = [
       { icon: Clock, label: "Attendance", href: "/workforce/timesheets", requiredPermission: "workforce.read" },
       { icon: ClipboardCheck, label: "MD Tracker", href: "/workforce/daily-tracker", requiredPermission: "workforce.read" },
       { icon: Shield, label: "Roles", href: "/workforce/roles", requiredPermission: "workforce.write" },
+      // One sidebar entry per module. Recruitment's sub-pages — including
+      // My requisitions — live in its own RecruitmentNav, not up here.
       { icon: UserPlus, label: "Recruitment", href: "/workforce/recruitment", requiredPermission: "workforce.recruitment.read" },
-      { icon: ClipboardList, label: "My requisitions", href: "/workforce/recruitment/my-requisitions", requiredPermission: "workforce.requisitions.read" },
     ],
   },
   {
@@ -741,7 +742,7 @@ export function Sidebar({
       ref={asideRef}
       style={collapsed ? undefined : { width }}
       className={cn(
-        'relative bg-white border-r border-gray-100 flex flex-col h-full h-screen sticky top-0 py-6 ease-out',
+        'relative bg-white border-r border-gray-100 flex flex-col h-full h-screen sticky top-0 py-6 ease-out print:hidden',
         !resizing && 'transition-[width] duration-200',
         collapsed ? 'w-[72px] px-2' : 'px-4'
       )}

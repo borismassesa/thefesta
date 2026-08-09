@@ -34,7 +34,7 @@ export function DesktopOnlyNotice() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="desktop-only-title"
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-white px-6 text-center lg:hidden"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-white px-6 text-center print:hidden lg:hidden"
     >
       <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#F0DFF6] text-[#7E5896]">
         <Monitor className="h-6 w-6" aria-hidden />

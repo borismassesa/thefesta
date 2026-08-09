@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import type { EntrancePassData } from '@/lib/dashboard/queries'
+import { ticketTypeLabel } from '@/lib/dashboard/types'
 
 /**
  * The OpusPass entrance-pass ticket, drawn from the designer's portrait
@@ -36,11 +37,11 @@ const PILL = { top: 1227, height: 87 }
 // than the artwork's sample block, so the Pass ID below it has real room.
 const QR_BOX = { top: 1386, size: 352, pad: 14 }
 
-/** Tickets are only ever sold as Single or Double — those two words are
- *  the entire pill vocabulary. Anything above one is a Double; "Party of
- *  N" never appears on a ticket. */
+/** The sold ticket's own name is the entire pill vocabulary — Single, Double
+ *  or Wakwe. ticketTypeLabel floors onto a ticket, so a legacy count between
+ *  two sizes still names one; "Party of N" never appears on a ticket. */
 export function partySizeLabel(partySize: number): string {
-  return partySize === 1 ? 'SINGLE' : 'DOUBLE'
+  return ticketTypeLabel(partySize).toUpperCase()
 }
 
 /** Shrink a line to fit its slot — `em` is the font's rough average glyph

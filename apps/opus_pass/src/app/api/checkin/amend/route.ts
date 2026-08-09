@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { scannerGuestDisplayName } from '@opusfesta/lib'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { candidateScannerAccessHashes } from '@/lib/checkin/tokens'
 import { recordCredentialVerification, verifyAdmissionCredential } from '@/lib/checkin/credentials'
@@ -207,7 +208,7 @@ export async function POST(request: Request) {
   if (amended > 0) {
     await broadcastCheckin(eventId, {
       status: 'success',
-      guestName: guest?.full_name ?? 'Guest',
+      guestName: scannerGuestDisplayName(guest?.full_name),
       partySize: amended,
       doorLabel: doorLabel || 'Main Gate',
     // From the RPC, not the row read before the write: a correction to 0 is a
@@ -218,7 +219,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     status: 'success',
-    guestName: guest?.full_name ?? 'Guest',
+    guestName: scannerGuestDisplayName(guest?.full_name),
     partySize: rsvpd,
     checkedInPartySize: amended,
     checkedInAt: amendResult.first_admitted_at,

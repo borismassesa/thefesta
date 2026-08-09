@@ -236,7 +236,7 @@ function AdjustForm({
       <summary className="cursor-pointer font-medium text-[#7E5896] [&::-webkit-details-marker]:hidden">
         Adjust {label.toLowerCase()}
       </summary>
-      <form className="mt-2 space-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-2.5">
+      <form className="relative mt-2 space-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-2.5">
         <input type="hidden" name="userId" value={userId} />
         <input type="hidden" name="eventId" value={eventId} />
         <input type="hidden" name="kind" value={kind} />

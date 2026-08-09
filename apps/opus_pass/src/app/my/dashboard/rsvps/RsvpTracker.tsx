@@ -31,7 +31,10 @@ import type { RsvpsDashboardCopy } from '@/lib/cms/dashboard-copy'
 import type { DashboardSendStrings } from '@/lib/cms/ui-strings-fallback'
 import type { SendGuestRow } from '@/lib/dashboard/queries'
 import {
+  DOUBLE_TICKET_PARTY,
   RSVP_STATUS_LABELS,
+  WAKWE_TICKET_PARTY,
+  ticketPartyFor,
   type GuestSource,
   type GuestWithInvitations,
   type LastSend,
@@ -129,6 +132,14 @@ export default function RsvpTracker({
     [sendRows],
   )
   const showPipelineColumns = Boolean(sendRows?.length && sendStrings)
+
+  /** The card-type pill, in the sold ticket's own words. Mirrors
+   *  partyStringFor in SendInvitesView, which feeds the same CMS strings. */
+  const partyStringFor = (seats: number) => {
+    const size = ticketPartyFor(seats)
+    if (size === WAKWE_TICKET_PARTY) return sendStrings!.party_wakwe
+    return size === DOUBLE_TICKET_PARTY ? sendStrings!.party_double : sendStrings!.party_single
+  }
 
   const eventName = (id: string) => events.find((e) => e.id === id)?.name ?? 'Event'
 
@@ -605,7 +616,7 @@ export default function RsvpTracker({
                           <td className="px-4 py-3.5">
                             {sendRow ? (
                               <span className="inline-flex rounded-full bg-[#F6EEFB] px-2.5 py-1 text-xs font-semibold text-[#5d3a78]">
-                                {sendRow.assignedPartySize >= 2 ? sendStrings!.party_double : sendStrings!.party_single}
+                                {partyStringFor(sendRow.assignedPartySize)}
                               </span>
                             ) : (
                               <span className="text-[#1A1A1A]/35">—</span>

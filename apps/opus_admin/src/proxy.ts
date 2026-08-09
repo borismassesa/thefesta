@@ -1,5 +1,5 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
 
 // TEMPORARY: when DISABLE_ADMIN_AUTH=true the whole sign-in/role gate is
 // bypassed so we can develop the dashboard without auth. The Clerk wiring is
@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server'
 // See also getAdminAccessRole() in lib/admin-auth.ts.
 const AUTH_DISABLED =
   process.env.DISABLE_ADMIN_AUTH === 'true' &&
-  process.env.NODE_ENV !== 'production'
+  process.env.NODE_ENV !== 'production';
 
 // Public routes — sign-in/sign-up pages, Clerk's own callback handling, and
 // webhook endpoints (which are authenticated by their own signing secrets).
@@ -24,22 +24,22 @@ const isPublicRoute = createRouteMatcher([
   '/accept-invite(.*)',
   '/contribute/invite(.*)',
   '/api/webhooks/(.*)',
-])
+]);
 
 // API routes should fail closed with a status code, never a redirect to an
 // HTML sign-in page that the caller cannot use.
-const isApiRoute = createRouteMatcher(['/api/(.*)', '/trpc/(.*)'])
+const isApiRoute = createRouteMatcher(['/api/(.*)', '/trpc/(.*)']);
 
-export default clerkMiddleware(
+const adminAuthMiddleware = clerkMiddleware(
   async (auth, req) => {
-    if (AUTH_DISABLED) return
-    if (isPublicRoute(req)) return
+    if (AUTH_DISABLED) return;
+    if (isPublicRoute(req)) return;
     if (isApiRoute(req)) {
-      const { userId } = await auth()
+      const { userId } = await auth();
       if (!userId) {
-        return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+        return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
       }
-      return
+      return;
     }
     // Without an explicit unauthenticatedUrl, protect() rewrites signed-out
     // page requests to /_not-found. Staff following a link from an alert email
@@ -47,16 +47,35 @@ export default clerkMiddleware(
     // /sign-in and carry the destination so they land where they were headed.
     // The path is relative on purpose: the sign-in page rejects absolute
     // redirect_url values to avoid an open redirect.
-    const signInUrl = new URL('/sign-in', req.nextUrl)
-    signInUrl.searchParams.set('redirect_url', `${req.nextUrl.pathname}${req.nextUrl.search}`)
-    await auth.protect({ unauthenticatedUrl: signInUrl.toString() })
+    const signInUrl = new URL('/sign-in', req.nextUrl);
+    signInUrl.searchParams.set(
+      'redirect_url',
+      `${req.nextUrl.pathname}${req.nextUrl.search}`
+    );
+    await auth.protect({ unauthenticatedUrl: signInUrl.toString() });
   },
-  { signInUrl: '/sign-in' },
-)
+  { signInUrl: '/sign-in' }
+);
+
+export default function proxy(
+  req: Parameters<typeof adminAuthMiddleware>[0],
+  event: Parameters<typeof adminAuthMiddleware>[1]
+) {
+  // clerkMiddleware runs even when AUTH_DISABLED — it is what installs the
+  // request context that `auth()` reads. Short-circuiting to NextResponse.next()
+  // here left every server call to auth() throwing "Clerk can't detect usable
+  // middleware", which took down each Workspace route (getWorkspaceSession
+  // calls auth() unconditionally). The bypass belongs in the callback above,
+  // which returns before protect() and so applies no gate.
+  // Clerk's current package graph carries a second copy of Next's request
+  // types. The runtime objects are the same middleware values; erase only the
+  // duplicate nominal type boundary here.
+  return adminAuthMiddleware(req as never, event as never);
+}
 
 export const config = {
   matcher: [
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     '/(api|trpc)(.*)',
   ],
-}
+};

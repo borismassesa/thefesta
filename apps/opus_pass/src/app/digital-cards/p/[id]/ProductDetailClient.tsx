@@ -682,8 +682,9 @@ export default function ProductDetailClient({ product, allProducts, packages, ad
                 <Link key={p.id} href={`/digital-cards/p/${p.id}`} className="group flex flex-col">
                   <div className="relative aspect-[5/7] overflow-hidden rounded-sm bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06),0_8px_16px_-8px_rgba(0,0,0,0.12)] transition-[transform,box-shadow] duration-300 ease-out group-hover:-translate-y-1 group-hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_18px_32px_-12px_rgba(0,0,0,0.18)]">
                     <span className="absolute inset-0">
+                      {/* Optimized on purpose — see the catalog grid tile. */}
                       {cardImage ? (
-                        <Image src={cardImage} alt="" fill sizes="(min-width: 768px) 25vw, 50vw" className="object-cover" unoptimized />
+                        <Image src={cardImage} alt="" fill sizes="(min-width: 768px) 25vw, 50vw" className="object-cover" quality={90} />
                       ) : (
                         <InvitationVisual treatment={p.treatment} />
                       )}

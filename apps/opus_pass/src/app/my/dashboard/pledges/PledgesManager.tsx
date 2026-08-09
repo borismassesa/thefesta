@@ -97,6 +97,9 @@ import {
   CARD_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
   PLEDGE_STATUS_LABELS,
+  TICKET_TYPES,
+  ticketPartyFor,
+  ticketTypeLabel,
 } from '@/lib/dashboard/types'
 import { PLEDGE_CURRENCIES, toTzs } from '@/lib/dashboard/currency'
 
@@ -145,8 +148,11 @@ function formatDueDate(value: string | null): string {
   })
 }
 
-function cardTypeLabel(maxPartySize: number): 'Single' | 'Double' {
-  return maxPartySize > 1 ? 'Double' : 'Single'
+/** The pickers below offer Single and Double only — a contribution card is not
+ *  where a Wakwe is allocated — but a contributor who is also on the roster can
+ *  carry one, so the label has to be able to say so. */
+function cardTypeLabel(maxPartySize: number): string {
+  return ticketTypeLabel(maxPartySize)
 }
 
 /** Days until the promised date — negative when overdue, null when no date. */
@@ -417,7 +423,7 @@ export default function PledgesManager({
       whatsapp_phone: p.whatsapp_phone ?? p.phone ?? '',
       email: p.email ?? '',
       group_tag: p.group_tag ?? '',
-      max_party_size: p.max_party_size > 1 ? 2 : 1,
+      max_party_size: ticketPartyFor(p.max_party_size),
       pledged_amount: p.pledged_amount ? String(p.pledged_amount) : '',
       amount_received: p.amount_received ? String(p.amount_received) : '',
       currency: p.currency || 'TZS',
@@ -617,9 +623,9 @@ export default function PledgesManager({
           .join('')
       : '<tr><td colspan="3" class="muted">Nothing outstanding</td></tr>'
 
-    const cardTypeRows = ([1, 2] as const)
+    const cardTypeRows = TICKET_TYPES.map(({ size }) => size)
       .map((size) => {
-        const rows = initialPledges.filter((p) => (p.max_party_size > 1 ? 2 : 1) === size)
+        const rows = initialPledges.filter((p) => ticketPartyFor(p.max_party_size) === size)
         return `<tr><td>${cardTypeLabel(size)}</td><td class="r">${rows.length}</td><td class="r">${fmt(
           rows.reduce((n, p) => n + toTzs(p.pledged_amount, p.currency), 0),
         )}</td><td class="r">${fmt(rows.reduce((n, p) => n + toTzs(p.amount_received, p.currency), 0))}</td></tr>`
@@ -2630,12 +2636,15 @@ function InviteSection({
                                 className="einp"
                                 value={newGuest.max_party_size}
                                 onChange={(e) =>
-                                  setNewGuest({ ...newGuest, max_party_size: Number(e.target.value) > 1 ? 2 : 1 })
+                                  setNewGuest({ ...newGuest, max_party_size: ticketPartyFor(Number(e.target.value)) })
                                 }
                                 aria-label="Card Type"
                               >
-                                <option value={1}>Single</option>
-                                <option value={2}>Double</option>
+                                {TICKET_TYPES.map(({ size, label }) => (
+                                  <option key={size} value={size}>
+                                    {label}
+                                  </option>
+                                ))}
                               </select>
                             </td>
                             <td />
@@ -2699,12 +2708,15 @@ function InviteSection({
                                   className="einp"
                                   value={rowEdit.max_party_size}
                                   onChange={(e) =>
-                                    setRowEdit({ ...rowEdit, max_party_size: Number(e.target.value) > 1 ? 2 : 1 })
+                                    setRowEdit({ ...rowEdit, max_party_size: ticketPartyFor(Number(e.target.value)) })
                                   }
                                   aria-label="Card Type"
                                 >
-                                  <option value={1}>Single</option>
-                                  <option value={2}>Double</option>
+                                  {TICKET_TYPES.map(({ size, label }) => (
+                                    <option key={size} value={size}>
+                                      {label}
+                                    </option>
+                                  ))}
                                 </select>
                               </td>
                               <td />
@@ -2840,7 +2852,7 @@ function InviteSection({
                                             name: c.full_name,
                                             phone: phone ?? '',
                                             email: c.email ?? '',
-                                            max_party_size: c.max_party_size > 1 ? 2 : 1,
+                                            max_party_size: ticketPartyFor(c.max_party_size),
                                             askDelete: false,
                                           })
                                         }
@@ -3054,8 +3066,8 @@ function ReportsSection({
     }, {}),
   ).sort((a, b) => b[1].received - a[1].received)
 
-  const byCardType = ([1, 2] as const).map((size) => {
-    const rows = pledges.filter((p) => (p.max_party_size > 1 ? 2 : 1) === size)
+  const byCardType = TICKET_TYPES.map(({ size }) => {
+    const rows = pledges.filter((p) => ticketPartyFor(p.max_party_size) === size)
     return {
       label: cardTypeLabel(size),
       count: rows.length,
@@ -3437,7 +3449,7 @@ function PledgeSlideover({
                   setForm((f) => ({
                     ...f,
                     guestContactId: e.target.value,
-                    max_party_size: contact && contact.max_party_size > 1 ? 2 : 1,
+                    max_party_size: contact ? ticketPartyFor(contact.max_party_size) : 1,
                   }))
                 }}
               >
@@ -3489,14 +3501,14 @@ function PledgeSlideover({
             </>
           )}
           <Field label="Card Type">
-            <div className="grid grid-cols-2 gap-2">
-              {[1, 2].map((size) => (
+            <div className="grid grid-cols-3 gap-2">
+              {TICKET_TYPES.map(({ size, label }) => (
                 <ModeChip
                   key={size}
-                  active={form.max_party_size === size}
+                  active={ticketPartyFor(form.max_party_size) === size}
                   onClick={() => setForm((f) => ({ ...f, max_party_size: size }))}
                 >
-                  {size === 2 ? 'Double' : 'Single'}
+                  {label}
                 </ModeChip>
               ))}
             </div>

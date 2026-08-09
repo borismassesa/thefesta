@@ -5,7 +5,7 @@ import { submitPublicInviteRsvp } from '@/lib/dashboard/actions'
 import type { PublicInviteData, PublicInviteEvent } from '@/lib/dashboard/queries'
 import type { RsvpQuestion } from '@/lib/dashboard/types'
 import { formatLongDate } from '@/lib/dashboard/share'
-import { eventTypeLabel, MAX_TICKET_PARTY } from '@/lib/dashboard/types'
+import { eventTypeLabel, MAX_SELF_SERVICE_PARTY } from '@/lib/dashboard/types'
 import type { RsvpStatus } from '@/lib/dashboard/types'
 import Logo from '@/components/ui/Logo'
 import PoweredByLine from '@/components/ui/PoweredByLine'
@@ -347,10 +347,10 @@ function RsvpForm({ slug, questions, t }: { slug: string; questions: RsvpQuestio
           <input
             type="number"
             min={1}
-            max={MAX_TICKET_PARTY}
+            max={MAX_SELF_SERVICE_PARTY}
             className={field}
             value={partySize}
-            onChange={(e) => setPartySize(Math.max(1, Math.min(MAX_TICKET_PARTY, Number(e.target.value) || 1)))}
+            onChange={(e) => setPartySize(Math.max(1, Math.min(MAX_SELF_SERVICE_PARTY, Number(e.target.value) || 1)))}
           />
         </div>
       ) : null}

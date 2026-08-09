@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createDashboardClient } from '@/lib/dashboard/supabase'
 import { createNotification } from '@/lib/dashboard/notifications'
 import { resolveEventIdOrDefault } from '@/lib/dashboard/queries'
-import { MAX_TICKET_PARTY } from '@/lib/dashboard/types'
+import { MAX_SELF_SERVICE_PARTY } from '@/lib/dashboard/types'
 
 export interface PublicPledgeInput {
   full_name: string
@@ -35,7 +35,8 @@ export async function submitPublicPledge(token: string, input: PublicPledgeInput
   if (!cleanName) throw new Error('Name is required')
   const amount = Math.max(0, Number(input.amount) || 0)
   if (amount <= 0) throw new Error('Please enter the amount you can pledge')
-  const maxPartySize = Math.min(MAX_TICKET_PARTY, Math.max(1, Number(input.max_party_size) || 1))
+  // A pledge link is public, so the contributor picks Single or Double only.
+  const maxPartySize = Math.min(MAX_SELF_SERVICE_PARTY, Math.max(1, Number(input.max_party_size) || 1))
 
   const supabase = createDashboardClient()
   const { data: owner, error: ownerErr } = await supabase

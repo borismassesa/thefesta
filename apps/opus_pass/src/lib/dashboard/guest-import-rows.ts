@@ -8,7 +8,7 @@
  * `parseCsv` from here.
  */
 
-import { MAX_TICKET_PARTY } from './types'
+import { DOUBLE_TICKET_PARTY, SINGLE_TICKET_PARTY, WAKWE_TICKET_PARTY } from './types'
 
 export interface GuestImportRow {
   full_name: string
@@ -24,9 +24,12 @@ export interface GuestImportParse {
   unrecognizedTickets: string[]
 }
 
-/** Ticket labels that mean "two seats". Everything else imports as a Single. */
-const DOUBLE_TICKETS: ReadonlySet<string> = new Set(['double', 'couple', 'mbili', 'wawili'])
+/** Ticket labels per sold ticket. Everything else imports as a Single. */
 const SINGLE_TICKETS: ReadonlySet<string> = new Set(['single', 'moja', 'peke', 'one'])
+const DOUBLE_TICKETS: ReadonlySet<string> = new Set(['double', 'couple', 'mbili', 'wawili'])
+/** The in-laws' group ticket. `ukwe`/`mkwe` are the singular forms couples
+ *  type just as often as the plural the ticket is named after. */
+const WAKWE_TICKETS: ReadonlySet<string> = new Set(['wakwe', 'ukwe', 'mkwe', 'kumi', 'ten'])
 
 export interface TicketSize {
   size: number
@@ -38,10 +41,11 @@ export interface TicketSize {
 export function importedTicketSize(ticketType: string | undefined): TicketSize {
   const value = ticketType?.trim().toLowerCase() ?? ''
   // A blank ticket column is a legitimate "not specified", not a typo.
-  if (!value) return { size: 1, recognized: true }
-  if (DOUBLE_TICKETS.has(value)) return { size: MAX_TICKET_PARTY, recognized: true }
-  if (SINGLE_TICKETS.has(value)) return { size: 1, recognized: true }
-  return { size: 1, recognized: false }
+  if (!value) return { size: SINGLE_TICKET_PARTY, recognized: true }
+  if (SINGLE_TICKETS.has(value)) return { size: SINGLE_TICKET_PARTY, recognized: true }
+  if (DOUBLE_TICKETS.has(value)) return { size: DOUBLE_TICKET_PARTY, recognized: true }
+  if (WAKWE_TICKETS.has(value)) return { size: WAKWE_TICKET_PARTY, recognized: true }
+  return { size: SINGLE_TICKET_PARTY, recognized: false }
 }
 
 /**
