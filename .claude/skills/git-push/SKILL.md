@@ -10,7 +10,11 @@ description: "Push changes to both OpusFesta remotes. Use when the user says 'pu
 | Remote | Repository |
 |--------|------------|
 | `origin` | OpusFesta-Company-Ltd/OpusFesta |
-| `boris` | borismassesa/opusfesta |
+| `borismassesa` | borismassesa/opusfesta |
+
+The fork remote is named `borismassesa`, not `boris` — `git push boris <branch>` fails with
+"'boris' does not appear to be a git repository". Run `git remote -v` if a push is rejected for
+an unknown remote.
 
 ## Process
 
@@ -30,9 +34,9 @@ description: "Push changes to both OpusFesta remotes. Use when the user says 'pu
    git push -u origin OF-MPS-0003
    ```
 
-4. **Push to boris** (backup fork):
+4. **Push to borismassesa** (backup fork):
    ```bash
-   git push boris OF-MPS-0003
+   git push borismassesa OF-MPS-0003
    ```
 
 5. **Report** success/failure for each remote
