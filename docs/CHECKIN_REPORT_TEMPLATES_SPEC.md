@@ -200,7 +200,9 @@ interface CheckinReportModel {
     admittedInvitations: number      // confirmed AND checked_in_count > 0
     admittedSeats: number            // SUM(checked_in_count)
     singleInvitations: number        // entry_allowance = 1
-    doubleInvitations: number        // entry_allowance >= 2
+    doubleInvitations: number        // entry_allowance = 2
+    wakweInvitations: number         // entry_allowance = 10 (ten on one QR)
+    otherInvitations: number         // any other allowance, hand-entered
     partiallyAdmittedInvitations: number  // 0 < checked_in_count < entry_allowance
     noShowInvitations: number        // confirmed AND checked_in_count = 0
   }
@@ -459,7 +461,7 @@ served every moment of the event's life.
 | First Guest Arrived | `arrivals.firstAdmittedAt` | `MIN(created_at)` where `result = 'admitted'` |
 | Last Guest Arrived | `arrivals.lastAdmittedAt` | `MAX(created_at)` where `result = 'admitted'` |
 | Peak Arrival Period | `arrivals.peak` | Densest bucket, reported as a window |
-| Invitation Type Breakdown | `counts.single/doubleInvitations` | Single vs Double counts |
+| Invitation Type Breakdown | `counts.single/double/wakwe/otherInvitations` | One count per sold ticket |
 
 **Attendance Rate is computed on seats, not invitations.** In this market a Double
 Entry card is two admissions. An invitation-based rate understates a wedding where

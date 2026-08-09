@@ -16,6 +16,7 @@ import { BackButton } from '@/components/navigation/BackButton';
 import { PartyBadge } from '@/components/scanner/PartyBadge';
 import { reportLink, validateScannerSession } from '@/lib/api/checkin';
 import { getErrorMessage } from '@/lib/errors';
+import { eventDayLabel, formatEventTime } from '@/lib/eventTime';
 import { arrivedHeads } from '@/lib/scannerRoster';
 import { useScannerSession } from '@/hooks/useScannerSession';
 import { useTheme } from '@/theme/useTheme';
@@ -23,10 +24,6 @@ import type { RosterEntry } from '@/types/checkin';
 
 /** Brand green, matching the live/active pills used elsewhere in the product. */
 const LIVE_GREEN = '#9FE870';
-
-function timeOf(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 /**
  * The attendant's audit label is built server-side as
@@ -71,18 +68,6 @@ function manualMethodOf(checkedInBy: string | null): string {
       // Older admissions predate the identifier tag entirely.
       return 'Checked in manually';
   }
-}
-
-/** Group arrivals under a relative day heading so a long night stays readable. */
-function dayLabel(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-  if (sameDay(d, today)) return 'Today';
-  if (sameDay(d, yesterday)) return 'Yesterday';
-  return d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' });
 }
 
 /**
@@ -159,7 +144,7 @@ export default function ArrivalsScreen() {
   const sections = useMemo(() => {
     const groups: { title: string; data: (RosterEntry & { checkedInAt: string })[] }[] = [];
     for (const guest of visible) {
-      const label = dayLabel(guest.checkedInAt);
+      const label = eventDayLabel(guest.checkedInAt);
       const last = groups[groups.length - 1];
       if (last && last.title === label) last.data.push(guest);
       else groups.push({ title: label, data: [guest] });
@@ -479,7 +464,7 @@ export default function ArrivalsScreen() {
                 </View>
 
                 <Text className="shrink-0 font-inter-medium text-caption text-ed-on-surface-variant">
-                  {timeOf(item.checkedInAt)}
+                  {formatEventTime(item.checkedInAt)}
                 </Text>
               </View>
             );

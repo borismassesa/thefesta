@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { scannerGuestDisplayName } from '@opusfesta/lib'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { candidateScannerAccessHashes } from '@/lib/checkin/tokens'
 import { recordCredentialVerification, verifyAdmissionCredential } from '@/lib/checkin/credentials'
@@ -296,7 +297,7 @@ export async function POST(request: Request) {
     .eq('id', invitation.guest_contact_id)
     .maybeSingle()
 
-  const guestName = guest?.full_name ?? 'Guest'
+  const guestName = scannerGuestDisplayName(guest?.full_name)
   const groupTag = guest?.group_tag ?? null
   const isVip = /vip/i.test(groupTag ?? '')
   const displayDoor = doorLabel || 'Main Gate'

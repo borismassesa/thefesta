@@ -25,5 +25,6 @@ export * from './card-layout-render';
 export * from './card-layout-validate';
 export * from './card-raster-fonts';
 export * from './card-raster-contract';
+export * from './scanner-guest-name';
 // phone-normalization-fixtures is deliberately NOT exported here: it is test
 // data, and the barrel is bundled by every app. Import it by path.

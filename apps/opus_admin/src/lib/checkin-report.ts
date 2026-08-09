@@ -23,14 +23,59 @@ export interface ArrivalBucket {
   cumulative: number
 }
 
+/** Check-in operations are reported on the Dar es Salaam event clock. */
+export const CHECKIN_TIME_ZONE = 'Africa/Dar_es_Salaam'
+
+export function formatReportDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: CHECKIN_TIME_ZONE,
+  })
+}
+
+/**
+ * Long form for the letterhead meta block: "8 August 2026, 18:00". Built from
+ * the two parts because toLocaleString joins them with " at ", which reads
+ * nothing like the "date, time" the rest of the report prints.
+ */
+export function formatReportLongDateTime(iso: string): string {
+  const at = new Date(iso)
+  const date = at.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: CHECKIN_TIME_ZONE,
+  })
+  return `${date}, ${formatReportTime(iso)}`
+}
+
+export function formatReportTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: CHECKIN_TIME_ZONE,
+  })
+}
+
 /**
  * Party size in the language the tickets are actually sold in. A guest holding
  * a two-person ticket has a "Double", not a "party of 2" — the report has to
  * match what the couple and the door staff say out loud.
+ *
+ * Exact match, not a floor: a count that lands between two sold sizes is a
+ * hand-entered special, and naming it after the smaller ticket would understate
+ * how many people the report is accounting for. Mirrors partySizeLabel in
+ * opus_pass_mobile/src/lib/scannerRoster.ts.
  */
 export function ticketLabel(partySize: number): string {
   if (partySize === 1) return 'Single'
   if (partySize === 2) return 'Double'
+  // Wakwe: the in-laws' ten-on-one-QR ticket.
+  if (partySize === 10) return 'Wakwe'
   return `Party of ${partySize}`
 }
 
@@ -77,7 +122,11 @@ export function bucketArrivals(arrivals: ReportArrival[]): {
       const at = start + i * step
       return {
         at,
-        label: new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        label: new Date(at).toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: CHECKIN_TIME_ZONE,
+        }),
         count,
         cumulative: running,
       }

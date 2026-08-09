@@ -1,21 +1,21 @@
 import { Text, View } from 'react-native';
 import { partySizeLabel } from '@/lib/scannerRoster';
-import { TIER_PILL } from '@/theme/brand';
 
 /**
- * Ticket-type pill: Single, Double, or "Party of N".
+ * Ticket-type pill: Single, Double, Wakwe, or "Party of N".
  *
- * Colours are borrowed from the invitation tier palette rather than invented:
- * slate for a Single, lavender for a Double, gold for the hand-entered larger
- * parties — so each ticket type is recognisable at a glance down a list, the
- * same trick the tier pills pull on the cards catalogue. Fixed colours by
- * design, like all of TIER_PILL: they don't flip with dark mode, and their
- * dark text keeps contrast on both schemes.
+ * The three sold tickets use distinct semantic colour families so an attendant
+ * can recognise them before reading: green for Single, purple for Double and
+ * gold for Wakwe. Fixed light fills and dark text preserve contrast in both app
+ * themes; the border keeps each pill defined against a white card.
  */
-const BADGE_COLORS: Record<'single' | 'double' | 'group', { bg: string; text: string }> = {
-  single: { bg: TIER_PILL.lite.bg, text: TIER_PILL.lite.text },
-  double: { bg: TIER_PILL.classic.bg, text: TIER_PILL.classic.text },
-  group: { bg: TIER_PILL.signature.bg, text: TIER_PILL.signature.text },
+const BADGE_COLORS: Record<
+  'single' | 'double' | 'group',
+  { bg: string; border: string; text: string }
+> = {
+  single: { bg: '#DDF3E4', border: '#8CC7A4', text: '#185C37' },
+  double: { bg: '#EADDF7', border: '#B98FD6', text: '#5B2D8E' },
+  group: { bg: '#F8E3A3', border: '#D6A934', text: '#6F4D00' },
 };
 
 export function PartyBadge({ partySize }: { partySize: number }) {
@@ -28,7 +28,11 @@ export function PartyBadge({ partySize }: { partySize: number }) {
   return (
     <View
       className="shrink-0 rounded-lg px-2.5 py-1"
-      style={{ backgroundColor: colors.bg }}
+      style={{
+        backgroundColor: colors.bg,
+        borderColor: colors.border,
+        borderWidth: 1,
+      }}
     >
       <Text className="font-inter-semibold text-caption" style={{ color: colors.text }}>
         {partySizeLabel(partySize)}
