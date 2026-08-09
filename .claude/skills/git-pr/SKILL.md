@@ -28,7 +28,7 @@ description: "Create pull requests following OpusFesta conventions. Use when cre
 4. **Push if needed** (to both remotes):
    ```bash
    git push -u origin OF-MPS-0003
-   git push boris OF-MPS-0003
+   git push borismassesa OF-MPS-0003
    ```
 
 5. **Create PR** using `gh pr create`
@@ -74,7 +74,8 @@ EOF
 
 - PRs are created on `origin` (OpusFesta-Company-Ltd/OpusFesta)
 - Always push to `origin` before creating PR
-- Also push to `boris` (borismassesa/opusfesta) as backup
+- Also push to `borismassesa` (borismassesa/opusfesta) as backup. The remote is named
+  `borismassesa`, not `boris`. Run `git remote -v` if a push is rejected for an unknown remote.
 
 ## Rules
 
