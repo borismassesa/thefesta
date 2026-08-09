@@ -1,3 +1,4 @@
+import { OpusWebsiteApiError, requestOpusWebsite } from '@/lib/api/opusWebsite';
 import type { InquiryStatus, ProposalStatus } from '@/types/vendor';
 
 /**
@@ -9,8 +10,7 @@ import type { InquiryStatus, ProposalStatus } from '@/types/vendor';
  * proposal guard and the acceptance confirmation email — so we call it rather
  * than fork that state machine into a second implementation.
  *
- * Auth is the default Clerk session token (not the `supabase` JWT template);
- * both apps must be on the same Clerk instance.
+ * Transport and auth live in @/lib/api/opusWebsite.
  */
 
 export interface InquiryListItem {
@@ -61,49 +61,24 @@ export class ProposalConflictError extends Error {
   }
 }
 
-/** Defaults to production, matching how src/lib/share.ts resolves its origin. */
-function baseUrl(): string {
-  return (process.env.EXPO_PUBLIC_OPUS_WEBSITE_URL || 'https://www.opusfesta.com').replace(
-    /\/$/,
-    '',
-  );
-}
-
 /**
- * opus_website protects /api/my/* with `auth.protect({ unauthenticatedUrl })`,
- * which redirects rather than returning 401 — a rejected token comes back as
- * an HTML sign-in page, not JSON. Parse defensively so that surfaces as a
- * clear auth error instead of a JSON parse crash.
+ * The proposal routes answer 409 when the vendor moved first. That is the one
+ * status this surface reinterprets, so it maps here rather than in the shared
+ * transport.
  */
 async function request<T>(
   path: string,
   token: string,
   init?: { method?: string; body?: unknown },
 ): Promise<T> {
-  const response = await fetch(`${baseUrl()}/api/my${path}`, {
-    method: init?.method ?? 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: init?.body ? JSON.stringify(init.body) : undefined,
-    redirect: 'manual',
-  });
-
-  if (response.status === 409) throw new ProposalConflictError();
-
-  const contentType = response.headers.get('content-type') ?? '';
-  if (!contentType.includes('application/json')) {
-    throw new Error(
-      response.status === 0 || response.status >= 300
-        ? 'Could not sign in to your OpusFesta account. Please try again.'
-        : 'Unexpected response from the server.',
-    );
+  try {
+    return await requestOpusWebsite<T>(path, token, init);
+  } catch (err) {
+    if (err instanceof OpusWebsiteApiError && err.status === 409) {
+      throw new ProposalConflictError();
+    }
+    throw err;
   }
-
-  const payload = (await response.json()) as T & { error?: string };
-  if (!response.ok) throw new Error(payload.error || 'Request failed.');
-  return payload;
 }
 
 export async function getMyInquiries(token: string): Promise<InquiryListItem[]> {
