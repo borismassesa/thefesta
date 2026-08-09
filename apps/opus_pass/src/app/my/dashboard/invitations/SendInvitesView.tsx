@@ -98,7 +98,7 @@ import RsvpTracker from '../rsvps/RsvpTracker'
 import { createCheckinRealtimeClient } from '@/lib/checkin/realtimeClient'
 import { checkinChannelName, type CheckinBroadcastPayload } from '@/lib/checkin/shared'
 import type { CheckinReportData } from '@/lib/checkin-report-pdf'
-import { CHECKIN_TIME_ZONE } from '@/lib/checkin-report-data'
+import { CHECKIN_TIME_ZONE, checkinTicketLabel } from '@/lib/checkin-report-data'
 import type { InviteReportData, InviteReportRow } from '@/lib/invite-report'
 
 /** Short stable digest of the ticket's visible fields — appended to the
@@ -1001,9 +1001,16 @@ export default function SendInvitesView({
   // ── Downloadable / shareable check-in report ───────────────────────────────
   /** Ticket allocated to the invitation (Single/Double/Wakwe). How many of
    *  that party arrived is a turnout fact and must not rename the ticket: a
-   *  partially arrived Wakwe is still the ten-admission Wakwe they held. */
+   *  partially arrived Wakwe is still the ten-admission Wakwe they held.
+   *
+   *  Uses checkinTicketLabel, NOT the CMS partyStringFor the rest of this
+   *  screen speaks in. partyStringFor floors onto a sold ticket, so a legacy
+   *  row holding 9 reads "Double" — fine for on-screen ticket talk, wrong on a
+   *  report, and wrong in a way that hides seven admissions. The door renders
+   *  this same document from the same exact-match helper, and two copies of one
+   *  report that disagree are worse than either wording alone. */
   const ticketLabelOf = (g: SendGuestRow) =>
-    partyStringFor(g.rsvpPartySize ?? g.assignedPartySize)
+    checkinTicketLabel(g.rsvpPartySize ?? g.assignedPartySize)
 
   function buildReportData(): CheckinReportData {
     const rows = attendingGuests.map((g) => ({
