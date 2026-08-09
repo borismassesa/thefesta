@@ -141,6 +141,30 @@
       "cwd": "apps/opus_scanner_mobile"
     },
     {
+      "name": "admin-e2e",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "--port",
+        "3121"
+      ],
+      "port": 3121,
+      "cwd": ".worktrees/hiring-e2e/apps/opus_admin"
+    },
+    {
+      "name": "website-e2e",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "--port",
+        "3122"
+      ],
+      "port": 3122,
+      "cwd": ".worktrees/hiring-e2e/apps/opus_website"
+    },
+    {
       "name": "opus_pass_mobile",
       "runtimeExecutable": "npx",
       "runtimeArgs": [
@@ -153,6 +177,26 @@
       "port": 8093,
       "autoPort": true,
       "cwd": "apps/opus_pass_mobile"
+    },
+    {
+      "name": "opus_admin_local_db",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "--port",
+        "3011"
+      ],
+      "port": 3011,
+      "autoPort": true,
+      "cwd": "apps/opus_admin",
+      "env": {
+        "NEXT_PUBLIC_SUPABASE_URL": "http://127.0.0.1:56321",
+        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU",
+        "DISABLE_ADMIN_AUTH": "true",
+        "DEV_EMPLOYEE_ID": "a1b2c3d4-0000-4000-8000-000000000001",
+        "ADMIN_DIST_DIR": ".next-localdb"
+      }
     }
   ]
 }

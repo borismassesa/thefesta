@@ -42,7 +42,9 @@
     ".next-buildcheck/types/**/*.ts",
     ".next-buildcheck/dev/types/**/*.ts",
     ".next-verify/types/**/*.ts",
-    ".next-verify/dev/types/**/*.ts"
+    ".next-verify/dev/types/**/*.ts",
+    ".next-localdb/types/**/*.ts",
+    ".next-localdb/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
