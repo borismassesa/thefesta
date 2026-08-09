@@ -367,7 +367,7 @@ function CandidateCard({ candidate }: { candidate: Candidate }) {
   }
 
   return (
-    <div className={cn('rounded-xl border border-gray-100 bg-white p-3 shadow-sm hover:border-gray-200', pending && 'opacity-60')}>
+    <div className={cn('rounded-xl border border-gray-100 bg-white p-3 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:border-gray-200', pending && 'opacity-60')}>
       <div className="flex items-start gap-2.5">
         <Avatar name={candidate.name} color={candidateColor(candidate.id)} size="sm" />
         <div className="min-w-0 flex-1">

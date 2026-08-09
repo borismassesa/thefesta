@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { getCallerEmployeeId, getCallerPermissions, requirePermission } from '@/lib/admin-auth'
 import { requireRecruitmentAccess } from '@/lib/recruitment-auth'
+import { submitRequisitionMessage } from '@/lib/recruitment-requisition-submit'
 
 export type RequisitionFormState = { error: string | null }
 
@@ -133,7 +134,12 @@ export async function submitRequisition(requisitionId: string): Promise<void> {
     p_requisition_id: requisitionId,
     p_actor_employee_id: access.employeeId,
   })
-  if (error) throw error
+  // The draft page hides the submit button until the preconditions are met, so
+  // reaching here usually means the draft changed under the person: someone
+  // else submitted it, or cleared the budget, between the page render and the
+  // click. Rethrowing the raw PostgREST object put "{code: ..., details: Null,
+  // hint: ...}" on screen, which tells the user nothing about what to do.
+  if (error) throw new Error(submitRequisitionMessage(error))
   revalidatePath('/workforce/recruitment')
   revalidatePath(`/workforce/recruitment/requisitions/${requisitionId}`)
 }

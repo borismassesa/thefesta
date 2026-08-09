@@ -49,11 +49,11 @@ export default function CareersStory() {
         return (
           <div
             key={block.n}
-            className={`grid gap-12 text-left md:grid-cols-2 md:gap-24 ${
-              last ? 'items-start' : 'items-center'
-            } ${last ? '' : 'mb-28 md:mb-40'}`}
+            className={`grid items-center gap-12 text-left md:grid-cols-2 md:gap-24 ${
+              last ? '' : 'mb-28 md:mb-40'
+            }`}
           >
-            <div className={`${flip ? 'order-1 md:order-2 md:pl-8' : ''} ${last ? 'md:sticky md:top-32' : ''}`}>
+            <div className={flip ? 'order-1 md:order-2' : ''}>
               <div className="mb-8 flex h-10 w-10 items-center justify-center rounded-full border border-black/20 text-sm font-medium">
                 {block.n}
               </div>
@@ -61,10 +61,8 @@ export default function CareersStory() {
               <p className="max-w-md text-lg leading-relaxed text-gray-700">{block.copy}</p>
             </div>
             <div
-              className={`relative w-full overflow-hidden ${flip ? 'order-2 md:order-1' : ''} ${
-                last
-                  ? 'h-[480px] rounded-[120px] md:h-[760px] md:rounded-[200px]'
-                  : 'h-[350px] rounded-[100px] md:h-[450px]'
+              className={`relative h-[350px] w-full overflow-hidden rounded-[100px] md:h-[450px] ${
+                flip ? 'order-2 md:order-1' : ''
               }`}
             >
               <Image

@@ -4,31 +4,31 @@
  * `careers-db.ts` so this module stays free of server-only imports.
  */
 
-export const CAREERS_EMAIL = 'careers@opusfesta.com'
+export const CAREERS_EMAIL = 'careers@opusfesta.com';
 
 export type CareerJob = {
-  id: string
-  slug: string
-  title: string
-  department: string
-  location: string
-  employmentType: string
-  workplaceType: string
-  experienceLevel: string
-  brand: string
-  closingDate: string | null
-  openedAt: string
-  summary: string
-  description: string
-  responsibilities: string[]
-  requirements: string[]
-  preferredQualifications: string[]
-  workingConditions: string[]
-  recruitmentProcess: string[]
-  showSalary: boolean
-  salaryMinTzs: number | null
-  salaryMaxTzs: number | null
-}
+  id: string;
+  slug: string;
+  title: string;
+  department: string;
+  location: string;
+  employmentType: string;
+  workplaceType: string;
+  experienceLevel: string;
+  brand: string;
+  closingDate: string | null;
+  openedAt: string;
+  summary: string;
+  description: string;
+  responsibilities: string[];
+  requirements: string[];
+  preferredQualifications: string[];
+  workingConditions: string[];
+  recruitmentProcess: string[];
+  showSalary: boolean;
+  salaryMinTzs: number | null;
+  salaryMaxTzs: number | null;
+};
 
 // Canonical OpusFesta departments, in the order we want them listed. Anything
 // the DB returns outside this list is appended after these, alphabetically.
@@ -42,24 +42,26 @@ export const DEPARTMENT_ORDER = [
   'Finance & Accountings',
   'HR',
   'Founders',
-]
+];
 
 /** Groups roles by department, ordered by DEPARTMENT_ORDER. */
-export function groupJobsByDepartment(jobs: CareerJob[]): [string, CareerJob[]][] {
-  const groups = new Map<string, CareerJob[]>()
+export function groupJobsByDepartment(
+  jobs: CareerJob[]
+): [string, CareerJob[]][] {
+  const groups = new Map<string, CareerJob[]>();
   for (const job of jobs) {
-    const bucket = groups.get(job.department)
-    if (bucket) bucket.push(job)
-    else groups.set(job.department, [job])
+    const bucket = groups.get(job.department);
+    if (bucket) bucket.push(job);
+    else groups.set(job.department, [job]);
   }
   return [...groups.entries()].sort(([a], [b]) => {
-    const ia = DEPARTMENT_ORDER.indexOf(a)
-    const ib = DEPARTMENT_ORDER.indexOf(b)
-    if (ia !== -1 && ib !== -1) return ia - ib
-    if (ia !== -1) return -1
-    if (ib !== -1) return 1
-    return a.localeCompare(b)
-  })
+    const ia = DEPARTMENT_ORDER.indexOf(a);
+    const ib = DEPARTMENT_ORDER.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b);
+  });
 }
 
 /** "TZS 1.2M to 1.8M" — compact enough to sit under a role title. */
@@ -67,14 +69,14 @@ export function formatSalaryRange(minTzs: number, maxTzs: number): string {
   const compact = (value: number) =>
     value >= 1_000_000
       ? `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`
-      : `${Math.round(value / 1_000)}K`
+      : `${Math.round(value / 1_000)}K`;
   return minTzs === maxTzs
     ? `TZS ${compact(minTzs)}`
-    : `TZS ${compact(minTzs)} to ${compact(maxTzs)}`
+    : `TZS ${compact(minTzs)} to ${compact(maxTzs)}`;
 }
 
-export function applyHref(job: CareerJob): string {
-  return `/careers/jobs/${job.slug}`
+export function applyHref(job: CareerJob, locale?: 'en' | 'sw'): string {
+  return `/careers/jobs/${job.slug}${locale ? `?lang=${locale}` : ''}`;
 }
 
 export function formatCareerDate(value: string): string {
@@ -82,16 +84,17 @@ export function formatCareerDate(value: string): string {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(`${value}T12:00:00`))
+  }).format(new Date(`${value}T12:00:00`));
 }
 
 export function jobUrgency(job: CareerJob): 'new' | 'closing-soon' | null {
   if (job.closingDate) {
-    const remaining = new Date(`${job.closingDate}T23:59:59`).getTime() - Date.now()
-    if (remaining >= 0 && remaining <= 7 * 86_400_000) return 'closing-soon'
+    const remaining =
+      new Date(`${job.closingDate}T23:59:59`).getTime() - Date.now();
+    if (remaining >= 0 && remaining <= 7 * 86_400_000) return 'closing-soon';
   }
-  const age = Date.now() - new Date(`${job.openedAt}T00:00:00`).getTime()
-  return age >= 0 && age <= 7 * 86_400_000 ? 'new' : null
+  const age = Date.now() - new Date(`${job.openedAt}T00:00:00`).getTime();
+  return age >= 0 && age <= 7 * 86_400_000 ? 'new' : null;
 }
 
 // ─── Static editorial content ────────────────────────────────────────────
@@ -100,7 +103,7 @@ export const CAREERS_PILLARS = [
   {
     id: 'mission',
     eyebrow: 'Our mission',
-    copy: "Make every celebration in Tanzania easy to plan and impossible to forget.",
+    copy: 'Make every celebration in Tanzania easy to plan and impossible to forget.',
     bg: '#F6E8F5',
   },
   {
@@ -115,14 +118,14 @@ export const CAREERS_PILLARS = [
     copy: 'Care for the couple runs through every decision we make, in code, in copy and on the day itself.',
     bg: '#DDF0E6',
   },
-]
+];
 
 export const CAREERS_DNA = [
   {
     id: 'craft',
     eyebrow: 'The north star',
     title: 'Obsessive craft',
-    copy: "We sweat the details nobody asks about. A wedding happens once, so the product that carries it has to feel finished, calm and beautiful.",
+    copy: 'We sweat the details nobody asks about. A wedding happens once, so the product that carries it has to feel finished, calm and beautiful.',
   },
   {
     id: 'ground',
@@ -136,7 +139,7 @@ export const CAREERS_DNA = [
     title: 'Ship, then sharpen',
     copy: 'We put work in front of real couples and vendors quickly, listen hard, and keep refining until it earns its place.',
   },
-]
+];
 
 export const CAREERS_VALUES = [
   {
@@ -157,7 +160,7 @@ export const CAREERS_VALUES = [
     title: 'Own the whole outcome',
     copy: 'Nobody here stops at the edge of their job title. You carry the problem until the couple actually has what they needed.',
   },
-]
+];
 
 export const CAREERS_ACTIONS = [
   {
@@ -178,35 +181,4 @@ export const CAREERS_ACTIONS = [
     title: 'Close the loop',
     copy: 'Answer the message, log the bug, update the doc. Small loops left open are what slow a season down.',
   },
-]
-
-export const CAREERS_OFFICES = [
-  {
-    id: 'dar',
-    name: 'Dar es Salaam office',
-    address: 'Head office and studio.\nMasaki, Dar es Salaam, Tanzania',
-    image: '/assets/images/cutesy_couple.jpg',
-    mapUrl: 'https://www.google.com/maps/search/?api=1&query=Masaki%2C+Dar+es+Salaam',
-  },
-  {
-    id: 'arusha',
-    name: 'Arusha office',
-    address: 'Northern circuit vendor and venue team.\nArusha, Tanzania',
-    image: '/assets/images/churchcouples.jpg',
-    mapUrl: 'https://www.google.com/maps/search/?api=1&query=Arusha%2C+Tanzania',
-  },
-  {
-    id: 'zanzibar',
-    name: 'Zanzibar office',
-    address: 'Destination weddings and island venues.\nStone Town, Zanzibar',
-    image: '/assets/images/brideincar.jpg',
-    mapUrl: 'https://www.google.com/maps/search/?api=1&query=Stone+Town%2C+Zanzibar',
-  },
-  {
-    id: 'remote',
-    name: 'Remote',
-    address: 'Product and engineering roles that can sit anywhere.\nEast Africa time zones',
-    image: '/assets/images/coupleswithpiano.jpg',
-    mapUrl: null,
-  },
-]
+];

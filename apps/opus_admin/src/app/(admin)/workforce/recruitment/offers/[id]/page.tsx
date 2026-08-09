@@ -157,7 +157,7 @@ export default async function OfferDetailPage({
       />
       <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
         <div className="space-y-5">
-          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -227,8 +227,8 @@ export default async function OfferDetailPage({
           </section>
 
           {canEdit && (
-            <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h2 className="font-semibold text-gray-950">Draft terms</h2>
+            <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Draft terms</h2>
               <form
                 action={reviseOffer.bind(null, id)}
                 className="mt-4 space-y-4"
@@ -308,8 +308,8 @@ export default async function OfferDetailPage({
             </section>
           )}
 
-          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h2 className="font-semibold text-gray-950">
+          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">
               Allowances and benefits
             </h2>
             {canComp && (
@@ -387,10 +387,10 @@ export default async function OfferDetailPage({
             )}
           </section>
 
-          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <div className="flex items-center gap-2">
               <MessageSquareText className="h-5 w-5 text-[#5B2D8E]" />
-              <h2 className="font-semibold text-gray-950">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">
                 Candidate responses
               </h2>
             </div>
@@ -423,11 +423,11 @@ export default async function OfferDetailPage({
 
         <aside className="space-y-5">
           {canEdit && (
-            <section className="rounded-2xl border border-violet-100 bg-violet-50 p-5">
-              <h2 className="font-semibold text-violet-950">
+            <section className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] p-5">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">
                 Submit for approval
               </h2>
-              <p className="mt-1 text-sm text-violet-800">
+              <p className="mt-1 text-sm text-[#5B2D8E]">
                 Creates an immutable terms snapshot and PDF for this version.
               </p>
               <form
@@ -443,8 +443,8 @@ export default async function OfferDetailPage({
               </form>
             </section>
           )}
-          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-gray-950">Approval route</h2>
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Approval route</h2>
             <ol className="mt-4 space-y-3">
               {(approvalsResult.data ?? []).map((step) => {
                 const employee = Array.isArray(step.workforce_employees)
@@ -600,17 +600,17 @@ export default async function OfferDetailPage({
             </section>
           )}
           {conversionResult.data?.status === 'converted' && permissions.has('workforce.recruitment_reports.read') && (
-            <section className="rounded-2xl border border-violet-100 bg-violet-50 p-5">
-              <h2 className="font-semibold text-violet-950">Post-hire review</h2>
-              <p className="mt-1 text-sm text-violet-800">Restricted outcome data improves source and process quality reporting.</p>
+            <section className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] p-5">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Post-hire review</h2>
+              <p className="mt-1 text-sm text-[#5B2D8E]">Restricted outcome data improves source and process quality reporting.</p>
               <div className="mt-3 space-y-2">{(postHireReviews ?? []).map((review) => <p key={review.id} className="rounded-lg bg-white p-2 text-xs"><b>{review.review_period.replaceAll('_', ' ')}</b> · satisfaction {review.hiring_manager_satisfaction ?? '—'}/5 · {review.performance_outcome ?? 'No outcome'} · {review.retention_status ?? 'No retention status'}</p>)}</div>
-              <form action={savePostHireReview.bind(null, id)} className="mt-4 space-y-2"><select name="review_period" className="w-full rounded-lg border px-3 py-2 text-sm"><option value="30_days">30 days</option><option value="90_days">90 days</option><option value="probation">Probation completion</option><option value="six_months">Six months</option></select><input name="hiring_manager_satisfaction" type="number" min="0" max="5" step="0.5" placeholder="Manager satisfaction / 5" className="w-full rounded-lg border px-3 py-2 text-sm" /><input name="performance_outcome" placeholder="Performance outcome" className="w-full rounded-lg border px-3 py-2 text-sm" /><input name="retention_status" placeholder="Retention status" className="w-full rounded-lg border px-3 py-2 text-sm" /><textarea name="source_quality_note" placeholder="Source/process quality note" className="w-full rounded-lg border px-3 py-2 text-sm" /><textarea name="restricted_notes" placeholder="Restricted notes" className="w-full rounded-lg border px-3 py-2 text-sm" /><button className="w-full rounded-lg bg-violet-800 px-3 py-2 text-xs font-semibold text-white">Save governed review</button></form>
+              <form action={savePostHireReview.bind(null, id)} className="mt-4 space-y-2"><select name="review_period" className="w-full rounded-lg border px-3 py-2 text-sm"><option value="30_days">30 days</option><option value="90_days">90 days</option><option value="probation">Probation completion</option><option value="six_months">Six months</option></select><input name="hiring_manager_satisfaction" type="number" min="0" max="5" step="0.5" placeholder="Manager satisfaction / 5" className="w-full rounded-lg border px-3 py-2 text-sm" /><input name="performance_outcome" placeholder="Performance outcome" className="w-full rounded-lg border px-3 py-2 text-sm" /><input name="retention_status" placeholder="Retention status" className="w-full rounded-lg border px-3 py-2 text-sm" /><textarea name="source_quality_note" placeholder="Source/process quality note" className="w-full rounded-lg border px-3 py-2 text-sm" /><textarea name="restricted_notes" placeholder="Restricted notes" className="w-full rounded-lg border px-3 py-2 text-sm" /><button className="w-full rounded-lg bg-[#5B2D8E] px-3 py-2 text-xs font-semibold text-white">Save governed review</button></form>
             </section>
           )}
-          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <div className="flex items-center gap-2">
               <FileCheck2 className="h-5 w-5 text-[#5B2D8E]" />
-              <h2 className="font-semibold text-gray-950">Version history</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Version history</h2>
             </div>
             <div className="mt-4 space-y-3">
               {(versionsResult.data ?? []).map((version) => {

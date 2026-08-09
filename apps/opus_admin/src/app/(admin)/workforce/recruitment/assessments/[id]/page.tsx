@@ -74,7 +74,7 @@ export default async function AssessmentDetailPage({
       />
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
         <div className="space-y-5">
-          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -136,20 +136,20 @@ export default async function AssessmentDetailPage({
               </p>
             </div>
             {assessment.accommodation_request && (
-              <div className="mt-4 rounded-xl border border-violet-100 bg-violet-50 p-4">
-                <p className="text-xs font-semibold uppercase text-violet-800">
+              <div className="mt-4 rounded-xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] p-4">
+                <p className="text-xs font-semibold uppercase text-[#5B2D8E]">
                   Accommodation request
                 </p>
-                <p className="mt-2 text-sm text-violet-950">
+                <p className="mt-2 text-sm text-gray-950">
                   {assessment.accommodation_request}
                 </p>
               </div>
             )}
           </section>
-          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <div className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5 text-[#5B2D8E]" />
-              <h2 className="font-semibold text-gray-950">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">
                 Candidate submission
               </h2>
             </div>
@@ -183,8 +183,8 @@ export default async function AssessmentDetailPage({
             )}
           </section>
           {canScore && latest && (
-            <section className="rounded-2xl border border-violet-100 bg-white p-6 shadow-sm">
-              <h2 className="font-semibold text-gray-950">Structured review</h2>
+            <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Structured review</h2>
               <AssessmentReviewForm
                 assessmentId={id}
                 maxScore={assessment.max_score}
@@ -203,10 +203,10 @@ export default async function AssessmentDetailPage({
           )}
         </div>
         <aside className="space-y-5">
-          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <div className="flex items-center gap-2">
               <Clock3 className="h-5 w-5 text-[#5B2D8E]" />
-              <h2 className="font-semibold text-gray-950">Attempts</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Attempts</h2>
             </div>
             <ol className="mt-4 space-y-3">
               {(submissionsResult.data ?? []).map((submission) => (

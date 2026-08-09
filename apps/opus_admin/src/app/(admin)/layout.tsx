@@ -86,15 +86,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             {/* The shell has no responsive layout; this states that plainly
                 below the lg breakpoint rather than serving a broken one. */}
             <DesktopOnlyNotice />
-            <div className="flex h-screen bg-[#FDFDFD] font-sans antialiased text-gray-900">
+            <div className="flex h-screen bg-[#FDFDFD] font-sans antialiased text-gray-900 print:block print:h-auto print:bg-white">
               <Sidebar permissions={permissions} profile={profile} workspace={workspace} />
               {/* Full-height secondary-sidebar column. Empty (0-width) on pages
                   without a secondary nav; pages portal their sidebar in via
                   SecondarySidebarSlot so the Header stays only above the content. */}
-              <div id="secondary-sidebar" className="shrink-0" />
-              <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+              <div id="secondary-sidebar" className="shrink-0 print:hidden" />
+              <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0 print:block print:h-auto print:overflow-visible">
                 <Header profile={profile} />
-                <main className="flex-1 overflow-y-auto overflow-x-hidden">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden print:overflow-visible">
                   {children}
                 </main>
               </div>

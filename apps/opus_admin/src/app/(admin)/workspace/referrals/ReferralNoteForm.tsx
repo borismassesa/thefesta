@@ -8,7 +8,7 @@ const initialState: ReferralActionState = { status: 'idle', message: null }
 export default function ReferralNoteForm({ referralId }: { referralId: string }) {
   const [state, action, pending] = useActionState(addEmployeeReferralNote, initialState)
   return (
-    <form action={action} className="mt-4">
+    <form action={action} className="relative mt-4">
       <input type="hidden" name="referralId" value={referralId} />
       <label className="sr-only" htmlFor={`note-${referralId}`}>Add a referral note</label>
       <div className="flex flex-col gap-2 sm:flex-row">

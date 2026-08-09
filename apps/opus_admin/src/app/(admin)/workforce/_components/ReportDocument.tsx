@@ -2,6 +2,12 @@
 
 import { Printer, X } from 'lucide-react'
 import {
+  formatLetterheadDate,
+  PrintLetterhead,
+  PrintLetterheadFooter,
+  type LetterheadMeta,
+} from '@/components/PrintLetterhead'
+import {
   FOLLOWUP_STATUS_LABELS,
   readBlockers,
   readBullets,
@@ -28,33 +34,10 @@ const followupBadgeCls: Record<string, string> = {
   '': 'bg-gray-100 text-gray-500',
 }
 
-// Renders a submitted report in the OpusFesta letterhead — logo + company
-// address header, title / date / prepared-by block, numbered sections, and
-// a branded footer with socials. Matches the company's .docx report format
-// so a Print → "Save as PDF" produces the same document.
-
-const LOGO_URL = 'https://www.opusfesta.com/assets/logo/opusfesta-logo-black.png'
-const ACCENT = '#6B4E8C'
-
-function formatLongDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-}
-
-function CompanyBlock({ small }: { small?: boolean }) {
-  return (
-    <div className={`text-right ${small ? 'text-[10px] leading-tight' : 'text-[11px] leading-snug'} text-gray-600`}>
-      <p className="font-bold" style={{ color: ACCENT }}>OpusFesta Company Limited</p>
-      <p>Samaki Wabichi Annex, Mbezi Beach,</p>
-      <p>P.O.Box 7787 Dar es Salaam, Tanzania</p>
-      <p>info@opusfesta.com | www.opusfesta.com</p>
-    </div>
-  )
-}
+// Renders a submitted report on the shared OpusFesta letterhead
+// (components/PrintLetterhead.tsx) — the same masthead, title / date block
+// and footer the @react-pdf documents use — so a Print → "Save as PDF"
+// produces the company's standard report document.
 
 function SectionBody({
   section,
@@ -191,40 +174,25 @@ function SectionBody({
 }
 
 export function ReportDocument({ submission }: { submission: ReportSubmission }) {
+  const meta: LetterheadMeta[] = [
+    {
+      label: 'Date',
+      value:
+        formatLetterheadDate(submission.reportDate) +
+        (submission.periodEnd ? ` – ${formatLetterheadDate(submission.periodEnd)}` : ''),
+    },
+    {
+      label: 'Prepared by',
+      value:
+        (submission.preparedByName ?? submission.employeeName) +
+        (submission.preparedByRole ? ` — ${submission.preparedByRole}` : ''),
+    },
+  ]
+  if (submission.recipientName) meta.push({ label: 'Submitted to', value: submission.recipientName })
+
   return (
     <div className="report-print-root mx-auto max-w-[760px] bg-white px-10 py-10 text-gray-900">
-      {/* Letterhead */}
-      <header className="flex items-start justify-between gap-6 border-b-2 pb-5" style={{ borderColor: ACCENT }}>
-        <div className="flex flex-col">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={LOGO_URL} alt="OpusFesta" className="h-12 w-auto object-contain" />
-          <span className="mt-1 text-[8px] font-semibold uppercase tracking-[0.25em]" style={{ color: ACCENT }}>
-            Plan Less, Celebrate More
-          </span>
-        </div>
-        <CompanyBlock />
-      </header>
-
-      {/* Title + meta */}
-      <div className="mt-8">
-        <h1 className="text-xl font-bold text-gray-900">{submission.templateName}</h1>
-        <div className="mt-3 space-y-0.5 text-sm text-gray-700">
-          <p>
-            <span className="font-semibold">Date:</span> {formatLongDate(submission.reportDate)}
-            {submission.periodEnd && ` – ${formatLongDate(submission.periodEnd)}`}
-          </p>
-          <p>
-            <span className="font-semibold">Prepared by:</span>{' '}
-            {submission.preparedByName ?? submission.employeeName}
-          </p>
-          {submission.preparedByRole && <p className="text-gray-600">{submission.preparedByRole}</p>}
-          {submission.recipientName && (
-            <p>
-              <span className="font-semibold">Submitted to:</span> {submission.recipientName}
-            </p>
-          )}
-        </div>
-      </div>
+      <PrintLetterhead title={submission.templateName} meta={meta} />
 
       {/* Sections */}
       <div className="mt-7 space-y-6">
@@ -240,11 +208,7 @@ export function ReportDocument({ submission }: { submission: ReportSubmission })
         ))}
       </div>
 
-      {/* Footer */}
-      <footer className="mt-12 flex items-end justify-between gap-6 border-t pt-4" style={{ borderColor: ACCENT }}>
-        <CompanyBlock small />
-        <p className="text-[10px] text-gray-500">info@opusfesta.com | +255 799 242 475</p>
-      </footer>
+      <PrintLetterheadFooter className="mt-12" />
     </div>
   )
 }

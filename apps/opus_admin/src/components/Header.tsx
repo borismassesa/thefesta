@@ -29,7 +29,7 @@ export function Header({ profile }: { profile: CallerProfile }) {
   const inboxUnread = useInboxUnread()
 
   return (
-    <header className="flex items-center justify-between gap-6 pt-4 pb-3 px-8 bg-gray-50/50 relative z-10 w-full shrink-0">
+    <header className="flex items-center justify-between gap-6 pt-4 pb-3 px-8 bg-gray-50/50 relative z-10 w-full shrink-0 print:hidden">
       <div className="min-w-0 flex-1">
         {heading?.back ? (
           // Back-link mode: detail pages (e.g. an employee profile) use

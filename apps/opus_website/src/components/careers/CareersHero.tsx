@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { ArrowDown, ArrowUpRight } from 'lucide-react'
 
 // Marquee strip. Rendered twice back to back so the -50% keyframe in
@@ -51,7 +52,6 @@ export default function CareersHero() {
       <div className="mx-auto max-w-[1440px] px-6 pt-10 md:pt-16">
         <div className="mb-10 grid border-x border-black/10 md:mb-14 md:grid-cols-[1.08fr_0.92fr]">
           <div className="border-b border-black/10 px-6 py-10 md:border-b-0 md:border-r md:px-10 md:py-16 lg:px-14">
-            <p className="mb-8 text-xs font-bold uppercase tracking-[0.2em] text-black/45">Careers at OpusFesta · Tanzania</p>
             <h1 className="max-w-[720px] text-[2.9rem] font-medium leading-[0.98] tracking-[-0.055em] md:text-[5.25rem]">
               Build the way Tanzania celebrates.
             </h1>
@@ -67,12 +67,12 @@ export default function CareersHero() {
               >
                 View open roles <ArrowDown className="h-4 w-4" />
               </a>
-              <a
-                href="#talent-community"
+              <Link
+                href="/careers/talent-community"
                 className="inline-flex w-max items-center gap-2 rounded-full border border-black/20 px-6 py-3 text-[15px] font-medium transition-colors hover:bg-black/5"
               >
                 Join our talent community <ArrowUpRight className="h-4 w-4" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -84,7 +84,7 @@ export default function CareersHero() {
           <Strip ariaHidden />
         </div>
       </div>
-      <div className="mx-auto grid max-w-[1440px] grid-cols-2 border-x border-black/10 md:grid-cols-4">
+      <div className="mx-auto mt-10 grid max-w-[1440px] grid-cols-2 border-x border-black/10 md:mt-14 md:grid-cols-4">
         {[
           ['Tanzania-first', 'Built around how events really work here'],
           ['One team', 'Product, studio and operations together'],
@@ -92,8 +92,8 @@ export default function CareersHero() {
           ['Regional ambition', 'Building from Tanzania, outward'],
         ].map(([title, copy], index) => (
           <div key={title} className={`min-h-36 p-5 md:p-7 ${index % 2 === 0 ? 'border-r border-black/10' : ''} ${index < 2 ? 'border-b border-black/10 md:border-b-0' : ''} ${index === 1 ? 'md:border-r' : ''}`}>
-            <p className="text-sm font-semibold">{title}</p>
-            <p className="mt-2 max-w-[220px] text-sm leading-6 text-black/50">{copy}</p>
+            <p className="text-xl font-medium tracking-[-0.02em] md:text-2xl">{title}</p>
+            <p className="mt-3 max-w-[220px] text-sm leading-6 text-black/50">{copy}</p>
           </div>
         ))}
       </div>

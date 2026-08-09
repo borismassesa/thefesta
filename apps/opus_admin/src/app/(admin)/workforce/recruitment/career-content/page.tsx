@@ -33,8 +33,8 @@ export default async function CareerContentPage() {
         emptyMessage="Create the careers homepage and supporting department, location, benefit and policy content."
       />
 
-      <section className="rounded-2xl border border-violet-100 bg-violet-50 p-5">
-        <h2 className="font-semibold text-violet-950">Create localized page</h2>
+      <section className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] p-5">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Create localized page</h2>
         <form action={createCareersPage} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <input name="title" required placeholder="Page title" className={inputClass} />
           <input name="slug" required placeholder="Slug, e.g. careers" className={inputClass} />
@@ -48,8 +48,8 @@ export default async function CareerContentPage() {
         </form>
       </section>
 
-      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <h2 className="font-semibold text-gray-950">Reference content</h2>
+      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Reference content</h2>
         <p className="mt-1 text-sm text-gray-500">Manage reusable benefits, FAQs, locations, departments, and employee stories.</p>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <details className="rounded-xl bg-gray-50 p-4">

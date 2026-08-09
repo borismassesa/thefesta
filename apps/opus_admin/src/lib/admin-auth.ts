@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { cookies } from 'next/headers'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
 import { auditPermissionDenied, recordAuditEvent } from '@/lib/audit-log'
@@ -30,7 +31,7 @@ export {
 // restore real auth. Mirrored in proxy.ts, which skips route protection under
 // the same flag. Hard-gated to non-production builds so a leaked env var can
 // never open the admin in prod.
-function isAdminAuthDisabled(): boolean {
+export function isAdminAuthDisabled(): boolean {
   return (
     process.env.DISABLE_ADMIN_AUTH === 'true' &&
     process.env.NODE_ENV !== 'production'
@@ -161,11 +162,8 @@ function resolveUserEmail(
 }
 
 export const getCallerEmail = cache(async (): Promise<string | null> => {
-  // A real Clerk session always wins, even under the dev bypass — someone
-  // actually signed in (e.g. locally against the Clerk dev instance) should
-  // resolve to their own workforce_employees row, not a placeholder that no
-  // row will ever match. Only fall back to the placeholder when there's no
-  // session at all, matching getCallerProfile's resolution order.
+  if (isAdminAuthDisabled()) return 'dev@opusfesta.com'
+  // Outside the explicit dev bypass, resolve the real Clerk identity.
   const { userId, sessionClaims } = await auth()
   if (userId) {
     const user = await currentUser()
@@ -193,7 +191,27 @@ export const getCallerEmail = cache(async (): Promise<string | null> => {
  * Shares the same per-request cache as getAdminAccessRole, so this adds no
  * round trip.
  */
+// DEVELOPMENT ONLY, and only reachable while isAdminAuthDisabled() is true.
+// The bypass used to hand every caller a null employee id, which is worse than
+// it looks: the recruitment RPCs compare that id against
+// offer.created_by and approver_employee_id, and in SQL `NULL = NULL` is NULL,
+// not TRUE. Both the segregation-of-duties guard and the assigned-approver
+// guard therefore stopped firing, so an offer could be created and approved by
+// the same session. Resolving a real employee id keeps those guards live while
+// still skipping Clerk. The `dev_employee_id` cookie lets one browser session
+// move through an approval chain as different employees.
+async function devImpersonatedEmployeeId(): Promise<string | null> {
+  const fromCookie = (await cookies()).get('dev_employee_id')?.value
+  const candidate = fromCookie || process.env.DEV_EMPLOYEE_ID || ''
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    candidate
+  )
+    ? candidate
+    : null
+}
+
 export const getCallerEmployeeId = cache(async (): Promise<string | null> => {
+  if (isAdminAuthDisabled()) return devImpersonatedEmployeeId()
   const { userId } = await auth()
   if (!userId) return null
   const lookup = await getCallerEmployee(userId)
@@ -417,9 +435,10 @@ export type CallerProfile = {
  * DISABLE_ADMIN_AUTH dev bypass (no Clerk user) gets a placeholder.
  */
 export const getCallerProfile = cache(async (): Promise<CallerProfile> => {
-  // Prefer the REAL signed-in identity whenever there's a Clerk session — even
-  // when access was actually granted by the DISABLE_ADMIN_AUTH dev flag. The
-  // sidebar should show who you logged in as, not a bypass placeholder.
+  if (isAdminAuthDisabled()) {
+    return { name: 'Dev admin', email: 'dev@opusfesta.com', imageUrl: null }
+  }
+  // Outside the explicit dev bypass, resolve the real Clerk identity.
   const { userId, sessionClaims } = await auth()
   if (userId) {
     const user = await currentUser()

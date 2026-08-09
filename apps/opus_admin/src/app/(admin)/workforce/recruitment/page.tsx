@@ -1,82 +1,102 @@
 import WorkforceHeading from '../_components/PageHeading'
 import Link from 'next/link'
-import {
-  AlertTriangle,
-  BriefcaseBusiness,
-  CalendarDays,
-  ClipboardCheck,
-  Clock3,
-  FileWarning,
-  ListChecks,
-  Send,
-} from 'lucide-react'
 import { getRecruitmentOverview } from './_lib/queries'
+import { EmptyState, Panel, StatTile, TILE_TONES } from './_components/ui'
 
 export const dynamic = 'force-dynamic'
 
+// Tile tones follow the Approvals overview: amber for "needs attention",
+// blue/violet for volume, green for progress, rose for risk. Each number is a
+// link into the slice it counts — a count you cannot act on is decoration.
+const CARDS = [
+  ['Open requisitions', 'openRequisitions', TILE_TONES.violet, '/workforce/recruitment/requisitions'],
+  ['Published jobs', 'publishedJobs', TILE_TONES.blue, '/workforce/recruitment/jobs'],
+  ['New applications', 'newApplications', TILE_TONES.blue, '/workforce/recruitment/applications'],
+  ['Awaiting review', 'awaitingReview', TILE_TONES.amber, '/workforce/recruitment/applications?queue=stale'],
+  ['Interviews this week', 'interviewsThisWeek', TILE_TONES.green, '/workforce/recruitment/interviews'],
+  ['Scorecards overdue', 'scorecardsOverdue', TILE_TONES.rose, '/workforce/recruitment/interviews?queue=scorecards'],
+  ['Offers to approve', 'offersAwaitingApproval', TILE_TONES.amber, '/workforce/recruitment/offers?queue=approval'],
+  ['Jobs closing soon', 'closingSoon', TILE_TONES.rose, '/workforce/recruitment/jobs?queue=closing'],
+] as const
+
 export default async function RecruitmentPage() {
   const overview = await getRecruitmentOverview()
-  const cards = [
-    ['Open requisitions', overview.openRequisitions, ListChecks, '/workforce/recruitment/requisitions'],
-    ['Published jobs', overview.publishedJobs, BriefcaseBusiness, '/workforce/recruitment/jobs'],
-    ['New applications', overview.newApplications, ClipboardCheck, '/workforce/recruitment/applications'],
-    ['Awaiting review', overview.awaitingReview, Clock3, '/workforce/recruitment/applications?queue=stale'],
-    ['Interviews this week', overview.interviewsThisWeek, CalendarDays, '/workforce/recruitment/interviews'],
-    ['Scorecards overdue', overview.scorecardsOverdue, FileWarning, '/workforce/recruitment/interviews?queue=scorecards'],
-    ['Offers to approve', overview.offersAwaitingApproval, Send, '/workforce/recruitment/offers?queue=approval'],
-    ['Jobs closing soon', overview.closingSoon, AlertTriangle, '/workforce/recruitment/jobs?queue=closing'],
-  ] as const
+
   return (
     <>
-      <WorkforceHeading title="Recruitment overview" subtitle="Hiring plan, pipeline health, interviews and offers in one operational view." />
-      <section aria-label="Recruitment metrics" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map(([label, value, Icon, href]) => (
-          <Link key={label} href={href} className="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition hover:border-[#DCC7E7] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7E5896]">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">{label}</p>
-                <p className="mt-2 text-3xl font-semibold tracking-tight text-gray-950">{value}</p>
-              </div>
-              <span className="rounded-xl bg-[#F7EAFB] p-2.5 text-[#5B2D8E] transition group-hover:bg-[#5B2D8E] group-hover:text-white">
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </span>
-            </div>
-          </Link>
-        ))}
+      <WorkforceHeading
+        title="Recruitment overview"
+        subtitle="Hiring plan, pipeline health, interviews and offers in one operational view."
+      />
+
+      <section aria-label="Recruitment metrics" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {CARDS.map(([label, key, tone, href]) => {
+          const value = overview[key]
+          return (
+            <StatTile
+              key={label}
+              label={label}
+              value={value}
+              accent={tone.accent}
+              tint={tone.tint}
+              href={href}
+              // A non-zero queue that needs a person reads differently from a
+              // calm zero, exactly as it does on the Approvals overview.
+              emphasis={tone === TILE_TONES.amber && value > 0}
+            />
+          )
+        })}
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-semibold text-gray-950">Action queues</h2>
-              <p className="mt-1 text-sm text-gray-500">Items that need recruiting-team attention.</p>
-            </div>
-          </div>
-          <div className="mt-4 divide-y divide-gray-100">
-            {overview.urgentQueues.map((queue) => (
-              <Link key={queue.label} href={queue.href} className="flex min-h-14 items-center justify-between gap-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7E5896]">
-                <span className="font-medium text-gray-700">{queue.label}</span>
-                <span className="min-w-8 rounded-full bg-gray-100 px-2 py-1 text-center text-xs font-bold text-gray-800">{queue.count}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
+        <Panel title="Action queues">
+          {overview.urgentQueues.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-gray-500">
+              Nothing needs recruiting-team attention right now.
+            </p>
+          ) : (
+            <ul>
+              {overview.urgentQueues.map((queue) => (
+                <li key={queue.label}>
+                  <Link
+                    href={queue.href}
+                    className="flex min-h-14 w-full items-center justify-between gap-4 border-b border-gray-100 px-5 py-3 text-sm transition-colors last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#7E5896]"
+                  >
+                    <span className="font-medium text-gray-700">{queue.label}</span>
+                    <span className="min-w-8 rounded-full bg-gray-100 px-2 py-1 text-center text-xs font-bold text-gray-800">
+                      {queue.count}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
 
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-950">Application mix</h2>
-          <p className="mt-1 text-sm text-gray-500">Current canonical pipeline stages.</p>
-          <div className="mt-4 space-y-3">
-            {overview.applicationsByStatus.length === 0 ? (
-              <p className="rounded-xl bg-gray-50 px-4 py-5 text-sm text-gray-500">No applications in your recruitment scope yet.</p>
-            ) : overview.applicationsByStatus.slice(0, 8).map((item) => (
-              <div key={item.status} className="flex items-center justify-between gap-4">
-                <span className="text-sm text-gray-600">{item.status.replaceAll('_', ' ')}</span>
-                <span className="text-sm font-semibold text-gray-950">{item.count}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+        <Panel title="Application mix">
+          {overview.applicationsByStatus.length === 0 ? (
+            <div className="p-4">
+              <EmptyState
+                title="No applications yet"
+                hint="Nothing has entered the pipeline within your recruitment scope."
+              />
+            </div>
+          ) : (
+            <ul>
+              {overview.applicationsByStatus.slice(0, 8).map((item) => (
+                <li
+                  key={item.status}
+                  className="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-3 last:border-b-0"
+                >
+                  <span className="text-sm capitalize text-gray-600">
+                    {item.status.replaceAll('_', ' ')}
+                  </span>
+                  <span className="text-sm font-semibold text-gray-950">{item.count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
       </div>
     </>
   )
