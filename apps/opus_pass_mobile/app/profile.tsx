@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { withAuthGate } from '@/components/auth/withAuthGate';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/navigation/BackButton';
 import { useCoupleProfile } from '@/hooks/useDashboard';
+import { useDeleteAccount } from '@/hooks/useDeleteAccount';
+import { getErrorMessage } from '@/lib/errors';
 import { formatShortDate } from '@/lib/format-date';
 import { queryClient } from '@/lib/query-client';
 import { useTheme } from '@/theme/useTheme';
@@ -78,6 +80,7 @@ function ProfileScreen() {
   const profile = useCoupleProfile();
   const { preference, setPreference } = useTheme();
   const [signingOut, setSigningOut] = useState(false);
+  const { deleteAccount, isDeleting } = useDeleteAccount();
 
   const goToComingSoon = (title: string) => router.push({ pathname: '/coming-soon', params: { title } });
 
@@ -101,6 +104,34 @@ function ProfileScreen() {
     } finally {
       setSigningOut(false);
     }
+  };
+
+  // Deliberately spells out what goes and what stays. Inquiries are not the
+  // couple's alone to erase — vendors keep them as business records — so the
+  // copy says so rather than promising a clean sweep it can't deliver.
+  const confirmDeleteAccount = () => {
+    if (isDeleting) return;
+    Alert.alert(
+      'Delete your account?',
+      'This permanently deletes your profile, wedding details, guest list and everything else saved to your account. ' +
+        'Your inquiry history stays with the vendors you contacted, for their records, but is no longer linked to you. ' +
+        'This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteAccount().catch((error) =>
+              Alert.alert(
+                "Couldn't delete your account",
+                getErrorMessage(error, 'Please try again shortly.'),
+              ),
+            );
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -187,12 +218,18 @@ function ProfileScreen() {
           />
         </ProfileSection>
 
-        {/* Sign out */}
+        {/* Sign out / delete */}
         <ProfileSection>
           <ProfileRow
             icon="log-out-outline"
             label={signingOut ? 'Signing out…' : 'Sign Out'}
             onPress={handleSignOut}
+            destructive
+          />
+          <ProfileRow
+            icon="trash-outline"
+            label={isDeleting ? 'Deleting account…' : 'Delete Account'}
+            onPress={confirmDeleteAccount}
             destructive
             last
           />

@@ -2,7 +2,7 @@
   "expo": {
     "name": "OpusPass",
     "slug": "opuspass-mobile",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "scheme": "opuspass",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
