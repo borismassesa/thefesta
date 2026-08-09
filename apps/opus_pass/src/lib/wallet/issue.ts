@@ -4,6 +4,7 @@ import { ensureAdmissionCredential } from '@/lib/checkin/credentials'
 import { resolveWalletPass } from '@/lib/checkin/wallet-tokens'
 import { walletProvider } from './providers'
 import type { WalletPassModel, WalletProviderId } from './types'
+import { DOUBLE_TICKET_PARTY, SINGLE_TICKET_PARTY, WAKWE_TICKET_PARTY } from '@/lib/dashboard/types'
 
 /**
  * Issue a wallet pass from a guest's own pass link.
@@ -135,8 +136,11 @@ export async function issueWalletPassForToken(
  * door steward the wrong number.
  */
 function admissionLabel(entryAllowance: number): string {
-  if (entryAllowance <= 1) return 'Single'
-  if (entryAllowance === 2) return 'Double'
+  if (entryAllowance <= SINGLE_TICKET_PARTY) return 'Single'
+  if (entryAllowance === DOUBLE_TICKET_PARTY) return 'Double'
+  // Wakwe is ten on one code, so the word alone would leave a steward
+  // counting; the pass says both.
+  if (entryAllowance === WAKWE_TICKET_PARTY) return `Wakwe (admits ${entryAllowance})`
   return `Admits ${entryAllowance}`
 }
 

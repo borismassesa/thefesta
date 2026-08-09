@@ -32,6 +32,7 @@ const CONFIG = {
   serviceAccountEmail: 'opuspass-wallet-issuer@opusfesta-498919.iam.gserviceaccount.com',
   privateKey,
   origin: 'https://opuspass.opusfesta.com',
+  assetOrigin: 'https://opuspass.opusfesta.com',
 }
 
 const MODEL: WalletPassModel = {
@@ -325,6 +326,45 @@ test('incomplete credentials read as unconfigured rather than throwing', () => {
   assert.equal(loadGoogleWalletConfig({ ...ENV_BASE, GOOGLE_WALLET_ISSUER_ID: undefined }), null)
   assert.equal(loadGoogleWalletConfig({ ...ENV_BASE, GOOGLE_WALLET_PRIVATE_KEY: undefined }), null)
   assert.equal(loadGoogleWalletConfig({ ...ENV_BASE, GOOGLE_WALLET_PRIVATE_KEY: 'nonsense' }), null)
+})
+
+test('a localhost app origin does not become the logo Google fetches', () => {
+  // The failure this guard exists for, reproduced. Google retrieves the class
+  // logo from its own servers, so a developer's localhost URL produced
+  // `class_http_400` on every class create, with nothing in the code naming
+  // the cause.
+  assert.equal(
+    loadGoogleWalletConfig({ ...ENV_BASE, NEXT_PUBLIC_OPUS_PASS_URL: 'http://localhost:3008' }),
+    null
+  )
+  assert.equal(
+    loadGoogleWalletConfig({ ...ENV_BASE, GOOGLE_WALLET_ASSET_BASE_URL: 'http://example.com' }),
+    null
+  )
+})
+
+test('the asset origin and the app origin are separate concepts', () => {
+  // Local development is the case that needs both at once: the app genuinely
+  // runs on localhost while Google still has to fetch a real logo.
+  const config = loadGoogleWalletConfig({
+    ...ENV_BASE,
+    NEXT_PUBLIC_OPUS_PASS_URL: 'http://localhost:3008',
+    GOOGLE_WALLET_ASSET_BASE_URL: 'https://opuspass.opusfesta.com/',
+  })
+
+  assert.notEqual(config, null)
+  assert.equal(config!.origin, 'http://localhost:3008')
+  // Trailing slash stripped, or the logo URI doubles it.
+  assert.equal(config!.assetOrigin, 'https://opuspass.opusfesta.com')
+
+  const klass = buildEventTicketClass(config!, MODEL) as { logo?: { sourceUri?: { uri?: string } } }
+  assert.equal(klass.logo?.sourceUri?.uri, 'https://opuspass.opusfesta.com/icon-512.png')
+
+  // The origins claim still follows the APP, which is what it describes.
+  const claims = JSON.parse(
+    Buffer.from(jwtFrom(buildGoogleSaveLink(config!, MODEL).saveUrl).split('.')[1], 'base64url').toString()
+  ) as { origins: string[] }
+  assert.deepEqual(claims.origins, ['http://localhost:3008'])
 })
 
 test('a key stored with escaped newlines is expanded before use', () => {

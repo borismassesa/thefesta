@@ -56,8 +56,24 @@ export interface GoogleWalletConfig {
   serviceAccountEmail: string
   /** PEM, with real newlines. The env value's \n escapes are expanded first. */
   privateKey: string
-  /** Public origin, used for the pass's "view online" link. */
+  /**
+   * Where the app is served. Goes in the JWT's `origins` claim, which is about
+   * where a save may be invoked FROM.
+   *
+   * Legitimately `http://localhost:3008` in development.
+   */
   origin: string
+  /**
+   * Where GOOGLE fetches pass assets from. A different concept from `origin`,
+   * and the reason they are separate fields.
+   *
+   * The class embeds a logo by URL and Google's servers retrieve it, so this
+   * one must be publicly reachable HTTPS no matter what machine is running the
+   * code. Deriving it from the app origin meant a developer's localhost URL
+   * went to Google as the logo, and every class create came back
+   * `class_http_400` with nothing in the error naming the cause.
+   */
+  assetOrigin: string
 }
 
 /**
@@ -127,11 +143,39 @@ export function loadGoogleWalletConfig(
     )
   }
 
+  const origin = (env.NEXT_PUBLIC_OPUS_PASS_URL || 'https://opuspass.opusfesta.com').replace(/\/$/, '')
+
+  // Falls back to the app origin so no existing deployment needs a new variable
+  // to keep working, and every production origin is already HTTPS. The point of
+  // the separate variable is the case the fallback cannot serve: a developer on
+  // localhost who needs Google to reach a real logo.
+  const assetOrigin = (
+    env.GOOGLE_WALLET_ASSET_BASE_URL ||
+    env.NEXT_PUBLIC_OPUS_PASS_URL ||
+    'https://opuspass.opusfesta.com'
+  ).replace(/\/$/, '')
+
+  // Fail HERE rather than at Google. This exact misconfiguration cost a
+  // debugging session: the class create returned `class_http_400`, which is
+  // indistinguishable from a genuinely malformed pass, and the adapter cannot
+  // quote Google's explanation because its error payloads echo the request and
+  // the request carries the admission credential. Refusing up front is the only
+  // place the real cause can be stated.
+  if (!assetOrigin.startsWith('https://')) {
+    console.error(
+      '[wallet:google] GOOGLE_WALLET_ASSET_BASE_URL must be public HTTPS, button withheld. ' +
+        `Google fetches the pass logo from ${assetOrigin}/${LOGO_PATH.replace(/^\//, '')} and cannot reach it. ` +
+        'Set GOOGLE_WALLET_ASSET_BASE_URL="https://opuspass.opusfesta.com" to provision from a local machine.'
+    )
+    return null
+  }
+
   return {
     issuerId,
     serviceAccountEmail,
     privateKey,
-    origin: (env.NEXT_PUBLIC_OPUS_PASS_URL || 'https://opuspass.opusfesta.com').replace(/\/$/, ''),
+    origin,
+    assetOrigin,
   }
 }
 
@@ -176,7 +220,9 @@ export function buildEventTicketClass(config: GoogleWalletConfig, model: WalletP
     eventName: { defaultValue: { language: 'en-US', value: model.eventName } },
     hexBackgroundColor: PASS_BACKGROUND,
     logo: {
-      sourceUri: { uri: `${config.origin}${LOGO_PATH}` },
+      // assetOrigin, never origin: Google's servers fetch this, so a localhost
+      // app origin here is a class Google rejects. See GoogleWalletConfig.
+      sourceUri: { uri: `${config.assetOrigin}${LOGO_PATH}` },
       contentDescription: { defaultValue: { language: 'en-US', value: 'OpusPass' } },
     },
     // Google requires venue name AND address together, or neither.
