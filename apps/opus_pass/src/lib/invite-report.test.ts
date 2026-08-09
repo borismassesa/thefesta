@@ -7,6 +7,7 @@ import {
   isProblemRow,
   rsvpLabel,
   sortInviteRows,
+  ticketLabel,
   type InviteReportRow,
 } from './invite-report'
 
@@ -70,25 +71,41 @@ describe('deliveryLabel', () => {
 })
 
 describe('rsvpLabel', () => {
-  it('names the ticket the guest is coming on', () => {
-    assert.equal(rsvpLabel(row({ rsvp: 'attending', partySize: 1 })), 'Attending, Single')
-    assert.equal(rsvpLabel(row({ rsvp: 'attending', partySize: 2 })), 'Attending, Double')
+  it('keeps the response separate from the ticket', () => {
+    assert.equal(rsvpLabel(row({ rsvp: 'attending', partySize: 1 })), 'Attending')
+    assert.equal(rsvpLabel(row({ rsvp: 'attending', partySize: 2 })), 'Attending')
+    assert.equal(rsvpLabel(row({ rsvp: 'attending', partySize: 10 })), 'Attending')
   })
 
-  it('reads a legacy party size above two as a Double', () => {
-    // Writes clamp to MAX_TICKET_PARTY but reads only floor at 1, so a legacy
-    // 3 exists. `>= 2`, not `=== 2`, or it would fall through to Single.
-    assert.equal(rsvpLabel(row({ rsvp: 'attending', partySize: 3 })), 'Attending, Double')
-  })
-
-  it('drops the ticket when there is no party size', () => {
-    assert.equal(rsvpLabel(row({ rsvp: 'attending', partySize: null })), 'Attending')
-  })
-
-  it('never puts a party size on a non-attending answer', () => {
-    assert.equal(rsvpLabel(row({ rsvp: 'declined', partySize: 2 })), 'Declined')
-    assert.equal(rsvpLabel(row({ rsvp: 'maybe', partySize: 2 })), 'Maybe')
+  it('covers the other response states', () => {
+    assert.equal(rsvpLabel(row({ rsvp: 'declined' })), 'Declined')
+    assert.equal(rsvpLabel(row({ rsvp: 'maybe' })), 'Maybe')
     assert.equal(rsvpLabel(row({ rsvp: 'none' })), 'No reply yet')
+  })
+})
+
+describe('ticketLabel', () => {
+  it('names the ticket in its own column', () => {
+    assert.equal(ticketLabel(row({ rsvp: 'attending', partySize: 1 })), 'Single')
+    assert.equal(ticketLabel(row({ rsvp: 'attending', partySize: 2 })), 'Double')
+    assert.equal(ticketLabel(row({ rsvp: 'attending', partySize: 10 })), 'Wakwe')
+  })
+
+  it('reads a legacy party size between two tickets as the one it covers', () => {
+    // Writes snap onto a sold ticket but reads only floor at 1, so a legacy 3
+    // exists. It must name a ticket rather than falling through to Single.
+    assert.equal(ticketLabel(row({ rsvp: 'attending', partySize: 3 })), 'Double')
+    assert.equal(ticketLabel(row({ rsvp: 'attending', partySize: 12 })), 'Wakwe')
+  })
+
+  it('shows no ticket when there is no confirmed attending party', () => {
+    assert.equal(ticketLabel(row({ rsvp: 'attending', partySize: null })), '-')
+  })
+
+  it('ignores a stale party size on a non-attending answer', () => {
+    assert.equal(ticketLabel(row({ rsvp: 'declined', partySize: 2 })), '-')
+    assert.equal(ticketLabel(row({ rsvp: 'maybe', partySize: 2 })), '-')
+    assert.equal(ticketLabel(row({ rsvp: 'none', partySize: 10 })), '-')
   })
 })
 
@@ -150,18 +167,24 @@ describe('invite-report-pdf table layout', () => {
     return m[0]
   }
   const columns = () =>
-    widthsIn(['cName', 'cPhone', 'cChannel', 'cSent', 'cDelivery', 'cRsvp'].map(style).join(''))
+    widthsIn(['cName', 'cPhone', 'cChannel', 'cSent', 'cDelivery', 'cRsvp', 'cTicket'].map(style).join(''))
 
   it('head and body columns are the same widths in the same order', () => {
     const headStart = src.indexOf('<View style={s.tableHead}')
     const head = widthsIn(src.slice(headStart, src.indexOf('</View>', headStart)))
     const body = columns()
-    assert.equal(body.length, 6, 'expected six body columns')
+    assert.equal(body.length, 7, 'expected seven body columns')
     assert.deepEqual(head, body)
   })
 
   it('the columns fill the page exactly', () => {
     assert.equal(columns().reduce((a, b) => a + b, 0), 100)
+  })
+
+  it('keeps the report complete and the sent timestamp on one line', () => {
+    assert.match(src, /orientation="landscape"/)
+    assert.match(src, /function reportPages\(/)
+    assert.match(style('cSent'), /maxLines:\s*1/)
   })
 
   it('reserves the accent gutter on the head as well as the rows', () => {

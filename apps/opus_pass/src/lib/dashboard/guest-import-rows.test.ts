@@ -34,6 +34,23 @@ test('treats Swahili and couple ticket labels as a Double', () => {
   }
 })
 
+test('Wakwe labels import as the full ten-seat ticket', () => {
+  for (const label of ['Wakwe', 'wakwe', 'WAKWE', 'Ukwe', 'mkwe', 'Kumi', 'ten']) {
+    const { rows, unrecognizedTickets } = parseGuestImportRows(`Familia ya Seeta, , , ${label}`)
+    assert.equal(rows[0].max_party_size, 10, `${label} should import as a Wakwe`)
+    assert.deepEqual(unrecognizedTickets, [], `${label} should be recognized`)
+  }
+})
+
+test('adding Wakwe did not widen what a Double is worth', () => {
+  // Regression guard: DOUBLE_TICKETS used to resolve through MAX_TICKET_PARTY,
+  // so raising that constant for Wakwe would have quietly turned every
+  // imported Double into ten admissions.
+  for (const label of ['Double', 'Couple', 'mbili', 'wawili']) {
+    assert.equal(parseGuestImportRows(`Bi. Zawadi, , , ${label}`).rows[0].max_party_size, 2)
+  }
+})
+
 test('a name containing a comma survives the round-trip', () => {
   // A naive split would make the name "Ngando", the email "Jr.", drop the
   // phone entirely and silently downgrade the Double to a Single.

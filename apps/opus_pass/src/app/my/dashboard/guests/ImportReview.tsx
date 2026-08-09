@@ -10,6 +10,7 @@ import {
   type GuestImportVerification,
   type ImportRowStatus,
 } from '@/lib/dashboard/guest-import-review'
+import { ticketTypeLabel } from '@/lib/dashboard/types'
 
 /**
  * Import Review: what the file would do, before it does it.
@@ -295,7 +296,7 @@ export function ImportReview({
                       {r.row.full_name || <span className="italic text-[#1A1A1A]/45">No name</span>}
                     </span>
                     <span className="text-xs text-[#1A1A1A]/45">
-                      Row {r.lineNumber} · {r.row.max_party_size > 1 ? 'Double' : 'Single'}
+                      Row {r.lineNumber} · {ticketTypeLabel(r.row.max_party_size)}
                     </span>
                   </td>
                   <td className="px-3 py-2 align-top text-[#1A1A1A]/75">

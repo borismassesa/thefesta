@@ -80,7 +80,7 @@ its own column.
 
 | Item | How it is handled |
 |---|---|
-| Single or Double ticket | Add an optional **Ticket Type** column containing Single or Double. Blank or unrecognized values become Single. |
+| Ticket type | Add an optional **Ticket Type** column containing Single, Double or Wakwe. Wakwe admits ten people on one QR code. Blank or unrecognized values become Single. |
 | Table or seating | Set in Seating after the guests exist. |
 | Which event a guest attends | Chosen in the upload dialog under "Invite all to", not in the sheet. |
 | Totals rows | Ignored, so a JUMLA line at the bottom is harmless. |
@@ -106,7 +106,7 @@ its own column.
 - [ ] The imported count matches the number of rows you expected. A gap means
       duplicate numbers or nameless rows were dropped.
 - [ ] Spot check five guests: name spelling and phone number.
-- [ ] Mark the Double tickets.
+- [ ] Mark the Double and Wakwe tickets.
 - [ ] Send to a small test group of three or four numbers and confirm they
       receive the card before sending to everyone.
 
@@ -199,7 +199,7 @@ lazima iandikwe kama maandishi kwenye safu yake.
 
 | Kipengele | Jinsi inavyoshughulikiwa |
 |---|---|
-| Tiketi ya Single au Double | Ongeza safu ya hiari ya **Aina ya Tiketi / Ticket Type** yenye Single au Double. Nafasi tupu au thamani isiyotambulika inaingia kama Single. |
+| Aina ya tiketi | Ongeza safu ya hiari ya **Aina ya Tiketi / Ticket Type** yenye Single, Double au Wakwe. Wakwe huingiza watu kumi kwa QR moja. Nafasi tupu au thamani isiyotambulika inaingia kama Single. |
 | Meza na mpangilio wa viti | Hupangwa kwenye Seating baada ya wageni kuingia. |
 | Tukio analohudhuria mgeni | Huchaguliwa kwenye dirisha la kupakia chini ya "Invite all to", siyo kwenye lahajedwali. |
 | Mstari wa jumla | Hurukwa, kwa hiyo JUMLA chini ya orodha haileti tatizo. |
@@ -224,7 +224,7 @@ lazima iandikwe kama maandishi kwenye safu yake.
 - [ ] Idadi iliyoingia inalingana na mistari uliyotarajia. Tofauti inamaanisha
       namba zilizojirudia au mistari isiyo na majina iliachwa.
 - [ ] Kagua wageni watano: tahajia ya jina na namba ya simu.
-- [ ] Weka alama ya tiketi za Double.
+- [ ] Weka alama ya tiketi za Double na Wakwe.
 - [ ] Tuma kwa kikundi kidogo cha majaribio cha namba tatu au nne na thibitisha
       wamepokea kadi kabla ya kutuma kwa wote.
 

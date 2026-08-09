@@ -9,8 +9,12 @@
  * the credit arithmetic are the parts that can quietly go wrong on a document
  * nobody re-reads, so they live here where a test can reach them.
  *
- * Pure by construction: no react-pdf import, no I/O, no clock.
+ * Pure by construction: no react-pdf import, no I/O, no clock. (dashboard/types
+ * is itself import-free, so the ticket vocabulary comes in without dragging
+ * anything impure behind it.)
  */
+
+import { ticketTypeLabel } from './dashboard/types'
 
 /** What WhatsApp did with a guest's most recent invitation for this event.
  *  Mirrors SendGuestRow['delivery']['state'] in lib/dashboard/queries.ts. */
@@ -105,20 +109,13 @@ export function isProblemRow(row: InviteReportRow): boolean {
   return row.delivery === 'failed'
 }
 
-/**
- * The RSVP column, carrying the ticket the guest is coming on.
- *
- * `>= 2`, not `=== 2`: writes clamp party size to MAX_TICKET_PARTY but reads
- * only floor it at 1, so a legacy row holding 3 must still read as a Double
- * rather than falling through to Single. Matches ticketLabelOf in
- * SendInvitesView.tsx.
- */
+/** The guest's answer only. Ticket size deliberately has its own report column
+ * so the RSVP state stays scannable instead of becoming a comma-separated
+ * mixture of two different facts. */
 export function rsvpLabel(row: InviteReportRow): string {
   switch (row.rsvp) {
-    case 'attending': {
-      if (row.partySize == null) return 'Attending'
-      return row.partySize >= 2 ? 'Attending, Double' : 'Attending, Single'
-    }
+    case 'attending':
+      return 'Attending'
     case 'declined':
       return 'Declined'
     case 'maybe':
@@ -126,6 +123,19 @@ export function rsvpLabel(row: InviteReportRow): string {
     default:
       return 'No reply yet'
   }
+}
+
+/**
+ * The ticket the attending guest confirmed.
+ *
+ * ticketTypeLabel floors rather than matching exactly: writes snap party size
+ * onto a sold ticket but reads only floor it at 1, so a legacy row holding 3
+ * must still read as a Double rather than falling through to Single. A stale
+ * party size on a declined or unanswered row is ignored.
+ */
+export function ticketLabel(row: InviteReportRow): string {
+  if (row.rsvp !== 'attending' || row.partySize == null) return '-'
+  return ticketTypeLabel(row.partySize)
 }
 
 /**

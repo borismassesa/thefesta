@@ -6,6 +6,9 @@ import type { FooterStrings } from '@/lib/cms/ui-strings-fallback'
 // in as `strings`). Hrefs stay hardcoded — only the visible text is editable.
 type FooterColumn = { title: string; links: { label: string; href: string }[] }
 
+// Careers lives on the marketplace site, not on this subdomain.
+const MARKETPLACE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3006'
+
 function buildColumns(s: FooterStrings): FooterColumn[] {
   return [
     {
@@ -37,7 +40,7 @@ function buildColumns(s: FooterStrings): FooterColumn[] {
       title: s.col_company,
       links: [
         { label: s.link_about, href: 'https://opusfesta.com' },
-        { label: s.link_careers, href: '/contact' },
+        { label: s.link_careers, href: `${MARKETPLACE_URL}/careers` },
         { label: s.link_press, href: '/contact' },
         { label: s.link_status, href: '/help' },
       ],

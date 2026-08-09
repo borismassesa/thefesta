@@ -2447,8 +2447,8 @@ export interface SendGuestRow {
   /** True once this guest has been sent an entrance pass for this event —
    *  drives the persistent Sent/Not sent status on the Pass Ticket tab. */
   entrancePassSent: boolean
-  /** Seats the couple's invite covers (guest_contacts.max_party_size,
-   *  clamped 1..2 on new writes) — the "Single/Double card sent" badge. */
+  /** Seats the couple's invite covers (guest_contacts.max_party_size, snapped
+   *  onto a sold ticket on new writes) — the "ticket sent" badge. */
   assignedPartySize: number
   /** Seats the guest confirmed at RSVP for THIS event — the ticket's pill
    *  and the door scanner's count. Null until they're attending. */

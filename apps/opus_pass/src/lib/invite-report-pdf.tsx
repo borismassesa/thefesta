@@ -8,6 +8,7 @@ import {
   isProblemRow,
   rsvpLabel,
   sortInviteRows,
+  ticketLabel,
   type InviteReportData,
   type InviteReportRow,
 } from '@/lib/invite-report'
@@ -112,18 +113,22 @@ const s = StyleSheet.create({
   // Every left-aligned cell reserves a right-hand gutter. Without it a value
   // that happens to fill its column (a spaced international number next to
   // "WhatsApp") butts straight against its neighbour with no visible gap.
-  cName: { width: '19%', fontSize: 9.5, paddingRight: 6 },
-  cPhone: { width: '16%', fontSize: 8.5, color: '#4b5563', paddingRight: 6 },
-  cChannel: { width: '10%', fontSize: 9, color: '#4b5563', paddingRight: 6 },
-  cSent: { width: '12%', fontSize: 8.5, color: '#4b5563', paddingRight: 6 },
-  cDelivery: { width: '26%', paddingRight: 6 },
-  cRsvp: { width: '17%', fontSize: 9, textAlign: 'right' },
+  // Landscape A4 gives all seven columns a real reading width. The Sent cell
+  // is deliberately one line: AM/PM or EAT is part of the time, not a stray
+  // second line that makes the row look misaligned.
+  cName: { width: '18%', fontSize: 9.5, paddingRight: 6 },
+  cPhone: { width: '15%', fontSize: 8.5, color: '#4b5563', paddingRight: 6 },
+  cChannel: { width: '9%', fontSize: 9, color: '#4b5563', paddingRight: 6 },
+  cSent: { width: '15%', fontSize: 8.5, color: '#4b5563', paddingRight: 6, maxLines: 1 },
+  cDelivery: { width: '22%', paddingRight: 6 },
+  cRsvp: { width: '11%', fontSize: 9, paddingRight: 6 },
+  cTicket: { width: '10%', fontSize: 9, textAlign: 'right' },
 
   deliveryTop: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   deliveryState: { fontSize: 9 },
   // Wraps freely inside the fixed-width delivery column, so a long reason can
   // never push a neighbouring cell out of line.
-  deliveryReason: { marginTop: 2, fontSize: 7.5, color: '#8a5a5a', lineHeight: 1.35 },
+  deliveryReason: { marginTop: 2, fontSize: 7.5, color: '#8a5a5a', lineHeight: 1.35, maxLines: 3 },
   muted: { color: NEUTRAL },
 
   footnote: { marginTop: 12, fontSize: 7.5, color: '#9ca3af', lineHeight: 1.5 },
@@ -205,6 +210,55 @@ function GuestRow({ row }: { row: InviteReportRow }) {
         {problem && row.failureReason ? <Text style={s.deliveryReason}>{row.failureReason}</Text> : null}
       </View>
       <Text style={row.rsvp === 'none' ? [s.cRsvp, s.muted] : s.cRsvp}>{rsvpLabel(row)}</Text>
+      <Text style={row.rsvp !== 'attending' || row.partySize == null ? [s.cTicket, s.muted] : s.cTicket}>
+        {ticketLabel(row)}
+      </Text>
+    </View>
+  )
+}
+
+/**
+ * Keep pagination explicit instead of letting react-pdf create overflow pages.
+ * Overflow pages do not reliably repeat a Page's top/bottom padding, which can
+ * put the first row against the screen edge in a mobile PDF viewer. The first
+ * page has less row space because it also carries the summary and credits.
+ * Failure reasons are capped at three lines above, so these conservative point
+ * budgets cover every row shape the renderer can produce.
+ */
+function reportPages(rows: InviteReportRow[]): InviteReportRow[][] {
+  const pages: InviteReportRow[][] = [[]]
+  let remaining = 220
+
+  for (const row of rows) {
+    const reasonLines = isProblemRow(row) && row.failureReason
+      ? Math.min(3, Math.max(1, Math.ceil(row.failureReason.length / 38)))
+      : 0
+    const rowPoints = reasonLines > 0 ? 20 + reasonLines * 10 : 20
+    let page = pages[pages.length - 1]
+
+    if (page.length > 0 && rowPoints > remaining) {
+      page = []
+      pages.push(page)
+      remaining = 310
+    }
+
+    page.push(row)
+    remaining -= rowPoints
+  }
+
+  return pages
+}
+
+function TableHead() {
+  return (
+    <View style={s.tableHead}>
+      <Text style={[s.th, { width: '18%' }]}>Guest</Text>
+      <Text style={[s.th, { width: '15%' }]}>Phone</Text>
+      <Text style={[s.th, { width: '9%' }]}>Channel</Text>
+      <Text style={[s.th, { width: '15%' }]}>Sent</Text>
+      <Text style={[s.th, { width: '22%' }]}>Delivery</Text>
+      <Text style={[s.th, { width: '11%' }]}>RSVP</Text>
+      <Text style={[s.th, { width: '10%', textAlign: 'right' }]}>Ticket</Text>
     </View>
   )
 }
@@ -218,47 +272,51 @@ function GuestRow({ row }: { row: InviteReportRow }) {
  */
 export function InviteReportPdf({ data }: { data: InviteReportData }) {
   const rows = sortInviteRows(data.rows)
+  const pages = reportPages(rows)
   return (
     <Document title={`${data.eventName}: Invite report`}>
-      <Page size="A4" style={[s.page, { paddingTop: reportPaddingTop(data) }]}>
-        <PageHeader data={data} />
+      {pages.map((pageRows, pageIndex) => (
+        <Page
+          key={pageIndex}
+          size="A4"
+          orientation="landscape"
+          style={[s.page, { paddingTop: reportPaddingTop(data) }]}
+        >
+          <PageHeader data={data} />
 
-        <View style={s.statRow}>
-          <StatTile label="Invited" value={data.invited} />
-          <StatTile label="Delivered" value={data.delivered} />
-          {/* Rose only when it means something. A permanent rose zero is an
-              alarm nobody would keep believing. */}
-          <StatTile label="Not delivered" value={data.undelivered} tone={data.undelivered > 0 ? ROSE : undefined} />
-          <StatTile label="Viewed" value={data.viewed} />
-          <StatTile label="Responded" value={data.responded} />
-        </View>
+          {pageIndex === 0 ? (
+            <>
+              <View style={s.statRow}>
+                <StatTile label="Invited" value={data.invited} />
+                <StatTile label="Delivered" value={data.delivered} />
+                {/* Rose only when it means something. A permanent rose zero is
+                    an alarm nobody would keep believing. */}
+                <StatTile label="Not delivered" value={data.undelivered} tone={data.undelivered > 0 ? ROSE : undefined} />
+                <StatTile label="Viewed" value={data.viewed} />
+                <StatTile label="Responded" value={data.responded} />
+              </View>
+              <CreditBand used={data.creditsUsed} purchased={data.creditsPurchased} />
+            </>
+          ) : null}
 
-        <CreditBand used={data.creditsUsed} purchased={data.creditsPurchased} />
+          <TableHead />
 
-        <View style={s.tableHead} fixed>
-          <Text style={[s.th, { width: '19%' }]}>Guest</Text>
-          <Text style={[s.th, { width: '16%' }]}>Phone</Text>
-          <Text style={[s.th, { width: '10%' }]}>Channel</Text>
-          <Text style={[s.th, { width: '12%' }]}>Sent</Text>
-          <Text style={[s.th, { width: '26%' }]}>Delivery</Text>
-          <Text style={[s.th, { width: '17%', textAlign: 'right' }]}>RSVP</Text>
-        </View>
+          {pageRows.map((row, rowIndex) => (
+            <GuestRow key={rowIndex} row={row} />
+          ))}
 
-        {rows.map((row, i) => (
-          <GuestRow key={i} row={row} />
-        ))}
+          {pageIndex === pages.length - 1 ? (
+            /* Load-bearing honesty: "delivered" here means WhatsApp accepted
+               the invitation and never came back to refuse it. */
+            <Text style={s.footnote}>
+              Delivered counts every invitation WhatsApp accepted and did not later refuse. Guests reached by SMS or
+              by hand carry no delivery receipt, so they are listed without one.
+            </Text>
+          ) : null}
 
-        {/* Load-bearing honesty: "delivered" here means WhatsApp accepted the
-            invitation and never came back to refuse it, which is a weaker claim
-            than the word suggests. A tooltip can carry that caveat on screen; a
-            printed page has to say it. */}
-        <Text style={s.footnote}>
-          Delivered counts every invitation WhatsApp accepted and did not later refuse. Guests reached by SMS or
-          by hand carry no delivery receipt, so they are listed without one.
-        </Text>
-
-        <PdfLetterhead />
-      </Page>
+          <PdfLetterhead />
+        </Page>
+      ))}
     </Document>
   )
 }

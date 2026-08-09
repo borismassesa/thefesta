@@ -62,7 +62,14 @@ import type {
   RsvpStatus,
   WeddingEvent,
 } from '@/lib/dashboard/types'
-import { RSVP_STATUS_LABELS } from '@/lib/dashboard/types'
+import {
+  DOUBLE_TICKET_PARTY,
+  RSVP_STATUS_LABELS,
+  TICKET_TYPES,
+  WAKWE_TICKET_PARTY,
+  ticketPartyFor,
+  ticketTypeLabel,
+} from '@/lib/dashboard/types'
 
 type FormTab = 'info' | 'address' | 'rsvps'
 type GuestView = 'manage' | 'invite' | 'address'
@@ -359,10 +366,12 @@ export default function GuestsManager({
         if (inv.rsvp_status !== 'pending') replied += 1
       }
     }
-    // Entrance passes are a Single/Double product — a guest allocated 2+
-    // seats is a Double (max_party_size is clamped to 2 on write).
-    const doubles = filtered.filter((g) => g.max_party_size >= 2).length
-    return { missingEmail, missingPhone, invited, replied, totalInvites, doubles }
+    // Anything bigger than a Single is worth counting under the column, but
+    // Wakwe is ten seats a piece, so it gets its own tally rather than
+    // inflating the Doubles line.
+    const doubles = filtered.filter((g) => ticketPartyFor(g.max_party_size) === DOUBLE_TICKET_PARTY).length
+    const wakwe = filtered.filter((g) => ticketPartyFor(g.max_party_size) === WAKWE_TICKET_PARTY).length
+    return { missingEmail, missingPhone, invited, replied, totalInvites, doubles, wakwe }
   }, [filtered, eventFilter, sentEventIds])
 
   // One rule per line in the CMS field, same shape as the website benefits list.
@@ -488,7 +497,9 @@ export default function GuestsManager({
       phone: g.whatsapp_phone || g.phone || '',
       whatsapp_phone: g.whatsapp_phone || g.phone || '',
       group_tag: g.group_tag ?? '',
-      max_party_size: g.max_party_size > 1 ? 2 : 1,
+      // Snap, don't collapse: a hard `> 1 ? 2 : 1` would silently demote a
+      // Wakwe guest to a Double just by opening and saving their edit dialog.
+      max_party_size: ticketPartyFor(g.max_party_size),
       notes: g.notes ?? '',
       name_on_envelope: g.name_on_envelope ?? '',
       address_country: g.address_country ?? '',
@@ -662,7 +673,7 @@ export default function GuestsManager({
     if (unrecognizedTickets.length > 0) {
       // Don't let an unreadable ticket value quietly become a Single.
       toast.warning(
-        `Will import as Single: unrecognized ticket ${unrecognizedTickets.length === 1 ? 'type' : 'types'} ${unrecognizedTickets.join(', ')}. Use Single or Double.`,
+        `Will import as Single: unrecognized ticket ${unrecognizedTickets.length === 1 ? 'type' : 'types'} ${unrecognizedTickets.join(', ')}. Use Single, Double or Wakwe.`,
       )
     }
     startTransition(async () => {
@@ -990,9 +1001,16 @@ export default function GuestsManager({
                     <span className="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]/55">
                       Ticket type
                     </span>
-                    {counts.doubles > 0 ? (
+                    {counts.doubles > 0 || counts.wakwe > 0 ? (
                       <p className="mt-0.5 text-[11px] font-normal normal-case tracking-normal text-[#1A1A1A]/45">
-                        {counts.doubles} double{counts.doubles === 1 ? '' : 's'}
+                        {[
+                          counts.doubles > 0
+                            ? `${counts.doubles} double${counts.doubles === 1 ? '' : 's'}`
+                            : null,
+                          counts.wakwe > 0 ? `${counts.wakwe} wakwe` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </p>
                     ) : null}
                   </th>
@@ -1087,7 +1105,7 @@ export default function GuestsManager({
                       ) : null}
                       <td className="py-3.5 pr-4">
                         <span className="inline-flex items-center rounded-full bg-[#9FE870]/25 px-2.5 py-1 text-xs font-medium text-[#3f6b1f]">
-                          {g.max_party_size >= 2 ? 'Double' : 'Single'}
+                          {ticketTypeLabel(g.max_party_size)}
                         </span>
                       </td>
                       <td className="py-3.5 pr-3 text-right">
@@ -1282,7 +1300,7 @@ export default function GuestsManager({
               <dd className="text-[#1A1A1A]/60">Email or Barua Pepe</dd>
               <dd className="text-[#1A1A1A]/45">Optional</dd>
               <dt className="font-medium text-[#1A1A1A]">Ticket Type</dt>
-              <dd className="text-[#1A1A1A]/60">Single or Double</dd>
+              <dd className="text-[#1A1A1A]/60">Single, Double or Wakwe</dd>
               <dd className="text-[#1A1A1A]/45">Optional</dd>
             </dl>
             <p className="mt-3 border-t border-black/[0.06] pt-3 text-xs leading-relaxed text-[#1A1A1A]/60">
@@ -1319,7 +1337,7 @@ export default function GuestsManager({
                 setImportText(e.target.value)
                 setImportSummary(null)
               }}
-              placeholder={'Asha Mussa, asha@email.com, 0712345678, Single\nMr & Mrs Juma, , 0755000850, Double\nGrace Mollel, grace@email.com'}
+              placeholder={'Asha Mussa, asha@email.com, 0712345678, Single\nMr & Mrs Juma, , 0755000850, Double\nFamilia ya Seeta, , 0762269228, Wakwe\nGrace Mollel, grace@email.com'}
             />
           </Field>
 
@@ -1662,7 +1680,7 @@ function NameRow({
 }
 
 // No "Add plus one" / "Add child" entry points: party size is what Ticket type
-// (Single/Double) says. The sections below still render for guests who already
+// (Single/Double/Wakwe) says. The sections below still render for guests who already
 // carry a plus one or children, so that data stays visible and removable.
 function GuestInfoTab({
   form,
@@ -1732,10 +1750,13 @@ function GuestInfoTab({
         </div>
         {/* No Notes input either, for the same reason as Group: still stored,
             still carried through an edit, just not typed here. */}
+        {/* The seat count each ticket carries is spelled out under Wakwe: a
+            couple picking it is handing one QR to ten people, which is not
+            something the word alone tells them. */}
         <Field label="Ticket type">
-          <div className="grid grid-cols-2 gap-2">
-            {([1, 2] as const).map((size) => {
-              const active = (form.max_party_size ?? 1) === size
+          <div className="grid grid-cols-3 gap-2">
+            {TICKET_TYPES.map(({ size, label }) => {
+              const active = ticketPartyFor(form.max_party_size ?? 1) === size
               return (
                 <button
                   key={size}
@@ -1743,13 +1764,16 @@ function GuestInfoTab({
                   aria-pressed={active}
                   onClick={() => setForm({ ...form, max_party_size: size })}
                   className={cn(
-                    'rounded-full border px-3 py-2 text-sm font-semibold transition-colors',
+                    'rounded-2xl border px-3 py-2 text-sm font-semibold transition-colors',
                     active
                       ? 'border-[#C9A0DC] bg-[#F0DFF6] text-[#5d3a78]'
                       : 'border-black/[0.12] text-[#1A1A1A]/70 hover:bg-black/[0.04]',
                   )}
                 >
-                  {size === 2 ? 'Double' : 'Single'}
+                  <span className="block">{label}</span>
+                  <span className="block text-[11px] font-medium opacity-70">
+                    {size === 1 ? '1 person' : `${size} people`}
+                  </span>
                 </button>
               )
             })}

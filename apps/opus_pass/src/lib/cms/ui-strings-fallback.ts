@@ -697,6 +697,7 @@ export interface FormsPledgeStrings {
   label_ticket_type: string
   ticket_single: string
   ticket_double: string
+  ticket_wakwe: string
   label_promised_date: string
   label_whatsapp: string
   placeholder_whatsapp: string
@@ -1313,6 +1314,7 @@ export interface DashboardSendStrings {
   ticket_lang_sw: string
   party_single: string
   party_double: string
+  party_wakwe: string
   toast_ticket_saved: string
   row_edit: string
   add_guest: string
@@ -1990,6 +1992,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     label_ticket_type: 'Ticket type',
     ticket_single: 'Single',
     ticket_double: 'Double',
+    ticket_wakwe: 'Wakwe',
     label_promised_date: 'When can you pay by?',
     label_whatsapp: 'WhatsApp / mobile',
     placeholder_whatsapp: '0712 345 678',
@@ -2556,6 +2559,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     ticket_lang_sw: 'Swahili',
     party_single: 'Single',
     party_double: 'Double',
+    party_wakwe: 'Wakwe',
     toast_ticket_saved: 'Ticket details saved',
     row_edit: 'Edit guest',
     add_guest: 'Add guest',

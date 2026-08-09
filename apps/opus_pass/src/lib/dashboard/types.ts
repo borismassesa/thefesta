@@ -16,11 +16,61 @@ export type RsvpStatus = 'pending' | 'attending' | 'declined' | 'maybe'
 /** Language the entrance-pass ticket image renders in. */
 export type TicketLanguage = 'en' | 'sw'
 
-/** Entrance passes are a Single/Double product — no invitation covers, and
- *  no guest can RSVP, more than this many seats. Pre-cap rows with larger
- *  parties keep their stored count (the scanner admits it), but every new
- *  write clamps here. */
-export const MAX_TICKET_PARTY = 2
+/** One seat. */
+export const SINGLE_TICKET_PARTY = 1
+/** Two seats on one QR — the guest and their partner. */
+export const DOUBLE_TICKET_PARTY = 2
+/** Wakwe is the in-laws' group ticket: ten people admitted on one QR code,
+ *  so a whole family arrives together without the host issuing ten passes. */
+export const WAKWE_TICKET_PARTY = 10
+
+/**
+ * The tickets an entrance pass is sold as. `size` is how many people the QR
+ * admits, and is what gets stored in `guest_contacts.max_party_size` — the
+ * `guest_invitations` trigger derives `entry_allowance` from it, so the size
+ * here is literally the number the door counts down from.
+ */
+export const TICKET_TYPES = [
+  { size: SINGLE_TICKET_PARTY, label: 'Single' },
+  { size: DOUBLE_TICKET_PARTY, label: 'Double' },
+  { size: WAKWE_TICKET_PARTY, label: 'Wakwe' },
+] as const satisfies ReadonlyArray<{ size: number; label: string }>
+
+/** The largest ticket sold. */
+export const MAX_TICKET_PARTY = WAKWE_TICKET_PARTY
+
+/** Ceiling on a party size the *guest* picks for themselves — public self-RSVP
+ *  and pledge links. Wakwe is a host allocation, never self-served, so those
+ *  forms stop at a Double however large a number is typed. */
+export const MAX_SELF_SERVICE_PARTY = DOUBLE_TICKET_PARTY
+
+/**
+ * Snap a seat count onto the ticket it actually buys: the largest ticket whose
+ * size the count covers. Writes go through this, so 3..9 stored seats settle
+ * back to a Double and anything from 10 up is a Wakwe.
+ */
+export function ticketPartyFor(value: number | null | undefined): number {
+  const seats = Math.max(1, Math.floor(Number(value) || 1))
+  let size: number = SINGLE_TICKET_PARTY
+  for (const ticket of TICKET_TYPES) {
+    if (seats >= ticket.size) size = ticket.size
+  }
+  return size
+}
+
+/**
+ * The ticket's own name for a seat count, for surfaces that speak in tickets
+ * rather than headcounts. Reads floor rather than snap-and-fail, so a legacy
+ * row holding 3 still says Double instead of falling through to Single.
+ *
+ * Surfaces that must not lie about a headcount (the wallet pass, the scanner,
+ * the admin report) deliberately keep their own exact-match variants with a
+ * counted fallback — see the comments at each.
+ */
+export function ticketTypeLabel(partySize: number | null | undefined): string {
+  const size = ticketPartyFor(partySize)
+  return TICKET_TYPES.find((t) => t.size === size)?.label ?? 'Single'
+}
 
 export type SendChannel = 'whatsapp' | 'sms' | 'email' | 'link'
 
