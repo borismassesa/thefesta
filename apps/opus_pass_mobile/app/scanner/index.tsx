@@ -292,14 +292,17 @@ export default function ScannerEntryScreen() {
                       </View>
 
                       <Text
-                        className="mt-3 font-inter-bold text-screen-title leading-[34px] text-ed-on-surface"
+                        className="mt-3 font-inter-bold text-screen-title text-ed-on-surface"
                         numberOfLines={2}
                       >
                         {activeShift.eventName ?? 'Your shift'}
                       </Text>
 
-                      {/* Operational facts sit below the identity and may wrap
-                          independently without constraining the headline. */}
+                      {/* Door and attendant as separate icon-led facts. A dot
+                          separator ran them together as one string, which read
+                          as though the person belonged to the gate name. They
+                          sit below the identity so they may wrap independently
+                          without constraining the headline. */}
                       <View className="mt-3 flex-row flex-wrap items-center gap-x-5 gap-y-1.5">
                         <View className="flex-row items-center gap-1.5">
                           <MaterialCommunityIcons
