@@ -317,3 +317,64 @@ svg {
     padding-right: 15rem;
   }
 }
+
+/* ── Card copy protection ────────────────────────────────────────────────────
+   Backs ProtectedCard (components/guests/ProtectedCard.tsx). Kept here rather
+   than in Tailwind classes because two of the three rules are pseudo-element
+   and print rules that have no utility equivalent.
+
+   This is the deterrent layer. It closes right-click, drag, long-press and
+   print; it does not pretend to stop a screenshot. The protection with teeth is
+   the token-gated preview raster on the server. */
+
+.op-protected,
+.op-protected * {
+  -webkit-user-select: none;
+  user-select: none;
+  /* Stops iOS Safari's long-press "Save Image / Copy" sheet without touching
+     touchstart, which would also suppress scrolling that begins on the card. */
+  -webkit-touch-callout: none;
+}
+
+/* The artwork itself never receives the pointer: the shield above it does.
+   Also kills the native image drag in Firefox, which ignores draggable=false
+   on a background-image but honours pointer-events. */
+.op-protected img,
+.op-protected svg,
+.op-protected canvas {
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.op-protected-print-notice {
+  display: none;
+}
+
+/* Printing a card is a save route like any other: the browser's "Print → Save
+   as PDF" produces a vector-quality file. Blank the artwork on paper and leave
+   a line explaining why, so a guest who genuinely wanted a keepsake is told
+   what to do rather than handed a broken page. */
+@media print {
+  .op-protected > *:not(.op-protected-print-notice) {
+    display: none !important;
+  }
+
+  .op-protected {
+    min-height: 12rem;
+    border: 1px dashed rgba(0, 0, 0, 0.25);
+    border-radius: 0.75rem;
+  }
+
+  .op-protected-print-notice {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 12rem;
+    padding: 1.5rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: rgba(0, 0, 0, 0.55);
+  }
+}

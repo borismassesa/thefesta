@@ -89,9 +89,14 @@ export function DesignCarousel({
       {/* Main view — the frame matches the active design's real aspect ratio, so
           neither portrait nor landscape artwork is cropped or distorted. The size
           eases and the image crossfades so switching slides feels smooth. */}
+      {/* op-protected (globals.css) drops pointer events on the artwork itself,
+          so it cannot be dragged out or right-clicked into "Save image as"
+          while the favourite button layered above it keeps working. */}
       <div
-        className="relative w-full bg-white rounded-md shadow-md overflow-hidden transition-[aspect-ratio] duration-300 ease-out"
+        className="op-protected relative w-full bg-white rounded-md shadow-md overflow-hidden transition-[aspect-ratio] duration-300 ease-out"
         style={{ aspectRatio: String(activeRatio) }}
+        onContextMenu={(e) => e.preventDefault()}
+        onDragStart={(e) => e.preventDefault()}
       >
         {activeSlide ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -128,7 +133,11 @@ export function DesignCarousel({
       {/* Thumbnail strip — uniform squares kept on a single row; scrolls
           horizontally rather than wrapping when there are many slides. */}
       {slides.length > 1 && (
-        <div className="mt-8 flex gap-2 overflow-x-auto pt-1.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          className="op-protected mt-8 flex gap-2 overflow-x-auto pt-1.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+        >
           {slides.map((slide, i) => {
             const thumbActive = i === activeIndex
             return (

@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { CalendarHeart, MapPin, Clock, Check, PartyPopper, Heart, ImagePlus, Download, Phone, Ticket } from 'lucide-react'
+import { CalendarHeart, MapPin, Clock, Check, PartyPopper, Heart, ImagePlus, Phone, Ticket } from 'lucide-react'
 import Image from 'next/image'
 import Logo from '@/components/ui/Logo'
 import { LocaleToggle } from '@/components/LocaleToggle'
+import { ProtectedCard } from '@/components/guests/ProtectedCard'
 import { useT } from '@/components/providers/UIStringsProvider'
 import { submitPublicRsvp, type PublicRsvpResponse, type PublicRsvpAnswerInput } from '@/lib/dashboard/actions'
 import { eventTypeLabel, type RsvpStatus, type RsvpQuestion } from '@/lib/dashboard/types'
@@ -246,7 +247,7 @@ export default function PublicRsvpForm({
         coupleName={data.coupleName}
         cardUrl={data.cardUrlByEvent[data.events[0]?.id ?? ''] ?? null}
         cardAlt={t('card_alt')}
-        cardDownloadLabel={t('card_download')}
+        cardViewOnlyLabel={t('card_view_only')}
         coverImageUrl={data.coverImageUrl}
       >
         <div className="text-center">
@@ -277,7 +278,7 @@ export default function PublicRsvpForm({
       coupleName={data.coupleName}
       cardUrl={followupMode ? null : (data.cardUrlByEvent[data.events[0]?.id ?? ''] ?? null)}
       cardAlt={t('card_alt')}
-      cardDownloadLabel={t('card_download')}
+      cardViewOnlyLabel={t('card_view_only')}
       coverImageUrl={followupMode ? null : data.coverImageUrl}
     >
       <div className="text-center">
@@ -584,7 +585,7 @@ function Shell({
   coupleName,
   cardUrl,
   cardAlt,
-  cardDownloadLabel,
+  cardViewOnlyLabel,
   coverImageUrl,
 }: {
   children: React.ReactNode
@@ -593,7 +594,7 @@ function Shell({
    *  is the thing they opened the link to see. */
   cardUrl?: string | null
   cardAlt: string
-  cardDownloadLabel: string
+  cardViewOnlyLabel: string
   coverImageUrl?: string | null
 }) {
   return (
@@ -611,22 +612,27 @@ function Shell({
           />
         ) : cardUrl ? (
           <div className="flex w-full max-w-[420px] flex-col items-center">
-            <Image
-              src={cardUrl}
-              alt={cardAlt}
-              width={760}
-              height={1064}
-              className="max-h-[65vh] w-auto max-w-full rounded-2xl object-contain shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] sm:max-h-[75vh] lg:max-h-[calc(100vh-10rem)]"
-              unoptimized
-              priority
-            />
-            <a
-              href={cardUrl}
-              download
-              className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-[#4F2877] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3E1F5E]"
+            {/* The explicit "download card" button that used to sit under this
+                image is gone deliberately: the card is now view-only on every
+                public surface. Note that the artwork is not thereby secret — the
+                PNG behind cardUrl is served from a public, long-cached URL
+                because Meta's servers fetch it when the WhatsApp template goes
+                out (see invite-card/[token]/route.ts). What this removes is the
+                one-tap save, not the possibility of one. */}
+            <ProtectedCard
+              className="w-full"
+              printNotice={cardViewOnlyLabel}
             >
-              <Download className="h-4 w-4" /> {cardDownloadLabel}
-            </a>
+              <Image
+                src={cardUrl}
+                alt={cardAlt}
+                width={760}
+                height={1064}
+                className="max-h-[65vh] w-auto max-w-full rounded-2xl object-contain shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] sm:max-h-[75vh] lg:max-h-[calc(100vh-10rem)]"
+                unoptimized
+                priority
+              />
+            </ProtectedCard>
           </div>
         ) : (
           /* Neither photo nor card. A quiet mark, never operator copy: a guest

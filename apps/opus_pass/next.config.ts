@@ -81,6 +81,43 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
     ],
   },
+  // First response headers this app has ever set. Added for card protection,
+  // and scoped narrowly for that reason: a broad CSP on an app with Clerk,
+  // Supabase, Sonner and next/image would be a large behavioural change
+  // smuggled in beside a small one, and would fail in production rather than
+  // in review.
+  async headers() {
+    return [
+      {
+        // Card artwork. The route itself already sets Cache-Control and CORP
+        // per response; these are the ones that make sense as policy rather
+        // than as a property of the bytes.
+        source: '/api/card-art/:path*',
+        headers: [
+          // Stops the artwork being framed into another site and presented as
+          // that site's own catalogue.
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "default-src 'none'; frame-ancestors 'none'; sandbox" },
+          // Card SVGs are served as image/svg+xml. An SVG opened as a TOP-LEVEL
+          // document executes its own script in this origin, so `sandbox`
+          // above is load-bearing, not decoration.
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+      {
+        // The guest's personalised card PNG.
+        source: '/invite-card/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // Deliberately NOT Cross-Origin-Resource-Policy: same-origin here.
+          // Meta's servers fetch this URL cross-origin when a WhatsApp template
+          // goes out, and refusing them would break invitation delivery
+          // outright. See invite-card/[token]/route.ts.
+        ],
+      },
+    ]
+  },
   async redirects() {
     return [
       // The guests landing page was renamed /guests -> /guests-and-rsvp.

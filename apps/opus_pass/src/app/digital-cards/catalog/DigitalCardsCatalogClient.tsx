@@ -566,7 +566,15 @@ export function ProductCard({
         href={`/digital-cards/p/${product.id}`}
         className="relative block aspect-[5/7] overflow-hidden rounded-sm bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06),0_8px_16px_-8px_rgba(0,0,0,0.12)] transition-[transform,box-shadow] duration-300 ease-out group-hover:-translate-y-1 group-hover:shadow-[0_4px_8px_rgba(0,0,0,0.06),0_18px_32px_-12px_rgba(0,0,0,0.18)]"
       >
-        <span className="absolute inset-0">
+        {/* op-protected: makes the artwork non-selectable, non-draggable and
+            pointer-transparent (globals.css). pointer-events:none on the image
+            is what lets the tile stay a working link while a right-click lands
+            on the anchor rather than on the picture. */}
+        <span
+          className="op-protected absolute inset-0"
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+        >
           {/* The Image below is deliberately NOT `unoptimized`: next.config already
               disables the optimizer in dev (where it intermittently 504s), so that
               prop only ever took effect in production — shipping the raw upload with
