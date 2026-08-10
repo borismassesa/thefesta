@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Search } from 'lucide-react'
 import WorkforceHeading from '../../_components/PageHeading'
 import { getCallerPermissions, requirePermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
@@ -12,7 +13,9 @@ function param(value: string | string[] | undefined) { return Array.isArray(valu
 
 const FIELD =
   'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6]'
-const LABEL = 'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500'
+/** The secondary filters: same control, quieter, so the search field leads. */
+const NARROW =
+  'w-full rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-1.5 text-[13px] text-gray-700 outline-none focus:border-[#7E5896] focus:bg-white focus:ring-2 focus:ring-[#F0DFF6]'
 
 const STAGES = ['submitted', 'screening', 'assessment', 'interview', 'final_interview', 'reference_check', 'offer', 'hired', 'rejected', 'withdrawn']
 
@@ -53,17 +56,42 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
     <>
       <WorkforceHeading title="Candidate search" subtitle="Search name, contacts, skills, employer, role, reference, job, location, tags, pools, source and stage within your hiring scope." />
 
-      <form className={`${PANEL} p-5`}>
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <label className="block xl:col-span-2">
-            <span className={LABEL}>Search everything</span>
-            <input name="q" defaultValue={q} placeholder="Name, email, phone, employer…" className={FIELD} />
-          </label>
-          <label className="block"><span className={LABEL}>Skill</span><input name="skill" defaultValue={skill} className={FIELD} /></label>
-          <label className="block"><span className={LABEL}>Location</span><input name="location" defaultValue={location} className={FIELD} /></label>
-          <label className="block">
-            <span className={LABEL}>Status</span>
-            <select name="status" defaultValue={status} className={FIELD}>
+      {/*
+        One search, five narrowers.
+
+        The previous version gave all six equal weight in a six-column grid with
+        two of them spanning two columns, so the last field wrapped alone and
+        left half a row empty, under six shouty uppercase labels. A filter bar
+        is not a data-entry form: the labels are screen-reader only here because
+        each control already says what it is, in its placeholder or its first
+        option. (Contrast the workforce plan form, where the fields carry
+        default VALUES and genuinely cannot be read without a label.)
+      */}
+      <form className={`${PANEL} p-4`}>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+            <label htmlFor="candidate-q" className="sr-only">Search everything</label>
+            <input
+              id="candidate-q"
+              name="q"
+              defaultValue={q}
+              placeholder="Search name, email, phone, employer, job, tag or reference"
+              className={`${FIELD} pl-9`}
+            />
+          </div>
+          <button className="shrink-0 rounded-lg bg-[#7E5896] px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90">
+            Search
+          </button>
+        </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-5">
+          <label className="block"><span className="sr-only">Skill</span>
+            <input name="skill" defaultValue={skill} placeholder="Skill" className={NARROW} /></label>
+          <label className="block"><span className="sr-only">Location</span>
+            <input name="location" defaultValue={location} placeholder="Location" className={NARROW} /></label>
+          <label className="block"><span className="sr-only">Status</span>
+            <select name="status" defaultValue={status} className={NARROW}>
               <option value="">All statuses</option>
               <option value="active">Active</option>
               <option value="talent_pool">Talent pool</option>
@@ -71,24 +99,14 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
               <option value="do_not_contact">Do not contact</option>
             </select>
           </label>
-          <label className="block"><span className={LABEL}>Source</span><input name="source" defaultValue={source} className={FIELD} /></label>
-          <label className="block xl:col-span-2">
-            <span className={LABEL}>Stage</span>
-            <select name="stage" defaultValue={stage} className={FIELD}>
+          <label className="block"><span className="sr-only">Source</span>
+            <input name="source" defaultValue={source} placeholder="Source" className={NARROW} /></label>
+          <label className="block"><span className="sr-only">Stage</span>
+            <select name="stage" defaultValue={stage} className={NARROW}>
               <option value="">All stages</option>
               {STAGES.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}
             </select>
           </label>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-          {hasSearch && (
-            <Link href="/workforce/recruitment/candidates" className="rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-50 hover:text-gray-800">
-              Clear filters
-            </Link>
-          )}
-          <button className="rounded-lg bg-[#7E5896] px-5 py-2 text-xs font-semibold text-white transition hover:opacity-90">
-            Search candidates
-          </button>
         </div>
       </form>
 
@@ -98,13 +116,22 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-gray-500">
             {filtered.length} {filtered.length === 1 ? 'candidate' : 'candidates'}
+            {hasSearch && ' matching'}
             {filtered.length > 0 && ' · select up to four to compare'}
           </p>
-          {filtered.length > 0 && (
-            <button className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50">
-              Compare selected
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Next to the result count, which is the thing it changes. */}
+            {hasSearch && (
+              <Link href="/workforce/recruitment/candidates" className="rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-50 hover:text-gray-800">
+                Clear filters
+              </Link>
+            )}
+            {filtered.length > 0 && (
+              <button className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50">
+                Compare selected
+              </button>
+            )}
+          </div>
         </div>
 
         {filtered.length === 0 ? (
@@ -192,19 +219,28 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
       )}
 
       {permissions.has('workforce.candidates.merge') && (
-        // Rose, not amber: merging is destructive and irreversible, and rose is
-        // this module's colour for that. The panel used Tailwind amber with a
-        // brown button, which matched nothing else in the product.
-        <section className="mt-5 rounded-2xl border border-[#E89AAE] bg-[#F5DCE2]/40 p-5">
-          <h2 className="text-sm font-bold text-[#A84F66]">Duplicate review</h2>
-          <p className="mt-1 text-xs text-[#A84F66]">
-            Merges are never automatic. Every one is reviewed by a person and recorded with a reason.
-          </p>
+        // A white panel with rose only on the heading and the button, rather
+        // than a full pink wash. This tool is idle most of the time, and on an
+        // empty page the wash made the most destructive thing here also the
+        // loudest. Collapsed unless there is something waiting.
+        <details open={(duplicates.data ?? []).length > 0} className={`${PANEL} mt-5 group`}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+            <span>
+              <span className="text-sm font-bold text-[#A84F66]">Duplicate review</span>
+              <span className="mt-0.5 block text-xs text-gray-500">
+                Merges are never automatic. Every one is reviewed by a person and recorded with a reason.
+              </span>
+            </span>
+            <span className="shrink-0 rounded-full bg-[#F5DCE2] px-2 py-0.5 text-[11px] font-semibold text-[#A84F66]">
+              {(duplicates.data ?? []).length} waiting
+            </span>
+          </summary>
 
+          <div className="border-t border-gray-100 p-5">
           {(duplicates.data ?? []).length > 0 && (
-            <div className="mt-4 space-y-2">
+            <div className="space-y-2">
               {(duplicates.data ?? []).map((match) => (
-                <div key={match.id} className="rounded-xl border border-gray-100 bg-white p-3">
+                <div key={match.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
                   <p className="text-sm font-semibold text-gray-900">
                     {nameMap.get(match.candidate_id)} ↔ {nameMap.get(match.possible_duplicate_id)}
                   </p>
@@ -224,8 +260,9 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
             </div>
           )}
 
-          <CandidateMergeForm candidates={filtered.map(({ id, full_name, primary_email }) => ({ id, full_name, primary_email }))} />
-        </section>
+            <CandidateMergeForm candidates={filtered.map(({ id, full_name, primary_email }) => ({ id, full_name, primary_email }))} />
+          </div>
+        </details>
       )}
     </>
   )
