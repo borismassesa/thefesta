@@ -6,6 +6,15 @@ import { requireRecruitmentAccess } from '@/lib/recruitment-auth'
 import { addRequisitionComment, decideRequisitionStep, publishApprovedRequisition, submitRequisition, updateRequisition } from '../actions'
 import { canSubmitRequisition, isSubmittableStatus, requisitionSubmitBlockers } from '@/lib/recruitment-requisition-submit'
 
+// Brand palette, per apps/vendors_portal/src/lib/brand-palette.ts. Lavender for
+// primary actions and focus, rose for the blockers and the two negative
+// decisions, sage for approve and publish — publishing is exactly the state the
+// Emerald Principle reserves that family for.
+const FIELD =
+  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6]'
+const LABEL = 'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500'
+const HINT = 'mt-1 block text-[11px] text-gray-400'
+
 type Requisition = {
   id: string
   requisition_number: string
@@ -83,16 +92,16 @@ export default async function RequisitionDetailPage({ params }: { params: Promis
           <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div><p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Current state</p><p className="mt-1 text-lg font-semibold capitalize text-gray-950">{requisition.status.replaceAll('_', ' ')}</p></div>
-              {canSubmit && readyToSubmit && <form action={submitAction}><button className="rounded-xl bg-[#5B2D8E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#492270]">Submit for approval</button></form>}
+              {canSubmit && readyToSubmit && <form action={submitAction}><button className="rounded-xl bg-[#7E5896] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">Submit for approval</button></form>}
             </div>
             {canSubmit && isSubmittable && submitBlockers.length > 0 && (
-              <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <h2 className="text-sm font-semibold text-amber-950">Finish this draft before submitting</h2>
-                <p className="mt-1 text-sm text-amber-900">Approvers need ownership and an agreed budget to make a decision.</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">
+              <section className="mt-4 rounded-xl border border-[#E89AAE] bg-[#F5DCE2]/40 p-4">
+                <h2 className="text-sm font-semibold text-[#A84F66]">Finish this draft before submitting</h2>
+                <p className="mt-1 text-sm text-[#A84F66]">Approvers need ownership and an agreed budget to make a decision.</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[#A84F66]">
                   {submitBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
                 </ul>
-                <p className="mt-2 text-sm text-amber-900">Use <span className="font-semibold">Revise draft</span> below, then submit.</p>
+                <p className="mt-2 text-sm text-[#A84F66]">Use <span className="font-semibold">Revise draft</span> below, then submit.</p>
               </section>
             )}
             <dl className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -105,7 +114,61 @@ export default async function RequisitionDetailPage({ params }: { params: Promis
             </dl>
           </section>
 
-          {canSubmit && ['draft', 'changes_requested'].includes(requisition.status) && <section className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] p-6"><h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Revise draft</h2><form action={updateRequisition.bind(null, id)} className="mt-4 grid gap-3 sm:grid-cols-2"><input name="title" required defaultValue={requisition.title} className="rounded-lg border px-3 py-2 text-sm" /><input name="department" required defaultValue={requisition.department} className="rounded-lg border px-3 py-2 text-sm" /><input name="brand" defaultValue={requisition.brand} className="rounded-lg border px-3 py-2 text-sm" /><input name="location" required defaultValue={requisition.location} className="rounded-lg border px-3 py-2 text-sm" /><select name="employment_type" defaultValue={requisition.employment_type} className="rounded-lg border px-3 py-2 text-sm"><option>Permanent</option><option>Contract</option><option>Probation</option><option>Intern</option></select><select name="workplace_type" defaultValue={requisition.workplace_type} className="rounded-lg border px-3 py-2 text-sm"><option>On-site</option><option>Hybrid</option><option>Remote</option><option>Field-based</option></select><select name="requisition_type" defaultValue={requisition.requisition_type} className="rounded-lg border px-3 py-2 text-sm"><option value="new_headcount">New headcount</option><option value="replacement">Replacement</option><option value="temporary_coverage">Temporary coverage</option><option value="internship">Internship</option><option value="contractor">Contractor</option><option value="seasonal">Seasonal</option><option value="project_based">Project based</option><option value="confidential_replacement">Confidential replacement</option></select><input name="headcount" type="number" min="1" required defaultValue={requisition.headcount} className="rounded-lg border px-3 py-2 text-sm" /><select name="hiring_manager_employee_id" defaultValue={requisition.hiring_manager_employee_id ?? ''} className="rounded-lg border px-3 py-2 text-sm"><option value="">Hiring manager</option>{(employeesResult.data ?? []).map((employee) => <option key={employee.id} value={employee.id}>{employee.full_name} · {employee.job_title}</option>)}</select><select name="recruiter_employee_id" defaultValue={requisition.recruiter_employee_id ?? ''} className="rounded-lg border px-3 py-2 text-sm"><option value="">Recruiter / People Ops</option>{(employeesResult.data ?? []).map((employee) => <option key={employee.id} value={employee.id}>{employee.full_name} · {employee.job_title}</option>)}</select><textarea name="reason" required minLength={20} defaultValue={requisition.reason} className="rounded-lg border px-3 py-2 text-sm sm:col-span-2" /><textarea name="responsibilities" defaultValue={requisition.responsibilities.join('\n')} className="rounded-lg border px-3 py-2 text-sm" /><textarea name="requirements" defaultValue={requisition.requirements.join('\n')} className="rounded-lg border px-3 py-2 text-sm" /><textarea name="preferred_qualifications" defaultValue={requisition.preferred_qualifications.join('\n')} className="rounded-lg border px-3 py-2 text-sm sm:col-span-2" /><input name="salary_min_tzs" type="number" min="0" defaultValue={requisition.salary_min_tzs ?? ''} placeholder="Salary minimum TZS" className="rounded-lg border px-3 py-2 text-sm" /><input name="salary_max_tzs" type="number" min="0" defaultValue={requisition.salary_max_tzs ?? ''} placeholder="Salary maximum TZS" className="rounded-lg border px-3 py-2 text-sm" /><input name="target_start_date" type="date" defaultValue={requisition.target_start_date ?? ''} className="rounded-lg border px-3 py-2 text-sm" /><input name="target_fill_date" type="date" defaultValue={requisition.target_fill_date ?? ''} className="rounded-lg border px-3 py-2 text-sm" /><label className="flex items-center gap-2 text-sm"><input name="budget_confirmed" type="checkbox" defaultChecked={requisition.budget_confirmed} /> Budget confirmed</label><button className="rounded-lg bg-[#5B2D8E] px-4 py-2 text-xs font-semibold text-white">Save revised draft</button></form></section>}
+          {canSubmit && ['draft', 'changes_requested'].includes(requisition.status) && (
+            <section className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] p-6">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Revise draft</h2>
+              {/* Every control is labelled. The form is a draft being edited, so
+                  each field arrives already holding a value, and a value with no
+                  label is unreadable: the first four boxes previously showed
+                  "Social Media Coordinator", "Brand, Content & Social",
+                  "OpusFesta" and an address, with nothing saying which was the
+                  title, the department, the brand or the location. */}
+              <form action={updateRequisition.bind(null, id)} className="mt-4 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block"><span className={LABEL}>Job title</span><input name="title" required defaultValue={requisition.title} className={FIELD} /></label>
+                  <label className="block"><span className={LABEL}>Department</span><input name="department" required defaultValue={requisition.department} className={FIELD} /></label>
+                  <label className="block"><span className={LABEL}>Brand</span><input name="brand" defaultValue={requisition.brand} className={FIELD} /></label>
+                  <label className="block"><span className={LABEL}>Location</span><input name="location" required defaultValue={requisition.location} className={FIELD} /></label>
+                  <label className="block"><span className={LABEL}>Employment type</span>
+                    <select name="employment_type" defaultValue={requisition.employment_type} className={FIELD}><option>Permanent</option><option>Contract</option><option>Probation</option><option>Intern</option></select>
+                  </label>
+                  <label className="block"><span className={LABEL}>Workplace</span>
+                    <select name="workplace_type" defaultValue={requisition.workplace_type} className={FIELD}><option>On-site</option><option>Hybrid</option><option>Remote</option><option>Field-based</option></select>
+                  </label>
+                  <label className="block"><span className={LABEL}>Request type</span>
+                    <select name="requisition_type" defaultValue={requisition.requisition_type} className={FIELD}><option value="new_headcount">New headcount</option><option value="replacement">Replacement</option><option value="temporary_coverage">Temporary coverage</option><option value="internship">Internship</option><option value="contractor">Contractor</option><option value="seasonal">Seasonal</option><option value="project_based">Project based</option><option value="confidential_replacement">Confidential replacement</option></select>
+                  </label>
+                  <label className="block"><span className={LABEL}>Openings</span><input name="headcount" type="number" min="1" required defaultValue={requisition.headcount} className={FIELD} /></label>
+                  <label className="block"><span className={LABEL}>Hiring manager</span>
+                    <select name="hiring_manager_employee_id" defaultValue={requisition.hiring_manager_employee_id ?? ''} className={FIELD}><option value="">Not assigned</option>{(employeesResult.data ?? []).map((employee) => <option key={employee.id} value={employee.id}>{employee.full_name} · {employee.job_title}</option>)}</select>
+                  </label>
+                  <label className="block"><span className={LABEL}>Recruiter / People Ops</span>
+                    <select name="recruiter_employee_id" defaultValue={requisition.recruiter_employee_id ?? ''} className={FIELD}><option value="">Not assigned</option>{(employeesResult.data ?? []).map((employee) => <option key={employee.id} value={employee.id}>{employee.full_name} · {employee.job_title}</option>)}</select>
+                  </label>
+                </div>
+
+                <label className="block"><span className={LABEL}>Business justification</span><textarea name="reason" required minLength={20} rows={4} defaultValue={requisition.reason} className={FIELD} /></label>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block"><span className={LABEL}>Responsibilities</span><textarea name="responsibilities" rows={5} defaultValue={requisition.responsibilities.join('\n')} className={FIELD} /><span className={HINT}>One per line</span></label>
+                  <label className="block"><span className={LABEL}>Requirements</span><textarea name="requirements" rows={5} defaultValue={requisition.requirements.join('\n')} className={FIELD} /><span className={HINT}>One per line</span></label>
+                </div>
+                <label className="block"><span className={LABEL}>Preferred qualifications</span><textarea name="preferred_qualifications" rows={4} defaultValue={requisition.preferred_qualifications.join('\n')} className={FIELD} /><span className={HINT}>One per line</span></label>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <label className="block"><span className={LABEL}>Salary minimum (TZS)</span><input name="salary_min_tzs" type="number" min="0" defaultValue={requisition.salary_min_tzs ?? ''} className={FIELD} /></label>
+                  <label className="block"><span className={LABEL}>Salary maximum (TZS)</span><input name="salary_max_tzs" type="number" min="0" defaultValue={requisition.salary_max_tzs ?? ''} className={FIELD} /></label>
+                  <label className="block"><span className={LABEL}>Target start date</span><input name="target_start_date" type="date" defaultValue={requisition.target_start_date ?? ''} className={FIELD} /></label>
+                  <label className="block"><span className={LABEL}>Target fill date</span><input name="target_fill_date" type="date" defaultValue={requisition.target_fill_date ?? ''} className={FIELD} /></label>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-700"><input name="budget_confirmed" type="checkbox" defaultChecked={requisition.budget_confirmed} className="h-4 w-4 accent-[#7E5896]" /> Budget confirmed</label>
+                  <button className="rounded-lg bg-[#7E5896] px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90">Save revised draft</button>
+                </div>
+              </form>
+            </section>
+          )}
 
           <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Business justification</h2>
@@ -117,7 +180,7 @@ export default async function RequisitionDetailPage({ params }: { params: Promis
 
           <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Internal comments</h2>
-            <form action={commentAction} className="relative mt-4 flex gap-2"><label className="sr-only" htmlFor="requisition-comment">Add internal comment</label><textarea id="requisition-comment" name="body" required rows={2} className="min-h-12 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#E8D4F1]" placeholder="Add context for approvers…" /><button className="self-end rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50">Comment</button></form>
+            <form action={commentAction} className="relative mt-4 flex gap-2"><label className="sr-only" htmlFor="requisition-comment">Add internal comment</label><textarea id="requisition-comment" name="body" required rows={2} className="min-h-12 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6]" placeholder="Add context for approvers…" /><button className="self-end rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50">Comment</button></form>
             <div className="mt-5 divide-y divide-gray-100">{(commentsResult.data ?? []).map((comment) => { const employee = Array.isArray(comment.workforce_employees) ? comment.workforce_employees[0] : comment.workforce_employees; return <article key={comment.id} className="py-4"><div className="flex justify-between gap-3 text-xs text-gray-400"><span className="font-semibold text-gray-600">{employee?.full_name ?? 'Team member'}</span><time>{new Date(comment.created_at).toLocaleString('en-TZ')}</time></div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">{comment.body}</p></article> })}{commentsResult.data?.length === 0 && <p className="py-5 text-sm text-gray-400">No comments yet.</p>}</div>
           </section>
         </div>
@@ -127,8 +190,8 @@ export default async function RequisitionDetailPage({ params }: { params: Promis
             <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Approval route</h2>
             <ol className="mt-4 space-y-3">{(approvalsResult.data ?? []).map((step) => <li key={step.id} className="rounded-xl bg-gray-50 p-3"><div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold capitalize text-gray-800">{step.sequence}. {step.approver_role?.replaceAll('_', ' ')}</span><span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold capitalize text-gray-600">{step.status.replaceAll('_', ' ')}</span></div>{step.decision_note && <p className="mt-2 text-xs leading-5 text-gray-500">{step.decision_note}</p>}</li>)}{approvalsResult.data?.length === 0 && <li className="text-sm text-gray-400">Approval steps are generated on submission.</li>}</ol>
           </section>
-          {canDecide && pendingStep && <section className="rounded-2xl border border-[#E8D4F1] bg-[#FBF7FD] p-5 shadow-sm"><h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Your approval decision</h2><p className="mt-1 text-sm capitalize text-gray-500">Current step: {pendingStep.approver_role?.replaceAll('_', ' ')}</p><form action={decideRequisitionStep.bind(null, id, 'approved')} className="mt-4"><label className="block text-sm font-semibold text-gray-700">Decision note<textarea name="note" rows={3} className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#E8D4F1]" placeholder="Required for rejection or requested changes" /></label><div className="mt-3 grid grid-cols-3 gap-2"><button className="w-full rounded-lg bg-emerald-600 px-2 py-2 text-xs font-semibold text-white hover:bg-emerald-700">Approve</button><button formAction={decideRequisitionStep.bind(null, id, 'changes_requested')} className="w-full rounded-lg bg-amber-100 px-2 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-200">Changes</button><button formAction={decideRequisitionStep.bind(null, id, 'rejected')} className="w-full rounded-lg bg-rose-100 px-2 py-2 text-xs font-semibold text-rose-900 hover:bg-rose-200">Reject</button></div></form></section>}
-          {canPublish && <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm"><h2 className="text-base font-semibold text-emerald-950">Publish approved role</h2><p className="mt-1 text-sm text-emerald-800">This atomically creates the public job, canonical posting and requisition openings.</p><form action={publishApprovedRequisition.bind(null, id)} className="mt-4 space-y-3"><label className="block text-sm font-semibold text-emerald-950">Public slug<input name="slug" required defaultValue={defaultSlug} className="mt-1 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" /></label><label className="block text-sm font-semibold text-emerald-950">Visibility<select name="visibility" className="mt-1 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm"><option value="public">Public</option><option value="internal">Internal only</option><option value="unlisted">Unlisted</option></select></label><button className="w-full rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Publish job</button></form></section>}
+          {canDecide && pendingStep && <section className="rounded-2xl border border-[#F0DFF6] bg-[#FCF7FF] p-5 shadow-sm"><h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Your approval decision</h2><p className="mt-1 text-sm capitalize text-gray-500">Current step: {pendingStep.approver_role?.replaceAll('_', ' ')}</p><form action={decideRequisitionStep.bind(null, id, 'approved')} className="mt-4"><label className="block text-sm font-semibold text-gray-700">Decision note<textarea name="note" rows={3} className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6]" placeholder="Required for rejection or requested changes" /></label><div className="mt-3 grid grid-cols-3 gap-2"><button className="w-full rounded-lg bg-[#3F8B5C] px-2 py-2 text-xs font-semibold text-white transition hover:opacity-90">Approve</button><button formAction={decideRequisitionStep.bind(null, id, 'changes_requested')} className="w-full rounded-lg border border-[#E89AAE] bg-white px-2 py-2 text-xs font-semibold text-[#A84F66] transition hover:bg-[#F5DCE2]">Changes</button><button formAction={decideRequisitionStep.bind(null, id, 'rejected')} className="w-full rounded-lg bg-[#A84F66] px-2 py-2 text-xs font-semibold text-white transition hover:opacity-90">Reject</button></div></form></section>}
+          {canPublish && <section className="rounded-2xl border border-[#9FE870] bg-[#E8FBDB] p-5 shadow-sm"><h2 className="text-base font-semibold text-[#2F6844]">Publish approved role</h2><p className="mt-1 text-sm text-[#2F6844]">This atomically creates the public job, canonical posting and requisition openings.</p><form action={publishApprovedRequisition.bind(null, id)} className="mt-4 space-y-3"><label className="block text-sm font-semibold text-[#2F6844]">Public slug<input name="slug" required defaultValue={defaultSlug} className="mt-1 w-full rounded-xl border border-[#9FE870] bg-white px-3 py-2 text-sm outline-none focus:border-[#3F8B5C] focus:ring-2 focus:ring-[#E8FBDB]" /></label><label className="block text-sm font-semibold text-[#2F6844]">Visibility<select name="visibility" className="mt-1 w-full rounded-xl border border-[#9FE870] bg-white px-3 py-2 text-sm"><option value="public">Public</option><option value="internal">Internal only</option><option value="unlisted">Unlisted</option></select></label><button className="w-full rounded-xl bg-[#3F8B5C] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">Publish job</button></form></section>}
           <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"><h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Record integrity</h2><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between"><dt className="text-gray-500">Version</dt><dd className="font-semibold text-gray-800">{requisition.version}</dd></div><div className="flex justify-between"><dt className="text-gray-500">Created</dt><dd className="font-semibold text-gray-800">{new Date(requisition.created_at).toLocaleDateString('en-TZ')}</dd></div></dl></section>
         </aside>
       </div>
