@@ -19,6 +19,7 @@ export default function CollectionPage({
   rows,
   emptyMessage,
   action,
+  filters,
   columns = ['Item', 'Status', 'Details'],
 }: {
   title: string
@@ -26,12 +27,15 @@ export default function CollectionPage({
   rows: RecruitmentCollectionRow[]
   emptyMessage: string
   action?: { href: string; label: string }
+  /** Scope switches for the list, between the heading and the table. */
+  filters?: React.ReactNode
   /** Header labels for the three data columns, left to right. */
   columns?: [string, string, string]
 }) {
   return (
     <>
       <WorkforceHeading title={title} subtitle={subtitle} />
+      {filters}
       {action && (
         <div className="flex justify-end">
           <Link
