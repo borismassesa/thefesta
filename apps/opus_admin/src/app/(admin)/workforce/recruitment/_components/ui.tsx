@@ -136,6 +136,11 @@ export function Panel({
  * The Approvals stat tile: tinted gradient, accent-coloured label, and an arrow
  * that says the number is a filter you can open. Recruitment navigates by URL
  * rather than tab state, so this is a Link where Approvals uses a button.
+ *
+ * `href` is optional. A reported metric is often just a number — "median time
+ * to hire" has nowhere to drill into — and a tile that looks clickable but is
+ * not is worse than one that plainly is not. Without it the tile renders as a
+ * div and drops the arrow, keeping the gradient and the weight.
  */
 export function StatTile({
   label,
@@ -151,31 +156,32 @@ export function StatTile({
   hint?: string
   accent: string
   tint: string
-  href: string
+  href?: string
   emphasis?: boolean
 }) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        'group rounded-2xl border px-4 py-3 text-left transition hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7E5896]',
-        emphasis ? 'border-transparent' : 'border-gray-100',
-      )}
-      style={{
-        background: `linear-gradient(150deg, ${tint} 0%, #FFFFFF 70%)`,
-        ...(emphasis ? { boxShadow: `inset 0 0 0 2px ${accent}33` } : {}),
-      }}
-    >
+  const className = cn(
+    'rounded-2xl border px-4 py-3 text-left',
+    href && 'group transition hover:shadow-[0_6px_20px_-8px_rgba(0,0,0,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7E5896]',
+    emphasis ? 'border-transparent' : 'border-gray-100',
+  )
+  const style = {
+    background: `linear-gradient(150deg, ${tint} 0%, #FFFFFF 70%)`,
+    ...(emphasis ? { boxShadow: `inset 0 0 0 2px ${accent}33` } : {}),
+  }
+  const body = (
+    <>
       <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: accent }}>
         {label}
       </span>
       <span className="mt-1 flex items-baseline gap-2">
         <span className="text-2xl font-semibold text-gray-900">{value}</span>
-        <ArrowRight className="h-3.5 w-3.5 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-gray-500" />
+        {href && <ArrowRight className="h-3.5 w-3.5 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-gray-500" />}
       </span>
       {hint && <span className="mt-0.5 block truncate text-[11px] text-gray-500">{hint}</span>}
-    </Link>
+    </>
   )
+  if (!href) return <div className={className} style={style}>{body}</div>
+  return <Link href={href} className={className} style={style}>{body}</Link>
 }
 
 /** The tint/accent pairs Approvals uses for its four overview tiles. */
