@@ -2,6 +2,7 @@ import 'server-only'
 import { traceWatermarkSvg } from '@opusfesta/lib'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { parseStorageUrl } from './protected-art'
+import { renderPreviewRaster } from './preview-raster'
 
 // The storage half of card-artwork protection.
 //
@@ -10,7 +11,13 @@ import { parseStorageUrl } from './protected-art'
 // `server-only` and cannot be imported from a test or a client component.
 
 export type ArtworkFetch =
-  | { ok: true; body: Uint8Array; contentType: string }
+  | {
+      ok: true
+      body: Uint8Array
+      contentType: string
+      /** False when the original was served as-is. See PreviewResult.reason. */
+      protectedOutput: boolean
+    }
   | { ok: false; reason: 'not_storage' | 'missing' }
 
 /**
@@ -20,13 +27,18 @@ export type ArtworkFetch =
  * credential, and handing one to the browser would reintroduce exactly the leak
  * this module set closes. The bytes go out through our own route or not at all.
  *
- * SVG is re-stamped on the way through. Rasters pass through unchanged —
- * stamping them needs an image-processing dependency this app does not carry
- * (`sharp` is not a declared dependency of opus_pass, and adding a native one
- * risks the Linux-binary stripping that has broken Vercel builds here before).
- * Shipping a half-applied mark would be worse than an honest gap, because it
- * would read as covered when it is not. The vector is the valuable artefact and
- * it IS covered.
+ * Two shapes come out of it:
+ *
+ *   SVG    — stamped with the trace code and served as a vector. NOT rasterised:
+ *            doing that correctly needs the artwork's fonts pinned through the
+ *            card font library, and an unpinned face renders BLANK rather than
+ *            wrong, so a card would silently lose its typography. That is the
+ *            guest-card pipeline's job, not this route's.
+ *   raster — downscaled to preview width and stamped (see preview-raster.ts).
+ *            This is the path every live catalogue product actually takes.
+ *
+ * `protectedOutput` reports which happened, so a caller can tell "protected" from
+ * "served the original because something was unavailable" instead of assuming.
  */
 export async function fetchProtectedArtwork(
   sourceUrl: string,
@@ -46,10 +58,16 @@ export async function fetchProtectedArtwork(
     location.path.toLowerCase().endsWith('.svg') || data.type === 'image/svg+xml'
 
   if (!isSvg) {
+    const preview = await renderPreviewRaster(
+      new Uint8Array(await data.arrayBuffer()),
+      data.type || 'application/octet-stream',
+      traceWith,
+    )
     return {
       ok: true,
-      body: new Uint8Array(await data.arrayBuffer()),
-      contentType: data.type || 'application/octet-stream',
+      body: preview.body,
+      contentType: preview.contentType,
+      protectedOutput: preview.protected,
     }
   }
 
@@ -58,5 +76,6 @@ export async function fetchProtectedArtwork(
     ok: true,
     body: new TextEncoder().encode(stamped),
     contentType: 'image/svg+xml',
+    protectedOutput: true,
   }
 }

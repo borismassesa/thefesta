@@ -6,6 +6,7 @@ import {
   hasTraceWatermark,
   readTraceWatermark,
   traceCode,
+  traceDotOverlaySvg,
   traceWatermarkSvg,
 } from './card-protection'
 
@@ -101,4 +102,46 @@ test('preview width cannot reach print resolution', () => {
   // the whole protection is decorative.
   assert.ok(PREVIEW_WIDTH_PX < 1500 / 2)
   assert.ok(OWNER_WIDTH_PX >= 1500)
+})
+
+test('the dot overlay is deterministic for a code', () => {
+  assert.equal(traceDotOverlaySvg('ABCD1234', 640, 896), traceDotOverlaySvg('ABCD1234', 640, 896))
+})
+
+test('the dot overlay differs between codes', () => {
+  assert.notEqual(traceDotOverlaySvg('ABCD1234', 640, 896), traceDotOverlaySvg('BBCD1234', 640, 896))
+})
+
+test('the dot overlay uses no text, so a fontless host still stamps', () => {
+  // The whole reason this exists next to traceWatermarkSvg. A <text> element on
+  // a serverless box with no fontconfig draws nothing, silently.
+  const svg = traceDotOverlaySvg(traceCode(DIGEST), 640, 896)
+  assert.ok(!svg.includes('<text'))
+  assert.ok(!svg.includes('font-family'))
+  assert.match(svg, /<rect /)
+})
+
+test('the dot overlay stays faint in both passes', () => {
+  const svg = traceDotOverlaySvg('ABCD1234', 640, 896)
+  const opacities = (svg.match(/fill-opacity="([\d.]+)"/g) ?? []).map((m) =>
+    Number(m.match(/[\d.]+/)![0]),
+  )
+  assert.ok(opacities.length >= 2, 'expected a dark pass and a light pass')
+  for (const o of opacities) assert.ok(o <= 0.06, `overlay opacity ${o} is visible`)
+})
+
+test('the dot overlay carries a full-column marker for orientation', () => {
+  // Five dots at x="0" per pass — no character index is 31, so a full column
+  // cannot be mistaken for data. Ten in total because the block is drawn twice,
+  // once dark and once light, so the mark lands on pale and dark artwork alike.
+  const svg = traceDotOverlaySvg('ABCD1234', 640, 896)
+  const markers = (svg.match(/<rect x="0" y="\d+"/g) ?? []).length
+  assert.equal(markers, 10)
+})
+
+test('the dot overlay survives a small preview without sub-pixel dots', () => {
+  const svg = traceDotOverlaySvg('ABCD1234', 120, 168)
+  for (const m of svg.match(/width="([\d.]+)" height="([\d.]+)"\/>/g) ?? []) {
+    assert.ok(Number(m.match(/[\d.]+/)![0]) >= 1, 'dot collapsed below one pixel')
+  }
 })

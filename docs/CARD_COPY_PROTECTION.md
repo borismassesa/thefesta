@@ -71,12 +71,48 @@ missing. A missing variable must cost the pictures on a page, never the page, an
 never the artwork it was meant to protect. Outside production a non-secret
 constant is used so a developer needs no configuration at all.
 
-### 4. Per-viewer trace stamp (SVG only — see gaps)
+### 4. Previews are downscaled and stamped
 
-`packages/lib/card-protection.ts`. A tiled, ~3%-opacity code derived by keyed
-HMAC from the viewer, stamped across the artwork. Invisible in normal viewing; a
-levels adjustment in any image editor pulls it out, so a leaked file names the
-session it was served to. `readTraceWatermark()` is the forensic half.
+`lib/cards/preview-raster.ts`. Raster artwork is resized to `PREVIEW_WIDTH_PX`
+(640) and composited with the viewer's trace mark in one pass. Measured on the
+live catalogue: a 1.57 MB PNG becomes an 87 KB WebP at 640x853 — **128 DPI at
+5x7in**, against the 300 DPI a press needs. A perfect capture is no longer
+printable.
+
+The mark is a tiled dot grid (`traceDotOverlaySvg`), one column per character of
+the code plus a full-column orientation marker, drawn twice at ~4.5% opacity —
+once dark, once light — so it lands on pale and dark artwork alike. Verified to
+alter 2.8% of pixels.
+
+**It is drawn with rectangles, never text.** A `<text>` element on a serverless
+host with no fontconfig renders *nothing*, silently: the stamp would be missing
+exactly where it matters and nobody would find out until a leak could not be
+traced.
+
+SVG artwork takes the other path — stamped with `traceWatermarkSvg` and served
+as a vector. It is deliberately not rasterised: doing that correctly needs the
+artwork's fonts pinned through the card font library, and an unpinned face
+renders blank rather than wrong, so a card would silently lose its typography.
+
+#### A dead end, recorded so it is not retried
+
+The obvious way to avoid a new dependency was to wrap the raster in
+`<svg><image href="data:...">` and render it with `@resvg/resvg-wasm`, which the
+app already carries. **It does not work.** This build of resvg-wasm is compiled
+without the `image` feature; an embedded raster renders to nothing, and the
+output was byte-identical to an empty document. It fails silently. resvg still
+draws SVG and text correctly — it simply cannot composite bitmaps.
+
+`sharp` is used instead. That is safe here despite this repo's history with
+platform-binary stripping: sharp is already a resolved optional dependency of
+Next, and `package-lock.json` already carries every `@img/sharp-linux*` and
+`-linuxmusl*` binary, so declaring it adds no new platform artefact. The lockfile
+was edited by hand for the same reason — `npm install --package-lock-only`
+rewrote 3341 lines and marked `apps/of_mobile` extraneous, so it was reverted.
+Vercel runs `npm install` (not `npm ci`), so the one-line entry is sufficient.
+
+It is imported dynamically and every failure returns the ORIGINAL bytes with
+`protected: false`, because artwork nobody can see protects nothing.
 
 ### 5. Browser-side deterrents
 
@@ -117,39 +153,41 @@ what makes it *true*.
 photos and other site media, and Supabase's `public` flag is per-bucket, not
 per-prefix. The correct move is a dedicated private bucket:
 
-```sql
--- 1. Create a private bucket for card artwork only.
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('card-artwork', 'card-artwork', false, 20971520,
-        array['image/png','image/webp','image/jpeg','image/svg+xml'])
-on conflict (id) do nothing;
+`parseStorageUrl` already handles any bucket, so the proxy keeps working
+unchanged once the objects move.
 
--- 2. Move the objects (storage API, not SQL) from
---    website-media/opus-pass/invitations/products/**  and
---    website-media/invitation-svgs/**
---    into card-artwork/, then repoint image_url / designs / gallery.
--- 3. Update opus_admin's upload path (lib/cms/upload-media.ts IMAGE_PREFIX).
+**A runnable script does all of it:**
+
+```bash
+node scripts/migrate-card-artwork-private.mjs --dry-run
 ```
 
-`parseStorageUrl` already handles any bucket, so the proxy keeps working
-unchanged once the objects move. Until this lands, treat the artwork as still
-exposed to anyone who has collected the URLs.
+```bash
+node scripts/migrate-card-artwork-private.mjs
+```
 
-**2. Raster artwork is not trace-stamped.**
+It creates the private bucket, copies only the two artwork prefixes (leaving the
+category marketing photos public, where they belong), repoints `image_url`,
+`back_image_url`, `designs` and `gallery`, and is safe to re-run. It deliberately
+does **not** delete the originals: verify `/digital-cards` renders from the new
+bucket first, because deleting first turns a mistake into an outage with no undo.
+Until the originals are deleted, old URLs still resolve.
 
-The stamp is applied to SVG only. In live data every one of the 12 catalogue
-heroes is a **PNG**, so today the stamp applies to nothing on the storefront.
-Stamping a raster needs image processing; `sharp` is not a declared dependency of
-opus_pass and adding a native one risks the Linux-binary stripping that has
-broken Vercel builds here before. The workable route is to composite through
-`@resvg/resvg-wasm` (already a dependency) with the mark drawn as **shapes rather
-than text**, since resvg renders with no system fonts and text would vanish.
+**2. The trace mark has no automated decoder.**
 
-**3. Previews are served at full resolution.**
+`readTraceWatermark()` reads the code back out of a leaked *SVG*. For a leaked
+raster the dot grid must be read by eye: raise the levels in any image editor and
+the grid appears; the full column marks the start, and each following column is
+one character as five bits, least-significant row first, indexed into
+`TRACE_ALPHABET`. Good enough to identify a leaker, not good enough to automate.
+A real decoder has to deal with rescaling, rotation and JPEG re-encode, and that
+work should wait until there is an actual leak to test it against.
 
-`PREVIEW_WIDTH_PX` (640) exists in `card-protection.ts` and is enforced by a test,
-but nothing downscales yet — same dependency problem as (2). Until it is wired,
-a screenshot of a card is as good as the original.
+**3. SVG artwork is still served as a vector.**
+
+Gated and stamped, but a determined viewer gets scalable artwork. Closing it
+needs the font-pinning pipeline described above. No live catalogue product
+currently uses an SVG hero, so this is latent rather than active.
 
 ## Configuration
 

@@ -141,6 +141,67 @@ export function traceWatermarkSvg(source: string, code: string): string {
 }
 
 /**
+ * The trace mark drawn with SHAPES ONLY, for compositing onto a raster.
+ *
+ * Why not reuse traceWatermarkSvg: that one uses <text>, and this overlay is
+ * rendered by whatever SVG engine the image pipeline carries. On a serverless
+ * Linux host there is frequently no fontconfig and no font file, and a <text>
+ * element then draws NOTHING — silently. The stamp would be absent exactly
+ * where it is most needed and nobody would find out until a leak could not be
+ * traced. Rectangles have no such dependency.
+ *
+ * The code is encoded as a dot grid: one column per character, five rows per
+ * column holding that character's index in TRACE_ALPHABET as five bits, plus a
+ * solid marker column so the grid can be located and oriented in a crop. The
+ * block is tiled, so cropping to a detail still carries a whole copy.
+ *
+ * Both a dark and a light pass are drawn at low opacity, half a tile apart, so
+ * the mark survives on pale artwork and dark artwork alike.
+ */
+export function traceDotOverlaySvg(code: string, width: number, height: number): string {
+  const chars = code.split('')
+  const cols = chars.length + 1
+  const rows = 5
+
+  // Sized so one tile is a comfortably small fraction of the card, and so the
+  // dots stay at least a pixel on the smallest preview we render.
+  const dot = Math.max(1, Math.round(width / 220))
+  const gap = dot * 3
+  const blockW = cols * gap
+  const blockH = rows * gap
+  const tileW = Math.max(blockW * 2, Math.round(width / 3))
+  const tileH = Math.max(blockH * 2, Math.round(height / 5))
+
+  const dots: string[] = []
+  // Marker column: all five rows filled. No character index is 31, so a full
+  // column cannot be mistaken for data.
+  for (let r = 0; r < rows; r += 1) {
+    dots.push(`<rect x="0" y="${r * gap}" width="${dot}" height="${dot}"/>`)
+  }
+  chars.forEach((char, c) => {
+    const index = Math.max(0, TRACE_ALPHABET.indexOf(char))
+    for (let r = 0; r < rows; r += 1) {
+      if ((index >> r) & 1) {
+        dots.push(
+          `<rect x="${(c + 1) * gap}" y="${r * gap}" width="${dot}" height="${dot}"/>`,
+        )
+      }
+    }
+  })
+  const block = dots.join('')
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <pattern id="op-dots" width="${tileW}" height="${tileH}" patternUnits="userSpaceOnUse">
+      <g fill="#000000" fill-opacity="0.045">${block}</g>
+      <g fill="#ffffff" fill-opacity="0.045" transform="translate(${Math.round(tileW / 2)}, ${Math.round(tileH / 2)})">${block}</g>
+    </pattern>
+  </defs>
+  <rect width="${width}" height="${height}" fill="url(#op-dots)"/>
+</svg>`
+}
+
+/**
  * True when an SVG already carries a trace stamp.
  *
  * Used to assert the public path never serves an unstamped card, rather than
