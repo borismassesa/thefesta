@@ -154,3 +154,6 @@ supabase/manual/restore_*.sql
 
 # Claude Code temporary worktrees
 .worktrees/
+
+# Generated local artifacts (recruitment guide builds, etc.)
+output/
