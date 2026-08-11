@@ -4,6 +4,14 @@
   "description": "Shared utilities and types for The Festa",
   "main": "index.ts",
   "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./styles/badges.css": "./styles/badges.css",
+    "./styles/buttons.css": "./styles/buttons.css",
+    "./styles/radius.css": "./styles/radius.css",
+    "./styles/search.css": "./styles/search.css",
+    "./styles/tables.css": "./styles/tables.css"
+  },
   "scripts": {
     "build": "../../node_modules/.bin/tsc",
     "dev": "../../node_modules/.bin/tsc --watch",
