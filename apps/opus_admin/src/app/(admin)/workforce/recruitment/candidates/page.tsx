@@ -12,10 +12,10 @@ const NONE = ['00000000-0000-0000-0000-000000000000']
 function param(value: string | string[] | undefined) { return Array.isArray(value) ? value[0] ?? '' : value ?? '' }
 
 const FIELD =
-  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6]'
+  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#F0DFF6]'
 /** The secondary filters: same control, quieter, so the search field leads. */
 const NARROW =
-  'w-full rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-1.5 text-[13px] text-gray-700 outline-none focus:border-[#7E5896] focus:bg-white focus:ring-2 focus:ring-[#F0DFF6]'
+  'w-full rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-1.5 text-[13px] text-gray-700 outline-none focus:border-[#C9A0DC] focus:bg-white focus:ring-2 focus:ring-[#F0DFF6]'
 
 const STAGES = ['submitted', 'screening', 'assessment', 'interview', 'final_interview', 'reference_check', 'offer', 'hired', 'rejected', 'withdrawn']
 
@@ -24,7 +24,7 @@ const STAGES = ['submitted', 'screening', 'assessment', 'interview', 'final_inte
  *  casing that means something, and Chip would render "iOS" as "IOS". */
 function SkillChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex w-fit items-center rounded-full bg-[#F0DFF6] px-2 py-0.5 text-[11px] font-semibold text-[#7E5896]">
+    <span className="inline-flex w-fit items-center rounded-full bg-[#F0DFF6] px-2 py-0.5 text-[11px] font-semibold text-[#5B2D8E]">
       {label}
     </span>
   )
@@ -73,6 +73,7 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
             <label htmlFor="candidate-q" className="sr-only">Search everything</label>
             <input
+              type="search"
               id="candidate-q"
               name="q"
               defaultValue={q}
@@ -80,7 +81,7 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
               className={`${FIELD} pl-9`}
             />
           </div>
-          <button className="shrink-0 rounded-lg bg-[#7E5896] px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90">
+          <button data-opus-button="control" className="opus-button opus-button--primary opus-button--medium">
             Search
           </button>
         </div>
@@ -127,7 +128,7 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
               </Link>
             )}
             {filtered.length > 0 && (
-              <button className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50">
+            <button data-opus-button="control" className="opus-button opus-button--neutral opus-button--small">
                 Compare selected
               </button>
             )}
@@ -150,7 +151,7 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
                 <article key={candidate.id} className={`${PANEL} p-5`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <Link href={`/workforce/recruitment/candidates/${candidate.id}`} className="text-sm font-semibold text-gray-900 hover:text-[#7E5896]">
+                      <Link href={`/workforce/recruitment/candidates/${candidate.id}`} className="text-sm font-semibold text-gray-900 hover:text-[#5B2D8E]">
                         {candidate.full_name}
                       </Link>
                       <p className="mt-1 truncate text-xs text-gray-500">
@@ -163,7 +164,7 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
                       value={candidate.id}
                       defaultChecked={compareIds.includes(candidate.id)}
                       aria-label={`Compare ${candidate.full_name}`}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-[#7E5896]"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[#5B2D8E]"
                     />
                   </div>
                   <p className="mt-3 text-sm text-gray-700">
@@ -189,13 +190,13 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
         <section className={`${PANEL} mt-5`}>
           <div className={TABLE_HEADER}>Candidate comparison</div>
           <div className="no-scrollbar overflow-x-auto p-5">
-            <table className="w-full min-w-[700px] text-left text-sm">
+            <table className="opus-table w-full min-w-[700px] text-left text-sm">
               <thead>
                 <tr>
                   <th className="p-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Field</th>
                   {compared.map((candidate) => (
                     <th key={candidate.id} className="p-2">
-                      <Link href={`/workforce/recruitment/candidates/${candidate.id}`} className="font-semibold text-[#7E5896] hover:underline">{candidate.full_name}</Link>
+                      <Link href={`/workforce/recruitment/candidates/${candidate.id}`} className="font-semibold text-[#5B2D8E] hover:underline">{candidate.full_name}</Link>
                     </th>
                   ))}
                 </tr>
@@ -224,7 +225,7 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
         // empty page the wash made the most destructive thing here also the
         // loudest. Collapsed unless there is something waiting.
         <details open={(duplicates.data ?? []).length > 0} className={`${PANEL} mt-5 group`}>
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+          <summary data-summary-icon className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
             <span>
               <span className="text-sm font-bold text-[#A84F66]">Duplicate review</span>
               <span className="mt-0.5 block text-xs text-gray-500">
@@ -249,10 +250,10 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <form action={reviewDuplicateMatch.bind(null, match.id, 'confirmed_duplicate')}>
-                      <button className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Confirm for merge review</button>
+                      <button data-opus-button="control" className="opus-button opus-button--neutral opus-button--small">Confirm for merge review</button>
                     </form>
                     <form action={reviewDuplicateMatch.bind(null, match.id, 'not_duplicate')}>
-                      <button className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Not a duplicate</button>
+                      <button data-opus-button="control" className="opus-button opus-button--neutral opus-button--small">Not a duplicate</button>
                     </form>
                   </div>
                 </div>

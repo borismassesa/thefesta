@@ -3,7 +3,14 @@ import WorkforceHeading from '../../_components/PageHeading';
 import { getCallerPermissions, requirePermission } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase';
 import { getApplicationRows } from '../_lib/collections';
-import { EmptyState } from '../_components/ui';
+import {
+  EmptyState,
+  PANEL,
+  ROW,
+  SECONDARY_BUTTON,
+  StatusPill,
+  TABLE_HEADER,
+} from '../_components/ui';
 import {
   bulkRejectApplications,
   cancelScheduledApplicationAction,
@@ -53,41 +60,42 @@ export default async function ApplicationsPage() {
         subtitle="Canonical records, candidate-safe states, source attribution and governed individual or batch decisions."
       />
       <form action={bulkRejectApplications}>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {rows.map((row) => (
-            <article
-              key={row.id}
-              className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"
-            >
-              <div className="flex justify-between gap-3">
-                <div>
-                  <Link
-                    href={row.href!}
-                    className="font-semibold hover:underline"
-                  >
-                    {row.title}
-                  </Link>
-                  <p className="mt-1 text-xs text-gray-500">{row.subtitle}</p>
-                </div>
-                {canReject &&
-                  !['rejected', 'withdrawn', 'hired', 'archived'].includes(
-                    row.status
-                  ) && (
-                    <input
-                      name="application_ids"
-                      value={row.id}
-                      type="checkbox"
-                      aria-label={`Select ${row.title}`}
-                    />
-                  )}
-              </div>
-              <p className="mt-3 text-sm capitalize">
-                {row.status.replaceAll('_', ' ')}
-              </p>
-              <p className="mt-1 text-xs text-gray-400">{row.detail}</p>
-            </article>
-          ))}
-        </div>
+        {rows.length > 0 && (
+          <section className={PANEL}>
+            <div className={`${TABLE_HEADER} hidden grid-cols-[minmax(0,1.4fr)_minmax(140px,.65fr)_minmax(0,1fr)_32px] gap-4 md:grid`}>
+              <span>Candidate and role</span>
+              <span>Status</span>
+              <span>Application details</span>
+              <span className="sr-only">Select</span>
+            </div>
+            {rows.map((row) => {
+              const selectable = canReject && !['rejected', 'withdrawn', 'hired', 'archived'].includes(row.status);
+              return (
+                <article key={row.id} className={`${ROW} grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(140px,.65fr)_minmax(0,1fr)_32px] md:items-center md:gap-4`}>
+                  <div className="min-w-0">
+                    <Link href={row.href!} className="text-sm font-semibold text-gray-900 hover:text-[#5B2D8E]">
+                      {row.title}
+                    </Link>
+                    <p className="mt-0.5 truncate text-xs text-gray-500">{row.subtitle}</p>
+                  </div>
+                  <StatusPill status={row.status} />
+                  <p className="text-xs text-gray-500">{row.detail}</p>
+                  <div className="flex justify-end">
+                    {selectable && (
+                      <input
+                        name="application_ids"
+                        value={row.id}
+                        type="checkbox"
+                        aria-label={`Select ${row.title}`}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        )}
         {rows.length === 0 && (
           <EmptyState
             title="No applications yet"
@@ -162,7 +170,7 @@ export default async function ApplicationsPage() {
                 placeholder="Internal decision evidence"
                 className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm"
               />
-              <button className="rounded-lg bg-rose-800 px-4 py-2 text-xs font-semibold text-white md:col-span-3">
+              <button data-opus-button="control" className="opus-button opus-button--danger opus-button--small md:col-span-3">
                 Apply governed decision to selected
               </button>
             </div>
@@ -170,7 +178,7 @@ export default async function ApplicationsPage() {
         )}
       </form>
       {(scheduled.data ?? []).length > 0 && (
-        <section className="mt-5 rounded-2xl border bg-white p-5">
+        <section className={`${PANEL} mt-5 p-5`}>
           <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Scheduled application actions</h2>
           <div className="mt-3 space-y-2">
             {(scheduled.data ?? []).map((action) => (
@@ -191,7 +199,7 @@ export default async function ApplicationsPage() {
                       action.id
                     )}
                   >
-                    <button className="rounded-md border border-gray-200 bg-white px-3 py-1.5 font-semibold hover:border-rose-300 hover:text-rose-700">
+                    <button data-opus-button="danger" data-opus-button-size="small" className={`${SECONDARY_BUTTON} min-h-0 px-3 py-1.5 text-xs hover:border-rose-300 hover:text-rose-700`}>
                       Cancel
                     </button>
                   </form>

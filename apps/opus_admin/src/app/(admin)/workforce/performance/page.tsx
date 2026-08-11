@@ -106,7 +106,7 @@ export default async function PerformancePage({
           />
         </div>
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-          <table className="w-full text-sm">
+          <table className="opus-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">
                 <th className="px-5 py-3">Employee</th>

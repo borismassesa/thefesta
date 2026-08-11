@@ -13,12 +13,12 @@ import { removeTalentPoolMember, setTalentPoolStatus, updateTalentPool } from '.
  * Client component only so the destructive actions can confirm first.
  */
 const FIELD =
-  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6]'
+  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#F0DFF6]'
 const LABEL = 'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500'
 const TOGGLE =
   'inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 [&::-webkit-details-marker]:hidden'
 const DANGER =
-  'rounded-lg border border-[#E89AAE] px-3 py-1.5 text-xs font-semibold text-[#A84F66] transition hover:bg-[#F5DCE2]'
+  'opus-button opus-button--danger opus-button--small'
 
 export function EditPoolForm({
   pool,
@@ -40,7 +40,7 @@ export function EditPoolForm({
             <option value="company">Everyone at the company</option>
           </select>
         </label>
-        <button className="rounded-lg bg-[#7E5896] px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90">
+        <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small">
           Save changes
         </button>
       </form>
@@ -66,7 +66,7 @@ export function PoolStatusButton({ pool }: { pool: { id: string; name: string; s
         if (!confirm(question)) event.preventDefault()
       }}
     >
-      <button className={archived ? 'rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50' : DANGER}>
+      <button data-opus-button="control" className={archived ? 'opus-button opus-button--neutral opus-button--small' : DANGER}>
         {archived ? 'Restore pool' : 'Archive pool'}
       </button>
     </form>
@@ -91,9 +91,9 @@ export function RemoveMemberButton({
         }
       }}
     >
-      <button
+      <button data-opus-button="control"
         aria-label={`Remove ${candidateName} from this pool`}
-        className="rounded-lg px-2 py-1 text-xs font-semibold text-gray-400 transition hover:bg-[#F5DCE2] hover:text-[#A84F66]"
+        className="opus-button opus-button--tertiary opus-button--small"
       >
         Remove
       </button>

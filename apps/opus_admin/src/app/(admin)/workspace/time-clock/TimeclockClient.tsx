@@ -321,7 +321,7 @@ export default function TimeclockClient({
 
           {/* RIGHT — primary action + shift details (when on shift) */}
           <div className="flex flex-col justify-center gap-3">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => handlePunch(clockedIn ? 'out' : 'in')}
               disabled={pending}
@@ -369,7 +369,7 @@ export default function TimeclockClient({
                   </div>
                 )}
                 <p className="mt-2 text-center text-[11px] text-gray-500">
-                  You're {formatHmDelta(liveMinutes)} into your shift.
+                  You&apos;re {formatHmDelta(liveMinutes)} into your shift.
                 </p>
               </div>
             ) : (

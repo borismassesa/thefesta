@@ -71,7 +71,7 @@ export default function PendingInvitationsSection({
       </header>
 
       <div className="overflow-x-auto no-scrollbar rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-        <div
+        <div data-opus-table-header
           role="row"
           className={cn(
             ROW_GRID,
@@ -148,7 +148,7 @@ function InvitationRow({
   }
 
   return (
-    <div
+    <div data-opus-table-row
       role="row"
       className={cn(
         ROW_GRID,
@@ -196,7 +196,7 @@ function InvitationRow({
       <div className="flex items-center justify-end gap-1">
         {canManageAccess ? (
           <>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={resend}
               disabled={pending}
@@ -206,7 +206,7 @@ function InvitationRow({
             >
               <RefreshCw className="h-4 w-4" />
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={revoke}
               disabled={pending}

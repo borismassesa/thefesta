@@ -159,7 +159,7 @@ export function AttachmentControl({
             )}
           </span>
           <div className="min-w-0 flex-1">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => openSignedUrl('view')}
               className="truncate text-left font-semibold text-gray-800 hover:text-[#5B2D8E]"
@@ -204,7 +204,7 @@ export function AttachmentControl({
           </div>
         </div>
       ) : (
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           onClick={pickFile}
           disabled={pending}
@@ -239,7 +239,7 @@ function IconAction({
   disabled?: boolean
 }) {
   return (
-    <button
+    <button data-opus-button="danger" data-opus-button-size="medium"
       type="button"
       onClick={onClick}
       disabled={disabled}

@@ -125,7 +125,7 @@ export default function LeaveClient({
           {TABS.map((t) => {
             const Icon = t.icon
             return (
-              <button
+              <button data-opus-button="control"
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
@@ -152,7 +152,7 @@ export default function LeaveClient({
             )
           })}
         </div>
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           onClick={() => setShowForm((v) => !v)}
           className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800"
@@ -475,7 +475,7 @@ function RequestForm({
       )}
       {error && <p className="text-sm text-rose-700">{error}</p>}
 
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         type="submit"
         disabled={pending || busy}
         className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
@@ -547,7 +547,7 @@ function RequestList({
                 className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />
               <div className="mt-3 flex flex-wrap gap-2">
-                <button
+                <button data-opus-button="danger" data-opus-button-size="medium"
                   type="button"
                   disabled={pending}
                   onClick={() => onDecide(r.id, 'reject', notes[r.id])}
@@ -555,7 +555,7 @@ function RequestList({
                 >
                   Reject
                 </button>
-                <button
+                <button data-opus-button="warning" data-opus-button-size="medium"
                   type="button"
                   disabled={pending}
                   onClick={() => onDecide(r.id, 'return', notes[r.id])}
@@ -563,7 +563,7 @@ function RequestList({
                 >
                   Return
                 </button>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   disabled={pending}
                   onClick={() => onDecide(r.id, 'approve', notes[r.id])}
@@ -585,7 +585,7 @@ function RequestList({
                 placeholder="Why are you cancelling?"
                 className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={pending || !(notes[r.id] ?? '').trim()}
                 onClick={() => onCancel(r.id, notes[r.id] ?? '')}
@@ -639,7 +639,7 @@ function TeamCalendar({
 
   return (
     <section className="overflow-x-auto rounded-2xl border border-gray-100 bg-white p-5">
-      <table className="w-full min-w-[720px] text-left text-sm">
+      <table className="opus-table w-full min-w-[720px] text-left text-sm">
         <thead>
           <tr>
             <th className="pb-2 text-[12px] font-semibold uppercase tracking-wide text-gray-400">

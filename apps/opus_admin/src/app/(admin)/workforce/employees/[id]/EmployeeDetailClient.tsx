@@ -162,7 +162,7 @@ export default function EmployeeDetailClient({
     <div className="space-y-6">
       {/* Page-level CTAs portal into the global Header right rail. */}
       <HeaderActionsSlot>
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="medium"
           type="button"
           onClick={() => setEditOpen(true)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
@@ -170,7 +170,7 @@ export default function EmployeeDetailClient({
           <Pencil className="h-4 w-4" />
           Edit
         </button>
-        <button
+        <button data-opus-button="danger" data-opus-button-size="medium"
           type="button"
           onClick={() => setDeleteOpen(true)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-50"
@@ -449,7 +449,7 @@ function TabButton({
   badge?: number
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       className={cn(
@@ -770,7 +770,7 @@ function ResumeTab({
           title="Resume"
           icon={<GraduationCap className="h-4 w-4" />}
           trailing={
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onAddEntry}
               className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:border-[#E0BEEC] hover:text-[#5B2D8E]"
@@ -801,7 +801,7 @@ function ResumeTab({
           title="Skills"
           icon={<Sparkles className="h-4 w-4" />}
           trailing={
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onAddSkill}
               className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:border-[#E0BEEC] hover:text-[#5B2D8E]"
@@ -1013,7 +1013,7 @@ function CertificationsTab({
         title="Certifications"
         icon={<Award className="h-4 w-4" />}
         trailing={
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onAdd}
             className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:border-[#E0BEEC] hover:text-[#5B2D8E]"
@@ -1124,7 +1124,7 @@ function BadgesTab({
         title="Badges"
         icon={<Sparkles className="h-4 w-4" />}
         trailing={
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onAdd}
             className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:border-[#E0BEEC] hover:text-[#5B2D8E]"
@@ -1261,7 +1261,7 @@ function DocumentsTab({
           title="Onboarding documents"
           icon={<ClipboardList className="h-4 w-4" />}
           trailing={
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onAdd}
               className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:border-[#E0BEEC] hover:text-[#5B2D8E]"
@@ -1494,7 +1494,7 @@ function QuickAction({
     gray: 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
   }[tone]
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       disabled={pending}
@@ -1525,7 +1525,7 @@ function IconBtn({
       ? 'hover:bg-[#F0DFF6] hover:text-[#5B2D8E]'
       : 'hover:bg-rose-50 hover:text-rose-700'
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       aria-label={label}

@@ -11,7 +11,7 @@ import {
 
 const initial: InterviewActionState = { ok: false, message: null };
 const input =
-  'mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#E8D4F1]';
+  'mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#E8D4F1]';
 
 function zonedLocalToIso(value: string, timeZone: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
@@ -185,9 +185,9 @@ export function InterviewScheduleForm({
           defaultValue={defaults.instructions}
         />
       </label>
-      <button
+      <button data-opus-button="control"
         disabled={pending}
-        className="rounded-xl bg-[#5B2D8E] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+        className="opus-button opus-button--primary opus-button--medium"
       >
         {pending ? 'Checking conflicts…' : 'Save schedule'}
       </button>
@@ -236,9 +236,9 @@ export function InterviewParticipantForm({
         <option value="observer">Observer</option>
         <option value="coordinator">Coordinator</option>
       </select>
-      <button
+      <button data-opus-button="control"
         disabled={pending}
-        className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700"
+        className="opus-button opus-button--neutral opus-button--small"
       >
         {pending ? 'Adding…' : 'Add participant'}
       </button>
@@ -284,9 +284,9 @@ export function InterviewScorecardAssignmentForm({
           </option>
         ))}
       </select>
-      <button
+      <button data-opus-button="control"
         disabled={pending || templates.length === 0}
-        className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 disabled:opacity-50"
+        className="opus-button opus-button--neutral opus-button--small"
       >
         {pending
           ? 'Assigning…'
@@ -353,9 +353,9 @@ export function InterviewFeedbackForm({
   return (
     <form action={action} className="mt-4 space-y-4">
       {scorecard && (
-        <div className="space-y-4 rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]/40 p-4">
+        <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#7E5896]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#5B2D8E]">
               Assigned scorecard
             </p>
             <h3 className="mt-1 font-semibold text-gray-950">
@@ -510,19 +510,19 @@ export function InterviewFeedbackForm({
         yours is submitted.
       </div>
       <div className="flex gap-2">
-        <button
+        <button data-opus-button="control"
           name="intent"
           value="draft"
           disabled={pending}
-          className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700"
+          className="opus-button opus-button--neutral opus-button--small"
         >
           Save draft
         </button>
-        <button
+        <button data-opus-button="control"
           name="intent"
           value="submit"
           disabled={pending}
-          className="rounded-lg bg-[#5B2D8E] px-4 py-2 text-xs font-semibold text-white"
+          className="opus-button opus-button--primary opus-button--small"
         >
           Submit and lock
         </button>

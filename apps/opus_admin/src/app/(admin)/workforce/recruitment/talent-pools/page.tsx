@@ -3,16 +3,16 @@ import WorkforceHeading from '../../_components/PageHeading'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { getRecruitmentScope } from '../_lib/queries'
 import { createNurtureCampaign, createTalentPool, addTalentPoolMember } from './actions'
-import { EmptyState, PANEL } from '../_components/ui'
+import { EmptyState, NEUTRAL_BUTTON_SMALL, PANEL, PRIMARY_BUTTON } from '../_components/ui'
 import { EditPoolForm, RemoveMemberButton } from './TalentPoolActions'
 
 const NONE = ['00000000-0000-0000-0000-000000000000']
 // Brand lavender for focus and primary actions, per
 // apps/vendors_portal/src/lib/brand-palette.ts.
-const input = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6]'
+const input = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#F0DFF6]'
 const label = 'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500'
-const primary = 'rounded-lg bg-[#7E5896] px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90'
-const secondary = 'rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50'
+const primary = PRIMARY_BUTTON
+const secondary = NEUTRAL_BUTTON_SMALL
 // A <details> summary shows the browser's own triangle unless the marker is
 // removed in both the standard and the WebKit way. Without this the toggles
 // rendered as "▶ Add consented candidate", which reads as a broken bullet.
@@ -52,7 +52,7 @@ export default async function TalentPoolsPage() {
             <select name="visibility" className={input}><option value="recruiting">Recruiting team</option><option value="private">Owner only</option><option value="company">Company</option></select>
           </label>
         </div>
-        <div className="flex justify-end"><button className={primary}>Create pool</button></div>
+        <div className="flex justify-end"><button data-opus-button="control" className={primary}>Create pool</button></div>
       </form></section><div className="mt-5 grid gap-5 xl:grid-cols-2">{(pools.data ?? []).map((pool) => { const poolMembers = (members.data ?? []).filter((member) => member.pool_id === pool.id); const poolCampaigns = (campaigns.data ?? []).filter((campaign) => campaign.pool_id === pool.id); return <section key={pool.id} className={`${PANEL} p-5 ${pool.status === 'archived' ? 'opacity-60' : ''}`}><div className="flex justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-gray-900">{pool.name}</h2>
@@ -65,13 +65,13 @@ export default async function TalentPoolsPage() {
           {/* The pill was a bare "0" with nothing saying what was zero. */}
           <div className="flex shrink-0 items-center gap-2 self-start">
             {pool.status === 'archived' && <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">Archived</span>}
-            <span className="rounded-full bg-[#F0DFF6] px-2.5 py-1 text-xs font-semibold text-[#7E5896]">{poolMembers.length} {poolMembers.length === 1 ? 'member' : 'members'}</span>
+            <span className="rounded-full bg-[#F0DFF6] px-2.5 py-1 text-xs font-semibold text-[#5B2D8E]">{poolMembers.length} {poolMembers.length === 1 ? 'member' : 'members'}</span>
           </div>
         </div>
         {poolMembers.length === 0
           ? <p className="mt-4 rounded-xl bg-gray-50 p-3 text-xs text-gray-500">Nobody in this pool yet. Add a candidate who has consented to being kept on file.</p>
           : <ul className="mt-4 divide-y divide-gray-100">{poolMembers.slice(0, 8).map((member) => { const candidate = Array.isArray(member.recruitment_candidates) ? member.recruitment_candidates[0] : member.recruitment_candidates; return <li key={member.candidate_id} className="flex items-center justify-between gap-2 py-2 text-sm"><span className="min-w-0"><span className="font-semibold">{candidate?.full_name}</span><span className="ml-2 text-xs text-gray-400">{candidate?.primary_email}</span></span><RemoveMemberButton poolId={pool.id} candidateId={member.candidate_id} candidateName={candidate?.full_name ?? 'this candidate'} /></li> })}</ul>}
-        <details className="mt-4"><summary className={toggle}>Add consented candidate</summary><form action={addTalentPoolMember.bind(null, pool.id)} className="mt-2 flex gap-2"><select name="candidate_id" required className={`${input} min-w-0 flex-1`}><option value="">Choose candidate</option>{(candidates.data ?? []).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.full_name} · {candidate.primary_email}</option>)}</select><button className={secondary}>Add</button></form></details><details className="mt-3"><summary className={toggle}>Create nurture campaign</summary><form action={createNurtureCampaign.bind(null, pool.id)} className="mt-2 grid gap-2 sm:grid-cols-2"><input name="name" required placeholder="Campaign name" className={input} /><select name="template_id" required className={input}><option value="">Approved email template</option>{(templates.data ?? []).map((template) => <option key={template.id} value={template.id}>{template.name} · {template.language_code}</option>)}</select><input name="scheduled_at" type="datetime-local" required className={input} /><button className={secondary}>Schedule</button></form></details><EditPoolForm pool={pool} />{poolCampaigns.length > 0 && <div className="mt-3 space-y-1">{poolCampaigns.map((campaign) => <p key={campaign.id} className="text-xs text-gray-500">{campaign.name} · {campaign.status}{campaign.scheduled_at ? ` · ${new Date(campaign.scheduled_at).toLocaleString('en-TZ')}` : ''}</p>)}</div>}</section> })}</div>
+        <details className="mt-4"><summary className={toggle}>Add consented candidate</summary><form action={addTalentPoolMember.bind(null, pool.id)} className="mt-2 flex gap-2"><select name="candidate_id" required className={`${input} min-w-0 flex-1`}><option value="">Choose candidate</option>{(candidates.data ?? []).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.full_name} · {candidate.primary_email}</option>)}</select><button data-opus-button="control" className={secondary}>Add</button></form></details><details className="mt-3"><summary className={toggle}>Create nurture campaign</summary><form action={createNurtureCampaign.bind(null, pool.id)} className="mt-2 grid gap-2 sm:grid-cols-2"><input name="name" required placeholder="Campaign name" className={input} /><select name="template_id" required className={input}><option value="">Approved email template</option>{(templates.data ?? []).map((template) => <option key={template.id} value={template.id}>{template.name} · {template.language_code}</option>)}</select><input name="scheduled_at" type="datetime-local" required className={input} /><button data-opus-button="control" className={secondary}>Schedule</button></form></details><EditPoolForm pool={pool} />{poolCampaigns.length > 0 && <div className="mt-3 space-y-1">{poolCampaigns.map((campaign) => <p key={campaign.id} className="text-xs text-gray-500">{campaign.name} · {campaign.status}{campaign.scheduled_at ? ` · ${new Date(campaign.scheduled_at).toLocaleString('en-TZ')}` : ''}</p>)}</div>}</section> })}</div>
     {/* The page rendered an empty grid and nothing else, so it read as broken
         rather than empty. */}
     {(pools.data ?? []).length === 0 && <div className="mt-5"><EmptyState title="No talent pools yet" hint="Create a pool above to group consented prospects you want to keep warm for future roles." /></div>}

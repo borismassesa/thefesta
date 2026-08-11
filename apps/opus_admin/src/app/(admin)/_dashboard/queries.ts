@@ -797,9 +797,9 @@ async function buildFinanceLane(supabase: ReturnType<typeof createSupabaseAdminC
   const [pendingLeave, latestPayrollRes, activeHeadcount] = await Promise.all([
     safeCount(
       supabase
-        .from('workforce_leave_requests')
+        .from('leave_requests')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'Pending'),
+        .in('state', ['submitted', 'under_review']),
     ),
     supabase
       .from('workforce_payroll_runs')
@@ -853,7 +853,7 @@ async function buildFinanceLane(supabase: ReturnType<typeof createSupabaseAdminC
         label: 'Leave requests pending',
         count: pendingLeave,
         hint: 'Affects payroll calculations',
-        href: '/workforce/leave',
+        href: '/workspace/leave',
       },
       {
         tone: 'blue',
@@ -873,9 +873,9 @@ async function buildHrLane(supabase: ReturnType<typeof createSupabaseAdminClient
   const [overdueLeave, slowOnboarding, openRolesRes, candidatesRes] = await Promise.all([
     safeCount(
       supabase
-        .from('workforce_leave_requests')
+        .from('leave_requests')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'Pending')
+        .in('state', ['submitted', 'under_review'])
         .lt('submitted_at', twoDaysAgo),
     ),
     safeCount(
@@ -920,7 +920,7 @@ async function buildHrLane(supabase: ReturnType<typeof createSupabaseAdminClient
         label: 'Leave requests waiting',
         count: overdueLeave,
         hint: overdueLeave > 0 ? 'Older than 2 days' : 'None overdue',
-        href: '/workforce/leave',
+        href: '/workspace/leave',
       },
       {
         tone: slowOnboarding > 0 ? 'amber' : 'gray',
@@ -1067,9 +1067,9 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
     ),
     safeCount(
       supabase
-        .from('workforce_leave_requests')
+        .from('leave_requests')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'Pending'),
+        .in('state', ['submitted', 'under_review']),
       tracker,
     ),
     safeCount(

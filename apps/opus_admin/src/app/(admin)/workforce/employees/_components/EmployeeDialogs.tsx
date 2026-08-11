@@ -204,7 +204,7 @@ export function EmployeeFormDialog(props: FormDialogProps) {
             <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
             <p className="mt-1 text-sm text-gray-500">{subtitle}</p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             aria-label="Close"
@@ -438,7 +438,7 @@ export function EmployeeFormDialog(props: FormDialogProps) {
         )}
 
         <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={pending}
@@ -446,7 +446,7 @@ export function EmployeeFormDialog(props: FormDialogProps) {
           >
             Cancel
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={submit}
             disabled={pending || !fullName || !email || !jobTitle || !salaryTzs}
@@ -544,7 +544,7 @@ export function DeleteEmployeeDialog({
         {error && <p className="mt-3 text-sm font-medium text-rose-700">{error}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={pending}
@@ -552,7 +552,7 @@ export function DeleteEmployeeDialog({
           >
             Cancel
           </button>
-          <button
+          <button data-opus-button="danger" data-opus-button-size="medium"
             type="button"
             onClick={confirm}
             disabled={pending}

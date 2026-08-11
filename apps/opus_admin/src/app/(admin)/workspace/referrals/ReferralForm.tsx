@@ -86,7 +86,7 @@ export default function ReferralForm({ opportunities }: { opportunities: Opportu
         <span>I confirm that this person gave me permission to share their contact details and any attached CV with OpusFesta for this referral.</span>
       </label>
 
-      <button
+      <button data-opus-button="control"
         disabled={pending || opportunities.length === 0}
         className="rounded-xl bg-[#5B2D8E] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#492270] disabled:cursor-not-allowed disabled:opacity-50"
       >

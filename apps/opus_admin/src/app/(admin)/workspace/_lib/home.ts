@@ -5,9 +5,7 @@ import { logDbError } from '@/lib/log-safe'
 import type { WorkspaceEmployee } from '@/lib/workspace/identity'
 import {
   addDays,
-  countWeekdaysOverlapping,
   daysBetween,
-  leaveYearBounds,
   localDate,
   reportDueState,
   taskUrgency,
@@ -32,7 +30,6 @@ import {
 
 const DEFAULT_TIME_ZONE = 'Africa/Dar_es_Salaam'
 const AGENDA_HORIZON_DAYS = 14
-const FALLBACK_ANNUAL_ENTITLEMENT_DAYS = 28
 
 export type ClockState = {
   isClockedIn: boolean
@@ -488,34 +485,36 @@ async function fetchLeave(
 ): Promise<{ balance: LeaveBalance | null; upcoming: UpcomingLeave[] }> {
   try {
     const supabase = createSupabaseAdminClient()
-    const year = leaveYearBounds(today)
+    const yearStart = `${today.slice(0, 4)}-01-01`
 
-    const [requests, policies] = await Promise.all([
+    const [requests, balances] = await Promise.all([
       supabase
-        .from('workforce_leave_requests')
-        .select('id, leave_type, start_date, end_date, days, status')
+        .from('leave_requests')
+        .select('id, start_date, end_date, total_days, state, leave_types(name)')
         .eq('employee_id', employee.id)
-        .in('status', ['Pending', 'Approved'])
+        .in('state', ['submitted', 'under_review', 'approved'])
         .order('start_date', { ascending: true })
         .limit(100)
         .returns<
           {
             id: string
-            leave_type: string
             start_date: string
             end_date: string
-            days: number
-            status: string
+            total_days: number
+            state: string
+            leave_types: { name: string } | null
           }[]
         >(),
       supabase
-        .from('workforce_leave_policies')
-        .select('leave_type, counts_against_annual_balance, annual_entitlement_days')
+        .from('leave_balances')
+        .select('used_days, balance_days, pending_days')
+        .eq('employee_id', employee.id)
+        .eq('leave_year_start', yearStart)
         .returns<
           {
-            leave_type: string
-            counts_against_annual_balance: boolean
-            annual_entitlement_days: number | null
+            used_days: number
+            balance_days: number
+            pending_days: number
           }[]
         >(),
     ])
@@ -524,50 +523,43 @@ async function fetchLeave(
       logDbError('workspace.home.leave', requests.error, { employeeId: employee.id })
       return { balance: null, upcoming: [] }
     }
-
-    // The policy table is newer than the leave table; when it is missing or
-    // empty we fall back to the same 28-day default the Workforce module uses
-    // rather than showing the employee a zero balance that isn't real.
-    const countedTypes = new Set(
-      (policies.data ?? [])
-        .filter((p) => p.counts_against_annual_balance)
-        .map((p) => p.leave_type),
-    )
-    if (countedTypes.size === 0) countedTypes.add('Annual')
-    const entitlementDays =
-      (policies.data ?? []).find(
-        (p) => p.counts_against_annual_balance && p.annual_entitlement_days,
-      )?.annual_entitlement_days ?? FALLBACK_ANNUAL_ENTITLEMENT_DAYS
+    if (balances.error) {
+      logDbError('workspace.home.leave_balance', balances.error, { employeeId: employee.id })
+      return { balance: null, upcoming: [] }
+    }
 
     const rows = requests.data ?? []
-
-    let usedDays = 0
-    for (const row of rows) {
-      if (row.status !== 'Approved') continue
-      if (!countedTypes.has(row.leave_type)) continue
-      usedDays += countWeekdaysOverlapping(row.start_date, row.end_date, year.start, year.end)
-    }
+    const balanceRows = balances.data ?? []
+    const usedDays = balanceRows.reduce((sum, row) => sum + Number(row.used_days), 0)
+    const remainingDays = balanceRows.reduce(
+      (sum, row) => sum + Number(row.balance_days) - Number(row.pending_days),
+      0,
+    )
+    const entitlementDays = usedDays + balanceRows.reduce(
+      (sum, row) => sum + Number(row.balance_days),
+      0,
+    )
 
     const upcoming: UpcomingLeave[] = rows
       .filter((row) => row.end_date >= today)
       .slice(0, 5)
       .map((row) => ({
         id: row.id,
-        type: row.leave_type,
+        type: row.leave_types?.name ?? 'Leave',
         startDate: row.start_date,
         endDate: row.end_date,
-        days: row.days,
-        status: row.status,
+        days: Number(row.total_days),
+        status: row.state,
         startsInDays: daysBetween(today, row.start_date),
       }))
 
     return {
-      balance: {
+      balance: balanceRows.length > 0 ? {
         entitlementDays,
         usedDays,
-        remainingDays: Math.max(0, entitlementDays - usedDays),
-        year: year.start.slice(0, 4),
-      },
+        remainingDays,
+        year: today.slice(0, 4),
+      } : null,
       upcoming,
     }
   } catch (error) {

@@ -105,7 +105,7 @@ export default function FieldInput({
       return (
         <div className="flex flex-wrap gap-1.5">
           {Array.from({ length: scale }, (_, i) => i + 1).map((n) => (
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               key={n}
               type="button"
               disabled={disabled}
@@ -132,7 +132,7 @@ export default function FieldInput({
             { label: 'Yes', v: true },
             { label: 'No', v: false },
           ].map((choice) => (
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               key={choice.label}
               type="button"
               disabled={disabled}
@@ -271,7 +271,7 @@ export default function FieldInput({
                 >
                   <span className="truncate text-gray-900">{f.fileName}</span>
                   {!disabled && (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() =>
                         onChange(files.filter((x) => x.attachmentId !== f.attachmentId))
@@ -332,7 +332,7 @@ export default function FieldInput({
                 />
               ))}
               {!disabled && (
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => onChange(rows.filter((_, i) => i !== index))}
                   className="self-center text-gray-400 hover:text-rose-600"
@@ -345,7 +345,7 @@ export default function FieldInput({
           ))}
 
           {!disabled && (!field.maxRows || rows.length < field.maxRows) && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => onChange([...rows, {}])}
               className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3.5 py-1.5 text-[13px] font-medium text-gray-600 hover:bg-gray-50"

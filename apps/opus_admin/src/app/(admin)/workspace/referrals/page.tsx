@@ -81,6 +81,69 @@ function formatTzs(value: number): string {
   }).format(value)
 }
 
+async function loadReferralPageData(employeeId: string) {
+  const supabase = createSupabaseAdminClient()
+  const today = new Date().toISOString().slice(0, 10)
+  const [jobsResult, referralsResult, programResult] = await Promise.all([
+    supabase
+      .from('workforce_jobs')
+      .select('id, title, department, location, employment_type, closing_date')
+      .eq('status', 'Open')
+      .or(`closing_date.is.null,closing_date.gte.${today}`)
+      .order('opened_at', { ascending: false })
+      .limit(100)
+      .returns<JobRow[]>(),
+    supabase
+      .from('recruitment_referrals')
+      .select('id, referral_reference, job_id, candidate_name, status, created_at')
+      .eq('referrer_employee_id', employeeId)
+      .order('created_at', { ascending: false })
+      .limit(100)
+      .returns<ReferralRow[]>(),
+    supabase
+      .from('recruitment_referral_programs')
+      .select('name, rules, reward_description, reward_amount_tzs')
+      .eq('status', 'active')
+      .or(`starts_on.is.null,starts_on.lte.${today}`)
+      .or(`ends_on.is.null,ends_on.gte.${today}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle<ProgramRow>(),
+  ])
+  if (jobsResult.error || referralsResult.error || programResult.error) {
+    throw jobsResult.error ?? referralsResult.error ?? programResult.error
+  }
+
+  const jobs = jobsResult.data ?? []
+  const referrals = referralsResult.data ?? []
+  const referralIds = referrals.map((referral) => referral.id)
+  const [rewardResult, notesResult] = referralIds.length
+    ? await Promise.all([
+        supabase
+          .from('recruitment_referral_rewards')
+          .select('referral_id, amount_tzs, status, eligibility_date, paid_at')
+          .in('referral_id', referralIds)
+          .returns<RewardRow[]>(),
+        supabase
+          .from('recruitment_referral_notes')
+          .select('id, referral_id, body, created_at')
+          .in('referral_id', referralIds)
+          .eq('visibility', 'employee')
+          .order('created_at', { ascending: false })
+          .returns<NoteRow[]>(),
+      ])
+    : [{ data: [] as RewardRow[], error: null }, { data: [] as NoteRow[], error: null }]
+  if (rewardResult.error || notesResult.error) throw rewardResult.error ?? notesResult.error
+
+  return {
+    jobs,
+    referrals,
+    program: programResult.data,
+    rewards: rewardResult.data ?? [],
+    notes: notesResult.data ?? [],
+  }
+}
+
 export default async function WorkspaceReferralsPage() {
   let context
   try {
@@ -94,68 +157,28 @@ export default async function WorkspaceReferralsPage() {
     )
   }
 
+  let data
   try {
-    const supabase = createSupabaseAdminClient()
-    const today = new Date().toISOString().slice(0, 10)
-    const [jobsResult, referralsResult, programResult] = await Promise.all([
-      supabase
-        .from('workforce_jobs')
-        .select('id, title, department, location, employment_type, closing_date')
-        .eq('status', 'Open')
-        .or(`closing_date.is.null,closing_date.gte.${today}`)
-        .order('opened_at', { ascending: false })
-        .limit(100)
-        .returns<JobRow[]>(),
-      supabase
-        .from('recruitment_referrals')
-        .select('id, referral_reference, job_id, candidate_name, status, created_at')
-        .eq('referrer_employee_id', context.employee.id)
-        .order('created_at', { ascending: false })
-        .limit(100)
-        .returns<ReferralRow[]>(),
-      supabase
-        .from('recruitment_referral_programs')
-        .select('name, rules, reward_description, reward_amount_tzs')
-        .eq('status', 'active')
-        .or(`starts_on.is.null,starts_on.lte.${today}`)
-        .or(`ends_on.is.null,ends_on.gte.${today}`)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle<ProgramRow>(),
-    ])
-    if (jobsResult.error || referralsResult.error || programResult.error) {
-      throw jobsResult.error ?? referralsResult.error ?? programResult.error
-    }
-
-    const jobs = jobsResult.data ?? []
-    const referrals = referralsResult.data ?? []
-    const referralIds = referrals.map((referral) => referral.id)
-    const [rewardResult, notesResult] = referralIds.length
-      ? await Promise.all([
-          supabase
-            .from('recruitment_referral_rewards')
-            .select('referral_id, amount_tzs, status, eligibility_date, paid_at')
-            .in('referral_id', referralIds)
-            .returns<RewardRow[]>(),
-          supabase
-            .from('recruitment_referral_notes')
-            .select('id, referral_id, body, created_at')
-            .in('referral_id', referralIds)
-            .eq('visibility', 'employee')
-            .order('created_at', { ascending: false })
-            .returns<NoteRow[]>(),
-        ])
-      : [{ data: [] as RewardRow[], error: null }, { data: [] as NoteRow[], error: null }]
-    if (rewardResult.error || notesResult.error) throw rewardResult.error ?? notesResult.error
-
-    const jobsById = new Map(jobs.map((job) => [job.id, job]))
-    const rewardsByReferral = new Map((rewardResult.data ?? []).map((reward) => [reward.referral_id, reward]))
-    const notesByReferral = new Map<string, NoteRow[]>()
-    for (const note of notesResult.data ?? []) {
-      notesByReferral.set(note.referral_id, [...(notesByReferral.get(note.referral_id) ?? []), note])
-    }
-
+    data = await loadReferralPageData(context.employee.id)
+  } catch (error) {
+    logDbError('workspace.referrals.load', error, { employeeId: context.employee.id })
     return (
+      <>
+        <WorkspaceHeading title="Employee referrals" />
+        <AccessNotice code="unavailable" />
+      </>
+    )
+  }
+
+  const { jobs, referrals, program, rewards, notes } = data
+  const jobsById = new Map(jobs.map((job) => [job.id, job]))
+  const rewardsByReferral = new Map(rewards.map((reward) => [reward.referral_id, reward]))
+  const notesByReferral = new Map<string, NoteRow[]>()
+  for (const note of notes) {
+    notesByReferral.set(note.referral_id, [...(notesByReferral.get(note.referral_id) ?? []), note])
+  }
+
+  return (
       <div className="pb-12">
         <WorkspaceHeading
           title="Employee referrals"
@@ -268,25 +291,16 @@ export default async function WorkspaceReferralsPage() {
             <div className="flex items-start gap-3">
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#5B2D8E]" />
               <div>
-                <h2 id="policy-heading" className="text-lg font-semibold text-gray-950">{programResult.data?.name ?? 'Referral policy'}</h2>
+                <h2 id="policy-heading" className="text-lg font-semibold text-gray-950">{program?.name ?? 'Referral policy'}</h2>
                 <p className="mt-3 whitespace-pre-line text-sm leading-6 text-gray-700">
-                  {programResult.data?.rules ?? 'People Ops has not published an active referral programme. You may still recommend candidates, but no award is currently promised.'}
+                  {program?.rules ?? 'People Ops has not published an active referral programme. You may still recommend candidates, but no award is currently promised.'}
                 </p>
-                {programResult.data?.reward_description && <p className="mt-3 text-sm leading-6 text-gray-700">{programResult.data.reward_description}</p>}
+                {program?.reward_description && <p className="mt-3 text-sm leading-6 text-gray-700">{program.reward_description}</p>}
                 <p className="mt-4 text-xs font-medium text-gray-500">You will see only Submitted, Under review, In process, Closed, or Hired. Interview feedback, ratings, compensation, and rejection reasons remain confidential.</p>
               </div>
             </div>
           </section>
         </div>
       </div>
-    )
-  } catch (error) {
-    logDbError('workspace.referrals.load', error, { employeeId: context.employee.id })
-    return (
-      <>
-        <WorkspaceHeading title="Employee referrals" />
-        <AccessNotice code="unavailable" />
-      </>
-    )
-  }
+  )
 }

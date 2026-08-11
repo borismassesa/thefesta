@@ -174,7 +174,7 @@ export default function EmployeesClient({
   return (
     <div className="space-y-6">
       <HeaderActionsSlot>
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="medium"
           type="button"
           onClick={exportCsv}
           disabled={visible.length === 0}
@@ -183,7 +183,7 @@ export default function EmployeesClient({
           <Download className="h-4 w-4" />
           Export
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setShowAdd(true)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
@@ -231,7 +231,7 @@ export default function EmployeesClient({
             options={['All', ...EMPLOYMENT_TYPES]}
           />
           {hasActiveFilters && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={clearFilters}
               className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-gray-500 hover:text-[#5B2D8E]"
@@ -248,7 +248,7 @@ export default function EmployeesClient({
                 : `${visible.length} of ${employees.length}`}
             </span>
             <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs font-semibold">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setView('list')}
                 className={cn(
@@ -258,7 +258,7 @@ export default function EmployeesClient({
               >
                 List
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setView('grid')}
                 className={cn(
@@ -275,7 +275,7 @@ export default function EmployeesClient({
 
       {view === 'list' ? (
         <div className="overflow-x-auto no-scrollbar rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-          <div
+          <div data-opus-table-header
             role="row"
             className={cn(
               ROW_GRID,
@@ -364,7 +364,7 @@ function EmployeeRow({
   onDelete: () => void
 }) {
   return (
-    <Link
+    <Link data-opus-table-row
       role="row"
       href={`/workforce/employees/${employee.id}`}
       prefetch={false}
@@ -418,7 +418,7 @@ function EmployeeRow({
           e.preventDefault()
         }}
       >
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onEdit}
           aria-label={`Edit ${employee.name}`}
@@ -427,7 +427,7 @@ function EmployeeRow({
         >
           <Pencil className="h-4 w-4" />
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onDelete}
           aria-label={`Delete ${employee.name}`}
@@ -496,7 +496,7 @@ function EmployeeCard({
           e.preventDefault()
         }}
       >
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onEdit}
           aria-label={`Edit ${employee.name}`}
@@ -505,7 +505,7 @@ function EmployeeCard({
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onDelete}
           aria-label={`Delete ${employee.name}`}

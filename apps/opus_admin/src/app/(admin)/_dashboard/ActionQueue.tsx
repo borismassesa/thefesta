@@ -85,7 +85,7 @@ export default function ActionQueue({
       icon: Plane,
       label: 'leave requests to approve',
       empty: 'No leave requests waiting',
-      href: '/workforce/leave',
+      href: '/workspace/leave',
     },
   ]
 

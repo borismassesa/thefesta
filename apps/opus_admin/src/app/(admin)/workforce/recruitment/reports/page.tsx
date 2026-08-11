@@ -6,7 +6,7 @@ import { PANEL, StatTile, TILE_TONES } from '../_components/ui'
 
 const NONE = ['00000000-0000-0000-0000-000000000000']
 const FIELD =
-  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6]'
+  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#F0DFF6]'
 const LABEL = 'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500'
 function median(values: number[]) { if (!values.length) return null; const sorted = [...values].sort((a, b) => a - b); const mid = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2 }
 function days(value: number | null) { return value == null ? '—' : `${value.toFixed(1)} days` }
@@ -64,8 +64,8 @@ export default async function RecruitmentReportsPage({ searchParams }: { searchP
             <select className={FIELD} name="source" defaultValue={source}><option value="">All sources</option>{sources.map((value) => <option key={value}>{value}</option>)}</select>
           </label>
           <div className="flex items-end gap-2">
-            <button className="rounded-lg bg-[#7E5896] px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90">Apply</button>
-            <a href={`/api/recruitment/reports/export?${queryString}`} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50">CSV</a>
+            <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small">Apply</button>
+            <a href={`/api/recruitment/reports/export?${queryString}`} className="opus-button opus-button--neutral opus-button--small">CSV</a>
           </div>
         </div>
       </form>
@@ -97,7 +97,7 @@ export default async function RecruitmentReportsPage({ searchParams }: { searchP
             <p className="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-500">No applications in this window. Source conversion appears once candidates start arriving.</p>
           ) : (
             <div className="no-scrollbar mt-3 overflow-x-auto">
-              <table className="w-full min-w-[380px] text-left text-sm">
+              <table className="opus-table w-full min-w-[380px] text-left text-sm">
                 <thead><tr className="text-[11px] font-semibold uppercase tracking-wide text-gray-400"><th className="py-2">Source</th><th>Applications</th><th>Hires</th><th>Conversion</th></tr></thead>
                 <tbody>{sourceRows.map(([name, values]) => <tr key={name} className="border-t border-gray-100"><td className="py-2 text-gray-700">{name}</td><td className="text-gray-700">{values.applications}</td><td className="text-gray-700">{values.hires}</td><td className="text-gray-700">{values.applications ? Math.round(values.hires / values.applications * 100) : 0}%</td></tr>)}</tbody>
               </table>
@@ -121,7 +121,7 @@ export default async function RecruitmentReportsPage({ searchParams }: { searchP
           {/* Lavender, not amber. This is a standing note about how the data
               works, not a warning that something is wrong. */}
           {permissions.has('recruitment.candidate.sensitive')
-            ? <p className="mt-4 rounded-xl border border-[#F0DFF6] bg-[#FCF7FF] p-3 text-xs text-[#7E5896]">Restricted diversity reporting is available only as aggregated cohorts. Candidate-level demographics are never shown here.</p>
+            ? <p className="mt-4 rounded-xl border border-[#F0DFF6] bg-[#FCF7FF] p-3 text-xs text-[#5B2D8E]">Restricted diversity reporting is available only as aggregated cohorts. Candidate-level demographics are never shown here.</p>
             : <p className="mt-4 text-xs text-gray-400">Restricted diversity reporting requires the sensitive analytics permission.</p>}
         </section>
       </div>

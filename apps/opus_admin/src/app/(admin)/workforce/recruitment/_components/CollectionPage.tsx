@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ArrowUpRight } from 'lucide-react'
 import WorkforceHeading from '../../_components/PageHeading'
 import type { RecruitmentCollectionRow } from '../_lib/collections'
-import { EmptyState, PANEL, ROW, StatusPill, TABLE_HEADER } from './ui'
+import { buttonStyles, EmptyState, PANEL, ROW, StatusPill, TABLE_HEADER } from './ui'
 
 // Column widths match the Approvals list: a wide primary column, a fixed
 // status column, and a right-hand detail column. min-w keeps the grid honest
@@ -27,7 +27,7 @@ export default function CollectionPage({
   rows: RecruitmentCollectionRow[]
   emptyMessage: string
   action?: { href: string; label: string }
-  /** Scope switches for the list, between the heading and the table. */
+  /** Page-level list controls rendered in the collection toolbar. */
   filters?: React.ReactNode
   /** Header labels for the three data columns, left to right. */
   columns?: [string, string, string]
@@ -35,15 +35,24 @@ export default function CollectionPage({
   return (
     <>
       <WorkforceHeading title={title} subtitle={subtitle} />
-      {filters}
-      {action && (
-        <div className="flex justify-end">
-          <Link
-            href={action.href}
-            className="rounded-xl bg-[#5B2D8E] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#492270] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7E5896] focus-visible:ring-offset-2"
-          >
-            {action.label}
-          </Link>
+      {(filters || action) && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+            {filters}
+            {filters && (
+              <span className="text-xs text-gray-400" aria-live="polite">
+                {rows.length} {rows.length === 1 ? 'result' : 'results'}
+              </span>
+            )}
+          </div>
+          {action && (
+            <Link
+              href={action.href}
+              className={buttonStyles()}
+            >
+              {action.label}
+            </Link>
+          )}
         </div>
       )}
 

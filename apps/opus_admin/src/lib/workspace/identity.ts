@@ -2,7 +2,12 @@ import 'server-only'
 import { cache } from 'react'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
-import { escapeLike } from '@/lib/admin-auth'
+import {
+  escapeLike,
+  getCallerEmail,
+  getCallerEmployeeId,
+  isAdminAuthDisabled,
+} from '@/lib/admin-auth'
 import { recordAuditEvent } from '@/lib/audit-log'
 import { logDbError } from '@/lib/log-safe'
 import { resolveAccessState, isOnboarding, type WorkspaceAccessState } from './access'
@@ -118,6 +123,64 @@ function toCandidate(row: EmployeeRow): EmployeeIdentityCandidate {
  * unreachable, and that is caught by the callers in guards.ts.
  */
 export const getWorkspaceSession = cache(async (): Promise<WorkspaceSession> => {
+  // The local admin-auth bypass deliberately has no Clerk session. Treat it as
+  // an authenticated development caller and resolve the explicitly selected
+  // employee (DEV_EMPLOYEE_ID / dev_employee_id cookie), falling back to the
+  // standard development email. Without this branch, clicking the now-stable
+  // Workspace tab bounced developers to a sign-in screen that the bypass can
+  // never complete.
+  if (isAdminAuthDisabled()) {
+    if (!hasSupabaseAdminConfig()) {
+      console.error('[workspace] development identity unavailable: Supabase admin env is missing')
+      return { status: 'unresolved', code: 'no_employee_record' }
+    }
+
+    const [employeeId, email] = await Promise.all([
+      getCallerEmployeeId(),
+      getCallerEmail(),
+    ])
+    const supabase = createSupabaseAdminClient()
+    const result = employeeId
+      ? await supabase
+          .from('workforce_employees')
+          .select(EMPLOYEE_COLUMNS)
+          .eq('id', employeeId)
+          .limit(2)
+          .returns<EmployeeRow[]>()
+      : email
+        ? await supabase
+            .from('workforce_employees')
+            .select(EMPLOYEE_COLUMNS)
+            .ilike('email', escapeLike(email))
+            .limit(2)
+            .returns<EmployeeRow[]>()
+        : { data: [] as EmployeeRow[], error: null }
+
+    if (result.error) {
+      logDbError('workspace.identity.development_lookup', result.error, { employeeId })
+      return { status: 'unresolved', code: 'no_employee_record' }
+    }
+
+    const rows = result.data ?? []
+    if (rows.length !== 1) {
+      return {
+        status: 'unresolved',
+        code: rows.length > 1 ? 'ambiguous_identity' : 'no_employee_record',
+      }
+    }
+
+    const row = rows[0]
+    return {
+      status: 'resolved',
+      employee: mapEmployee(row, await fetchManagerName(row.manager_id)),
+      access: resolveAccessState({
+        status: row.status,
+        dashboardAccess: Boolean(row.dashboard_access),
+      }),
+      onboarding: isOnboarding(row.status),
+    }
+  }
+
   const { userId, sessionClaims } = await auth()
   if (!userId) return { status: 'unauthenticated' }
 

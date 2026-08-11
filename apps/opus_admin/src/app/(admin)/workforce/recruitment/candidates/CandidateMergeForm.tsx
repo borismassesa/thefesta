@@ -20,7 +20,7 @@ export default function CandidateMergeForm({
   const [merged, setMerged] = useState('')
 
   const field =
-    'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6]'
+    'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#F0DFF6]'
   const label = 'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500'
   const nameOf = (id: string) => candidates.find((candidate) => candidate.id === id)?.full_name ?? 'that profile'
   const sameProfile = surviving !== '' && surviving === merged
@@ -70,9 +70,9 @@ export default function CandidateMergeForm({
         </p>
       )}
       <div className="flex justify-end md:col-span-3">
-        <button
+        <button data-opus-button="control"
           disabled={sameProfile}
-          className="rounded-lg bg-[#A84F66] px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+        className="opus-button opus-button--danger opus-button--medium"
         >
           Merge profiles
         </button>
