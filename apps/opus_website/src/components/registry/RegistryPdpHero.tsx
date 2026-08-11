@@ -34,14 +34,14 @@ export default function RegistryPdpHero({ product }: { product: Product }) {
             </span>
           )}
           <div className="absolute top-4 right-4 flex flex-col gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               aria-label="Save to favourites"
               className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-gray-700 hover:text-red-500 transition-colors"
             >
               <Heart size={18} />
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               aria-label="Share"
               className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-gray-700 hover:text-gray-900 transition-colors"
@@ -54,7 +54,7 @@ export default function RegistryPdpHero({ product }: { product: Product }) {
         {product.gallery.length > 1 && (
           <div className="grid grid-cols-4 gap-3 mt-4">
             {product.gallery.map((g, i) => (
-              <button
+              <button data-opus-button="control"
                 key={i}
                 type="button"
                 onClick={() => setActiveImg(i)}
@@ -157,7 +157,7 @@ export default function RegistryPdpHero({ product }: { product: Product }) {
               {product.colors.map((c) => {
                 const selected = c.name === color
                 return (
-                  <button
+                  <button data-opus-button="control"
                     key={c.name}
                     type="button"
                     onClick={() => setColor(c.name)}
@@ -196,7 +196,7 @@ export default function RegistryPdpHero({ product }: { product: Product }) {
                 <strong className="font-semibold">
                   {product.freeDelivery ? 'free in Dar es Salaam' : 'from TZS 12,000'}
                 </strong>
-                <button type="button" className="ml-2 inline-flex items-center gap-1 text-gray-700 hover:text-gray-900">
+                <button data-opus-button="control" type="button" className="ml-2 inline-flex items-center gap-1 text-gray-700 hover:text-gray-900">
                   Delivery details <ChevronDown size={14} />
                 </button>
               </span>
@@ -264,7 +264,7 @@ export default function RegistryPdpHero({ product }: { product: Product }) {
             </div>
           </dl>
 
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             className="w-full h-10 rounded-full border border-gray-300 bg-white text-sm font-medium text-gray-900 hover:bg-gray-50 transition-colors inline-flex items-center justify-center gap-2"
           >

@@ -220,7 +220,7 @@ function FulfillmentControl({ order, canWrite }: { order: FulfillmentOrder; canW
       <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Design status</p>
       <div className="mt-2 grid grid-cols-2 gap-2">
         {options.map((opt) => (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="small"
             key={opt}
             type="submit"
             formAction={updateFulfillmentStatus.bind(null, opt)}
@@ -519,7 +519,7 @@ export default async function FulfillmentOrdersPage({
                 aria-current={view === mode.key ? 'page' : undefined}
                 title={`${mode.label} view`}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-[10px] px-2.5 py-1.5 text-sm font-medium transition-colors',
+                  'inline-flex items-center gap-1.5 rounded-[var(--opus-radius-small)] px-2.5 py-1.5 text-sm font-medium transition-colors',
                   view === mode.key ? 'bg-[#F0DFF6] text-[#7E5896]' : 'text-gray-500 hover:text-gray-700',
                 )}
               >
@@ -541,7 +541,7 @@ export default async function FulfillmentOrdersPage({
                 className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6] sm:w-64"
               />
             </div>
-            <button type="submit" className="rounded-xl bg-[#7E5896] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#6c4884]">
+            <button data-opus-button="primary" data-opus-button-size="medium" type="submit" className="rounded-xl bg-[#7E5896] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#6c4884]">
               Search
             </button>
           </form>

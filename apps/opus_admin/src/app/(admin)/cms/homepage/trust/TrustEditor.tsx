@@ -108,7 +108,7 @@ export default function TrustEditor({ initial, hasDraft: initialHasDraft }: Prop
               onMoveDown={() => moveItem(item.id, 1)}
             />
           ))}
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={addItem}
             className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-2xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
@@ -154,7 +154,7 @@ function ItemEditor({
           Trust point {index + 1}
         </span>
         <div className="flex items-center gap-1">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onMoveUp}
             disabled={index === 0}
@@ -163,7 +163,7 @@ function ItemEditor({
           >
             <ArrowUp className="w-4 h-4" />
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onMoveDown}
             disabled={index === total - 1}
@@ -172,7 +172,7 @@ function ItemEditor({
           >
             <ArrowDown className="w-4 h-4" />
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onRemove}
             aria-label="Remove"
@@ -215,7 +215,7 @@ function IconPicker({ value, onChange }: { value: TrustIconKey; onChange: (v: Tr
         const Icon = opt.icon
         const isActive = opt.key === value
         return (
-          <button
+          <button data-opus-button="control"
             key={opt.key}
             type="button"
             onClick={() => onChange(opt.key)}

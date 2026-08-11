@@ -75,7 +75,7 @@ function FilterMenu({
   const count = selected.length
   return (
     <div className="relative">
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="small"
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
@@ -98,7 +98,7 @@ function FilterMenu({
             {options.map((o) => {
               const on = selected.includes(o)
               return (
-                <button
+                <button data-opus-button="control"
                   key={o}
                   type="button"
                   onClick={() => onToggle(o)}
@@ -169,7 +169,7 @@ export function DesignSummary({ api, onChangeDesign }: { api: BuilderApi; onChan
         <div className="pt-2">
           <p className="text-[20px] font-semibold tracking-tight text-[#1A1A1A]">{preset.name}</p>
           <p className="mt-1 max-w-[220px] text-[12.5px] leading-snug text-gray-500">{preset.tagline}</p>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={onChangeDesign}
             className="mt-3 rounded-full bg-[#1A1A1A] px-6 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-black"
@@ -251,7 +251,7 @@ function FontSelect({
   const label = (f: FontKey) => (f === defaultFont ? `${f} (Default)` : f)
   return (
     <div className="relative">
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="large"
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between rounded-lg border border-black/15 bg-white px-4 py-3 text-[15px] transition-colors hover:border-black/30"
@@ -263,7 +263,7 @@ function FontSelect({
         <ul className="absolute z-30 mt-1.5 max-h-72 w-full overflow-auto rounded-lg border border-black/10 bg-white py-1 shadow-lg">
           {FONT_OPTIONS.map((f) => (
             <li key={f}>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => {
                   onChange(f)
@@ -303,7 +303,7 @@ function ColorControl({
       <span className="text-[14px] text-[#1A1A1A]">{label}</span>
       <div className="flex items-center gap-2">
         {swatches.map((c) => (
-          <button
+          <button data-opus-button="control"
             key={c}
             type="button"
             aria-label={`${label} ${c}`}
@@ -354,7 +354,7 @@ function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) 
   const current = SORT_OPTIONS.find((o) => o.id === value)?.label ?? 'Featured'
   return (
     <div className="relative">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1 text-[13px] font-semibold text-gray-700 transition-colors hover:text-[#1A1A1A]"
@@ -367,7 +367,7 @@ function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) 
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} aria-hidden />
           <div className="absolute right-0 z-30 mt-1.5 w-48 overflow-hidden rounded-2xl border border-black/10 bg-white py-1.5 shadow-xl">
             {SORT_OPTIONS.map((o) => (
-              <button
+              <button data-opus-button="control"
                 key={o.id}
                 type="button"
                 onClick={() => {
@@ -420,7 +420,7 @@ function DesignGrid({ api, onBack }: { api: BuilderApi; onBack: () => void }) {
     <div className="space-y-5">
       {/* Header: ← Back · centered title · Sort */}
       <div className="flex items-center">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onBack}
           className="flex items-center gap-1.5 text-[14px] font-semibold text-[#1A1A1A] transition-opacity hover:opacity-70"
@@ -444,7 +444,7 @@ function DesignGrid({ api, onBack }: { api: BuilderApi; onBack: () => void }) {
           const selected = p.id === current
           return (
             <div key={p.id} className="group">
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 type="button"
                 onClick={() => selectPreset(p.id)}
                 className={cn(
@@ -469,7 +469,7 @@ function DesignGrid({ api, onBack }: { api: BuilderApi; onBack: () => void }) {
               </p>
               <div className="mt-1.5 flex items-center gap-1.5">
                 {p.swatches.map((c, i) => (
-                  <button
+                  <button data-opus-button="control"
                     key={`${c}-${i}`}
                     type="button"
                     aria-label={`Select ${p.name}`}
@@ -661,7 +661,7 @@ export function LayoutPanel({ api }: { api: BuilderApi }) {
         {LAYOUT_OPTIONS.map((l) => {
           const active = meta.layoutId === l.id
           return (
-            <button
+            <button data-opus-button="control"
               key={l.id}
               type="button"
               onClick={() => api.updateMeta({ layoutId: l.id })}
@@ -742,7 +742,7 @@ function PhotoUploaders({ api }: { api: BuilderApi }) {
             { k: 'desktop' as const, Icon: Monitor },
             { k: 'mobile' as const, Icon: Smartphone },
           ]).map(({ k, Icon }) => (
-            <button
+            <button data-opus-button="control"
               key={k}
               type="button"
               aria-label={k}
@@ -763,7 +763,7 @@ function PhotoUploaders({ api }: { api: BuilderApi }) {
         ))}
       </div>
       {canAdd && (
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           onClick={addPhoto}
           className="mt-3 rounded-full bg-[#1A1A1A] px-5 py-2.5 text-[13.5px] font-semibold text-white transition-colors hover:bg-black"
@@ -815,7 +815,7 @@ function PhotoRow({
     <div className="flex items-center gap-3 border-b border-black/8 px-3 py-2.5 last:border-b-0">
       {multi && (
         <span className="flex flex-col text-gray-400">
-          <button
+          <button data-opus-button="control"
             type="button"
             aria-label="Move up"
             onClick={() => onMove(index, -1)}
@@ -824,7 +824,7 @@ function PhotoRow({
           >
             <ChevronDown size={14} className="rotate-180" />
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             aria-label="Move down"
             onClick={() => onMove(index, 1)}
@@ -838,7 +838,7 @@ function PhotoRow({
       <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md bg-gray-100 ring-1 ring-black/10">
         <Image src={src} alt="" fill sizes="64px" className="object-cover" />
       </div>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => inputRef.current?.click()}
         className="ml-auto flex items-center gap-1.5 text-[14px] font-semibold text-[#1A1A1A] transition-opacity hover:opacity-70"
@@ -941,7 +941,7 @@ function SaveTheDatePromo({ meta }: { meta: BuilderApi['doc']['meta'] }) {
           <p className="mt-2 text-[12.5px] leading-relaxed text-gray-600">
             See your paper in real life, printed with your names and wedding date.
           </p>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             className="mt-3 inline-flex w-fit rounded-full bg-[#1A1A1A] px-4 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-black"
           >
@@ -951,7 +951,7 @@ function SaveTheDatePromo({ meta }: { meta: BuilderApi['doc']['meta'] }) {
       </div>
       <div className="mt-4 flex items-center gap-2">
         {tints.map((c) => (
-          <button
+          <button data-opus-button="control"
             key={c}
             type="button"
             aria-label={`Paper colour ${c}`}
@@ -1045,7 +1045,7 @@ export function PagesPanel({ api }: { api: BuilderApi }) {
             >
               <GripVertical size={15} className="text-gray-300" />
               <span className={cn('flex-1 text-[14px]', p.visible ? 'text-[#1A1A1A]' : 'text-gray-400')}>{p.label}</span>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 aria-label={p.visible ? `Hide ${p.label}` : `Show ${p.label}`}
                 onClick={() => setPageVisible(p.key, !p.visible)}
@@ -1074,7 +1074,7 @@ function Accordion({
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="border-b border-black/8 pb-5">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between py-1 text-left"
@@ -1160,7 +1160,7 @@ function Section({
     <div>
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-[17px] font-bold text-[#1A1A1A]">{title}</h3>
-        <button type="button" onClick={onClear} className="text-[13px] font-semibold text-gray-500 underline hover:text-[#1A1A1A]">
+        <button data-opus-button="control" type="button" onClick={onClear} className="text-[13px] font-semibold text-gray-500 underline hover:text-[#1A1A1A]">
           Clear
         </button>
       </div>
@@ -1181,7 +1181,7 @@ function Tile({
   children: React.ReactNode
 }) {
   return (
-    <button type="button" onClick={onClick} className="text-center">
+    <button data-opus-button="control" type="button" onClick={onClick} className="text-center">
       <div
         className={cn(
           'flex aspect-square items-center justify-center rounded-xl bg-[#F7F6F2] transition-all',
@@ -1339,7 +1339,7 @@ function ValuePill({
   onToggle: () => void
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onToggle}
       className={cn('text-[13.5px] font-semibold transition-colors', on ? 'text-[#3FA34D]' : 'text-gray-400')}

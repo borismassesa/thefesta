@@ -40,7 +40,7 @@ export function SmsOptIn() {
             placeholder="+255 712 345 678"
             className="w-full border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C9A0DC] focus:border-transparent transition-all"
           />
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="submit"
             className="w-full bg-gray-900 text-white text-sm font-semibold rounded-xl px-4 py-2.5 hover:bg-gray-800 transition-colors"
           >

@@ -316,7 +316,7 @@ export default function RegistryCheckoutSheet({
               <p className="text-xs text-[#1A1A1A]/55">{s.buy_this} — {priceLabel}</p>
             </div>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={phase !== 'idle'}
@@ -373,10 +373,10 @@ export default function RegistryCheckoutSheet({
               <div className="space-y-4">
                 {SELCOM_ENABLED ? (
                   <div className="inline-flex rounded-full border border-black/[0.1] bg-black/[0.02] p-1">
-                    <button type="button" onClick={() => { setMpesaMode('push'); setError(null) }} className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition', mpesaMode === 'push' ? 'bg-white shadow-sm' : 'text-[#1A1A1A]/55')}>
+                    <button data-opus-button="control" type="button" onClick={() => { setMpesaMode('push'); setError(null) }} className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition', mpesaMode === 'push' ? 'bg-white shadow-sm' : 'text-[#1A1A1A]/55')}>
                       {s.pay_prompt}
                     </button>
-                    <button type="button" onClick={() => { setMpesaMode('lipa'); setError(null) }} className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition', mpesaMode === 'lipa' ? 'bg-white shadow-sm' : 'text-[#1A1A1A]/55')}>
+                    <button data-opus-button="control" type="button" onClick={() => { setMpesaMode('lipa'); setError(null) }} className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition', mpesaMode === 'lipa' ? 'bg-white shadow-sm' : 'text-[#1A1A1A]/55')}>
                       {s.lipa}
                     </button>
                   </div>
@@ -415,7 +415,7 @@ export default function RegistryCheckoutSheet({
             </div>
           ) : null}
 
-          <button
+          <button data-opus-button="primary" data-opus-button-size="large"
             type="button"
             onClick={handlePay}
             disabled={submitting}

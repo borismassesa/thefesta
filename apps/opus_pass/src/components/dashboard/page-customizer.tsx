@@ -39,7 +39,7 @@ export function DeviceToggle({
         const { label, icon: Icon } = PREVIEW_DEVICES[d]
         const active = d === device
         return (
-          <button
+          <button data-opus-button="control"
             key={d}
             type="button"
             onClick={() => onChange(d)}
@@ -317,7 +317,7 @@ function QuestionsEditor({
                       onChange={(e) => updateOption(q.id, opt.id, e.target.value)}
                       placeholder={`Option ${oi + 1}`}
                     />
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => removeOption(q.id, opt.id)}
                       aria-label="Remove option"
@@ -327,7 +327,7 @@ function QuestionsEditor({
                     </button>
                   </div>
                 ))}
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => addOption(q.id)}
                   className="text-xs font-medium text-[#8e57b3] hover:underline"
@@ -337,7 +337,7 @@ function QuestionsEditor({
               </div>
             ) : null}
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => removeQuestion(q.id)}
             aria-label="Remove question"
@@ -347,7 +347,7 @@ function QuestionsEditor({
           </button>
         </div>
       ))}
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         type="button"
         onClick={addQuestion}
         className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-black/[0.18] px-4 py-2.5 text-sm font-medium text-[#1A1A1A]/70 hover:bg-black/[0.02]"
@@ -396,7 +396,7 @@ export function CoverUploader({
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={value} alt="Cover preview" className="h-32 w-full object-cover" />
           )}
-          <button
+          <button data-opus-button="danger" data-opus-button-size="small"
             type="button"
             onClick={() => onChange(null)}
             className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white hover:bg-black/75"
@@ -404,7 +404,7 @@ export function CoverUploader({
             <Trash2 className="h-3 w-3" /> Remove
           </button>
         </div>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => inputRef.current?.click()}
           className="text-xs font-medium text-[#8e57b3] hover:underline"
@@ -424,7 +424,7 @@ export function CoverUploader({
 
   return (
     <>
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="medium"
         type="button"
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => {

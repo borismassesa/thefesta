@@ -19,7 +19,7 @@ export function PreviewBanner() {
           <Eye size={14} />
           Preview mode — showing unpublished draft content
         </div>
-        <button
+        <button data-opus-button="warning" data-opus-button-size="small"
           type="button"
           onClick={exit}
           disabled={pending}

@@ -195,7 +195,7 @@ export default function CoupleConsole({
         <div className="mt-6 flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Event</span>
           {events.map((event) => (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               key={event.id}
               type="button"
               onClick={() => selectEvent(event.id)}
@@ -213,7 +213,7 @@ export default function CoupleConsole({
 
       <div className="mt-6 flex gap-6 overflow-x-auto border-b border-gray-200">
         {TABS.map((t) => (
-          <button
+          <button data-opus-button="control"
             key={t}
             type="button"
             onClick={() => setTab(t)}
@@ -367,7 +367,7 @@ function EventsTab({
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => onSelect(event.id)}
                 className="truncate text-left text-lg font-semibold text-gray-900 hover:text-[#7E5896]"
@@ -437,7 +437,7 @@ function GuestsTab({ event, guests }: { event: CoupleEvent | null; guests: Coupl
         {event.invitationCount > GUEST_PAGE_SIZE ? ` (first ${GUEST_PAGE_SIZE})` : ''}
       </p>
       <div className="mt-4 overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <table className="w-full min-w-[820px] text-sm">
+        <table className="opus-table w-full min-w-[820px] text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
               <th className="px-4 py-3">Guest</th>
@@ -506,7 +506,7 @@ function OrdersTab({
           <p className="mt-3 text-sm text-gray-500">No orders are attached to this account.</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="opus-table w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
                   <th className="px-2 py-3">Ref</th>
@@ -589,7 +589,7 @@ function UnlinkedOrdersPanel({ userId, orders, canWrite }: { userId: string; ord
             </Pill>
             <span className="tabular-nums text-gray-700">{formatTzs(order.amountTotal, order.currency)}</span>
             <span className="text-sm text-gray-500">{formatDate(order.createdAt)}</span>
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={!canWrite || pending}
               onClick={() => link(order.id)}
@@ -682,7 +682,7 @@ function CreditsPanel({
               <option value="invite">Invite sends</option>
               <option value="entrance_pass">Entrance passes</option>
             </select>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="submit"
               disabled={pending}
               className="rounded-xl bg-[#7E5896] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5d3a78] disabled:cursor-not-allowed disabled:opacity-50"
@@ -746,7 +746,7 @@ function NotesTab({ userId, notes, canWrite }: { userId: string; notes: CoupleNo
             className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-[#7E5896] focus:outline-none"
           />
           {error ? <p className="mt-2 text-sm font-semibold text-rose-700">{error}</p> : null}
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={save}
             disabled={pending || !body.trim()}

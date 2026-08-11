@@ -120,7 +120,7 @@ function FieldError({ children }: { children: React.ReactNode }) {
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false)
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="medium"
       type="button"
       onClick={() => {
         void navigator.clipboard?.writeText(value)
@@ -370,10 +370,10 @@ export default function PaymentMethodFields({
         <div className="space-y-4">
           {SELCOM_ENABLED && (
             <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-1">
-              <button type="button" onClick={() => { setMpesaMode('push'); setPayError(null) }} aria-pressed={mpesaMode === 'push'} className={cn('rounded-full px-4 py-1.5 text-sm font-semibold transition-colors', mpesaMode === 'push' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900')}>
+              <button data-opus-button="control" type="button" onClick={() => { setMpesaMode('push'); setPayError(null) }} aria-pressed={mpesaMode === 'push'} className={cn('rounded-full px-4 py-1.5 text-sm font-semibold transition-colors', mpesaMode === 'push' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900')}>
                 {tp('toggle_push')}
               </button>
-              <button type="button" onClick={() => { setMpesaMode('lipa'); setPayError(null) }} aria-pressed={mpesaMode === 'lipa'} className={cn('rounded-full px-4 py-1.5 text-sm font-semibold transition-colors', mpesaMode === 'lipa' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900')}>
+              <button data-opus-button="control" type="button" onClick={() => { setMpesaMode('lipa'); setPayError(null) }} aria-pressed={mpesaMode === 'lipa'} className={cn('rounded-full px-4 py-1.5 text-sm font-semibold transition-colors', mpesaMode === 'lipa' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900')}>
                 {tp('toggle_lipa')}
               </button>
             </div>
@@ -405,7 +405,7 @@ export default function PaymentMethodFields({
                   {LIPA_NETWORKS.map((n) => {
                     const active = lipaNetwork === n.id
                     return (
-                      <button key={n.id} type="button" role="tab" aria-selected={active} onClick={() => setLipaNetwork(n.id)} className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', active ? 'border-[#E60000] bg-[#E60000] text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900')}>
+                      <button data-opus-button="control" key={n.id} type="button" role="tab" aria-selected={active} onClick={() => setLipaNetwork(n.id)} className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', active ? 'border-[#E60000] bg-[#E60000] text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900')}>
                         {n.name ?? tp(n.nameKey!)}
                       </button>
                     )
@@ -478,7 +478,7 @@ export default function PaymentMethodFields({
         </div>
       )}
 
-      <button
+      <button data-opus-button="primary" data-opus-button-size="large"
         type="button"
         onClick={handlePay}
         disabled={submitting || payPhase !== 'idle'}

@@ -322,14 +322,14 @@ export default function RequestFormView({
           {dirty && (
             <>
               <span className="text-xs font-medium text-amber-600">Unsaved changes</span>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onDiscard}
                 className="rounded-lg px-2.5 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900"
               >
                 Discard
               </button>
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 type="button"
                 onClick={() => save()}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
@@ -619,7 +619,7 @@ function PrimaryActions({
             {blockingReason}
           </span>
         )}
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onSubmit}
           disabled={busy || Boolean(blockingReason)}
@@ -647,7 +647,7 @@ function PrimaryActions({
     }
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        <button data-opus-button="warning" data-opus-button-size="medium"
           type="button"
           onClick={onRequestInfo}
           disabled={busy}
@@ -656,7 +656,7 @@ function PrimaryActions({
           <MessageCircleQuestion className="h-4 w-4" />
           Request info
         </button>
-        <button
+        <button data-opus-button="danger" data-opus-button-size="medium"
           type="button"
           onClick={onRefuse}
           disabled={busy}
@@ -665,7 +665,7 @@ function PrimaryActions({
           <XCircle className="h-4 w-4" />
           Refuse
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onApprove}
           disabled={busy}
@@ -679,7 +679,7 @@ function PrimaryActions({
   }
 
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="medium"
       type="button"
       onClick={onReopen}
       className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
@@ -926,7 +926,7 @@ function ListInput({
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]"
           />
           {lines.length > 1 && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => remove(i)}
               aria-label="Remove line"
@@ -937,7 +937,7 @@ function ListInput({
           )}
         </div>
       ))}
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => onChange([...lines, ''].join('\n'))}
         className="inline-flex items-center gap-1 text-xs font-semibold text-[#5B2D8E] hover:underline"
@@ -1074,7 +1074,7 @@ function ApproversCard({
                 </span>
               )}
               {editable && (
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => onChange(value.filter((v) => v.id !== a.id))}
                   className="shrink-0 rounded-md p-1.5 text-gray-400 hover:bg-gray-50 hover:text-rose-600"
@@ -1094,7 +1094,7 @@ function ApproversCard({
             <ul className="max-h-56 overflow-y-auto">
               {available.map((a) => (
                 <li key={a.id}>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => {
                       onChange([...value, a])
@@ -1118,7 +1118,7 @@ function ApproversCard({
               ))}
             </ul>
           ) : (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               type="button"
               onClick={() => setPicking(true)}
               className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs font-semibold text-[#5B2D8E] hover:border-[#C9A0DC] hover:bg-[#F8EDFF]"
@@ -1237,7 +1237,7 @@ function AttachmentsCard({
             className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2"
           >
             <FileText className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => openAttachment(a.id)}
               disabled={busy}
@@ -1251,7 +1251,7 @@ function AttachmentsCard({
               </span>
             </button>
             {canRemove && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={async () => {
                   setError(null)
@@ -1352,7 +1352,7 @@ function ActivityPanel({
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
         <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Activity</h2>
         {canNote && panel !== 'note' && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => onPanel('note')}
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-[#5B2D8E] hover:bg-[#F8EDFF]"
@@ -1377,14 +1377,14 @@ function ActivityPanel({
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-transparent focus:ring-2 focus:ring-[#C9A0DC]"
           />
           <div className="flex justify-end gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => onPanel('activity')}
               className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onAppendNote}
               disabled={!noteText.trim()}
@@ -1629,7 +1629,7 @@ function DecisionDialog({
             <h2 className="text-lg font-semibold text-gray-900">{copy.title}</h2>
             <p className="mt-1 text-sm text-gray-500">{copy.intro}</p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             aria-label="Close"
@@ -1667,7 +1667,7 @@ function DecisionDialog({
           )}
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-4">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={busy}
@@ -1675,7 +1675,7 @@ function DecisionDialog({
           >
             Cancel
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={confirm}
             disabled={busy}

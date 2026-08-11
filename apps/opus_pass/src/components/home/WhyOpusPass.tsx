@@ -20,7 +20,7 @@ export async function WhyOpusPass() {
         <div className="mt-14 grid items-center gap-12 lg:mt-20 lg:grid-cols-2 lg:gap-20">
           {/* Left: photo card with floating overlays (left-aligned) */}
           <div className="relative mx-auto w-full max-w-[380px] lg:mx-0">
-            <div className="relative aspect-[3/4] overflow-hidden rounded-[28px] shadow-[0_30px_70px_-30px_rgba(0,0,0,0.45)] ring-1 ring-black/[0.06]">
+            <div className="relative aspect-[3/4] overflow-hidden rounded-[var(--opus-radius-large)] shadow-[0_30px_70px_-30px_rgba(0,0,0,0.45)] ring-1 ring-black/[0.06]">
               <Image
                 src={content.main_image_url}
                 alt={content.main_image_alt}
@@ -33,7 +33,7 @@ export async function WhyOpusPass() {
             {/* Floating product chip — straddling the top-left edge. On phones the
                 card nearly fills the viewport, so cap the overhang at the section
                 padding (12px) or the chip gets clipped by the body's overflow clip. */}
-            <div className="absolute left-0 top-12 flex -translate-x-3 items-center gap-3 rounded-[20px] bg-white px-3 py-2.5 shadow-[0_14px_35px_-10px_rgba(0,0,0,0.35)] ring-1 ring-black/[0.05] sm:-translate-x-1/2 sm:px-3.5 sm:py-3">
+            <div className="absolute left-0 top-12 flex -translate-x-3 items-center gap-3 rounded-[var(--opus-radius-medium)] bg-white px-3 py-2.5 shadow-[0_14px_35px_-10px_rgba(0,0,0,0.35)] ring-1 ring-black/[0.05] sm:-translate-x-1/2 sm:px-3.5 sm:py-3">
               <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-12 sm:w-12">
                 <Image
                   src={content.chip_image_url}

@@ -496,7 +496,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
               </ol>
             )}
           </div>
-          <button type="button" className="x" onClick={onClose} aria-label="Close">
+          <button data-opus-button="control" type="button" className="x" onClick={onClose} aria-label="Close">
             <X size={16} />
           </button>
         </header>
@@ -566,10 +566,10 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
             </p>
 
             <div className="okacts">
-              <button type="button" className="primary" onClick={closeAndRefresh}>
+              <button data-opus-button="control" type="button" className="primary" onClick={closeAndRefresh}>
                 Done
               </button>
-              <button type="button" className="ghost" onClick={() => downloadInvoice(done.invoice)}>
+              <button data-opus-button="control" type="button" className="ghost" onClick={() => downloadInvoice(done.invoice)}>
                 <Download size={15} /> Invoice
               </button>
               <Link href="/my/dashboard/orders" className="ghost">
@@ -602,7 +602,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
                     const on = c.releaseId === releaseId
                     const single = candidates.length === 1
                     return (
-                      <button
+                      <button data-opus-button="control"
                         key={c.releaseId}
                         type="button"
                         className={`cardpick${on ? ' on' : ''}${single ? ' single' : ''}`}
@@ -645,7 +645,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
               <section>
                 <h4>How many more?</h4>
                 <div className="stepper">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     aria-label="Fewer cards"
                     disabled={guests <= TOPUP_MIN_GUESTS}
@@ -654,7 +654,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
                     <Minus size={17} />
                   </button>
                   <span className="n">{guests}</span>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     aria-label="More cards"
                     disabled={guests >= TOPUP_MAX_GUESTS}
@@ -665,7 +665,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
                 </div>
                 <div className="quick" role="group" aria-label="Common quantities">
                   {QUICK_PICKS.map((n) => (
-                    <button
+                    <button data-opus-button="control"
                       key={n}
                       type="button"
                       className={guests === n ? 'on' : ''}
@@ -702,7 +702,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
                 <span>Total</span>
                 <b>{formatTzs(amount)}</b>
               </div>
-              <button className="primary wide" disabled={!card} onClick={goToPayment}>
+              <button data-opus-button="control" className="primary wide" disabled={!card} onClick={goToPayment}>
                 Continue to payment <ArrowRight size={15} />
               </button>
             </footer>
@@ -721,7 +721,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
                       <span className="pill">{card ? formatTzs(card.unitPrice) : '—'} each</span>
                     </span>
                   </div>
-                  <button type="button" className="change" onClick={() => setStep(1)}>
+                  <button data-opus-button="control" type="button" className="change" onClick={() => setStep(1)}>
                     Change
                   </button>
                 </div>
@@ -747,7 +747,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
                       <b>{MPESA_LIPA_NAMBA}</b>
                       <small>{titleCase(MPESA_LIPA_NAME)}</small>
                     </div>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       className={`copy${copied === 'namba' ? ' ok' : ''}`}
                       onClick={() => copy('namba', MPESA_LIPA_NAMBA)}
@@ -761,7 +761,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
                       <span>Amount</span>
                       <b>{formatTzs(amount)}</b>
                     </div>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       className={`copy${copied === 'amount' ? ' ok' : ''}`}
                       onClick={() => copy('amount', String(amount))}
@@ -873,10 +873,10 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
               </div>
               <p className="fnote">Your card capacity increases after we verify the payment.</p>
               <div className="facts">
-                <button type="button" className="back" onClick={() => setStep(1)}>
+                <button data-opus-button="control" type="button" className="back" onClick={() => setStep(1)}>
                   <ArrowLeft size={14} /> Back
                 </button>
-                <button className="primary grow" disabled={submitting} onClick={submit}>
+                <button data-opus-button="control" className="primary grow" disabled={submitting} onClick={submit}>
                   {submitting ? (
                     <span className="spin">
                       <Loader2 size={15} />
@@ -996,7 +996,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
         .cards { display: grid; gap: 10px; }
         .cardpick {
           position: relative; display: flex; gap: 14px; align-items: center; text-align: left;
-          width: 100%; padding: 14px; border: 1px solid var(--line); border-radius: 14px;
+          width: 100%; padding: 14px; border: 1px solid var(--line); border-radius: var(--opus-radius-medium);
           background: #fff; box-shadow: var(--shadow);
           transition: border-color 0.14s, box-shadow 0.14s;
         }
@@ -1005,7 +1005,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
         .cardpick.on:not(.single) { border-color: var(--ink); }
         .thumb {
           width: 48px; flex: none; overflow: hidden; aspect-ratio: 5 / 7;
-          border-radius: 7px; background: var(--lav-soft); border: 1px solid var(--line);
+          border-radius: var(--opus-radius-small); background: var(--lav-soft); border: 1px solid var(--line);
         }
         .thumb :global(img) { width: 100%; height: 100%; object-fit: cover; display: block; }
         .meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -1056,7 +1056,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
         /* ── Purchase panel (step 2 anchor) ─────────────────────────────── */
         .purchase {
           background: linear-gradient(160deg, #f3eafa, #fbf7fd);
-          border-radius: 18px; padding: 18px 20px;
+          border-radius: var(--opus-radius-medium); padding: 18px 20px;
         }
         .ptop { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
         .ptop > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -1096,7 +1096,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
         /* ── Payment figures: white, soft shadow, amount is the hero ────── */
         .payrow {
           display: flex; align-items: center; justify-content: space-between; gap: 14px;
-          border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+          border: 1px solid var(--line); border-radius: var(--opus-radius-medium); padding: 14px 16px;
           background: #fff; box-shadow: var(--shadow); margin-bottom: 10px;
         }
         .payrow:last-child { margin-bottom: 0; }
@@ -1119,7 +1119,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
         .fields { display: grid; gap: 16px; }
         .fields label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500; }
         .fields input {
-          border: 1px solid var(--line); border-radius: 11px; padding: 11px 13px;
+          border: 1px solid var(--line); border-radius: var(--opus-radius-small); padding: 11px 13px;
           font-size: 14px; font-weight: 400; background: #fff; color: var(--ink);
           transition: border-color 0.12s;
         }
@@ -1136,7 +1136,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
           font-size: 13px; font-weight: 400; line-height: 1.5; color: var(--muted);
         }
         .trust li :global(svg) { color: var(--good); flex: none; margin-top: 2px; }
-        .help { background: #fafafb; border-radius: 14px; padding: 16px 18px; }
+        .help { background: #fafafb; border-radius: var(--opus-radius-medium); padding: 16px 18px; }
         .help b { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
         .help p { margin: 0; font-size: 13px; font-weight: 400; color: var(--muted); line-height: 1.55; }
         .help :global(a) { color: var(--ink); font-weight: 500; }
@@ -1185,7 +1185,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
 
         .warn, .err {
           display: flex; gap: 10px; align-items: flex-start; padding: 13px 15px;
-          border-radius: 13px; font-size: 13px; font-weight: 400; line-height: 1.5;
+          border-radius: var(--opus-radius-medium); font-size: 13px; font-weight: 400; line-height: 1.5;
         }
         .warn { background: #fff8e8; color: #6b4e00; }
         .err { background: #fdeced; color: var(--bad); margin-bottom: 14px; }
@@ -1222,7 +1222,7 @@ export default function TopUpDrawer({ eventId, quota, unassignedGuests, onClose 
            us about it. */
         .receipt {
           margin: 0; display: grid; gap: 11px;
-          background: var(--lav-soft); border-radius: 14px; padding: 16px;
+          background: var(--lav-soft); border-radius: var(--opus-radius-medium); padding: 16px;
         }
         .receipt > div { display: flex; justify-content: space-between; gap: 14px; font-size: 13px; }
         .receipt dt { color: var(--muted); font-weight: 400; }

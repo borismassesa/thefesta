@@ -222,7 +222,7 @@ export default function EditorsPicksEditor({ initial, hasDraft: initialHasDraft 
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-[15px] font-semibold text-gray-900">Editor&apos;s Picks rows</h3>
           <div className="flex items-center gap-1">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={expandAllRows}
               className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
@@ -230,7 +230,7 @@ export default function EditorsPicksEditor({ initial, hasDraft: initialHasDraft 
               <ChevronsUpDown className="w-3 h-3" />
               Expand all
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={collapseAllRows}
               className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
@@ -428,7 +428,7 @@ export default function EditorsPicksEditor({ initial, hasDraft: initialHasDraft 
                           className={`${inputCls} flex-1`}
                         />
                         {pick.background && (
-                          <button
+                          <button data-opus-button="control"
                             type="button"
                             onClick={() => setPick(rIdx, pIdx, { background: undefined })}
                             className="p-1 text-gray-400 hover:text-red-600 shrink-0"
@@ -452,7 +452,7 @@ export default function EditorsPicksEditor({ initial, hasDraft: initialHasDraft 
                     </Field>
                   </CollapsibleCard>
                 ))}
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="small"
                   type="button"
                   onClick={() => addPick(rIdx)}
                   className="flex items-center gap-2 text-xs font-medium text-[#7E5896] hover:text-[#5d3a78] px-3 py-1.5 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6] transition-colors"
@@ -463,7 +463,7 @@ export default function EditorsPicksEditor({ initial, hasDraft: initialHasDraft 
               </div>
             </CollapsibleCard>
           ))}
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             onClick={addRow}
             className="flex items-center gap-2 text-sm font-medium text-[#7E5896] hover:text-[#5d3a78] px-3 py-2 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6] transition-colors"
@@ -479,7 +479,7 @@ export default function EditorsPicksEditor({ initial, hasDraft: initialHasDraft 
           <h3 className="text-[15px] font-semibold text-gray-900">Live preview</h3>
           <div className="inline-flex items-center rounded-full border border-gray-200 p-0.5 text-[11px] font-semibold">
             {LOCALES.map((l) => (
-              <button
+              <button data-opus-button="control"
                 key={l}
                 type="button"
                 onClick={() => setPreviewLocale(l)}
@@ -588,7 +588,7 @@ function PickVisualSection({
       </legend>
 
       <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded-lg">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => switchTo('media')}
           className={cn(
@@ -601,7 +601,7 @@ function PickVisualSection({
           <ImageIcon className="w-3.5 h-3.5" />
           Upload image or video
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => switchTo('design')}
           className={cn(

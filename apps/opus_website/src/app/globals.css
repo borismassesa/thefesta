@@ -1,4 +1,9 @@
 @import 'tailwindcss';
+@import '@opusfesta/lib/styles/radius.css';
+@import '@opusfesta/lib/styles/buttons.css';
+@import '@opusfesta/lib/styles/badges.css';
+@import '@opusfesta/lib/styles/search.css';
+@import '@opusfesta/lib/styles/tables.css';
 
 :root {
   --accent: #C9A0DC;
@@ -58,7 +63,7 @@ svg {
 .vendor-map-popup .leaflet-popup-content-wrapper {
   padding: 0;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: var(--opus-radius-medium);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
 }
 .vendor-map-popup .leaflet-popup-content {

@@ -115,7 +115,7 @@ function PortalSidebar({
         ].map((it) => {
           const Icon = it.icon
           return (
-            <button
+            <button data-opus-button="control"
               key={it.label}
               className="w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
             >
@@ -144,7 +144,7 @@ function NavGroup({
         const Icon = it.icon
         const isActive = it.key === active
         return (
-          <button
+          <button data-opus-button="secondary" data-opus-button-size="medium"
             key={it.key}
             onClick={() => onSelect(it.key)}
             className={`w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
@@ -188,7 +188,7 @@ function MobileTabs({
         const Icon = it.icon
         const isActive = it.key === active
         return (
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             key={it.key}
             onClick={() => onSelect(it.key)}
             className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
@@ -214,10 +214,10 @@ function PortalTopBar({ title, subtitle }: { title: string; subtitle: string }) 
         <p className="text-sm text-gray-500 font-medium mt-1 hidden sm:block">{subtitle}</p>
       </div>
       <div className="flex items-center gap-3 shrink-0">
-        <button className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400">
+        <button data-opus-button="control" className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400">
           <HelpCircle size={16} />
         </button>
-        <button className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400 relative">
+        <button data-opus-button="control" className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400 relative">
           <Bell size={16} />
           <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-red-500" />
         </button>
@@ -449,14 +449,14 @@ function BookingsView() {
       <PortalTopBar title="Bookings" subtitle="Track every couple from quote to wedding day." />
       <div className="px-5 sm:px-7 pt-5 pb-3 flex items-center justify-between gap-4">
         <div className="flex gap-5 text-sm font-bold">
-          <button className="flex items-center gap-2 pb-2 border-b-2 border-[#1A1A1A] text-[#1A1A1A]">
+          <button data-opus-button="control" className="flex items-center gap-2 pb-2 border-b-2 border-[#1A1A1A] text-[#1A1A1A]">
             <ListChecks size={15} /> Pipeline
           </button>
-          <button className="flex items-center gap-2 pb-2 text-gray-400">
+          <button data-opus-button="control" className="flex items-center gap-2 pb-2 text-gray-400">
             <CalendarDays size={15} /> Calendar
           </button>
         </div>
-        <button className="shrink-0 inline-flex items-center gap-1.5 bg-[#1A1A1A] hover:bg-[#333] text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-full">
+        <button data-opus-button="primary" data-opus-button-size="small" className="shrink-0 inline-flex items-center gap-1.5 bg-[#1A1A1A] hover:bg-[#333] text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-full">
           <Plus size={14} /> New booking
         </button>
       </div>
@@ -480,7 +480,7 @@ function BookingsView() {
                   </div>
                   <p className="text-xs font-bold text-[#1A1A1A] leading-snug">{a.title}</p>
                   <p className="text-[10px] text-gray-500">{a.meta}</p>
-                  <button className="text-[10px] font-bold text-[#1A1A1A] inline-flex items-center gap-1 mt-1">{a.cta} <ArrowRight size={10} /></button>
+                  <button data-opus-button="control" className="text-[10px] font-bold text-[#1A1A1A] inline-flex items-center gap-1 mt-1">{a.cta} <ArrowRight size={10} /></button>
                 </div>
               )
             })}
@@ -490,7 +490,7 @@ function BookingsView() {
 
       <div className="px-5 sm:px-7 mb-3 flex items-center gap-2 overflow-x-auto hide-scrollbar">
         {filters.map((f) => (
-          <button key={f.label} className={`shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+          <button data-opus-button="neutral" data-opus-button-size="small" key={f.label} className={`shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
             f.active ? 'bg-[#1A1A1A] text-white' : 'bg-white border border-gray-200 text-gray-600'
           }`}>
             {f.label}
@@ -577,7 +577,7 @@ function LeadsView() {
               <div className="p-4 border-b border-gray-100">
                 <div className="flex gap-1 -mx-4 px-4 border-b border-gray-100">
                   {tabs.map((t) => (
-                    <button
+                    <button data-opus-button="neutral" data-opus-button-size="small"
                       key={t}
                       onClick={() => setActiveTab(t)}
                       className={`pb-3 px-2 text-xs font-semibold transition-colors border-b-2 -mb-[1px] ${
@@ -592,7 +592,7 @@ function LeadsView() {
                   <div className="relative flex-1">
                     <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
-                      type="text"
+                      type="search"
                       placeholder="Search couples…"
                       className="pl-8 pr-2 py-1.5 bg-gray-50 border border-gray-100 rounded-lg w-full text-xs"
                     />
@@ -602,7 +602,7 @@ function LeadsView() {
               <ul className="flex-1 overflow-y-auto">
                 {inboxLeads.map((l) => (
                   <li key={l.id}>
-                    <button
+                    <button data-opus-button="control"
                       onClick={() => setSelectedId(l.id)}
                       className={`w-full flex items-start gap-2.5 px-4 py-3 border-b border-gray-50 text-left transition-colors ${
                         selectedId === l.id ? 'bg-[#FCF7FF]' : 'hover:bg-gray-50'
@@ -630,7 +630,7 @@ function LeadsView() {
                   <h4 className="text-base font-semibold text-gray-900">{selected.name}</h4>
                   <p className="text-xs text-gray-500 mt-0.5">Wedding date · {selected.date}</p>
                 </div>
-                <button className="text-xs font-semibold px-3 py-2 rounded-xl bg-gray-900 text-white">Reply</button>
+                <button data-opus-button="primary" data-opus-button-size="small" className="text-xs font-semibold px-3 py-2 rounded-xl bg-gray-900 text-white">Reply</button>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mt-4">
@@ -734,7 +734,7 @@ function StorefrontView() {
               const ic = STATUS_ICON[s.status]
               return (
                 <li key={s.id}>
-                  <button className="group w-full flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left">
+                  <button data-opus-button="control" className="group w-full flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left">
                     <span className={`mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${ic.wrap}`}>
                       {ic.render}
                     </span>
@@ -770,7 +770,7 @@ function StorefrontView() {
                 <span className="font-semibold">1 required section</span> still needs attention before couples can book you.
               </p>
             </div>
-            <button className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900">
+            <button data-opus-button="control" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900">
               <Eye className="w-3.5 h-3.5" /> Preview public storefront
             </button>
           </div>
@@ -864,7 +864,7 @@ function ReviewsView() {
                     <p className="text-xs font-semibold text-gray-900 truncate">{c.name}</p>
                     <p className="text-[10px] text-gray-500 truncate">{c.pkg}</p>
                   </div>
-                  <button className="text-[10px] font-bold px-2 py-1 rounded bg-[#1A1A1A] text-white">Invite</button>
+                  <button data-opus-button="primary" data-opus-button-size="small" className="text-[10px] font-bold px-2 py-1 rounded bg-[#1A1A1A] text-white">Invite</button>
                 </div>
               ))}
             </div>
@@ -877,7 +877,7 @@ function ReviewsView() {
             <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Sort</span>
             <div className="flex gap-1">
               {['Most recent', 'Highest', 'Lowest', `Awaiting (${awaitingReply})`].map((l, i) => (
-                <button key={l} className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${i === 0 ? 'bg-[#1A1A1A] text-white' : 'text-gray-500'}`}>{l}</button>
+                <button data-opus-button="primary" data-opus-button-size="small" key={l} className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${i === 0 ? 'bg-[#1A1A1A] text-white' : 'text-gray-500'}`}>{l}</button>
               ))}
             </div>
           </div>
@@ -885,7 +885,7 @@ function ReviewsView() {
             <Filter className="w-3 h-3 text-gray-400" />
             <div className="flex gap-1">
               {[`All ${total}`, 'With photos', `Awaiting (${awaitingReply})`].map((l, i) => (
-                <button key={l} className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${i === 0 ? 'bg-[#1A1A1A] text-white' : 'text-gray-500'}`}>{l}</button>
+                <button data-opus-button="primary" data-opus-button-size="small" key={l} className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${i === 0 ? 'bg-[#1A1A1A] text-white' : 'text-gray-500'}`}>{l}</button>
               ))}
             </div>
           </div>
@@ -909,7 +909,7 @@ function ReviewsView() {
                     <span className="text-[11px] text-gray-400">· {r.pkg} · {r.date}</span>
                   </div>
                 </div>
-                <button className="text-[10px] font-bold text-gray-400">Report</button>
+                <button data-opus-button="control" className="text-[10px] font-bold text-gray-400">Report</button>
               </div>
               <p className="mt-3 text-sm text-gray-700 leading-relaxed">{r.body}</p>
               {r.reply && (
@@ -920,8 +920,8 @@ function ReviewsView() {
               )}
               {!r.reply && (
                 <div className="mt-3 flex gap-2">
-                  <button className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#1A1A1A] text-white">Reply</button>
-                  <button className="text-xs font-bold px-3 py-1.5 rounded-full text-gray-500 border border-gray-200">Pin</button>
+                  <button data-opus-button="primary" data-opus-button-size="small" className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#1A1A1A] text-white">Reply</button>
+                  <button data-opus-button="control" className="text-xs font-bold px-3 py-1.5 rounded-full text-gray-500 border border-gray-200">Pin</button>
                 </div>
               )}
             </div>
@@ -952,7 +952,7 @@ function PlansView() {
                 </li>
               ))}
             </ul>
-            <button className={`mt-6 w-full rounded-full font-bold text-sm py-3 ${p.current ? 'bg-gray-100 text-gray-500' : 'bg-[#1A1A1A] text-white hover:bg-[#333]'}`}>
+            <button data-opus-button="primary" data-opus-button-size="large" className={`mt-6 w-full rounded-full font-bold text-sm py-3 ${p.current ? 'bg-gray-100 text-gray-500' : 'bg-[#1A1A1A] text-white hover:bg-[#333]'}`}>
               {p.cta}
             </button>
           </div>
@@ -1051,7 +1051,7 @@ export default function PortalPreview() {
 
       {/* Mockup window with sidebar + content */}
       <Reveal direction="up" margin="-80px">
-        <div className="rounded-[24px] sm:rounded-[32px] md:rounded-[40px] bg-[#FDFDFD] border border-gray-200 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.18)] overflow-hidden flex">
+        <div className="rounded-[var(--opus-radius-large)] sm:rounded-[var(--opus-radius-xlarge)] md:rounded-[var(--opus-radius-xlarge)] bg-[#FDFDFD] border border-gray-200 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.18)] overflow-hidden flex">
           <PortalSidebar active={view} onSelect={setView} />
           <div className="flex-1 min-w-0">
             <MobileTabs active={view} onSelect={setView} />

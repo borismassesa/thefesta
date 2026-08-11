@@ -87,7 +87,7 @@ export default function SocialsPage() {
 
       <div className="mt-10 flex items-center gap-6 flex-wrap">
         {filledCount === 0 ? (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onSkip}
             className="text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"

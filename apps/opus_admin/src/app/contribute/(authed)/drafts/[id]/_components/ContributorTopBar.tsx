@@ -39,7 +39,7 @@ export default function ContributorTopBar({
             Drafts
           </Link>
           <span className="h-5 w-px bg-gray-200" aria-hidden />
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={saveState === 'failed' ? onRetry : undefined}
             className={cn(
@@ -53,7 +53,7 @@ export default function ContributorTopBar({
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onPreview}
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
@@ -66,7 +66,7 @@ export default function ContributorTopBar({
               label={lockedStatus === 'pending' ? 'In review' : lockedStatus === 'rejected' ? 'Not accepted' : 'Published'}
             />
           ) : (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onSubmit}
               className="inline-flex items-center gap-2 rounded-xl bg-[#5B2D8E] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#4D247A]"

@@ -703,7 +703,7 @@ export default function AboutEditor({
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={handleSave}
               disabled={saveDisabled}
@@ -713,7 +713,7 @@ export default function AboutEditor({
               {pending ? t('saving_label') : t('save_button')}
             </button>
             {nextHref ? (
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 onClick={onNext}
                 className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"

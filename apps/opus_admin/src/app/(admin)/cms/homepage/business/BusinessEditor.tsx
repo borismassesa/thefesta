@@ -291,7 +291,7 @@ export default function BusinessEditor({ initial, hasDraft: initialHasDraft }: P
                 </div>
               ))}
             </div>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={addPill}
               className="w-full flex items-center justify-center gap-2 py-2 mt-2 border-2 border-dashed border-gray-200 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
@@ -353,7 +353,7 @@ export default function BusinessEditor({ initial, hasDraft: initialHasDraft }: P
                 />
               ))}
             </div>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={addVendor}
               className="w-full flex items-center justify-center gap-2 py-2.5 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
@@ -400,7 +400,7 @@ function VendorAccordion({
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/50">
-        <button type="button" onClick={onToggle} className="flex items-center gap-2 flex-1 min-w-0 text-left">
+        <button data-opus-button="control" type="button" onClick={onToggle} className="flex items-center gap-2 flex-1 min-w-0 text-left">
           {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />}
           <span className="text-sm font-semibold text-gray-900 truncate">{vendor.name}</span>
           <span className="text-xs text-gray-400 truncate">· {vendor.category}</span>
@@ -484,7 +484,7 @@ function VendorAccordion({
                   onUpload={uploadFor((url) => onUpdateBooking(b.id, { image_url: url }))}
                 />
               ))}
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onAddBooking}
                 className="w-full flex items-center justify-center gap-2 py-1.5 border border-dashed border-gray-200 rounded-lg text-xs font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
@@ -522,7 +522,7 @@ function BookingRow({
 
   return (
     <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-gray-100 hover:bg-gray-50 group">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => fileRef.current?.click()}
         className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0 relative group/avatar"
@@ -602,7 +602,7 @@ function ImageField({
             className={cn(inputCls, 'text-xs')}
             placeholder="https://… or /assets/…"
           />
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={pending}
@@ -628,7 +628,7 @@ function IconBtn({
   children: React.ReactNode
 } & React.AriaAttributes) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -806,7 +806,7 @@ function BusinessPreview({ content }: { content: BusinessContent }) {
 
           <div className="flex justify-center gap-1 pt-1">
             {content.vendors.map((vendor, i) => (
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 key={vendor.id}
                 onClick={() => setActiveIdx(i)}
                 className={cn(

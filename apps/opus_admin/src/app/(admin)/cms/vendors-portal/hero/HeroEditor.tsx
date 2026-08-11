@@ -187,7 +187,7 @@ export default function HeroEditor({ initial, hasDraft: initialHasDraft }: Props
                 </div>
               )}
               <div className="flex items-center gap-3">
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-2 text-sm font-medium text-gray-700 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
@@ -221,7 +221,7 @@ export default function HeroEditor({ initial, hasDraft: initialHasDraft }: Props
             <h3 className="text-[15px] font-semibold text-gray-900">Live preview</h3>
             <div className="inline-flex items-center rounded-full border border-gray-200 p-0.5 text-[11px] font-semibold">
               {LOCALES.map((l) => (
-                <button
+                <button data-opus-button="control"
                   key={l}
                   type="button"
                   onClick={() => setPreviewLocale(l)}
@@ -348,7 +348,7 @@ function HeroPreview({ content, locale }: { content: HeroContent; locale: Locale
               onError={() => setMediaError(true)}
               className="w-full h-full object-cover"
             />
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={togglePlay}
               aria-label={playing ? 'Pause preview' : 'Play preview'}

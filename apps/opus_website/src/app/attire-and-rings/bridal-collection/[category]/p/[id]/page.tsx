@@ -375,7 +375,7 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
                     aria-label="Wedding date"
                     className="h-11 rounded-full border border-gray-300 bg-white px-4 text-sm focus:outline-none focus:border-gray-500"
                   />
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="button"
                     className="h-11 bg-gray-900 text-white text-sm font-semibold px-6 rounded-full hover:bg-gray-800 transition"
                   >

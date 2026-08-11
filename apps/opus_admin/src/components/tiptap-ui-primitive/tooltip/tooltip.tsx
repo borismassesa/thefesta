@@ -193,7 +193,7 @@ export const TooltipTrigger = forwardRef<HTMLElement, TooltipTriggerProps>(
     }
 
     return (
-      <button
+      <button data-opus-button="control"
         ref={ref}
         data-tooltip-state={context.open ? "open" : "closed"}
         {...context.getReferenceProps(props)}

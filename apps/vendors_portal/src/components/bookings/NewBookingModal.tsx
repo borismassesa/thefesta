@@ -102,7 +102,7 @@ export default function NewBookingModal({ onClose }: Props) {
             <p className="text-base font-bold text-gray-900">New booking</p>
             <p className="text-xs text-gray-500 mt-0.5">Create an off-platform or manually entered booking</p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
@@ -274,7 +274,7 @@ export default function NewBookingModal({ onClose }: Props) {
 
         {/* Footer */}
         <div className="flex items-center gap-3 px-6 py-4 border-t border-gray-100">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={action.loading}
@@ -282,7 +282,7 @@ export default function NewBookingModal({ onClose }: Props) {
           >
             Discard
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="submit"
             form={`${uid}-form`}
             disabled={action.loading}

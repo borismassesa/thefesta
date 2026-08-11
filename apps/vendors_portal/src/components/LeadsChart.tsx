@@ -63,7 +63,7 @@ export function LeadsChart({
 
         <div className="inline-flex bg-gray-100 rounded-lg p-0.5 shrink-0">
           {RANGE_OPTIONS.map((o) => (
-            <button
+            <button data-opus-button="control"
               key={o.id}
               type="button"
               onClick={() => setRange(o.id)}

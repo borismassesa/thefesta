@@ -94,7 +94,7 @@ export default async function VendorsListPage({ searchParams }: { searchParams: 
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="opus-table w-full text-sm">
               <thead className="bg-gray-50/50 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">
                 <tr>
                   <th className="text-left px-4 py-3">Name</th>

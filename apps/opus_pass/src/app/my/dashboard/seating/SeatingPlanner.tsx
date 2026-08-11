@@ -331,6 +331,7 @@ export default function SeatingPlanner({
               <h2 className="text-base font-semibold text-[#1A1A1A]">{strings.pool_title}</h2>
               <p className="mt-0.5 text-xs text-[#1A1A1A]/55">{strings.pool_description}</p>
               <input
+                type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={strings.pool_search_placeholder}
@@ -397,7 +398,7 @@ export default function SeatingPlanner({
                     >
                       {used} / {t.capacity}
                     </span>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => setEditTable(t)}
                       aria-label={fmt(strings.table_edit_aria, { table: t.name })}
@@ -440,7 +441,7 @@ export default function SeatingPlanner({
             })}
 
             {/* New table */}
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={addTable}
               disabled={busy}
@@ -524,7 +525,7 @@ function GuestChip({
         className="flex cursor-grab items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-2.5 py-2 transition hover:border-[#C9A0DC]/60 active:cursor-grabbing"
       >
         <GripVertical className="h-3.5 w-3.5 shrink-0 text-[#1A1A1A]/25" />
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onToggleMenu}
           className="min-w-0 flex-1 text-left"
@@ -546,7 +547,7 @@ function GuestChip({
           ×{guest.seats}
         </span>
         {seated ? (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => onMove(guest.guest_contact_id, null)}
             aria-label={fmt(strings.chip_remove_aria, { name: guest.full_name })}
@@ -573,7 +574,7 @@ function GuestChip({
               tables.map((t) => {
                 const isCurrent = t.id === currentTableId
                 return (
-                  <button
+                  <button data-opus-button="control"
                     key={t.id}
                     type="button"
                     role="menuitem"
@@ -589,7 +590,7 @@ function GuestChip({
               })
             )}
             {currentTableId ? (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 role="menuitem"
                 onClick={() => onMove(guest.guest_contact_id, null)}

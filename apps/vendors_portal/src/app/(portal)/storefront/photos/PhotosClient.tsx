@@ -693,7 +693,7 @@ export default function PhotosClient() {
                   {filledCovers} / {COVER_SLOT_COUNT}
                 </span>
                 {filledCovers < COVER_SLOT_COUNT && (
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="small"
                     type="button"
                     onClick={() => coverBulkInputRef.current?.click()}
                     className="inline-flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
@@ -789,7 +789,7 @@ export default function PhotosClient() {
             title={t('portfolio_title')}
             hint={t('portfolio_hint', { min: MIN_PORTFOLIO })}
             right={
-              <button
+              <button data-opus-button="primary" data-opus-button-size="small"
                 type="button"
                 onClick={() => photoInputRef.current?.click()}
                 className="inline-flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
@@ -876,7 +876,7 @@ export default function PhotosClient() {
             title={t('video_title')}
             hint={t('video_hint')}
             right={
-              <button
+              <button data-opus-button="primary" data-opus-button-size="small"
                 type="button"
                 onClick={() => videoInputRef.current?.click()}
                 className="inline-flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
@@ -969,7 +969,7 @@ export default function PhotosClient() {
                     onChange={(e) => setVideoTitle(e.target.value)}
                   />
                 </div>
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="button"
                   onClick={addVideoUrl}
                   disabled={!videoUrl.trim()}
@@ -1034,7 +1034,7 @@ export default function PhotosClient() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={onSave}
               disabled={
@@ -1048,7 +1048,7 @@ export default function PhotosClient() {
               <Save className="w-3.5 h-3.5" />
               {saving ? t('saving_label') : t('save_photos_button')}
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={onNext}
               className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"
@@ -1179,14 +1179,14 @@ function PhotoTile({
             placeholder={t('caption_placeholder')}
             className="flex-1 min-w-0 text-xs bg-transparent text-gray-900 placeholder:text-gray-400 focus:outline-none"
           />
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => onSaveCaption(draftCaption)}
             className="text-[10px] font-bold uppercase tracking-wider text-gray-900 hover:text-gray-700"
           >
             {t('save_button')}
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onCancelCaption}
             className="text-gray-400 hover:text-gray-700"
@@ -1214,7 +1214,7 @@ function IconButton({
   tone?: 'default' | 'danger'
 }) {
   return (
-    <button
+    <button data-opus-button="danger" data-opus-button-size="small"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -1354,14 +1354,14 @@ function VideoTile({
             placeholder={t('title_placeholder')}
             className="flex-1 min-w-0 text-xs bg-transparent text-gray-900 placeholder:text-gray-400 focus:outline-none"
           />
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => onSaveTitle(draftTitle)}
             className="text-[10px] font-bold uppercase tracking-wider text-gray-900 hover:text-gray-700"
           >
             {t('save_button')}
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onCancelTitle}
             className="text-gray-400 hover:text-gray-700"
@@ -1387,7 +1387,7 @@ function AddTile({
   aspect?: string
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       className={cn(
@@ -1415,7 +1415,7 @@ function CoverReorder({
   const t = usePortalT('storefront-photos-team')
   return (
     <div className="flex flex-col items-center text-gray-400 shrink-0">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onUp}
         disabled={idx === 0}
@@ -1425,7 +1425,7 @@ function CoverReorder({
         <ArrowUp className="w-3.5 h-3.5" />
       </button>
       <ChevronsUpDown className="w-3.5 h-3.5 text-gray-300" aria-hidden />
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onDown}
         disabled={idx === total - 1}
@@ -1497,7 +1497,7 @@ function CoverSlotView({
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={slot.url} alt={t('cover_photo_alt')} className="w-full h-full object-cover" />
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => inputRef.current?.click()}
             className="absolute inset-0 bg-black/45 text-white flex flex-col items-center justify-center gap-0.5 opacity-0 hover:opacity-100 transition-opacity"
@@ -1506,7 +1506,7 @@ function CoverSlotView({
             <UploadCloud className="w-4 h-4" />
             <span className="text-[10px] font-bold uppercase tracking-wider">{t('replace_label')}</span>
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClear}
             className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/95 text-gray-700 hover:text-rose-600 flex items-center justify-center shadow-sm"
@@ -1517,7 +1517,7 @@ function CoverSlotView({
           </button>
         </>
       ) : (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => inputRef.current?.click()}
           className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors"

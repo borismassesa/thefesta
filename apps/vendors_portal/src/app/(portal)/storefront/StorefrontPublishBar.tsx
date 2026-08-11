@@ -98,7 +98,7 @@ export function StorefrontPublishBar() {
           {error ? (
             <span className="text-xs font-semibold text-red-700">{error}</span>
           ) : null}
-          <button
+          <button data-opus-button="warning" data-opus-button-size="medium"
             type="button"
             onClick={onDiscard}
             disabled={pending}
@@ -107,7 +107,7 @@ export function StorefrontPublishBar() {
             <Trash2 className="w-4 h-4" />
             {t('discard_button')}
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onPublish}
             disabled={pending}

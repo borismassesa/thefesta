@@ -80,7 +80,7 @@ export default async function ClaimCommissionPage(props: {
         <input type="hidden" name="orderNo" value={order.order_no} />
 
         {(events ?? []).map((event) => (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             key={event.id}
             name="eventId"
             value={event.id}
@@ -103,7 +103,7 @@ export default async function ClaimCommissionPage(props: {
         {/* The "signed in with no events" case from PRD §7.1: create one from
             what they already told us at checkout, rather than sending them off
             to a separate wizard and hoping they come back. */}
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           name="createEvent"
           value="1"
           type="submit"

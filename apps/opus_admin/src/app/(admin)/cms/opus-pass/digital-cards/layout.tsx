@@ -203,7 +203,7 @@ function EditorActionButtons() {
         message && <span className="text-xs text-gray-500 mr-1">{message}</span>
       )}
       {hasDraft && (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onDiscard}
           disabled={pending}
@@ -213,7 +213,7 @@ function EditorActionButtons() {
           Discard
         </button>
       )}
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onSaveDraft}
         disabled={pending}
@@ -222,7 +222,7 @@ function EditorActionButtons() {
         <Save className="w-4 h-4" />
         Save draft
       </button>
-      <button
+      <button data-opus-button="primary" data-opus-button-size="small"
         type="button"
         onClick={onPublish}
         disabled={pending}
@@ -248,7 +248,7 @@ function PreviewDraftButton({ path }: { path: string }) {
       window.open(url, '_blank', 'noopener,noreferrer')
     })
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={openPreview}
       disabled={pending}

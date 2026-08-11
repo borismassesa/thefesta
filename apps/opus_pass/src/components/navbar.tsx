@@ -215,7 +215,7 @@ export default function Navbar() {
 
           <div className="hidden lg:flex gap-1 font-semibold text-[15px]">
             {navItems.map((item) => (
-              <button
+              <button data-opus-button="control"
                 key={item.label}
                 type="button"
                 onMouseEnter={() => setActiveMenu(item.label)}
@@ -278,7 +278,7 @@ export default function Navbar() {
               <UserButton appearance={{ elements: { avatarBox: 'h-8 w-8' } }} />
             </>
           ) : null}
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             ref={hamburgerRef}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-100 lg:hidden sm:h-10 sm:w-10 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             aria-label={mobileOpen ? t('mobile_close') : t('mobile_open')}
@@ -400,7 +400,7 @@ export default function Navbar() {
         {/* Header — changes based on which panel is active */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
           {mobileExpanded ? (
-            <button
+            <button data-opus-button="control"
               onClick={() => setMobileExpanded(null)}
               className="flex items-center gap-2 text-sm font-semibold text-gray-700"
               aria-label={t('mobile_back')}
@@ -413,7 +413,7 @@ export default function Navbar() {
               <Logo />
             </Link>
           )}
-          <button
+          <button data-opus-button="control"
             ref={mobileCloseRef}
             onClick={closeMobile}
             className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
@@ -433,7 +433,7 @@ export default function Navbar() {
           >
             <div className="flex-1 overflow-y-auto py-3 px-3">
               {navItems.map((item) => (
-                <button
+                <button data-opus-button="control"
                   key={item.label}
                   className="w-full flex items-center justify-between px-4 py-4 rounded-xl font-semibold text-sm text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                   onClick={() => setMobileExpanded(item.label)}

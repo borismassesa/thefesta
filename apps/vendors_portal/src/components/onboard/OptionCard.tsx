@@ -26,7 +26,7 @@ export function OptionCard({
   disabled,
 }: BaseProps) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onToggle}
       disabled={disabled}

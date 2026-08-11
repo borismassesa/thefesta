@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowDown, ArrowUpRight } from 'lucide-react'
+import { opusButtonClass } from '@opusfesta/lib'
 
 // Marquee strip. Rendered twice back to back so the -50% keyframe in
 // globals.css loops seamlessly.
@@ -63,13 +64,13 @@ export default function CareersHero() {
             <div className="mt-10 flex flex-wrap gap-3">
               <a
                 href="#open-roles"
-                className="inline-flex w-max items-center gap-2 rounded-full bg-[#1A1A1A] px-6 py-3 text-[15px] font-medium text-white transition-colors hover:bg-black"
+                className={opusButtonClass({ size: 'large' })}
               >
                 View open roles <ArrowDown className="h-4 w-4" />
               </a>
               <Link
                 href="/careers/talent-community"
-                className="inline-flex w-max items-center gap-2 rounded-full border border-black/20 px-6 py-3 text-[15px] font-medium transition-colors hover:bg-black/5"
+                className={opusButtonClass({ variant: 'neutral', size: 'large' })}
               >
                 Join our talent community <ArrowUpRight className="h-4 w-4" />
               </Link>

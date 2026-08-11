@@ -38,7 +38,7 @@ export function LocaleToggle({ className = '' }: { className?: string }) {
       {LOCALES.map((l) => {
         const active = l === locale
         return (
-          <button
+          <button data-opus-button="control"
             key={l}
             type="button"
             onClick={() => choose(l)}

@@ -203,7 +203,7 @@ function SiteNav({
             if (tabbed && pageKey) {
               const isActive = activeTab === pageKey
               return (
-                <button
+                <button data-opus-button="control"
                   key={l}
                   type="button"
                   onClick={(e) => {
@@ -225,7 +225,7 @@ function SiteNav({
           {tabbed && (
             <div className="inline-flex overflow-hidden rounded-full text-[10px] font-bold" style={{ border: '1px solid rgba(0,0,0,0.15)' }}>
               {(['en', 'sw'] as const).map((l) => (
-                <button
+                <button data-opus-button="control"
                   key={l}
                   type="button"
                   onClick={(e) => {
@@ -895,7 +895,7 @@ export function RsvpForm({
         />
         <div className="grid grid-cols-2 gap-2">
           {(['yes', 'no'] as const).map((opt) => (
-            <button
+            <button data-opus-button="control"
               key={opt}
               type="button"
               disabled={!interactive}
@@ -924,7 +924,7 @@ export function RsvpForm({
             />
           </label>
         )}
-        <button
+        <button data-opus-button="control"
           type="button"
           disabled={!interactive || !name || !attending}
           onClick={() => setDone(true)}

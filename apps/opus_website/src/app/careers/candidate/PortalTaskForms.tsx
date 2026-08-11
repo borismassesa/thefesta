@@ -34,7 +34,7 @@ export function AssessmentTaskForm({ taskId }: { taskId: string }) {
           className="mt-1 block w-full rounded-lg border border-amber-200 bg-white p-2 text-xs"
         />
       </label>
-      <button
+      <button data-opus-button="warning" data-opus-button-size="medium"
         disabled={pending}
         className="rounded-lg bg-amber-900 px-4 py-2 text-sm font-semibold text-white"
       >
@@ -86,7 +86,7 @@ export function DocumentTaskForm({
         accept=".pdf,.doc,.docx"
         className="block w-full rounded-lg border border-gray-200 bg-white p-2 text-xs"
       />
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         disabled={pending}
         className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white"
       >
@@ -112,13 +112,13 @@ export function BackgroundCheckConsentForm({ taskId }: { taskId: string }) {
         the check and does not authorize a provider to proceed.
       </p>
       <div className="flex gap-2">
-        <button
+        <button data-opus-button="control"
           formAction={respondToBackgroundCheckConsent.bind(null, taskId, true)}
           className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
         >
           I consent
         </button>
-        <button
+        <button data-opus-button="warning" data-opus-button-size="medium"
           formAction={respondToBackgroundCheckConsent.bind(null, taskId, false)}
           className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-950"
         >

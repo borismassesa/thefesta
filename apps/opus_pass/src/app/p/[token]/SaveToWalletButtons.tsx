@@ -78,7 +78,7 @@ export function SaveToWalletButtons({
   return (
     <div style={{ marginTop: 28, display: 'grid', gap: 12 }}>
       {ordered.map((provider) => (
-        <button
+        <button data-opus-button="control"
           key={provider}
           type="button"
           onClick={() => void save(provider)}

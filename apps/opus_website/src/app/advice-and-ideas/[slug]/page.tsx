@@ -153,7 +153,7 @@ export default async function AdviceIdeasDetailPage({
         </nav>
         <div className="shrink-0">
           <Suspense fallback={null}>
-            <SearchForm action={ADVICE_IDEAS_BASE_PATH} iconOnly />
+            <SearchForm action={ADVICE_IDEAS_BASE_PATH} />
           </Suspense>
         </div>
       </div>

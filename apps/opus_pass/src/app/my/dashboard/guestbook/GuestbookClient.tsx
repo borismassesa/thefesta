@@ -222,7 +222,10 @@ function ShareLinkCard({
   return (
     <Card className="px-5 py-4">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+        {/* Stacked on phones. Side by side, the button's full width won the
+            row and squeezed the text column to ~69px, breaking "Your
+            guestbook link" across three lines. */}
+        <div className="flex min-w-0 flex-1 flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-xs text-[#1A1A1A]/65">
               <Link2 className="h-3.5 w-3.5 shrink-0" />
@@ -233,7 +236,7 @@ function ShareLinkCard({
                 {shareLink.replace(/^https?:\/\//, '')}
               </div>
             ) : (
-              <div className="mt-1 text-xs text-[#1A1A1A]/55">No link yet — generate one to start collecting wishes.</div>
+              <div className="mt-1 text-xs text-[#1A1A1A]/55">No link yet, generate one to start collecting wishes.</div>
             )}
           </div>
           {shareEnabled && shareLink ? (
@@ -242,27 +245,27 @@ function ShareLinkCard({
                 href={shareLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full bg-[#C9A0DC] px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0]"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#C9A0DC] px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0] sm:flex-none"
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Preview
               </a>
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 type="button"
                 onClick={onCopy}
-                className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.18] bg-white px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-black/[0.03]"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-black/[0.18] bg-white px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-black/[0.03] sm:flex-none"
               >
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 {copied ? 'Copied' : 'Copy link'}
               </button>
             </div>
           ) : (
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={onEnable}
               disabled={pending || !eventId}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#C9A0DC] px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0] disabled:opacity-50"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#C9A0DC] px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0] disabled:opacity-50"
             >
-              <Link2 className="h-3.5 w-3.5" /> {pending ? 'Generating…' : 'Get my guestbook link'}
+              <Link2 className="h-3.5 w-3.5 shrink-0" /> {pending ? 'Generating…' : 'Get my guestbook link'}
             </button>
           )}
         </div>
@@ -299,11 +302,13 @@ function EntryRow({
           </div>
         )}
         <div className="min-w-0 flex-1">
+          {/* The name truncates and the pill holds its size, rather than a
+              long guest name pushing the status off the edge. */}
           <p className="flex items-center gap-2 font-medium text-[#1A1A1A]">
-            {entry.guest_name}
+            <span className="min-w-0 truncate">{entry.guest_name}</span>
             <span
               className={cn(
-                'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset',
+                'inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset',
                 STATUS_PILL[entry.review_status],
               )}
             >
@@ -314,37 +319,43 @@ function EntryRow({
           {entry.audio_url && (
             <div className="mt-1.5 flex items-center gap-1.5">
               <Mic className="h-3.5 w-3.5 shrink-0 text-[#1A1A1A]/40" />
-              <audio controls preload="none" src={entry.audio_url} className="h-8 max-w-[240px]" />
+              {/* w-full so the native player shrinks with the card; without it
+                  its default width ran past the edge on a narrow phone. */}
+              <audio controls preload="none" src={entry.audio_url} className="h-8 w-full max-w-[240px]" />
             </div>
           )}
           <p className="mt-0.5 text-xs text-[#1A1A1A]/45">{formatDate(entry.created_at)}</p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2 sm:ml-4">
+      {/* On a phone the three actions share the row evenly (flex-1) instead of
+          running past the card edge — at 320px their natural widths total more
+          than the card is wide. Natural widths return from sm up, where they
+          sit to the right of the message. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:ml-4">
         {onApprove && (
-          <button
+          <button data-opus-button="control"
             onClick={onApprove}
             disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#14342B] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0f2a22] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#14342B] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0f2a22] disabled:opacity-50 sm:flex-none"
           >
-            <UserCheck className="h-3.5 w-3.5" /> Approve
+            <UserCheck className="h-3.5 w-3.5 shrink-0" /> Approve
           </button>
         )}
         {onHide && (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="small"
             onClick={onHide}
             disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.12] bg-white px-3 py-2 text-xs font-semibold text-[#1A1A1A]/70 hover:bg-black/[0.03] disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-black/[0.12] bg-white px-3 py-2 text-xs font-semibold text-[#1A1A1A]/70 hover:bg-black/[0.03] disabled:opacity-50 sm:flex-none"
           >
-            <EyeOff className="h-3.5 w-3.5" /> Hide
+            <EyeOff className="h-3.5 w-3.5 shrink-0" /> Hide
           </button>
         )}
-        <button
+        <button data-opus-button="danger" data-opus-button-size="small"
           onClick={onDelete}
           disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+          className="inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50 sm:flex-none"
         >
-          <Trash2 className="h-3.5 w-3.5" /> Delete
+          <Trash2 className="h-3.5 w-3.5 shrink-0" /> Delete
         </button>
       </div>
     </li>

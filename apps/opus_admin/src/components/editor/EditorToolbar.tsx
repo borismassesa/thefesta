@@ -236,7 +236,7 @@ export default function EditorToolbar({
           const disabled = item.isDisabled?.() ?? false
           const spinning = item.key === 'image' && uploading
           return (
-            <button
+            <button data-opus-button="control"
               key={item.key}
               type="button"
               aria-label={item.label}

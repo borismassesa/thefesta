@@ -415,10 +415,10 @@ function WizardQuestionList({
               {q.kind === 'multiple_choice' ? ` · ${q.options.length} options` : ''}
             </p>
           </div>
-          <button type="button" onClick={() => onEdit(q)} aria-label="Edit" className="flex h-8 w-8 items-center justify-center rounded-lg text-[#1A1A1A]/55 hover:bg-black/[0.05]">
+          <button data-opus-button="control" type="button" onClick={() => onEdit(q)} aria-label="Edit" className="flex h-8 w-8 items-center justify-center rounded-lg text-[#1A1A1A]/55 hover:bg-black/[0.05]">
             <Pencil className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => onDelete(q)} aria-label="Remove" className="flex h-8 w-8 items-center justify-center rounded-lg text-[#1A1A1A]/55 hover:bg-rose-50 hover:text-rose-600">
+          <button data-opus-button="control" type="button" onClick={() => onDelete(q)} aria-label="Remove" className="flex h-8 w-8 items-center justify-center rounded-lg text-[#1A1A1A]/55 hover:bg-rose-50 hover:text-rose-600">
             <Trash2 className="h-4 w-4" />
           </button>
         </li>
@@ -440,7 +440,7 @@ function PresetChips({
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {presets.map((p) => (
-        <button
+        <button data-opus-button="primary" data-opus-button-size="small"
           key={p.key}
           type="button"
           disabled={disabled}
@@ -456,7 +456,7 @@ function PresetChips({
 
 function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="large"
       type="button"
       onClick={onClick}
       className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#C9A0DC]/70 px-4 py-3 text-sm font-semibold text-[#7E5896] hover:bg-[#F0DFF6]/40"
@@ -480,7 +480,7 @@ function PrivacyOption({
   recommended?: boolean
 }) {
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="medium"
       type="button"
       onClick={onClick}
       className={cn(

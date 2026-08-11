@@ -484,7 +484,7 @@ export default function PackagesEditor({
           </p>
           <div className="flex items-center gap-2">
             {canEdit ? (
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 type="button"
                 onClick={onSavePolicies}
                 disabled={saving || !hydrated}
@@ -495,7 +495,7 @@ export default function PackagesEditor({
               </button>
             ) : null}
             {nextHref ? (
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 onClick={onNext}
                 className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"
@@ -542,7 +542,7 @@ function PackageCard({
     >
       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
         {pkg.badge && Icon ? (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onOpenEditor}
             disabled={!canEdit}
@@ -557,7 +557,7 @@ function PackageCard({
             {canEdit ? <Pencil className="w-2.5 h-2.5 opacity-60 ml-0.5" /> : null}
           </button>
         ) : canEdit ? (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="small"
             type="button"
             onClick={onOpenEditor}
             className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap bg-white border border-dashed border-gray-300 text-gray-500 hover:border-gray-500 hover:text-gray-900 transition-colors"
@@ -643,7 +643,7 @@ function BadgeEditor({
     >
       <div className="flex items-start justify-between gap-2 mb-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">{t('customise_badge_header')}</p>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           className="p-1 -mr-1 -mt-1 text-gray-400 hover:text-gray-700 rounded-md transition-colors"
@@ -666,7 +666,7 @@ function BadgeEditor({
       <p className="text-[11px] font-semibold text-gray-700 mb-1.5">{t('icon_section_label')}</p>
       <div className="grid grid-cols-5 gap-1.5 mb-3">
         {PACKAGE_BADGE_ICONS.map(({ id, label: iconLabel, Icon }) => (
-          <button
+          <button data-opus-button="control"
             key={id}
             type="button"
             onClick={() => setIcon(id)}
@@ -688,7 +688,7 @@ function BadgeEditor({
       <p className="text-[11px] font-semibold text-gray-700 mb-1.5">{t('colour_section_label')}</p>
       <div className="grid grid-cols-5 gap-1.5 mb-4">
         {PACKAGE_BADGE_TONES.map((t) => (
-          <button
+          <button data-opus-button="control"
             key={t.id}
             type="button"
             onClick={() => setTone(t.id)}
@@ -721,7 +721,7 @@ function BadgeEditor({
 
       <div className="flex items-center justify-between gap-2">
         {hadBadge ? (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onRemove}
             className="text-xs font-semibold text-rose-600 hover:text-rose-700"
@@ -732,14 +732,14 @@ function BadgeEditor({
           <span />
         )}
         <div className="flex items-center gap-2">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             className="text-xs font-semibold text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md"
           >
             {t('cancel_button')}
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             disabled={!trimmed}
             onClick={() => onSave({ label: trimmed, icon, tone })}

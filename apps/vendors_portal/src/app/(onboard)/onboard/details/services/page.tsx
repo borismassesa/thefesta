@@ -111,7 +111,7 @@ export default function ServicesPage() {
                 className="inline-flex items-center gap-2 bg-[#F0DFF6] text-[#7E5896] text-sm font-semibold pl-3.5 pr-1.5 py-1.5 rounded-full"
               >
                 <span className="truncate max-w-[220px]">{label}</span>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => removeCustom(label)}
                   className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white/70 transition-colors"
@@ -134,7 +134,7 @@ export default function ServicesPage() {
               maxLength={MAX_CUSTOM_LABEL}
             />
           </div>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="large"
             type="submit"
             disabled={!customDraft.trim()}
             className="inline-flex items-center justify-center gap-1.5 bg-[#1A1A1A] hover:bg-black disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-3 rounded-full transition-colors"

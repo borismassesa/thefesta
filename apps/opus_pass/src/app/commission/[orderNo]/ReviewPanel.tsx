@@ -125,7 +125,7 @@ export default function ReviewPanel({
 
       {mode === 'idle' && (
         <div className="mt-5 space-y-3">
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={busy}
             onClick={() => void send({ action: 'approve' })}
@@ -139,7 +139,7 @@ export default function ReviewPanel({
               : 'Approving raises your balance invoice. Your files are released the moment it is paid.'}
           </p>
 
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="large"
             type="button"
             onClick={() => setMode('changes')}
             className="w-full rounded-full border border-[#E8DCC8] bg-white px-5 py-3 text-sm font-semibold text-[#4A2D5C]"
@@ -153,7 +153,7 @@ export default function ReviewPanel({
           </button>
 
           {/* The distinction that makes §7.11.6 real rather than a slogan. */}
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setMode('correction')}
             className="w-full text-center text-sm text-[#6B5B73] underline"
@@ -186,7 +186,7 @@ export default function ReviewPanel({
             className="mt-3 w-full rounded-xl border border-[#E8DCC8] px-4 py-3 text-base text-[#4A2D5C] outline-none focus:border-[#C9A961]"
           />
           <div className="mt-3 flex gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={busy || comment.trim().length < 3}
               onClick={() =>
@@ -206,7 +206,7 @@ export default function ReviewPanel({
             >
               {sw ? 'Tuma' : 'Send'}
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => { setMode('idle'); setError(null) }}
               className="rounded-full border border-[#E8DCC8] px-5 py-3 text-sm text-[#6B5B73]"
@@ -231,7 +231,7 @@ export default function ReviewPanel({
             <p className="mt-2 text-sm font-semibold text-[#4A2D5C]">{formatTsh(topupPriceTzs)}</p>
           )}
           <div className="mt-3 flex gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={busy}
               onClick={() => void send({ action: 'accept_topup' })}
@@ -239,7 +239,7 @@ export default function ReviewPanel({
             >
               {sw ? 'Naikubali gharama hii' : 'Add it to my balance'}
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => { setMode('idle'); setError(null) }}
               className="rounded-full border border-[#E8DCC8] px-5 py-3 text-sm text-[#6B5B73]"

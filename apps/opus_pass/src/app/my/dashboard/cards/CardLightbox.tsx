@@ -51,7 +51,7 @@ export default function CardLightbox({
       onClick={onClose}
     >
       <div className="flex justify-end">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20"
@@ -69,7 +69,7 @@ export default function CardLightbox({
           onClick={(e) => e.stopPropagation()}
         />
       </div>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={(e) => {
           e.stopPropagation()

@@ -180,7 +180,7 @@ export function Header({ vendorName, vendorSlug }: HeaderProps) {
 
         <LocaleToggle />
 
-        <button
+        <button data-opus-button="control"
           type="button"
           aria-label={t('aria_help')}
           className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -188,7 +188,7 @@ export function Header({ vendorName, vendorSlug }: HeaderProps) {
           <HelpCircle className="w-5 h-5" />
         </button>
 
-        <button
+        <button data-opus-button="control"
           type="button"
           aria-label={t('aria_notifications')}
           className="relative text-gray-400 hover:text-gray-600 transition-colors"

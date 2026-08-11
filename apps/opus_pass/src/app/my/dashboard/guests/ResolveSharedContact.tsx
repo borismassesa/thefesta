@@ -82,7 +82,7 @@ export function ResolveSharedContact({
         {guests.map((g) => (
           <li key={g.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
             <span className="text-sm font-medium text-[#1A1A1A]">{g.name}</span>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="small"
               type="button"
               onClick={() => onCorrectNumber(g.id)}
               className="rounded-lg px-2 py-1 text-xs font-medium text-[#1A1A1A]/70 underline-offset-2 hover:bg-black/[0.05] hover:underline"
@@ -121,7 +121,7 @@ export function ResolveSharedContact({
           </div>
         </div>
       ) : (
-        <button
+        <button data-opus-button="primary" data-opus-button-size="small"
           type="button"
           onClick={() => setConfirming(true)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.12] px-3 py-2 text-xs font-medium text-[#1A1A1A]/75 hover:bg-black/[0.03]"

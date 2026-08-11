@@ -131,7 +131,7 @@ export default function PendingApprovalsView({
                 key={r.id}
                 className={`${GRID} border-b border-gray-100 px-5 py-3 last:border-b-0 hover:bg-gray-50`}
               >
-                <button type="button" onClick={() => onOpen(r.id)} className="min-w-0 text-left">
+                <button data-opus-button="control" type="button" onClick={() => onOpen(r.id)} className="min-w-0 text-left">
                   <p className="truncate text-sm font-semibold text-gray-900 hover:underline">
                     {r.subject}
                   </p>
@@ -144,7 +144,7 @@ export default function PendingApprovalsView({
                 <span className={cn('text-xs font-semibold', BAND_TEXT[band])}>
                   {formatAge(r.submittedAt ?? r.createdAt, now)}
                 </span>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => onOpen(r.id)}
                   className="ml-auto inline-flex items-center rounded-md bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white hover:bg-emerald-700"
@@ -172,7 +172,7 @@ function GroupPill({
   onClick: () => void
 }) {
   return (
-    <button
+    <button data-opus-button="secondary" data-opus-button-size="small"
       type="button"
       onClick={onClick}
       className={cn(

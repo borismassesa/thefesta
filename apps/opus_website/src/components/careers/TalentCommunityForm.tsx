@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { ArrowRight, CheckCircle2, FileText, ShieldCheck } from 'lucide-react'
+import { opusButtonClass } from '@opusfesta/lib'
 import {
   joinTalentCommunity,
 } from '@/app/careers/actions'
@@ -17,11 +18,11 @@ export default function TalentCommunityForm() {
 
   if (state.status === 'success') {
     return (
-      <div className="flex min-h-96 flex-col items-center justify-center rounded-[32px] border border-black/5 bg-white p-8 text-center text-black shadow-[0_24px_60px_-32px_rgba(23,19,23,0.45)] md:p-12">
+      <div className="flex min-h-96 flex-col items-center justify-center rounded-[var(--opus-radius-xlarge)] border border-black/5 bg-white p-8 text-center text-black shadow-[0_24px_60px_-32px_rgba(23,19,23,0.45)] md:p-12">
         <CheckCircle2 className="h-11 w-11 text-emerald-700" strokeWidth={1.6} />
         <h3 className="mt-6 text-3xl font-medium tracking-[-0.03em]">Your profile is with us.</h3>
         <p className="mt-3 max-w-md leading-7 text-black/60">{state.message}</p>
-        <a href="/careers#open-roles" className="mt-8 inline-flex items-center gap-2 rounded-full border border-black/20 px-6 py-3 text-sm font-semibold transition-colors hover:bg-black/5">
+        <a href="/careers#open-roles" className={`mt-8 ${opusButtonClass({ variant: 'neutral', size: 'large' })}`}>
           Browse open roles <ArrowRight className="h-4 w-4" />
         </a>
       </div>
@@ -29,7 +30,7 @@ export default function TalentCommunityForm() {
   }
 
   return (
-    <form action={action} encType="multipart/form-data" className="rounded-[32px] border border-black/5 bg-white p-6 text-black shadow-[0_24px_60px_-32px_rgba(23,19,23,0.45)] md:p-9">
+    <form action={action} encType="multipart/form-data" className="rounded-[var(--opus-radius-xlarge)] border border-black/5 bg-white p-6 text-black shadow-[0_24px_60px_-32px_rgba(23,19,23,0.45)] md:p-9">
       <div className="border-b border-black/10 pb-6">
         <h3 className="text-2xl font-medium tracking-[-0.02em]">Your talent profile</h3>
         <p className="mt-2 text-sm leading-6 text-black/50">Takes about two minutes. Everything is required unless marked optional.</p>
@@ -108,7 +109,7 @@ export default function TalentCommunityForm() {
 
       {state.status === 'error' && <p role="alert" className="mt-7 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{state.message}</p>}
       <div className="mt-8 border-t border-black/10 pt-7">
-        <button type="submit" disabled={pending} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-black px-6 text-sm font-semibold text-white transition-colors hover:bg-[#2A2A2A] disabled:cursor-wait disabled:opacity-50 sm:w-auto">
+        <button type="submit" disabled={pending} className={`w-full sm:w-auto ${opusButtonClass({ size: 'large' })}`}>
           {pending ? 'Saving your profile…' : 'Join the talent community'} <ArrowRight className="h-4 w-4" />
         </button>
       </div>

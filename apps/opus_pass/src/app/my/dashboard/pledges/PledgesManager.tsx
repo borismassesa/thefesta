@@ -70,8 +70,6 @@ import {
   pledgeReminderMessage,
   pledgeRequestMessage,
   whatsappShareUrl,
-  smsShareUrl,
-  emailShareUrl,
   greetingNameOf,
 } from '@/lib/dashboard/share'
 import type { DashboardHeroContent } from '@/lib/cms/dashboard-hero'
@@ -835,13 +833,15 @@ export default function PledgesManager({
       {/* Money + counts */}
       <div className="grid gap-3 lg:grid-cols-2">
         <Card className="px-5 py-4">
-          <div className="grid grid-cols-3 divide-x divide-black/[0.12] text-center">
+          <div className="grid grid-cols-3 divide-x divide-black/[0.12] text-center [&>*]:px-2">
             <MoneyStat label="Pledged" value={formatMoney(stats.totalPledged, 'TZS')} />
             <MoneyStat label="Received" value={formatMoney(stats.totalReceived, 'TZS')} accent="green" />
             <MoneyStat label="Outstanding" value={formatMoney(stats.outstanding, 'TZS')} accent="amber" />
           </div>
         </Card>
         <Card className="px-5 py-4">
+          {/* No cell padding here: the values are single digits, so the extra
+              gutter only cost "Cards to prepare" a second line. */}
           <div className="grid grid-cols-3 divide-x divide-black/[0.12] text-center">
             <CountStat value={stats.paidCount} label="Paid" />
             <CountStat value={stats.attendingCount} label="Coming" />
@@ -889,7 +889,7 @@ export default function PledgesManager({
             })}
           </ul>
           {remindersDue.length > 6 ? (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setSection('followups')}
               className="mt-3 text-xs font-semibold text-[#1A1A1A]/60 underline-offset-2 hover:text-[#1A1A1A] hover:underline"
@@ -944,11 +944,14 @@ export default function PledgesManager({
 
       {section === 'manage' ? (
       <>
-      {/* Toolbar: view filter + search */}
+      {/* Toolbar: view filter + search + Add. Phones drop the filter entirely
+          and run search and "Add pledge" on one line, the button on the right.
+          Nowrap throughout: with only two items on a phone the search simply
+          shrinks to fit rather than pushing the button onto its own row. */}
       {initialPledges.length > 0 ? (
-        <div className="flex flex-nowrap items-center gap-3">
-          <div className="relative shrink-0" ref={filterRef}>
-            <button
+        <div className="flex items-center gap-3">
+          <div className="relative hidden shrink-0 sm:block" ref={filterRef}>
+            <button data-opus-button="control"
               type="button"
               onClick={() => setFilterOpen((v) => !v)}
               aria-expanded={filterOpen}
@@ -969,7 +972,7 @@ export default function PledgesManager({
                 <ul className="space-y-1">
                   {VIEW_TABS.map((t) => (
                     <li key={t.id}>
-                      <button
+                      <button data-opus-button="primary" data-opus-button-size="small"
                         type="button"
                         onClick={() => {
                           setView(t.id)
@@ -989,16 +992,17 @@ export default function PledgesManager({
               </div>
             ) : null}
           </div>
-          <div className="relative flex-1 min-w-0">
+          <div className="relative min-w-0 grow">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1A1A1A]/35" />
             <input
+              type="search"
               className={`${inputClass} pl-9`}
               placeholder="Search contributors…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={openCreate}
             className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#C9A0DC] px-4 py-2.5 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0]"
@@ -1023,7 +1027,7 @@ export default function PledgesManager({
         <EmptyState icon={<Search className="h-6 w-6" />} title={copy.no_match_title} />
       ) : (
         <Card className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-sm [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:first-child]:pl-5 [&_th:last-child]:pr-5">
+          <table className="opus-table w-full min-w-[900px] text-left text-sm [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:first-child]:pl-5 [&_th:last-child]:pr-5">
             <thead>
               <tr className="border-b border-black/[0.06]">
                 <Th>Contributor</Th>
@@ -1064,7 +1068,12 @@ export default function PledgesManager({
                     </td>
                     <td className="py-3.5 pr-4">
                       {p.promised_date ? (
-                        <span className={cn('text-xs', overdue ? 'font-medium text-rose-600' : 'text-[#1A1A1A]/65')}>
+                        <span
+                          className={cn(
+                            'whitespace-nowrap text-xs',
+                            overdue ? 'font-medium text-rose-600' : 'text-[#1A1A1A]/65',
+                          )}
+                        >
                           {formatDueDate(p.promised_date)}
                           {overdue ? ' · overdue' : ''}
                         </span>
@@ -1074,30 +1083,30 @@ export default function PledgesManager({
                     </td>
                     <td className="py-3.5 pr-4"><PledgeStatusPill status={p.status} /></td>
                     <td className="py-3.5 pr-4">
-                      <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-xs font-medium text-[#1A1A1A]/70">
+                      <span className="inline-flex whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-xs font-medium text-[#1A1A1A]/70">
                         {cardTypeLabel(p.max_party_size)}
                       </span>
                     </td>
                     <td className="py-3.5 pr-4">
-                      <button
+                      <button data-opus-button="control"
                         onClick={() => openRecordPayment(p)}
                         disabled={p.status === 'declined'}
                         title="Record a payment"
-                        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-emerald-50"
+                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-emerald-50"
                       >
                         <Banknote className="h-3.5 w-3.5" /> Record
                       </button>
                     </td>
                     <td className="py-3.5 pr-3 text-right">
                       <div className="inline-flex items-center gap-1">
-                        <button
+                        <button data-opus-button="control"
                           onClick={() => openEdit(p)}
                           aria-label="Edit"
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-[#1A1A1A]/50 hover:bg-black/[0.05]"
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button
+                        <button data-opus-button="control"
                           onClick={() => setPendingDelete(p)}
                           aria-label="Remove"
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50"
@@ -1239,7 +1248,9 @@ export default function PledgesManager({
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th scope="col" className="py-3 pr-4">
+    // The table already scrolls sideways, so a header is better kept on one
+    // line than broken in half ("CARD / TYPE") to save a few pixels.
+    <th scope="col" className="whitespace-nowrap py-3 pr-4">
       <span className="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]/55">{children}</span>
     </th>
   )
@@ -1256,9 +1267,12 @@ function MoneyStat({
 }) {
   return (
     <div>
+      {/* A TZS total is a long string in a third of a phone screen. text-lg
+          filled the column edge to edge and crowded the dividers, so it steps
+          down on small widths and returns to full size from sm up. */}
       <div
         className={cn(
-          'text-lg font-semibold leading-tight tracking-tight',
+          'whitespace-nowrap text-sm font-semibold leading-tight tracking-tight sm:text-base lg:text-lg',
           accent === 'green' ? 'text-emerald-700' : accent === 'amber' ? 'text-amber-700' : 'text-[#1A1A1A]',
         )}
       >
@@ -1288,7 +1302,14 @@ const PILL_STYLES: Record<PledgeStatus, string> = {
 
 function PledgeStatusPill({ status }: { status: PledgeStatus }) {
   return (
-    <span className={cn('inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium', PILL_STYLES[status])}>
+    // whitespace-nowrap: "Partly paid" was breaking across two lines inside
+    // the pill, which stretched the row and made the pill read as a block.
+    <span
+      className={cn(
+        'inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium',
+        PILL_STYLES[status],
+      )}
+    >
       {PLEDGE_STATUS_LABELS[status]}
     </span>
   )
@@ -1316,7 +1337,7 @@ function ReminderButtons({
   const isSendingEmail = sendingKey === `${p.id}:email`
   return (
     <>
-      <button
+      <button data-opus-button="control"
         onClick={() => onWa(p)}
         disabled={!hasPhone || isSendingWa}
         aria-label="Send reminder on WhatsApp"
@@ -1326,7 +1347,7 @@ function ReminderButtons({
         {isSendingWa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
         WhatsApp
       </button>
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="small"
         onClick={() => onSms(p)}
         disabled={!hasPhone || isSendingSms}
         aria-label="Send reminder by SMS"
@@ -1336,7 +1357,7 @@ function ReminderButtons({
         {isSendingSms ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Smartphone className="h-3.5 w-3.5" />}
         SMS
       </button>
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="small"
         onClick={() => onEmail(p)}
         disabled={!p.email || isSendingEmail}
         aria-label="Send reminder by email"
@@ -1380,12 +1401,12 @@ function PledgeSubNav({
     <nav
       role="tablist"
       aria-label="Pledge views"
-      className="-mx-4 flex flex-wrap items-center gap-x-6 gap-y-2 overflow-x-auto overflow-y-hidden border-b border-black/[0.06] px-4 pb-2 sm:mx-0 sm:px-0"
+      className="no-scrollbar -mx-4 flex items-center gap-x-6 overflow-x-auto overflow-y-hidden border-b border-black/[0.06] px-4 pb-2 [&>*]:shrink-0 [&>*]:whitespace-nowrap sm:mx-0 sm:px-0"
     >
       {tabs.map(({ id, label, icon: Icon, badge }) => {
         const active = id === section
         return (
-          <button
+          <button data-opus-button="control"
             key={id}
             type="button"
             role="tab"
@@ -1497,7 +1518,7 @@ function CollectionSection({
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {presets.map((p) => (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               key={p}
               type="button"
               onClick={() => setGoalInput(String(p))}
@@ -1512,7 +1533,7 @@ function CollectionSection({
             </button>
           ))}
           {goalInput ? (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setGoalInput('')}
               className="rounded-full px-3 py-1.5 text-xs font-medium text-[#1A1A1A]/45 hover:text-[#1A1A1A]"
@@ -1551,7 +1572,7 @@ function CollectionSection({
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-semibold text-[#1A1A1A]/55">Method {i + 1}</span>
                   {methods.length > 1 ? (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => removeRow(i)}
                       aria-label="Remove method"
@@ -1584,7 +1605,7 @@ function CollectionSection({
                 </div>
               </div>
             ))}
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={addRow}
               className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.14] bg-white px-3.5 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-black/[0.03]"
@@ -1691,14 +1712,31 @@ const PLEDGE_TABLE_CSS = `
 .si{ --purple:#6B3FA0; --purple-d:#4A2870; --lav:#D7BDE8; --ink:#1c1b1f; --muted:#8b8790;
   --faint:#b6b2ba; --line:#ededf0; --hover:#faf8fc; --radius:16px; --soft:0 1px 2px rgba(20,18,30,.05);
   --bad-tx:#c0392b; --bad-bg:#fcecec;
+  --green:#9FE870; --green-d:#8AD65B; --green-tx:#14342B;
   color:var(--ink); }
 .si .gt{ background:#fff; border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--soft); overflow:hidden; }
 .si .gth{ display:flex; align-items:center; gap:14px; padding:18px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
 .si .gth h2{ font-size:18px; font-weight:600; }
 .si .gth .cnt{ color:var(--muted); font-size:12px; }
-.si .gth .gsearch{ flex:0 1 240px; min-width:150px; border:1px solid var(--line); border-radius:10px;
-  padding:8px 12px; font-size:13px; color:var(--ink); background:#fff; }
-.si .gth .gsearch:focus{ outline:none; border-color:var(--lav); }
+.si .gth .gsearch{ flex:0 1 240px; min-width:150px; }
+/* Phone only. The heading and the status filters each take a full row, which
+   leaves the search and "Add guest" to share one, the button on the right end.
+   The order property does the repositioning rather than the markup, so the
+   desktop header keeps its original sequence (search, filters, add, send). */
+@media (max-width:640px){
+  .si .gth{ gap:10px 12px; }
+  .si .gth h2{ order:1; flex:1 1 100%; }
+  /* min-width has to come down with the basis: flex clamps the hypothetical
+     size by min-width when deciding where to wrap, so the base 150px alone
+     was still enough to bump the button onto its own row. */
+  .si .gth .gsearch{ order:2; flex:1 1 120px; min-width:0; }
+  /* Trimmed down on phones: every pixel it gives up goes straight to the
+     search box beside it, which grows into the leftover space. */
+  .si .gth .addbtn{ order:3; margin-left:auto; gap:4px; padding:8px 10px; font-size:12px; }
+  /* Hidden on phones, so the header is just the heading plus the search and
+     Add guest row. Both return unchanged from sm up. */
+  .si .gth .tabs, .si .gth .bulkbtn{ display:none; }
+}
 .si .empty{ padding:40px 20px; text-align:center; color:var(--muted); font-size:14px; }
 .si .scroll{ overflow-x:auto; }
 .si table{ width:100%; border-collapse:collapse; font-size:13.5px; }
@@ -1710,7 +1748,7 @@ const PLEDGE_TABLE_CSS = `
 .si .who{ font-weight:600; }
 .si .contact{ color:var(--muted); font-size:12px; }
 .si .ra{ display:flex; gap:7px; justify-content:flex-end; align-items:center; }
-.si .ia{ height:32px; min-width:32px; padding:0 8px; border-radius:9px; border:1px solid var(--line); background:#fff; cursor:pointer;
+.si .ia{ height:32px; min-width:32px; padding:0 8px; border-radius:var(--opus-radius-small); border:1px solid var(--line); background:#fff; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:600; color:var(--ink); }
 .si .ia:hover{ background:var(--hover); border-color:var(--lav); }
 .si .ia:disabled{ opacity:.45; cursor:not-allowed; }
@@ -1724,21 +1762,26 @@ const PLEDGE_TABLE_CSS = `
 .si .ia.save:hover{ filter:brightness(1.06); background:var(--purple); }
 .si .ia.danger{ color:var(--bad-tx); }
 .si .ia.danger:hover{ border-color:var(--bad-tx); background:var(--bad-bg); }
-.si .einp{ width:100%; max-width:220px; border:1px solid var(--lav); border-radius:8px; padding:6px 9px; font-size:13px; background:#fff; }
+.si .einp{ width:100%; max-width:220px; border:1px solid var(--lav); border-radius:var(--opus-radius-small); padding:6px 9px; font-size:13px; background:#fff; }
 .si .einp:focus{ outline:none; border-color:var(--purple); }
 .si .spin{ animation:si-spin .8s linear infinite; }
 @keyframes si-spin{ to{ transform:rotate(360deg); } }
 .si .ia-primary{ padding:0 12px; font-size:12.5px; }
 .si input[type="checkbox"]{ width:16px; height:16px; accent-color:var(--purple); cursor:pointer; }
-.si .tabs{ display:inline-flex; align-items:center; gap:2px; border:1px solid var(--line); border-radius:10px; padding:3px; }
-.si .tab{ border:none; background:transparent; border-radius:7px; padding:6px 10px; font-size:12.5px; font-weight:600;
+.si .tabs{ display:inline-flex; align-items:center; gap:2px; border:1px solid var(--line); border-radius:var(--opus-radius-small); padding:3px; }
+.si .tab{ border:none; background:transparent; border-radius:var(--opus-radius-small); padding:6px 10px; font-size:12.5px; font-weight:600;
   color:var(--muted); cursor:pointer; white-space:nowrap; }
 .si .tab:hover{ color:var(--ink); }
 .si .tab.active{ background:#fff; color:var(--purple-d); box-shadow:var(--soft); }
-.si .addbtn{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); border-radius:10px;
-  padding:8px 14px; font-size:13px; font-weight:600; color:var(--ink); background:#fff; cursor:pointer; white-space:nowrap; }
-.si .addbtn:hover{ background:var(--hover); border-color:var(--lav); }
-.si .bulkbtn{ display:inline-flex; align-items:center; gap:7px; border:none; border-radius:10px; padding:8px 16px;
+/* Brand green rather than the old white outline: adding a guest is an action
+   worth seeing, and white-on-white read as disabled next to the filled Send
+   button. Dark ink on the green keeps the label at full contrast. */
+.si .addbtn{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--green); border-radius:var(--opus-radius-small);
+  padding:8px 14px; font-size:13px; font-weight:600; color:var(--green-tx); background:var(--green);
+  cursor:pointer; white-space:nowrap; }
+.si .addbtn:hover{ background:var(--green-d); border-color:var(--green-d); }
+.si .addbtn:disabled{ opacity:.45; cursor:not-allowed; }
+.si .bulkbtn{ display:inline-flex; align-items:center; gap:7px; border:none; border-radius:var(--opus-radius-small); padding:8px 16px;
   font-size:13px; font-weight:700; color:#fff; background:var(--purple); cursor:pointer; white-space:nowrap;
   margin-left:auto; }
 .si .bulkbtn:hover{ filter:brightness(1.08); }
@@ -1759,8 +1802,8 @@ const PLEDGE_TABLE_CSS = `
 .si .pillselect.pill-sms{ color:var(--purple-d); border-color:var(--lav); background-color:#faf6fd; }
 .si .pillselect.pill-email{ color:var(--purple-d); border-color:var(--lav); background-color:#faf6fd; }
 .si .chmenu{ position:absolute; z-index:5; top:calc(100% + 4px); left:0; min-width:150px; background:#fff;
-  border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 24px rgba(20,18,30,.12); padding:4px; }
-.si .chmenu-item{ display:flex; width:100%; align-items:center; gap:7px; border:none; background:transparent; border-radius:8px;
+  border:1px solid var(--line); border-radius:var(--opus-radius-small); box-shadow:0 8px 24px rgba(20,18,30,.12); padding:4px; }
+.si .chmenu-item{ display:flex; width:100%; align-items:center; gap:7px; border:none; background:transparent; border-radius:var(--opus-radius-small);
   padding:7px 9px; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; text-align:left; }
 .si .chmenu-item:hover:not(:disabled){ background:var(--hover); }
 .si .chmenu-item.active{ background:var(--hover); }
@@ -2078,8 +2121,6 @@ function InviteSection({
   const message = pledgeRequestMessage(coupleName, shareLink)
   const noone = { whatsapp_phone: null, phone: null, full_name: '' }
   const waUrl = whatsappShareUrl(noone, message)
-  const smsUrl = smsShareUrl(noone, message)
-  const emailUrl = emailShareUrl({ email: null }, `You're invited to contribute — ${coupleName}`, message)
 
   const liveByChannel: Record<ShareChannel, boolean> = { whatsapp: whatsappLive, sms: smsLive, email: emailLive }
   const notSentCount = contacts.filter((c) => contactStatus(c) === 'not_sent').length
@@ -2250,7 +2291,7 @@ function InviteSection({
             </div>
             <div className="space-y-1.5 text-sm">
               <p className="font-medium text-[#1A1A1A]">Using your uploaded photo</p>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={savingCover}
                 onClick={() => saveCover(null, false)}
@@ -2305,11 +2346,18 @@ function InviteSection({
                           </span>
                         ) : null}
                       </div>
-                      <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-[#1A1A1A]" title={t.name}>
+                      {/* One line on phones so a longer name cannot push the
+                          card taller than its neighbours in the carousel; the
+                          full name stays available via the title attribute.
+                          Two lines from sm up, where there is room. */}
+                      <p
+                        className="truncate text-[11px] font-semibold leading-tight text-[#1A1A1A] sm:line-clamp-2 sm:whitespace-normal"
+                        title={t.name}
+                      >
                         {t.name}
                       </p>
                       {usable ? (
-                        <button
+                        <button data-opus-button="danger" data-opus-button-size="small"
                           type="button"
                           disabled={savingCover}
                           onClick={() => (isApplied ? removeTemplate(t) : useTemplate(t))}
@@ -2335,7 +2383,7 @@ function InviteSection({
                           )}
                         </button>
                       ) : isPending ? (
-                        <button
+                        <button data-opus-button="warning" data-opus-button-size="small"
                           type="button"
                           disabled
                           className="inline-flex w-full items-center justify-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10.5px] font-semibold text-amber-800 disabled:cursor-not-allowed"
@@ -2343,7 +2391,7 @@ function InviteSection({
                           <Clock className="h-3 w-3" /> Payment under review
                         </button>
                       ) : (
-                        <button
+                        <button data-opus-button="primary" data-opus-button-size="small"
                           type="button"
                           onClick={() =>
                             setPurchaseTarget({
@@ -2439,7 +2487,7 @@ function InviteSection({
               <div className="min-w-0 flex-1 basis-64 truncate rounded-xl border border-black/[0.12] bg-white px-3 py-2.5 text-sm text-[#1A1A1A]/80">
                 {shareLink.replace(/^https?:\/\//, '')}
               </div>
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 type="button"
                 onClick={onCopy}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-black/[0.18] bg-white px-4 py-2.5 text-sm font-semibold text-[#1A1A1A] hover:bg-black/[0.03]"
@@ -2448,7 +2496,11 @@ function InviteSection({
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            {/* Nowrap so the button and the QR stay on one line: with
+                flex-wrap the break is decided from each item's max-content
+                width, so the QR dropped onto its own row before it could
+                shrink into the space left over. */}
+            <div className="flex items-center gap-2">
               <a
                 href={waUrl}
                 target="_blank"
@@ -2457,26 +2509,18 @@ function InviteSection({
               >
                 <MessageCircle className="h-4 w-4" /> WhatsApp
               </a>
-              <a
-                href={smsUrl}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-black/[0.14] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#1A1A1A] hover:bg-black/[0.03]"
-              >
-                <Smartphone className="h-4 w-4" /> SMS
-              </a>
-              <a
-                href={emailUrl}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-black/[0.14] bg-white px-3.5 py-2.5 text-sm font-semibold text-[#1A1A1A] hover:bg-black/[0.03]"
-              >
-                <Mail className="h-4 w-4" /> Email
-              </a>
-
               {/* QR for the link — pushed to the row's right end, doubles as
-                  something printable for a physical table card at the wedding. */}
+                  something printable for a physical table card at the wedding.
+                  min-w-0 rather than shrink-0 so it can give up width to fit. */}
               {qrDataUrl ? (
-                <div className="ml-auto flex shrink-0 items-center gap-3 rounded-xl border border-black/[0.1] bg-black/[0.015] p-3">
+                <div className="ml-auto flex min-w-0 items-center gap-2 rounded-xl border border-black/[0.1] bg-black/[0.015] p-2 sm:gap-3 sm:p-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={qrDataUrl} alt="QR code for the pledge link" className="h-16 w-16 shrink-0" />
-                  <div className="space-y-1 text-xs text-[#1A1A1A]/55">
+                  <img
+                    src={qrDataUrl}
+                    alt="QR code for the pledge link"
+                    className="h-12 w-12 shrink-0 sm:h-14 sm:w-14 lg:h-16 lg:w-16"
+                  />
+                  <div className="min-w-0 space-y-1 text-[11px] text-[#1A1A1A]/55 sm:text-xs">
                     <p className="font-semibold text-[#1A1A1A]">Scan to open</p>
                   </div>
                 </div>
@@ -2517,7 +2561,7 @@ function InviteSection({
                     aria-label="Search guests"
                   />
                   <div className="tabs" role="tablist" aria-label="Filter by status">
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       role="tab"
                       aria-selected={statusFilter === 'all'}
@@ -2526,7 +2570,7 @@ function InviteSection({
                     >
                       All
                     </button>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       role="tab"
                       aria-selected={statusFilter === 'not_sent'}
@@ -2535,7 +2579,7 @@ function InviteSection({
                     >
                       Not sent {notSentCount}
                     </button>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       role="tab"
                       aria-selected={statusFilter === 'awaiting'}
@@ -2545,7 +2589,10 @@ function InviteSection({
                       Awaiting {awaitingCount}
                     </button>
                   </div>
-                  <button
+                  {/* Stays here in the markup so the desktop header keeps its
+                      original order. Phones move it up beside the search with
+                      `order` in the media query below. */}
+                  <button data-opus-button="control"
                     type="button"
                     className="addbtn"
                     disabled={pending}
@@ -2553,7 +2600,7 @@ function InviteSection({
                   >
                     <Plus size={14} /> Add guest
                   </button>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     className="bulkbtn"
                     disabled={selectedIds.size === 0 || bulkSending}
@@ -2568,7 +2615,7 @@ function InviteSection({
                   <div className="empty">No guests match your search</div>
                 ) : (
                   <div className="scroll">
-                    <table>
+                    <table className="opus-table">
                       <thead>
                         <tr>
                           <th style={{ width: 36 }}>
@@ -2651,10 +2698,10 @@ function InviteSection({
                             <td />
                             <td>
                               <div className="ra">
-                                <button className="ia save" disabled={savingNewGuest} onClick={addGuest}>
+                                <button data-opus-button="control" className="ia save" disabled={savingNewGuest} onClick={addGuest}>
                                   {savingNewGuest ? <Loader2 size={14} className="spin" /> : <Check size={14} />} Save
                                 </button>
-                                <button className="ia" onClick={() => setAddingGuest(false)} title="Cancel">
+                                <button data-opus-button="control" className="ia" onClick={() => setAddingGuest(false)} title="Cancel">
                                   <X size={15} />
                                 </button>
                               </div>
@@ -2723,10 +2770,10 @@ function InviteSection({
                               <td />
                               <td>
                                 <div className="ra">
-                                  <button className="ia save" disabled={pending} onClick={saveRowEdit}>
+                                  <button data-opus-button="control" className="ia save" disabled={pending} onClick={saveRowEdit}>
                                     <Check size={14} /> Save
                                   </button>
-                                  <button
+                                  <button data-opus-button="control"
                                     className="ia danger"
                                     disabled={pending}
                                     title="Delete guest"
@@ -2735,7 +2782,7 @@ function InviteSection({
                                     <Trash2 size={14} />
                                     {rowEdit.askDelete ? 'Confirm' : null}
                                   </button>
-                                  <button className="ia" disabled={pending} onClick={() => setRowEdit(null)} title="Cancel">
+                                  <button data-opus-button="control" className="ia" disabled={pending} onClick={() => setRowEdit(null)} title="Cancel">
                                     <X size={15} />
                                   </button>
                                 </div>
@@ -2766,7 +2813,7 @@ function InviteSection({
                                   <td style={{ position: 'relative' }}>
                                     {channel ? (
                                       <div data-channel-menu style={{ position: 'relative', display: 'inline-block' }}>
-                                        <button
+                                        <button data-opus-button="control"
                                           type="button"
                                           className={cn('pillselect', `pill-${channel}`)}
                                           onClick={() =>
@@ -2788,7 +2835,7 @@ function InviteSection({
                                               const Icon = s.icon
                                               const usable = contactHasChannel(c, s.id)
                                               return (
-                                                <button
+                                                <button data-opus-button="control"
                                                   key={s.id}
                                                   type="button"
                                                   role="option"
@@ -2825,7 +2872,7 @@ function InviteSection({
                                   <td>
                                     <div className="ra">
                                       {channel ? (
-                                        <button
+                                        <button data-opus-button="control"
                                           className="ia ia-primary ia-whatsapp"
                                           disabled={pending}
                                           title={`Send via ${SHARE_CHANNELS.find((s) => s.id === channel)!.label}`}
@@ -2839,10 +2886,10 @@ function InviteSection({
                                           Send
                                         </button>
                                       ) : null}
-                                      <button className="ia" disabled={pending} title="Copy pledge link" onClick={onCopy}>
+                                      <button data-opus-button="control" className="ia" disabled={pending} title="Copy pledge link" onClick={onCopy}>
                                         <Copy size={15} />
                                       </button>
-                                      <button
+                                      <button data-opus-button="control"
                                         className="ia"
                                         disabled={pending}
                                         title="Edit guest"
@@ -2924,7 +2971,7 @@ function FollowUpsSection({
 
   return (
     <Card className="overflow-x-auto">
-      <table className="w-full min-w-[820px] text-left text-sm [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:first-child]:pl-5 [&_th:last-child]:pr-5">
+      <table className="opus-table w-full min-w-[820px] text-left text-sm [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:first-child]:pl-5 [&_th:last-child]:pr-5">
         <thead>
           <tr className="border-b border-black/[0.06]">
             <Th>Contributor</Th>
@@ -2986,7 +3033,7 @@ function FollowUpsSection({
                 <td className="py-3.5 pr-3 text-right">
                   <div className="inline-flex items-center justify-end gap-1">
                     <ReminderButtons p={p} onWa={onWa} onSms={onSms} onEmail={onEmail} sendingKey={sendingKey} />
-                    <button
+                    <button data-opus-button="control"
                       onClick={() => onRecord(p)}
                       aria-label="Record payment"
                       title="Record a payment"
@@ -3349,7 +3396,7 @@ function ReportTable({
   return (
     <Card className="overflow-x-auto">
       <div className="px-5 pt-4 text-sm font-semibold text-[#1A1A1A]">{title}</div>
-      <table className="mt-2 w-full min-w-[520px] text-left text-sm">
+      <table className="opus-table mt-2 w-full min-w-[520px] text-left text-sm">
         <thead>
           <tr className="border-b border-black/[0.06]">
             {head.map((h, i) => (
@@ -3664,7 +3711,7 @@ function ModeChip({
   children: React.ReactNode
 }) {
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="small"
       type="button"
       onClick={onClick}
       className={cn(

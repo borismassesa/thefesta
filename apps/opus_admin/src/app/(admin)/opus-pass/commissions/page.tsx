@@ -266,7 +266,7 @@ function TaskRow({
                   ))}
                 </select>
               </label>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="submit"
                 className="rounded-lg bg-[#4A2D5C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3b2449]"
               >

@@ -34,7 +34,7 @@ export default function DiscardLink({
 
   return (
     <>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen(true)}
         className="mx-auto mt-7 block text-[11px] font-semibold text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline"
@@ -58,7 +58,7 @@ export default function DiscardLink({
               </div>
             )}
             <div className="mt-6 flex justify-end gap-3">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => {
                   setOpen(false)
@@ -69,7 +69,7 @@ export default function DiscardLink({
               >
                 Cancel
               </button>
-              <button
+              <button data-opus-button="danger" data-opus-button-size="medium"
                 type="button"
                 onClick={discard}
                 disabled={discarding}

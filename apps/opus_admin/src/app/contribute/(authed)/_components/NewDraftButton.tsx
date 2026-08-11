@@ -27,7 +27,7 @@ export default function NewDraftButton({ className }: { className?: string }) {
   }
 
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={createDraft}
       className={cn(

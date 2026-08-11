@@ -192,7 +192,7 @@ export function Sidebar({ newLeadCount = 0 }: { newLeadCount?: number }) {
             <Logo className="h-7 w-auto" />
           </Link>
         )}
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={toggle}
           aria-label={collapsed ? t('aria_expand_sidebar') : t('aria_collapse_sidebar')}
@@ -207,7 +207,7 @@ export function Sidebar({ newLeadCount = 0 }: { newLeadCount?: number }) {
       </div>
 
       {collapsed ? (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={expand}
           aria-label={t('aria_search')}
@@ -220,7 +220,7 @@ export function Sidebar({ newLeadCount = 0 }: { newLeadCount?: number }) {
           <div className="relative flex items-center">
             <Search className="w-4 h-4 text-gray-400 absolute left-3" />
             <input
-              type="text"
+              type="search"
               placeholder={t('search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}

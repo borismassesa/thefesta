@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.0",
+    "@opusfesta/lib": "*",
     "@supabase/supabase-js": "^2.89.0",
     "@tiptap/extension-image": "^2.11.0",
     "@tiptap/extension-link": "^2.11.0",

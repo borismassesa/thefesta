@@ -192,7 +192,7 @@ export default function FeaturesEditor({ initial, hasDraft: initialHasDraft }: P
                 placeholder="#FCE9C2"
                 className={`${inputCls} flex-1 font-mono text-[12px]`}
               />
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setField('background_color', '#FCE9C2')}
                 className="p-1 text-gray-400 hover:text-gray-700 shrink-0"
@@ -296,7 +296,7 @@ export default function FeaturesEditor({ initial, hasDraft: initialHasDraft }: P
               </div>
             </CollapsibleCard>
           ))}
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             onClick={addItem}
             className="flex items-center gap-2 text-sm font-medium text-[#7E5896] hover:text-[#5d3a78] px-3 py-2 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6] transition-colors"
@@ -312,7 +312,7 @@ export default function FeaturesEditor({ initial, hasDraft: initialHasDraft }: P
           <h3 className="text-[15px] font-semibold text-gray-900">Live preview</h3>
           <div className="inline-flex items-center rounded-full border border-gray-200 p-0.5 text-[11px] font-semibold">
             {LOCALES.map((l) => (
-              <button
+              <button data-opus-button="control"
                 key={l}
                 type="button"
                 onClick={() => setPreviewLocale(l)}

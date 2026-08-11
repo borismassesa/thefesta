@@ -229,7 +229,7 @@ function BackgroundField({
           className={inputCls}
           placeholder="https://… or /assets/…"
         />
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={pending}

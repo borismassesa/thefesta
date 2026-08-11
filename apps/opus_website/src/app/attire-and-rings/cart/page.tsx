@@ -90,7 +90,7 @@ function CartRow({
     <div className="flex items-center gap-4 py-5">
       <div className="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-gray-100">
         <img src={product.img} alt={product.name} className="w-full h-full object-cover" />
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onToggle}
           aria-label={selected ? 'Deselect item' : 'Select item'}
@@ -140,7 +140,7 @@ function CartRow({
         {formatTzs(product.priceTzs * quantity)}
       </span>
 
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${product.name} from cart`}
@@ -266,7 +266,7 @@ export default function CartPage() {
                     placeholder="Coupon code"
                     className="flex-1 h-10 rounded-md border border-gray-200 px-3 text-sm focus:outline-none focus:border-gray-500"
                   />
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="button"
                     onClick={applyCoupon}
                     className="h-10 px-5 bg-gray-900 text-white text-sm font-semibold rounded-md hover:bg-gray-800 transition"

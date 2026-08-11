@@ -76,7 +76,7 @@ export default async function GrowthDashboardPage() {
             View tracker →
           </Link>
         </div>
-        <table className="w-full text-[12px]">
+        <table className="opus-table w-full text-[12px]">
           <thead>
             <tr className="border-b border-gray-100 text-left text-gray-500">
               <th className="px-4 py-2 font-medium">Metric</th>
@@ -120,7 +120,7 @@ export default async function GrowthDashboardPage() {
             View tracker →
           </Link>
         </div>
-        <table className="w-full text-[12px]">
+        <table className="opus-table w-full text-[12px]">
           <thead>
             <tr className="border-b border-gray-100 text-left text-gray-500">
               <th className="px-4 py-2 font-medium">Metric</th>

@@ -38,7 +38,7 @@ export default function LoginModal({ onClose, onSwitchToSignup }: {
           {/* Header */}
           <div className="shrink-0 flex items-center justify-between px-6 pt-14 pb-8 max-w-2xl mx-auto w-full">
             <div className="flex-1" />
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onClose}
               className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shrink-0"
@@ -86,7 +86,7 @@ export default function LoginModal({ onClose, onSwitchToSignup }: {
 
             <p className="text-sm text-gray-500 text-center mt-6">
               Don&apos;t have an account?{' '}
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onSwitchToSignup}
                 className="font-semibold text-[#1A1A1A] hover:underline"

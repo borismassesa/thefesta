@@ -447,7 +447,7 @@ export default function Navbar() {
 
           <div className="hidden min-[1340px]:flex gap-1 font-semibold text-[15px]">
             {navItems.map((item) => (
-              <button
+              <button data-opus-button="control"
                 key={item.label}
                 onMouseEnter={() => setActiveMenu(item.label)}
                 aria-expanded={activeMenu === item.label}
@@ -518,7 +518,7 @@ export default function Navbar() {
               </UserButton>
             </div>
           ) : null}
-          <button
+          <button data-opus-button="control"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-100 min-[1340px]:hidden sm:h-10 sm:w-10"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
             onClick={() => setMobileOpen((v) => !v)}
@@ -658,7 +658,7 @@ export default function Navbar() {
         {/* Header — changes based on which panel is active */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
           {mobileExpanded ? (
-            <button
+            <button data-opus-button="control"
               onClick={() => setMobileExpanded(null)}
               className="flex items-center gap-2 text-sm font-semibold text-gray-700"
               aria-label="Back to menu"
@@ -671,7 +671,7 @@ export default function Navbar() {
               <Logo className="h-8 w-auto" />
             </Link>
           )}
-          <button
+          <button data-opus-button="control"
             onClick={closeMobile}
             className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
             aria-label="Close menu"
@@ -690,7 +690,7 @@ export default function Navbar() {
           >
             <div className="flex-1 overflow-y-auto py-3 px-3">
               {navItems.map((item) => (
-                <button
+                <button data-opus-button="control"
                   key={item.label}
                   className="w-full flex items-center justify-between px-4 py-4 rounded-xl font-semibold text-sm text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                   onClick={() => setMobileExpanded(item.label)}

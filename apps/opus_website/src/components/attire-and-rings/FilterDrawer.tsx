@@ -151,7 +151,7 @@ export default function FilterDrawer() {
 
   return (
     <>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-medium text-gray-800 hover:bg-gray-50 hover:border-gray-400 transition whitespace-nowrap shrink-0"
@@ -180,7 +180,7 @@ export default function FilterDrawer() {
       >
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
           <h2 className="text-lg font-semibold text-gray-900">All filters</h2>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Close filters"
@@ -255,7 +255,7 @@ export default function FilterDrawer() {
                 onFocus={() => setPriceRange('custom')}
                 className="h-9 w-24 rounded border border-gray-300 px-2 text-sm focus:outline-none focus:border-gray-500"
               />
-              <button
+              <button data-opus-button="control"
                 type="button"
                 aria-label="Apply price range"
                 onClick={() => setPriceRange('custom')}
@@ -329,14 +329,14 @@ export default function FilterDrawer() {
         </div>
 
         <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={clearAll}
             className="text-sm font-medium text-gray-700 underline underline-offset-4 hover:text-gray-900"
           >
             Clear all
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={() => setOpen(false)}
             className="bg-gray-900 text-white text-sm font-semibold px-6 py-2.5 rounded-full hover:bg-gray-800 transition"

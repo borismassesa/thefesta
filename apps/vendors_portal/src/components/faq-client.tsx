@@ -49,7 +49,7 @@ export default function FaqClient({ content }: { content: FaqContent }) {
                     : 'bg-gray-50 sm:bg-transparent hover:bg-gray-50 sm:hover:bg-transparent'
                 }`}
               >
-                <button
+                <button data-opus-button="control"
                   onClick={() => setOpen(isOpen ? null : faq.id)}
                   className="w-full flex items-center justify-between px-4 sm:px-0 py-4 sm:py-6 text-left gap-4 sm:gap-6 group"
                 >

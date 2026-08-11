@@ -39,7 +39,7 @@ export function WhyWeAsk({ title, children, label }: Props) {
 
   return (
     <>
-      <button
+      <button data-opus-button="control"
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
@@ -58,7 +58,7 @@ export function WhyWeAsk({ title, children, label }: Props) {
           aria-label={resolvedTitle}
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
-          <button
+          <button data-opus-button="control"
             type="button"
             aria-label={t('common.close')}
             onClick={() => setOpen(false)}
@@ -67,7 +67,7 @@ export function WhyWeAsk({ title, children, label }: Props) {
           <div className="relative bg-white rounded-2xl shadow-xl border border-gray-200 max-w-md w-full p-6 lg:p-7">
             <div className="flex items-start justify-between gap-4">
               <h2 className="text-lg font-semibold text-gray-900 tracking-tight">{resolvedTitle}</h2>
-              <button
+              <button data-opus-button="control"
                 ref={closeBtnRef}
                 type="button"
                 onClick={() => setOpen(false)}
@@ -79,7 +79,7 @@ export function WhyWeAsk({ title, children, label }: Props) {
             </div>
             <div className="mt-3 text-sm text-gray-700 leading-relaxed space-y-3">{children}</div>
             <div className="mt-6 flex justify-end">
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 onClick={() => setOpen(false)}
                 className="bg-[#1A1A1A] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-black transition-colors"

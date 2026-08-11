@@ -10,7 +10,7 @@ export async function GiftSection() {
           <h2 className="text-3xl lg:text-4xl font-serif font-medium text-gray-900 leading-tight mb-6">
             {content.heading}
           </h2>
-          <button className="bg-white border-2 border-gray-900 text-gray-900 px-6 py-3 rounded-full font-medium hover:bg-gray-50 transition drop-shadow-sm">
+          <button data-opus-button="neutral" data-opus-button-size="large" className="bg-white border-2 border-gray-900 text-gray-900 px-6 py-3 rounded-full font-medium hover:bg-gray-50 transition drop-shadow-sm">
             {content.cta_label}
           </button>
         </div>

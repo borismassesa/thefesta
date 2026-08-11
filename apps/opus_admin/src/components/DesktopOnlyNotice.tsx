@@ -47,7 +47,7 @@ export function DesktopOnlyNotice() {
         phones or narrow windows. Sign in from a laptop or desktop, or widen
         this window, to use it properly.
       </p>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setDismissed(true)}
         className="mt-1 text-sm font-semibold text-[#7E5896] underline underline-offset-4"

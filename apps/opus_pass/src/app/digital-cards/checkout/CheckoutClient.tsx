@@ -154,7 +154,7 @@ function FieldError({ children }: { children: React.ReactNode }) {
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false)
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="medium"
       type="button"
       onClick={() => {
         void navigator.clipboard?.writeText(value)
@@ -668,7 +668,7 @@ export default function CheckoutClient({ events }: { events: CheckoutEvent[] }) 
                       manual flow is the only option. */}
                   {SELCOM_ENABLED && (
                     <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-1">
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => { setMpesaMode('push'); setPayError(null) }}
                         aria-pressed={mpesaMode === 'push'}
@@ -679,7 +679,7 @@ export default function CheckoutClient({ events }: { events: CheckoutEvent[] }) 
                       >
                         {tp('toggle_push')}
                       </button>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => { setMpesaMode('lipa'); setPayError(null) }}
                         aria-pressed={mpesaMode === 'lipa'}
@@ -741,7 +741,7 @@ export default function CheckoutClient({ events }: { events: CheckoutEvent[] }) 
                           {LIPA_NETWORKS.map((n) => {
                             const active = lipaNetwork === n.id
                             return (
-                              <button
+                              <button data-opus-button="control"
                                 key={n.id}
                                 type="button"
                                 role="tab"
@@ -872,7 +872,7 @@ export default function CheckoutClient({ events }: { events: CheckoutEvent[] }) 
                 </div>
               )}
 
-              <button
+              <button data-opus-button="primary" data-opus-button-size="large"
                 type="button"
                 onClick={handlePay}
                 disabled={submitting || payPhase !== 'idle' || items.length === 0}
@@ -931,7 +931,7 @@ export default function CheckoutClient({ events }: { events: CheckoutEvent[] }) 
                 </div>
                 {/* For the couple who isn't the one paying: a priced document
                     they can send to a parent, a sponsor or a company. */}
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="medium"
                   type="button"
                   onClick={downloadQuotation}
                   disabled={items.length === 0 || quoteBusy}

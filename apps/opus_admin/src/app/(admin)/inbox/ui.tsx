@@ -156,7 +156,7 @@ export function MenuButton({
 
   return (
     <div className="relative" ref={ref}>
-      <button
+      <button data-opus-button="control"
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
@@ -184,7 +184,7 @@ export function MenuButton({
           )}
         >
           {options.map((opt) => (
-            <button
+            <button data-opus-button="control"
               key={opt.key}
               type="button"
               role="menuitem"
@@ -233,7 +233,7 @@ export function ActionButton({
   tone?: 'default' | 'primary' | 'positive'
 }) {
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="small"
       type="button"
       onClick={onClick}
       className={cn(

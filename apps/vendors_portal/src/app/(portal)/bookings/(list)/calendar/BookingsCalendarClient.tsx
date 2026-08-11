@@ -298,7 +298,7 @@ export default function BookingsCalendarClient({
             <section className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] p-5 lg:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-1">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => stepBy(-1)}
                     className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
@@ -309,7 +309,7 @@ export default function BookingsCalendarClient({
                   <h2 className="text-base font-semibold text-gray-900 tracking-tight tabular-nums px-2">
                     {headerLabel}
                   </h2>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => stepBy(1)}
                     className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
@@ -320,7 +320,7 @@ export default function BookingsCalendarClient({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={goToToday}
                     className="text-xs font-semibold text-gray-700 hover:text-gray-900 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
@@ -461,7 +461,7 @@ function CapacityCard({
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => onChange(capacity - 1)}
           disabled={capacity <= 1}
@@ -478,7 +478,7 @@ function CapacityCard({
           onChange={(e) => onChange(Number(e.target.value))}
           className="w-14 text-center text-xl font-semibold text-gray-900 tabular-nums bg-white border border-gray-200 rounded-lg py-1.5 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 outline-none"
         />
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => onChange(capacity + 1)}
           disabled={capacity >= 20}
@@ -517,7 +517,7 @@ function ViewToggle({ view, onChange }: { view: CalendarView; onChange: (v: Cale
   return (
     <div className="inline-flex bg-gray-100 rounded-lg p-0.5">
       {options.map((o) => (
-        <button
+        <button data-opus-button="control"
           key={o.id}
           type="button"
           onClick={() => onChange(o.id)}
@@ -557,7 +557,7 @@ function MonthView({
       <div className="grid grid-cols-7 gap-1 mb-1">
         {WEEKDAY_LABELS.map((w, i) => (
           <div key={w} className="text-[10px] font-bold uppercase tracking-wider text-gray-400 text-center py-1.5">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => onWeekdayClick(i)}
               className="hover:text-gray-700 transition-colors"
@@ -581,7 +581,7 @@ function MonthView({
           const bookings = bookingsByDate.get(iso) ?? []
           const over = bookings.length > capacity
           return (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               key={iso}
               type="button"
               onClick={() => onSelect(iso)}
@@ -658,7 +658,7 @@ function WeekView({
         const bookings = bookingsByDate.get(iso) ?? []
         const over = bookings.length > capacity
         return (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             key={iso}
             type="button"
             onClick={() => onSelect(iso)}
@@ -869,7 +869,7 @@ function SelectedDatePanel({
     <div>
       <div className="flex items-start justify-between gap-2 mb-1">
         <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{t('panel_selected_date')}</p>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           className="p-1 -mr-1 -mt-0.5 text-gray-400 hover:text-gray-700 rounded-md transition-colors"
@@ -905,7 +905,7 @@ function SelectedDatePanel({
 
       <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-5 mb-2">{t('panel_status_label')}</p>
       <div className="grid grid-cols-2 gap-1.5">
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           onClick={onClear}
           className={cn(
@@ -915,7 +915,7 @@ function SelectedDatePanel({
         >
           {t('panel_button_operating')}
         </button>
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           onClick={() => onMarkOff(note.trim() || undefined)}
           className={cn(
@@ -965,7 +965,7 @@ function SelectedDatePanel({
       )}
 
       {isOff ? (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClear}
           className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700"

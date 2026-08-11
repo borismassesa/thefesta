@@ -19,7 +19,7 @@ export function ShopByCategoryCarousel({ categories }: { categories: DigitalCard
       {/* Arrows flank the row (outside the circles), not overlapping them, and
           only appear on hover or while scrolling. */}
       <div className="group flex items-center gap-2 sm:gap-3">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={scrollPrev}
           disabled={progress <= 1}
@@ -60,7 +60,7 @@ export function ShopByCategoryCarousel({ categories }: { categories: DigitalCard
           ))}
         </div>
 
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={scrollNext}
           disabled={progress >= 99}

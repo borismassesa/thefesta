@@ -289,7 +289,7 @@ export default function DesignQueueClient({
         </select>
 
         {(query || activeStatus) && (
-          <button
+          <button data-opus-button="danger" data-opus-button-size="small"
             type="button"
             onClick={() => {
               setQuery('')
@@ -504,7 +504,7 @@ function AssigneeLine({
           deliberate act that belongs on the job itself, next to the history
           that records it — not behind a button in a list. */}
       {canWrite && job.assignedTo === null && (
-        <button
+        <button data-opus-button="control"
           type="button"
           disabled={busy}
           onClick={onClaim}
@@ -534,7 +534,7 @@ function RowAction({
   // must still read as work waiting to be picked up.
   if (job.startedAt === null) {
     return (
-      <button
+      <button data-opus-button="control"
         type="button"
         disabled={busy}
         onClick={onStart}
@@ -670,7 +670,7 @@ function JobTable({
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
       {/* min-w keeps the columns readable on a narrow viewport; the wrapper
           scrolls rather than letting every cell wrap to four lines. */}
-      <table className="w-full min-w-[1080px] text-sm">
+      <table className="opus-table w-full min-w-[1080px] text-sm">
         <thead className="border-b border-gray-100 bg-gray-50/50 text-[10px] font-bold uppercase tracking-wider text-gray-400">
           <tr>
             <th className="px-4 py-2.5 text-left">Card</th>

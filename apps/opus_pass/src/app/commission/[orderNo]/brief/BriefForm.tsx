@@ -178,7 +178,7 @@ export default function BriefForm({
             ) : q.fieldType === 'choice' ? (
               <div className="mt-2 space-y-2">
                 {q.options.map((option) => (
-                  <button
+                  <button data-opus-button="neutral" data-opus-button-size="large"
                     key={option}
                     type="button"
                     onClick={() => {
@@ -209,7 +209,7 @@ export default function BriefForm({
                   }}
                   className="hidden"
                 />
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => fileInput.current?.click()}
                   disabled={attachments.length >= BRIEF_MAX_FILES}
@@ -252,7 +252,7 @@ export default function BriefForm({
       {error && <p className="text-sm text-[#8A4A4A]">{error}</p>}
 
       <div className="sticky bottom-0 -mx-5 border-t border-[#E8DCC8] bg-white/95 px-5 py-4 backdrop-blur">
-        <button
+        <button data-opus-button="primary" data-opus-button-size="large"
           type="submit"
           disabled={submitting || missing.length > 0}
           className="w-full rounded-full bg-[#4A2D5C] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"

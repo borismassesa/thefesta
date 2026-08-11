@@ -482,7 +482,7 @@ function TabBar({
         const badge = badges[t]
         const isActive = active === t
         return (
-          <button
+          <button data-opus-button="control"
             key={t}
             type="button"
             role="tab"
@@ -676,7 +676,7 @@ function GroupDropdown({
         if (!nextFocus || !e.currentTarget.contains(nextFocus)) setOpen(false)
       }}
     >
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((next) => !next)}
         aria-haspopup="listbox"
@@ -706,7 +706,7 @@ function GroupDropdown({
           {GROUP_FILTERS.map((option) => {
             const selected = option === value
             return (
-              <button
+              <button data-opus-button="control"
                 key={option}
                 type="button"
                 role="option"
@@ -747,7 +747,7 @@ function ViewSwitch({
   return (
     <div className="inline-flex shrink-0 rounded-lg border border-gray-200 bg-white p-0.5">
       {options.map(({ key, label, Icon }) => (
-        <button
+        <button data-opus-button="control"
           key={key}
           type="button"
           onClick={() => onChange(key)}
@@ -1023,7 +1023,7 @@ function CategoryCard({
 
 function CategoryTitle({ label, onOpen }: { label: string; onOpen: () => void }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onOpen}
       aria-label={`Open ${label} requests`}
@@ -1044,7 +1044,7 @@ function FavouriteStar({
   onToggleFavourite: () => void
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onToggleFavourite}
       aria-pressed={favourite}
@@ -1066,7 +1066,7 @@ function FavouriteStar({
 // kept for the submit on the form this leads to.
 function StartButton({ label, onNew }: { label: string; onNew: () => void }) {
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="small"
       type="button"
       onClick={onNew}
       aria-label={`New ${label} request`}
@@ -1094,7 +1094,7 @@ function HistoryDisclosure({
 
   return (
     <>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
@@ -1201,7 +1201,7 @@ function CategoryListView({
           </div>
           <div className="flex gap-1.5">
             {(['All', 'To Submit', 'Submitted', 'Approved', 'Refused'] as const).map((s) => (
-              <button
+              <button data-opus-button="secondary" data-opus-button-size="small"
                 key={s}
                 type="button"
                 onClick={() => setStatusFilter(s)}
@@ -1216,7 +1216,7 @@ function CategoryListView({
               </button>
             ))}
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onNew}
             className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-700"
@@ -1236,7 +1236,7 @@ function CategoryListView({
           <p className="mt-1 text-xs text-gray-500">
             Click <span className="font-semibold text-[#5B2D8E]">New Request</span> to start one.
           </p>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onBack}
             className="mt-4 text-xs font-semibold text-gray-500 hover:text-gray-800"
@@ -1253,7 +1253,7 @@ function CategoryListView({
             <span>Status</span>
           </div>
           {visible.map((r) => (
-            <button
+            <button data-opus-button="control"
               key={r.id}
               type="button"
               onClick={() => onOpen(r.id)}

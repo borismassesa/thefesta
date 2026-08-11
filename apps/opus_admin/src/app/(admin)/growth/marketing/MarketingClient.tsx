@@ -155,7 +155,7 @@ export default function MarketingClient({
                     {totals.bookings.toLocaleString('en-US')} bookings attributed across all campaigns
                   </p>
                   {canWrite && (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={openNew}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-2 text-sm font-semibold text-white hover:bg-[#6c4884]"
@@ -167,7 +167,7 @@ export default function MarketingClient({
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1100px] text-[13px]">
+                  <table className="opus-table w-full min-w-[1100px] text-[13px]">
                     <thead>
                       <tr className="border-b border-gray-100 text-left text-gray-500">
                         <th className="px-4 py-2 text-[12px] font-medium">Campaign</th>
@@ -275,7 +275,7 @@ function CampaignRow({
       {canWrite && (
         <td className="px-3 py-2.5">
           <div className="flex items-center justify-end gap-1">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onEdit}
               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700"
@@ -283,7 +283,7 @@ function CampaignRow({
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={remove}
               disabled={isPending}
@@ -347,7 +347,7 @@ function CampaignDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="Campaign">
-      <button type="button" aria-label="Close" className="flex-1 bg-gray-900/30" onClick={onClose} />
+      <button data-opus-button="control" type="button" aria-label="Close" className="flex-1 bg-gray-900/30" onClick={onClose} />
       <form
         onSubmit={submit}
         className="flex h-full w-full max-w-md flex-col border-l border-gray-100 bg-white shadow-2xl"
@@ -359,7 +359,7 @@ function CampaignDrawer({
             </h2>
             <p className="text-xs text-gray-500">Log spend, reach and results attributed to this campaign.</p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100"
@@ -501,14 +501,14 @@ function CampaignDrawer({
 
         <footer className="border-t border-gray-100 px-5 py-3">
           <div className="flex items-center justify-end gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onClose}
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="submit"
               disabled={isPending}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-2 text-sm font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"

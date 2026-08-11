@@ -55,7 +55,7 @@ export default function TestimonialsClient({ content }: { content: TestimonialsC
             {content.headline_line_2}
           </h2>
           <div className="flex justify-center md:justify-start gap-3">
-            <button
+            <button data-opus-button="control"
               onClick={prev}
               disabled={atStart || !carouselReady}
               className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
@@ -68,7 +68,7 @@ export default function TestimonialsClient({ content }: { content: TestimonialsC
             >
               <ArrowLeft size={22} strokeWidth={2} />
             </button>
-            <button
+            <button data-opus-button="control"
               onClick={next}
               disabled={atEnd || !carouselReady}
               className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
@@ -98,7 +98,7 @@ export default function TestimonialsClient({ content }: { content: TestimonialsC
                 <div
                   key={t.id}
                   style={{ minWidth: cardWidth || '72%', maxWidth: cardWidth || '72%' }}
-                  className={`rounded-[24px] sm:rounded-[32px] p-5 sm:p-6 md:p-8 flex flex-col shrink-0 ${
+                  className={`rounded-[var(--opus-radius-large)] sm:rounded-[var(--opus-radius-xlarge)] p-5 sm:p-6 md:p-8 flex flex-col shrink-0 ${
                     isAccent ? 'bg-[var(--accent)]' : 'bg-[#1A1A1A]'
                   }`}
                 >

@@ -286,7 +286,7 @@ function Step0({
 
       <div className="flex flex-col gap-2.5">
         {PLANNING_STAGES.map(({ id, label, Icon }) => (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             key={id}
             type="button"
             onClick={() => onSelect(id)}
@@ -489,7 +489,7 @@ function Step4({
         {CATEGORIES.map(({ id, label, Icon }) => {
           const isSelected = selected.has(id)
           return (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               key={id}
               type="button"
               onClick={() => onToggle(id)}
@@ -536,7 +536,7 @@ function Step5({
         {VENUE_TYPES.map((venue) => {
           const isSelected = selected.has(venue)
           return (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="large"
               key={venue}
               type="button"
               onClick={() => onToggle(venue)}
@@ -807,7 +807,7 @@ function Step9({
         {TOP_PICKS.map((vendor) => {
           const isSelected = selectedTopPicks.has(vendor.name)
           return (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               key={vendor.name}
               type="button"
               onClick={() => onToggleTopPick(vendor.name)}
@@ -1072,7 +1072,7 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
             {/* Back button */}
             <div className="w-16 shrink-0">
               {step > 0 && (
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={handleBack}
                   className="text-sm font-semibold text-gray-500 hover:text-[#1A1A1A] flex items-center gap-1 transition-colors"
@@ -1091,7 +1091,7 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
 
             {/* Close button */}
             <div className="w-16 shrink-0 flex justify-end">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onClose}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shrink-0"
@@ -1177,7 +1177,7 @@ export default function SignupModal({ onClose }: { onClose: () => void }) {
           {/* Bottom CTA — hidden on step 7, Clerk owns that submit */}
           {step !== 7 && (
           <div className="shrink-0 px-8 pt-8 pb-8 max-w-2xl mx-auto w-full flex justify-center">
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={isLastStep ? handleSubmit : handleNext}
               disabled={!isNextEnabled()}

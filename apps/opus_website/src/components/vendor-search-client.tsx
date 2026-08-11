@@ -47,7 +47,7 @@ export default function VendorSearchClient({ content }: { content: VendorSearchC
 
       {/* Card + mobile button */}
       <div className="flex-1 w-full max-w-lg flex flex-col gap-5">
-        <div className="bg-white rounded-[32px] shadow-[0_20px_60px_rgba(0,0,0,0.08)] p-7 border border-gray-100">
+        <div className="bg-white rounded-[var(--opus-radius-xlarge)] shadow-[0_20px_60px_rgba(0,0,0,0.08)] p-7 border border-gray-100">
           <div className="space-y-5">
 
             {/* Vendor type + city */}
@@ -213,7 +213,7 @@ export default function VendorSearchClient({ content }: { content: VendorSearchC
             </div>
 
             {/* CTA */}
-            <button className="w-full bg-[#1A1A1A] hover:bg-[#333333] text-white font-bold py-4 rounded-full transition-colors flex justify-center items-center gap-2 overflow-hidden">
+            <button data-opus-button="primary" data-opus-button-size="medium" className="w-full bg-[#1A1A1A] hover:bg-[#333333] text-white font-bold py-4 rounded-full transition-colors flex justify-center items-center gap-2 overflow-hidden">
               <div className="h-5 overflow-hidden flex items-center gap-2">
                 <AnimatePresence mode="wait">
                   <motion.span
@@ -232,7 +232,7 @@ export default function VendorSearchClient({ content }: { content: VendorSearchC
             {/* Progress dots — centred below CTA */}
             <div className="flex justify-center gap-2 pt-1">
               {vendors.map((vendor, i) => (
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   key={vendor.id}
                   onClick={() => setIndex(i)}
                   className={`rounded-full transition-all duration-400 ${

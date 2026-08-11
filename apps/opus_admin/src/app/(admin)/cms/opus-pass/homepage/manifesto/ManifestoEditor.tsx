@@ -202,7 +202,7 @@ export default function ManifestoEditor({ initial, hasDraft: initialHasDraft }: 
           <h3 className="text-[15px] font-semibold text-gray-900">Live preview</h3>
           <div className="inline-flex items-center rounded-full border border-gray-200 p-0.5 text-[11px] font-semibold">
             {LOCALES.map((l) => (
-              <button
+              <button data-opus-button="control"
                 key={l}
                 type="button"
                 onClick={() => setPreviewLocale(l)}

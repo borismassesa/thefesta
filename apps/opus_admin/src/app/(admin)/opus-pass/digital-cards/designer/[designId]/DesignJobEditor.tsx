@@ -327,7 +327,7 @@ export default function DesignJobEditor({
       </p>
 
       {status === 'in_design' && canWrite && (
-        <button
+        <button data-opus-button="control"
           type="button"
           disabled={pending}
           onClick={() =>
@@ -344,7 +344,7 @@ export default function DesignJobEditor({
         <>
           {canApproveThis ? (
             <>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={pending}
                 onClick={() =>
@@ -358,7 +358,7 @@ export default function DesignJobEditor({
                 <Check className="h-3.5 w-3.5" />
                 Approve &amp; release
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={pending}
                 onClick={() => {
@@ -381,7 +381,7 @@ export default function DesignJobEditor({
       )}
 
       {status === 'ready' && canWrite && (
-        <button
+        <button data-opus-button="control"
           type="button"
           disabled={pending}
           onClick={() => run(() => markDelivered(designId), 'Marked delivered.')}
@@ -916,7 +916,7 @@ export default function DesignJobEditor({
                   </span>
                 )
               )}
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={pending}
                 onClick={() =>
@@ -945,7 +945,7 @@ export default function DesignJobEditor({
                     ? 'Clear the request'
                     : 'Nothing to ask, start designing'}
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={pending}
                 onClick={() => {
@@ -1032,7 +1032,7 @@ function SharePanel({
           />
         </div>
         <div className="flex shrink-0 items-center gap-2 self-end">
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="small"
             type="button"
             onClick={() => {
               navigator.clipboard.writeText(url).then(() => {
@@ -1165,7 +1165,7 @@ function ColourField({
         )}
       />
       {canSample && (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={sample}
           disabled={disabled}

@@ -40,7 +40,7 @@ export function CollapsibleCard({
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="flex items-stretch bg-gray-50">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onToggle}
           className="flex items-center gap-2 flex-1 min-w-0 text-left px-3 py-2 hover:bg-gray-100 transition-colors"
@@ -64,7 +64,7 @@ export function CollapsibleCard({
         </button>
         <div className="flex items-center gap-0.5 shrink-0 pr-1.5">
           {onMoveUp && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onMoveUp}
               disabled={disableMoveUp}
@@ -75,7 +75,7 @@ export function CollapsibleCard({
             </button>
           )}
           {onMoveDown && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onMoveDown}
               disabled={disableMoveDown}
@@ -86,7 +86,7 @@ export function CollapsibleCard({
             </button>
           )}
           {onRemove && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onRemove}
               className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors"

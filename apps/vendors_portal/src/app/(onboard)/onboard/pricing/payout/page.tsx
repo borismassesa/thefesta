@@ -148,7 +148,7 @@ export default function PayoutPage() {
         ))}
 
         {entries.length < MAX_PAYOUT_METHODS ? (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={addEntry}
             className="inline-flex items-center gap-2 text-sm font-semibold text-[#7E5896] hover:text-[#6B4880] transition-colors"
@@ -213,7 +213,7 @@ function PayoutEntryCard({
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {!entry.primary && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onMakePrimary}
               className="inline-flex items-center gap-1 text-xs font-semibold text-[#7E5896] hover:text-[#6B4880] transition-colors"
@@ -223,7 +223,7 @@ function PayoutEntryCard({
             </button>
           )}
           {canRemove && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onRemove}
               aria-label={t('payout.remove_method', { n: index + 1 })}

@@ -90,8 +90,8 @@ export default async function GrowthKpisPage({
       <SetGrowthHeading title="Growth KPIs" subtitle="Canonical metric definitions, target versions, and actual history." />
 
       <form className="flex gap-2 text-[12px]">
-        <input name="q" defaultValue={q} className="w-full rounded-md border border-gray-200 bg-white px-3 py-2" placeholder="Search metric code, name, or description" />
-        <button className="rounded-md border border-gray-200 bg-white px-3 py-2 font-semibold text-gray-700">Search</button>
+        <input type="search" name="q" defaultValue={q} className="w-full rounded-md border border-gray-200 bg-white px-3 py-2" placeholder="Search metric code, name, or description" />
+        <button data-opus-button="neutral" data-opus-button-size="medium" className="rounded-md border border-gray-200 bg-white px-3 py-2 font-semibold text-gray-700">Search</button>
       </form>
 
       {canManage ? (
@@ -118,7 +118,7 @@ export default async function GrowthKpisPage({
               {DEPARTMENTS.map((department) => <option key={department} value={department}>{department}</option>)}
             </select>
           </label>
-          <button className="self-end rounded-md bg-gray-900 px-3 py-2 font-semibold text-white hover:bg-gray-700">Create Metric</button>
+          <button data-opus-button="primary" data-opus-button-size="medium" className="self-end rounded-md bg-gray-900 px-3 py-2 font-semibold text-white hover:bg-gray-700">Create Metric</button>
           <label className="space-y-1 md:col-span-2">
             <span className="font-medium text-gray-600">Unit</span>
             <select name="measurementUnit" className="w-full rounded-md border border-gray-200 px-2 py-2">
@@ -237,11 +237,11 @@ export default async function GrowthKpisPage({
                         <option value="">No owner</option>
                         {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
                       </select>
-                      <button className="rounded-md border border-gray-200 px-2 py-2 font-semibold text-gray-700">Create Draft</button>
+                      <button data-opus-button="control" className="rounded-md border border-gray-200 px-2 py-2 font-semibold text-gray-700">Create Draft</button>
                     </form>
                   ) : null}
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="opus-table w-full text-left">
                       <thead className="text-gray-500">
                         <tr>
                           <th className="py-2 pr-3 font-medium">Period</th>
@@ -270,7 +270,7 @@ export default async function GrowthKpisPage({
                                   <form action={submitTargetAction}>
                                     <input type="hidden" name="targetId" value={target.id} />
                                     <input type="hidden" name="lockVersion" value={target.lockVersion} />
-                                    <button className="rounded-md border border-gray-200 px-2 py-1 text-gray-700">Submit</button>
+                                    <button data-opus-button="control" className="rounded-md border border-gray-200 px-2 py-1 text-gray-700">Submit</button>
                                   </form>
                                 ) : null}
                                 {canApprove && target.status === 'pending_approval' ? (
@@ -278,13 +278,13 @@ export default async function GrowthKpisPage({
                                     <form action={approveTargetAction}>
                                       <input type="hidden" name="targetId" value={target.id} />
                                       <input type="hidden" name="lockVersion" value={target.lockVersion} />
-                                      <button className="rounded-md border border-gray-200 px-2 py-1 text-gray-700">Approve</button>
+                                      <button data-opus-button="control" className="rounded-md border border-gray-200 px-2 py-1 text-gray-700">Approve</button>
                                     </form>
                                     <form action={rejectTargetAction}>
                                       <input type="hidden" name="targetId" value={target.id} />
                                       <input type="hidden" name="lockVersion" value={target.lockVersion} />
                                       <input type="hidden" name="reason" value="Rejected from Phase 1A KPI page" />
-                                      <button className="rounded-md border border-gray-200 px-2 py-1 text-gray-700">Reject</button>
+                                      <button data-opus-button="control" className="rounded-md border border-gray-200 px-2 py-1 text-gray-700">Reject</button>
                                     </form>
                                   </>
                                 ) : null}
@@ -292,7 +292,7 @@ export default async function GrowthKpisPage({
                                   <form action={createTargetRevisionAction}>
                                     <input type="hidden" name="targetId" value={target.id} />
                                     <input type="hidden" name="reason" value="Revision started from Phase 1A KPI page" />
-                                    <button className="rounded-md border border-gray-200 px-2 py-1 text-gray-700">Revise</button>
+                                    <button data-opus-button="control" className="rounded-md border border-gray-200 px-2 py-1 text-gray-700">Revise</button>
                                   </form>
                                 ) : null}
                               </div>
@@ -314,11 +314,11 @@ export default async function GrowthKpisPage({
                       </select>
                       <input name="asOfDate" type="date" required className="rounded-md border border-gray-200 px-2 py-2" />
                       <input name="value" required className="rounded-md border border-gray-200 px-2 py-2" placeholder="Actual" />
-                      <button className="rounded-md border border-gray-200 px-2 py-2 font-semibold text-gray-700">Enter Actual</button>
+                      <button data-opus-button="control" className="rounded-md border border-gray-200 px-2 py-2 font-semibold text-gray-700">Enter Actual</button>
                     </form>
                   ) : null}
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="opus-table w-full text-left">
                       <thead className="text-gray-500">
                         <tr>
                           <th className="py-2 pr-3 font-medium">Date</th>
@@ -343,7 +343,7 @@ export default async function GrowthKpisPage({
                                   <input type="hidden" name="actualId" value={actual.id} />
                                   <input name="value" required className="w-24 rounded-md border border-gray-200 px-2 py-1" placeholder="Value" />
                                   <input name="reason" required className="w-40 rounded-md border border-gray-200 px-2 py-1" placeholder="Reason" />
-                                  <button className="rounded-md border border-gray-200 px-2 py-1 text-gray-700">Override</button>
+                                  <button data-opus-button="control" className="rounded-md border border-gray-200 px-2 py-1 text-gray-700">Override</button>
                                 </form>
                               ) : null}
                             </td>
@@ -359,7 +359,7 @@ export default async function GrowthKpisPage({
                 <form action={archiveMetricDefinitionAction} className="border-t border-gray-100 px-4 py-3 text-right">
                   <input type="hidden" name="id" value={metric.id} />
                   <input type="hidden" name="lockVersion" value={metric.lockVersion} />
-                  <button disabled={Boolean(metric.archivedAt)} className="rounded-md border border-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-700 disabled:text-gray-300">
+                  <button data-opus-button="control" disabled={Boolean(metric.archivedAt)} className="rounded-md border border-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-700 disabled:text-gray-300">
                     Archive Metric
                   </button>
                 </form>

@@ -1,4 +1,9 @@
 @import 'tailwindcss';
+@import '@opusfesta/lib/styles/radius.css';
+@import '@opusfesta/lib/styles/buttons.css';
+@import '@opusfesta/lib/styles/badges.css';
+@import '@opusfesta/lib/styles/search.css';
+@import '@opusfesta/lib/styles/tables.css';
 
 :root {
   --accent: #C9A0DC;
@@ -161,7 +166,7 @@ svg {
 .vendor-map-popup .leaflet-popup-content-wrapper {
   padding: 0;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: var(--opus-radius-medium);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
 }
 .vendor-map-popup .leaflet-popup-content {
@@ -184,7 +189,7 @@ svg {
    existing brand `--accent` (purple CTA) above is left untouched.
    ─────────────────────────────────────────────────────────────────────────── */
 :root {
-  --radius: 0.625rem;
+  --radius: var(--opus-radius-small);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -249,10 +254,13 @@ svg {
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: var(--opus-radius-small);
+  --radius-md: var(--opus-radius-small);
+  --radius-lg: var(--opus-radius-small);
+  --radius-xl: var(--opus-radius-medium);
+  --radius-2xl: var(--opus-radius-medium);
+  --radius-3xl: var(--opus-radius-large);
+  --radius-4xl: var(--opus-radius-xlarge);
 
   /* Marquee — namespaced (ss-) so it never collides with the existing
      `marquee` / `marquee-vertical` keyframes used by the hero/testimonials. */
@@ -315,5 +323,66 @@ svg {
 @media (min-width: 1024px) {
   .dash-header-safe {
     padding-right: 15rem;
+  }
+}
+
+/* ── Card copy protection ────────────────────────────────────────────────────
+   Backs ProtectedCard (components/guests/ProtectedCard.tsx). Kept here rather
+   than in Tailwind classes because two of the three rules are pseudo-element
+   and print rules that have no utility equivalent.
+
+   This is the deterrent layer. It closes right-click, drag, long-press and
+   print; it does not pretend to stop a screenshot. The protection with teeth is
+   the token-gated preview raster on the server. */
+
+.op-protected,
+.op-protected * {
+  -webkit-user-select: none;
+  user-select: none;
+  /* Stops iOS Safari's long-press "Save Image / Copy" sheet without touching
+     touchstart, which would also suppress scrolling that begins on the card. */
+  -webkit-touch-callout: none;
+}
+
+/* The artwork itself never receives the pointer: the shield above it does.
+   Also kills the native image drag in Firefox, which ignores draggable=false
+   on a background-image but honours pointer-events. */
+.op-protected img,
+.op-protected svg,
+.op-protected canvas {
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.op-protected-print-notice {
+  display: none;
+}
+
+/* Printing a card is a save route like any other: the browser's "Print → Save
+   as PDF" produces a vector-quality file. Blank the artwork on paper and leave
+   a line explaining why, so a guest who genuinely wanted a keepsake is told
+   what to do rather than handed a broken page. */
+@media print {
+  .op-protected > *:not(.op-protected-print-notice) {
+    display: none !important;
+  }
+
+  .op-protected {
+    min-height: 12rem;
+    border: 1px dashed rgba(0, 0, 0, 0.25);
+    border-radius: var(--opus-radius-small);
+  }
+
+  .op-protected-print-notice {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 12rem;
+    padding: 1.5rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: rgba(0, 0, 0, 0.55);
   }
 }

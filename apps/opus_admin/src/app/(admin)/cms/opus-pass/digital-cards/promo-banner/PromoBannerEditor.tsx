@@ -150,7 +150,7 @@ export default function PromoBannerEditor({ initial, hasDraft: initialHasDraft }
                 placeholder="#FCE9C2"
                 className={`${inputCls} flex-1 font-mono text-[12px]`}
               />
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => set('background_color', '#FCE9C2')}
                 className="p-1 text-gray-400 hover:text-gray-700 shrink-0"
@@ -169,7 +169,7 @@ export default function PromoBannerEditor({ initial, hasDraft: initialHasDraft }
           <h3 className="text-[15px] font-semibold text-gray-900">Live preview</h3>
           <div className="inline-flex items-center rounded-full border border-gray-200 p-0.5 text-[11px] font-semibold">
             {LOCALES.map((l) => (
-              <button
+              <button data-opus-button="control"
                 key={l}
                 type="button"
                 onClick={() => setPreviewLocale(l)}

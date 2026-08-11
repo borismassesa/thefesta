@@ -55,7 +55,7 @@ function PickRowEditor({ label, picks, onChange }: PickRowEditorProps) {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{label}</span>
-        <button type="button" onClick={addPick} className="flex items-center gap-1 text-xs font-medium text-[#7E5896] hover:text-[#5d3d72] transition-colors">
+        <button data-opus-button="control" type="button" onClick={addPick} className="flex items-center gap-1 text-xs font-medium text-[#7E5896] hover:text-[#5d3d72] transition-colors">
           <Plus className="w-3 h-3" />
           Add pick
         </button>
@@ -66,13 +66,13 @@ function PickRowEditor({ label, picks, onChange }: PickRowEditorProps) {
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-400">#{idx + 1}</span>
             <div className="flex items-center gap-1">
-              <button type="button" onClick={() => movePick(pick.id, -1)} disabled={idx === 0} className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-30">
+              <button data-opus-button="control" type="button" onClick={() => movePick(pick.id, -1)} disabled={idx === 0} className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-30">
                 <ArrowUp className="w-3 h-3" />
               </button>
-              <button type="button" onClick={() => movePick(pick.id, 1)} disabled={idx === picks.length - 1} className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-30">
+              <button data-opus-button="control" type="button" onClick={() => movePick(pick.id, 1)} disabled={idx === picks.length - 1} className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-30">
                 <ArrowDown className="w-3 h-3" />
               </button>
-              <button type="button" onClick={() => removePick(pick.id)} className="p-0.5 text-gray-400 hover:text-red-500 ml-1">
+              <button data-opus-button="control" type="button" onClick={() => removePick(pick.id)} className="p-0.5 text-gray-400 hover:text-red-500 ml-1">
                 <Trash2 className="w-3 h-3" />
               </button>
             </div>

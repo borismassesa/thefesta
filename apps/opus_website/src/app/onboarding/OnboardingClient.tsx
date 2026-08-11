@@ -299,7 +299,7 @@ function Step3({
           </label>
           <div className="flex flex-wrap gap-2">
             {BUDGET_OPTIONS.map((opt) => (
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 key={opt.value}
                 type="button"
                 onClick={() => onBudgetRangeChange(budgetRange === opt.value ? '' : opt.value)}
@@ -358,7 +358,7 @@ function Step4({
         {CATEGORY_OPTIONS.map((cat) => {
           const isSelected = selected.has(cat.value)
           return (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               key={cat.value}
               type="button"
               onClick={() => onToggle(cat.value)}
@@ -497,7 +497,7 @@ export default function OnboardingClient({ existingProfile }: Props) {
           <div className="flex items-center justify-between mb-8">
             <div className="w-16">
               {step > 0 && (
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={handleBack}
                   className="text-sm font-semibold text-gray-500 hover:text-[#1A1A1A] flex items-center gap-1 transition-colors"
@@ -562,7 +562,7 @@ export default function OnboardingClient({ existingProfile }: Props) {
           )}
 
           {/* CTA */}
-          <button
+          <button data-opus-button="primary" data-opus-button-size="large"
             type="button"
             onClick={isLastStep ? handleComplete : handleNext}
             disabled={!isNextEnabled() || submitting}
@@ -575,7 +575,7 @@ export default function OnboardingClient({ existingProfile }: Props) {
 
         {/* Skip link */}
         <p className="text-center mt-4">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => router.push('/vendors')}
             className="text-sm text-gray-400 hover:text-gray-600 transition-colors"

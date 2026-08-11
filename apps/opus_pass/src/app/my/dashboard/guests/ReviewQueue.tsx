@@ -70,14 +70,14 @@ export default function ReviewQueue({ initial }: { initial: GuestWithInvitations
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <button data-opus-button="control"
                   onClick={() => act(g.id, approveReviewGuest)}
                   disabled={busy}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[#14342B] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0f2a22] disabled:opacity-50"
                 >
                   <UserCheck className="h-3.5 w-3.5" /> Approve
                 </button>
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="small"
                   onClick={() => act(g.id, dismissReviewGuest)}
                   disabled={busy}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.12] bg-white px-3 py-2 text-xs font-semibold text-[#1A1A1A]/70 hover:bg-black/[0.03] disabled:opacity-50"

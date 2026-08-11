@@ -173,7 +173,7 @@ export default function CollectorForm({
           {done ? (
             <>
               <Confetti />
-              <div className="rounded-[28px] border border-black/[0.06] bg-white px-6 py-14 text-center shadow-[0_30px_70px_-40px_rgba(0,0,0,0.25)] sm:px-10">
+              <div className="rounded-[var(--opus-radius-large)] border border-black/[0.06] bg-white px-6 py-14 text-center shadow-[0_30px_70px_-40px_rgba(0,0,0,0.25)] sm:px-10">
                 <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#9FE870]/25">
                   <CheckCircle2 className="h-7 w-7 text-[#3f6b1f]" />
                 </span>
@@ -184,7 +184,7 @@ export default function CollectorForm({
               </div>
             </>
           ) : (
-            <div className="rounded-[28px] border border-black/[0.06] bg-white px-6 py-10 shadow-[0_30px_70px_-40px_rgba(0,0,0,0.25)] sm:px-10 sm:py-12">
+            <div className="rounded-[var(--opus-radius-large)] border border-black/[0.06] bg-white px-6 py-10 shadow-[0_30px_70px_-40px_rgba(0,0,0,0.25)] sm:px-10 sm:py-12">
               <h2 className="text-center leading-tight text-[#1A1A1A]">
                 <span
                   className="block text-[2rem] leading-none sm:text-4xl lg:text-5xl"
@@ -272,7 +272,7 @@ export default function CollectorForm({
                   </Field>
                 ))}
 
-                <button
+                <button data-opus-button="primary" data-opus-button-size="large"
                   type="submit"
                   disabled={pending}
                   style={{ backgroundColor: cfg.accent, color: onAccent }}

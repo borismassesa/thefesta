@@ -322,7 +322,7 @@ function RsvpForm({ slug, questions, t }: { slug: string; questions: RsvpQuestio
           {statusOptions.map((opt) => {
             const active = status === opt.value
             return (
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="large"
                 type="button"
                 key={opt.value}
                 onClick={() => setStatus(opt.value)}
@@ -384,7 +384,7 @@ function RsvpForm({ slug, questions, t }: { slug: string; questions: RsvpQuestio
                   const detailPrompt = opt.description?.trim()
                   return (
                     <div key={opt.id} className="grid gap-2">
-                      <button
+                      <button data-opus-button="neutral" data-opus-button-size="large"
                         type="button"
                         onClick={() => setAnswer(q.id, { optionId: opt.id, detailText: active ? a.detailText : '' })}
                         className={`rounded-xl border px-4 py-3 text-left text-[15px] transition ${
@@ -424,7 +424,7 @@ function RsvpForm({ slug, questions, t }: { slug: string; questions: RsvpQuestio
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <button
+      <button data-opus-button="primary" data-opus-button-size="large"
         type="submit"
         disabled={pending}
         className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#C9A0DC] px-6 py-3.5 text-[15px] font-bold text-[#1A1A1A] shadow-[0_10px_24px_-12px_rgba(0,0,0,0.5)] transition hover:brightness-95 disabled:opacity-50"
@@ -468,7 +468,7 @@ export default function PublicInviteClient({ data }: { data: PublicInviteData })
       <Logo className="fixed left-4 top-4 z-10 drop-shadow-sm sm:left-6 sm:top-6" />
       <div className="fixed right-4 top-4 z-10 inline-flex rounded-full border border-gray-200 bg-white p-0.5 text-xs font-semibold shadow-sm sm:right-6 sm:top-6">
         {(['en', 'sw'] as Lang[]).map((l) => (
-          <button
+          <button data-opus-button="control"
             key={l}
             type="button"
             onClick={() => pickLang(l)}

@@ -190,7 +190,7 @@ function CoupleFormModal({
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">{notice}</p>
         </div>
         <div className="flex items-center justify-end border-t border-gray-100 px-6 py-3">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             autoFocus
@@ -342,7 +342,7 @@ function CoupleFormModal({
       </div>
 
       <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-3">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           disabled={pending}
@@ -350,7 +350,7 @@ function CoupleFormModal({
         >
           Cancel
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={submit}
           disabled={pending}
@@ -452,7 +452,7 @@ function DeleteCoupleModal({
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">{notice}</p>
         </div>
         <div className="flex items-center justify-end border-t border-gray-100 px-6 py-3">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onDeleted}
             autoFocus
@@ -542,7 +542,7 @@ function DeleteCoupleModal({
       </div>
 
       <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-3">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           disabled={pending}
@@ -550,7 +550,7 @@ function DeleteCoupleModal({
         >
           Cancel
         </button>
-        <button
+        <button data-opus-button="danger" data-opus-button-size="medium"
           type="button"
           onClick={submit}
           disabled={pending || loading || confirmName.trim() !== expectedName.trim()}
@@ -607,7 +607,7 @@ export function DeleteDormantButton({ couples }: { couples: { userId: string; co
 
   return (
     <>
-      <button
+      <button data-opus-button="danger" data-opus-button-size="medium"
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
@@ -682,7 +682,7 @@ export function DeleteDormantButton({ couples }: { couples: { userId: string; co
 
           <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-3">
             {outcome ? (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={close}
                 className="rounded-xl bg-[#7E5896] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#5d3a78]"
@@ -691,7 +691,7 @@ export function DeleteDormantButton({ couples }: { couples: { userId: string; co
               </button>
             ) : (
               <>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={close}
                   disabled={pending}
@@ -699,7 +699,7 @@ export function DeleteDormantButton({ couples }: { couples: { userId: string; co
                 >
                   Cancel
                 </button>
-                <button
+                <button data-opus-button="danger" data-opus-button-size="medium"
                   type="button"
                   onClick={submit}
                   disabled={pending || confirmCount.trim() !== String(count)}
@@ -773,7 +773,7 @@ export function NewCoupleButton() {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-2 rounded-xl bg-[#7E5896] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5d3a78]"
@@ -872,7 +872,7 @@ export function CoupleRowActions({
 
   return (
     <div ref={containerRef} className="relative flex justify-end">
-      <button
+      <button data-opus-button="control"
         ref={buttonRef}
         type="button"
         onClick={toggleMenu}
@@ -979,7 +979,7 @@ function MenuItem({
   tone?: 'default' | 'danger'
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       role="menuitem"
       onClick={onClick}
@@ -1022,24 +1022,24 @@ export function CoupleConsoleActions({
       <div className="flex flex-wrap items-center justify-end gap-2">
         {canWrite ? (
           <>
-            <button type="button" onClick={dashboard.open} disabled={dashboard.pending} className={secondary}>
+            <button data-opus-button="control" type="button" onClick={dashboard.open} disabled={dashboard.pending} className={secondary}>
               {dashboard.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
               Open dashboard
             </button>
             {couple.canSignIn ? null : (
-              <button type="button" onClick={signIn.create} disabled={signIn.pending} className={secondary}>
+              <button data-opus-button="control" type="button" onClick={signIn.create} disabled={signIn.pending} className={secondary}>
                 {signIn.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
                 Give them a login
               </button>
             )}
-            <button type="button" onClick={() => setDialog('edit')} className={secondary}>
+            <button data-opus-button="control" type="button" onClick={() => setDialog('edit')} className={secondary}>
               <Pencil className="h-4 w-4" />
               Edit details
             </button>
           </>
         ) : null}
         {canDelete ? (
-          <button
+          <button data-opus-button="danger" data-opus-button-size="medium"
             type="button"
             onClick={() => setDialog('delete')}
             className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"

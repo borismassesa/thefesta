@@ -46,7 +46,7 @@ export default function CareersPathways() {
             <p className="mt-7 max-w-md text-lg leading-8 text-black/60">You might build the product, make the film, run the venue or grow the partnership. The guest experience connects the work.</p>
             <a href="#open-roles" className="mt-8 inline-flex items-center gap-2 text-sm font-semibold">Explore open roles <ArrowDown className="h-4 w-4" /></a>
           </div>
-          <div className="grid gap-px overflow-hidden rounded-[32px] border border-black/10 bg-black/10 sm:grid-cols-2">
+          <div className="grid gap-px overflow-hidden rounded-[var(--opus-radius-xlarge)] border border-black/10 bg-black/10 sm:grid-cols-2">
             {TEAMS.map(({ name, copy, icon: Icon }) => (
               <article key={name} className="min-h-64 bg-[#F4F4F0] p-7 md:p-9">
                 <Icon className="h-6 w-6" strokeWidth={1.6} />
@@ -87,7 +87,7 @@ export default function CareersPathways() {
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {BENEFITS.map(({ title, copy, icon: Icon }, index) => (
-            <article key={title} className={`min-h-72 rounded-[30px] p-7 ${['bg-[#E3F0D6]', 'bg-[#F4E5F3]', 'bg-[#F8E8CE]', 'bg-[#DDEBF1]'][index]}`}>
+            <article key={title} className={`min-h-72 rounded-[var(--opus-radius-xlarge)] p-7 ${['bg-[#E3F0D6]', 'bg-[#F4E5F3]', 'bg-[#F8E8CE]', 'bg-[#DDEBF1]'][index]}`}>
               <Icon className="h-6 w-6" strokeWidth={1.6} />
               <h3 className="mt-16 text-xl font-medium tracking-tight">{title}</h3>
               <p className="mt-3 text-sm leading-6 text-black/60">{copy}</p>

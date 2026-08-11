@@ -29,7 +29,7 @@ export default function VerifyStatusScreen({ variant: _variant }: { variant: Var
         <div className="flex items-center gap-2 sm:gap-3">
           <LocaleToggle />
           <SignOutButton redirectUrl="/sign-in">
-            <button
+            <button data-opus-button="danger" data-opus-button-size="small"
               type="button"
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 px-3 py-1.5 rounded-md hover:bg-rose-50 transition-colors"
             >

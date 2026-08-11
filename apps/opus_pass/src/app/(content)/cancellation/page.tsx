@@ -80,7 +80,7 @@ const copy: Record<Locale, CancellationCopy> = {
         title: 'Policy details',
         body: (
           <div className="overflow-x-auto">
-            <table>
+            <table className="opus-table">
               <tbody>
                 <tr>
                   <th scope="row" className="w-44">Policy ID</th>
@@ -205,7 +205,7 @@ const copy: Record<Locale, CancellationCopy> = {
               Tanzania:
             </p>
             <div className="overflow-x-auto">
-              <table>
+              <table className="opus-table">
                 <thead>
                   <tr>
                     <th className="w-32">Payment</th>
@@ -395,7 +395,7 @@ const copy: Record<Locale, CancellationCopy> = {
               The percentages below apply to the <strong>Deposit</strong> you have paid.
             </p>
             <div className="overflow-x-auto">
-              <table>
+              <table className="opus-table">
                 <thead>
                   <tr>
                     <th>Where your Order has reached</th>
@@ -595,7 +595,7 @@ const copy: Record<Locale, CancellationCopy> = {
               routes are recorded against your Order in the same way and carry the same date.
             </p>
             <div className="overflow-x-auto">
-              <table>
+              <table className="opus-table">
                 <thead>
                   <tr>
                     <th>Step</th>
@@ -840,7 +840,7 @@ const copy: Record<Locale, CancellationCopy> = {
         body: (
           <>
             <div className="overflow-x-auto">
-              <table>
+              <table className="opus-table">
                 <tbody>
                   <tr>
                     <th scope="row" className="w-44">Registered name</th>
@@ -920,7 +920,7 @@ const copy: Record<Locale, CancellationCopy> = {
         title: 'Taarifa za sera',
         body: (
           <div className="overflow-x-auto">
-            <table>
+            <table className="opus-table">
               <tbody>
                 <tr>
                   <th scope="row" className="w-44">Namba ya Sera</th>
@@ -1047,7 +1047,7 @@ const copy: Record<Locale, CancellationCopy> = {
               wa kawaida hapa Tanzania:
             </p>
             <div className="overflow-x-auto">
-              <table>
+              <table className="opus-table">
                 <thead>
                   <tr>
                     <th className="w-36">Malipo</th>
@@ -1240,7 +1240,7 @@ const copy: Record<Locale, CancellationCopy> = {
               Asilimia zilizo hapa chini zinahusu <strong>Malipo ya Awali</strong> uliyoyalipa.
             </p>
             <div className="overflow-x-auto">
-              <table>
+              <table className="opus-table">
                 <thead>
                   <tr>
                     <th>Oda yako imefika wapi</th>
@@ -1443,7 +1443,7 @@ const copy: Record<Locale, CancellationCopy> = {
               hubeba tarehe ile ile.
             </p>
             <div className="overflow-x-auto">
-              <table>
+              <table className="opus-table">
                 <thead>
                   <tr>
                     <th>Hatua</th>
@@ -1689,7 +1689,7 @@ const copy: Record<Locale, CancellationCopy> = {
         body: (
           <>
             <div className="overflow-x-auto">
-              <table>
+              <table className="opus-table">
                 <tbody>
                   <tr>
                     <th scope="row" className="w-44">Jina lililosajiliwa</th>

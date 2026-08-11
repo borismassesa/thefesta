@@ -13,7 +13,7 @@ export async function LocalShops() {
             <h2 className="text-3xl lg:text-4xl font-serif font-medium text-gray-900 leading-tight mb-8">
               {content.heading}
             </h2>
-            <button className="bg-white border text-gray-900 border-gray-300 px-6 py-3 rounded-full font-medium hover:bg-gray-50 transition drop-shadow-sm shadow-sm ring-1 ring-gray-900">
+            <button data-opus-button="neutral" data-opus-button-size="large" className="bg-white border text-gray-900 border-gray-300 px-6 py-3 rounded-full font-medium hover:bg-gray-50 transition drop-shadow-sm shadow-sm ring-1 ring-gray-900">
               {content.cta_label}
             </button>
           </div>
@@ -24,7 +24,7 @@ export async function LocalShops() {
                 <div className="relative aspect-[4/5] overflow-hidden bg-gray-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={shop.img} alt={shop.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <button className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-sm text-gray-700 hover:text-red-500 transition-colors z-10" aria-label="Favourite">
+                  <button data-opus-button="control" className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-sm text-gray-700 hover:text-red-500 transition-colors z-10" aria-label="Favourite">
                     <Heart size={18} />
                   </button>
                 </div>

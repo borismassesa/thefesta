@@ -18,7 +18,7 @@ export default function Error({
       <p className="text-gray-500 font-medium mb-10 max-w-sm">
         We hit an unexpected issue. Please try again — if it persists, contact support.
       </p>
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         onClick={reset}
         className="bg-[#1A1A1A] hover:bg-[#333333] text-white px-8 py-4 rounded-full font-bold transition-colors"
       >

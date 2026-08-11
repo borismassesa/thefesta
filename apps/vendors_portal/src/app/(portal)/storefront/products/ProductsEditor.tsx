@@ -1,7 +1,7 @@
-'use client'
+'use client';
 
-import { useRef, useState, useTransition } from 'react'
-import Image from 'next/image'
+import { useRef, useState, useTransition } from 'react';
+import Image from 'next/image';
 import {
   AlertCircle,
   Check,
@@ -13,25 +13,30 @@ import {
   Plus,
   Trash2,
   X,
-} from 'lucide-react'
-import { formatTzs, type ProductCategory, type ProductRecord } from '@opusfesta/lib'
-import { compressImage } from '@/lib/compress-image'
-import { cn } from '@/lib/utils'
-import { uploadStorefrontPhoto } from '../sections/actions'
-import { deleteProduct, saveProduct, setProductPublished } from './actions'
+} from 'lucide-react';
+import {
+  formatTzs,
+  opusBadgeClass,
+  type ProductCategory,
+  type ProductRecord,
+} from '@opusfesta/lib';
+import { compressImage } from '@/lib/compress-image';
+import { cn } from '@/lib/utils';
+import { uploadStorefrontPhoto } from '../sections/actions';
+import { deleteProduct, saveProduct, setProductPublished } from './actions';
 
 type FormState = {
-  id?: string
-  name: string
-  category_slug: string
-  description: string
-  price: string
-  compareAt: string
-  stock: string
-  madeToOrder: boolean
-  published: boolean
-  images: string[]
-}
+  id?: string;
+  name: string;
+  category_slug: string;
+  description: string;
+  price: string;
+  compareAt: string;
+  stock: string;
+  madeToOrder: boolean;
+  published: boolean;
+  images: string[];
+};
 
 const EMPTY_FORM: FormState = {
   id: undefined,
@@ -44,56 +49,58 @@ const EMPTY_FORM: FormState = {
   madeToOrder: false,
   published: true,
   images: [],
-}
+};
 
 function StatusPill({ product }: { product: ProductRecord }) {
   if (product.status === 'approved') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+      <span className={opusBadgeClass({ tone: 'success', size: 'small' })}>
         <Check className="h-3 w-3" /> Live
       </span>
-    )
+    );
   }
   if (product.status === 'rejected') {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700"
+        className={opusBadgeClass({ tone: 'error', size: 'small' })}
         title={product.rejection_note ?? undefined}
       >
         <AlertCircle className="h-3 w-3" /> Rejected
       </span>
-    )
+    );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-      In review
+    <span className={opusBadgeClass({ tone: 'warning', size: 'small' })}>
+      <AlertCircle aria-hidden="true" /> In review
     </span>
-  )
+  );
 }
 
 export function ProductsEditor({
   initialProducts,
   categories,
 }: {
-  initialProducts: ProductRecord[]
-  categories: ProductCategory[]
+  initialProducts: ProductRecord[];
+  categories: ProductCategory[];
 }) {
-  const [products, setProducts] = useState(initialProducts)
-  const [form, setForm] = useState<FormState | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(0)
-  const [pendingDelete, setPendingDelete] = useState<ProductRecord | null>(null)
-  const [busyId, setBusyId] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [products, setProducts] = useState(initialProducts);
+  const [form, setForm] = useState<FormState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(0);
+  const [pendingDelete, setPendingDelete] = useState<ProductRecord | null>(
+    null
+  );
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const fileRef = useRef<HTMLInputElement>(null);
 
   function openCreate() {
-    setError(null)
-    setForm({ ...EMPTY_FORM, category_slug: categories[0]?.slug ?? '' })
+    setError(null);
+    setForm({ ...EMPTY_FORM, category_slug: categories[0]?.slug ?? '' });
   }
 
   function openEdit(p: ProductRecord) {
-    setError(null)
+    setError(null);
     setForm({
       id: p.id,
       name: p.name,
@@ -105,52 +112,52 @@ export function ProductsEditor({
       madeToOrder: p.made_to_order,
       published: p.published,
       images: p.images,
-    })
+    });
   }
 
   async function onPickImages(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    if (fileRef.current) fileRef.current.value = ''
-    if (files.length === 0) return
-    setUploading((n) => n + files.length)
+    const files = Array.from(e.target.files ?? []);
+    if (fileRef.current) fileRef.current.value = '';
+    if (files.length === 0) return;
+    setUploading((n) => n + files.length);
     for (const file of files) {
       try {
-        const compressed = await compressImage(file)
-        const fd = new FormData()
-        fd.set('file', compressed)
-        fd.set('kind', 'products')
-        const res = await uploadStorefrontPhoto(fd)
+        const compressed = await compressImage(file);
+        const fd = new FormData();
+        fd.set('file', compressed);
+        fd.set('kind', 'products');
+        const res = await uploadStorefrontPhoto(fd);
         if (res.ok) {
-          setForm((f) => (f ? { ...f, images: [...f.images, res.url] } : f))
+          setForm((f) => (f ? { ...f, images: [...f.images, res.url] } : f));
         } else {
-          setError(res.error)
+          setError(res.error);
         }
       } catch {
-        setError(`Could not upload ${file.name}.`)
+        setError(`Could not upload ${file.name}.`);
       } finally {
-        setUploading((n) => n - 1)
+        setUploading((n) => n - 1);
       }
     }
   }
 
   function submit() {
-    if (!form) return
-    const price = parseInt(form.price.replace(/[^\d]/g, ''), 10)
+    if (!form) return;
+    const price = parseInt(form.price.replace(/[^\d]/g, ''), 10);
     if (!form.name.trim() || form.name.trim().length < 2) {
-      setError('Give the product a name.')
-      return
+      setError('Give the product a name.');
+      return;
     }
     if (!Number.isFinite(price) || price <= 0) {
-      setError('Enter a price in TZS.')
-      return
+      setError('Enter a price in TZS.');
+      return;
     }
-    const compareAt = parseInt(form.compareAt.replace(/[^\d]/g, ''), 10)
-    const stock = form.stock.trim() === '' ? null : parseInt(form.stock, 10)
+    const compareAt = parseInt(form.compareAt.replace(/[^\d]/g, ''), 10);
+    const stock = form.stock.trim() === '' ? null : parseInt(form.stock, 10);
     if (stock !== null && (!Number.isFinite(stock) || stock < 0)) {
-      setError('Stock must be 0 or more, or left blank for untracked.')
-      return
+      setError('Stock must be 0 or more, or left blank for untracked.');
+      return;
     }
-    setError(null)
+    setError(null);
     startTransition(async () => {
       const res = await saveProduct({
         id: form.id,
@@ -165,60 +172,64 @@ export function ProductsEditor({
         stock_quantity: stock,
         made_to_order: form.madeToOrder,
         published: form.published,
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
       setProducts((prev) => {
-        const exists = prev.some((p) => p.id === res.product.id)
+        const exists = prev.some((p) => p.id === res.product.id);
         return exists
           ? prev.map((p) => (p.id === res.product.id ? res.product : p))
-          : [...prev, res.product]
-      })
-      setForm(null)
-    })
+          : [...prev, res.product];
+      });
+      setForm(null);
+    });
   }
 
   function confirmDelete() {
-    const target = pendingDelete
-    if (!target) return
-    setBusyId(target.id)
+    const target = pendingDelete;
+    if (!target) return;
+    setBusyId(target.id);
     startTransition(async () => {
-      const res = await deleteProduct(target.id)
+      const res = await deleteProduct(target.id);
       if (res.ok) {
-        setProducts((prev) => prev.filter((p) => p.id !== target.id))
-        setPendingDelete(null)
+        setProducts((prev) => prev.filter((p) => p.id !== target.id));
+        setPendingDelete(null);
       } else {
-        setError(res.error ?? 'Could not delete.')
+        setError(res.error ?? 'Could not delete.');
       }
-      setBusyId(null)
-    })
+      setBusyId(null);
+    });
   }
 
   function togglePublished(p: ProductRecord) {
-    setBusyId(p.id)
+    setBusyId(p.id);
     startTransition(async () => {
-      const res = await setProductPublished(p.id, !p.published)
+      const res = await setProductPublished(p.id, !p.published);
       if (res.ok) {
         setProducts((prev) =>
-          prev.map((x) => (x.id === p.id ? { ...x, published: !p.published } : x)),
-        )
+          prev.map((x) =>
+            x.id === p.id ? { ...x, published: !p.published } : x
+          )
+        );
       } else {
-        setError(res.error ?? 'Could not update visibility.')
+        setError(res.error ?? 'Could not update visibility.');
       }
-      setBusyId(null)
-    })
+      setBusyId(null);
+    });
   }
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-xl text-sm text-gray-500">
-          New and edited products go through a quick OpusFesta review before they
-          appear publicly in the registry shop.
+          New and edited products go through a quick OpusFesta review before
+          they appear publicly in the registry shop.
         </p>
         <button
+          data-opus-button="primary"
+          data-opus-button-size="medium"
           type="button"
           onClick={openCreate}
           className="inline-flex h-10 items-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-gray-800"
@@ -228,7 +239,9 @@ export function ProductsEditor({
       </div>
 
       {error ? (
-        <p className="mb-4 rounded-lg bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{error}</p>
+        <p className="mb-4 rounded-lg bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+          {error}
+        </p>
       ) : null}
 
       {products.length === 0 && !form ? (
@@ -236,10 +249,12 @@ export function ProductsEditor({
           <Package className="h-8 w-8 text-gray-300" />
           <p className="text-sm font-semibold text-gray-900">No products yet</p>
           <p className="max-w-sm text-sm text-gray-500">
-            Add your first product — photos, price, and stock — and it will appear in
-            the OpusFesta registry shop once approved.
+            Add your first product — photos, price, and stock — and it will
+            appear in the OpusFesta registry shop once approved.
           </p>
           <button
+            data-opus-button="primary"
+            data-opus-button-size="medium"
             type="button"
             onClick={openCreate}
             className="mt-1 inline-flex h-10 items-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-gray-800"
@@ -254,7 +269,7 @@ export function ProductsEditor({
               key={p.id}
               className={cn(
                 'flex flex-col overflow-hidden rounded-2xl border bg-white',
-                p.published ? 'border-gray-200' : 'border-gray-200 opacity-70',
+                p.published ? 'border-gray-200' : 'border-gray-200 opacity-70'
               )}
             >
               <div className="relative aspect-square w-full bg-gray-50">
@@ -281,7 +296,9 @@ export function ProductsEditor({
                 ) : null}
               </div>
               <div className="flex flex-1 flex-col p-4">
-                <h3 className="line-clamp-2 text-sm font-semibold text-gray-900">{p.name}</h3>
+                <h3 className="line-clamp-2 text-sm font-semibold text-gray-900">
+                  {p.name}
+                </h3>
                 <p className="mt-1 text-sm font-bold text-gray-900">
                   {formatTzs(p.price_tzs)}
                   {p.compare_at_price_tzs ? (
@@ -305,6 +322,7 @@ export function ProductsEditor({
                 <div className="flex-1" />
                 <div className="mt-3 flex items-center gap-1.5">
                   <button
+                    data-opus-button="control"
                     type="button"
                     onClick={() => openEdit(p)}
                     className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
@@ -312,6 +330,7 @@ export function ProductsEditor({
                     <Pencil className="h-3.5 w-3.5" /> Edit
                   </button>
                   <button
+                    data-opus-button="control"
                     type="button"
                     onClick={() => togglePublished(p)}
                     disabled={busyId === p.id}
@@ -328,6 +347,7 @@ export function ProductsEditor({
                     )}
                   </button>
                   <button
+                    data-opus-button="control"
                     type="button"
                     onClick={() => setPendingDelete(p)}
                     aria-label={`Delete ${p.name}`}
@@ -344,13 +364,17 @@ export function ProductsEditor({
 
       {form ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setForm(null)} />
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setForm(null)}
+          />
           <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:rounded-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
                 {form.id ? 'Edit product' : 'Add product'}
               </h2>
               <button
+                data-opus-button="control"
                 type="button"
                 onClick={() => setForm(null)}
                 aria-label="Close"
@@ -362,7 +386,9 @@ export function ProductsEditor({
 
             <div className="space-y-4">
               <label className="block">
-                <span className="mb-1.5 block text-xs font-semibold text-gray-700">Name</span>
+                <span className="mb-1.5 block text-xs font-semibold text-gray-700">
+                  Name
+                </span>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -373,10 +399,14 @@ export function ProductsEditor({
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-semibold text-gray-700">Category</span>
+                <span className="mb-1.5 block text-xs font-semibold text-gray-700">
+                  Category
+                </span>
                 <select
                   value={form.category_slug}
-                  onChange={(e) => setForm({ ...form, category_slug: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, category_slug: e.target.value })
+                  }
                   className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-gray-400"
                 >
                   {categories.map((c) => (
@@ -394,7 +424,9 @@ export function ProductsEditor({
                   </span>
                   <input
                     value={form.price}
-                    onChange={(e) => setForm({ ...form, price: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, price: e.target.value })
+                    }
                     inputMode="numeric"
                     placeholder="250000"
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
@@ -406,7 +438,9 @@ export function ProductsEditor({
                   </span>
                   <input
                     value={form.compareAt}
-                    onChange={(e) => setForm({ ...form, compareAt: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, compareAt: e.target.value })
+                    }
                     inputMode="numeric"
                     placeholder="320000"
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
@@ -421,7 +455,9 @@ export function ProductsEditor({
                   </span>
                   <input
                     value={form.stock}
-                    onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, stock: e.target.value })
+                    }
                     inputMode="numeric"
                     placeholder="e.g. 12"
                     disabled={form.madeToOrder}
@@ -432,7 +468,9 @@ export function ProductsEditor({
                   <input
                     type="checkbox"
                     checked={form.madeToOrder}
-                    onChange={(e) => setForm({ ...form, madeToOrder: e.target.checked })}
+                    onChange={(e) =>
+                      setForm({ ...form, madeToOrder: e.target.checked })
+                    }
                     className="h-4 w-4 rounded border-gray-300"
                   />
                   Made to order
@@ -445,7 +483,9 @@ export function ProductsEditor({
                 </span>
                 <textarea
                   value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, description: e.target.value })
+                  }
                   rows={3}
                   maxLength={2000}
                   placeholder="What it is, what's included, and why couples love it."
@@ -454,15 +494,30 @@ export function ProductsEditor({
               </label>
 
               <div>
-                <span className="mb-1.5 block text-xs font-semibold text-gray-700">Photos</span>
+                <span className="mb-1.5 block text-xs font-semibold text-gray-700">
+                  Photos
+                </span>
                 <div className="flex flex-wrap gap-2">
                   {form.images.map((url) => (
-                    <div key={url} className="relative h-20 w-20 overflow-hidden rounded-lg bg-gray-50">
-                      <Image src={url} alt="" fill sizes="80px" className="object-cover" />
+                    <div
+                      key={url}
+                      className="relative h-20 w-20 overflow-hidden rounded-lg bg-gray-50"
+                    >
+                      <Image
+                        src={url}
+                        alt=""
+                        fill
+                        sizes="80px"
+                        className="object-cover"
+                      />
                       <button
+                        data-opus-button="control"
                         type="button"
                         onClick={() =>
-                          setForm({ ...form, images: form.images.filter((u) => u !== url) })
+                          setForm({
+                            ...form,
+                            images: form.images.filter((u) => u !== url),
+                          })
                         }
                         aria-label="Remove photo"
                         className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
@@ -472,6 +527,7 @@ export function ProductsEditor({
                     </div>
                   ))}
                   <button
+                    data-opus-button="control"
                     type="button"
                     onClick={() => fileRef.current?.click()}
                     disabled={uploading > 0}
@@ -497,7 +553,9 @@ export function ProductsEditor({
                 <input
                   type="checkbox"
                   checked={form.published}
-                  onChange={(e) => setForm({ ...form, published: e.target.checked })}
+                  onChange={(e) =>
+                    setForm({ ...form, published: e.target.checked })
+                  }
                   className="h-4 w-4 rounded border-gray-300"
                 />
                 Visible in the shop once approved
@@ -506,6 +564,7 @@ export function ProductsEditor({
 
             <div className="mt-6 flex justify-end gap-2">
               <button
+                data-opus-button="control"
                 type="button"
                 onClick={() => setForm(null)}
                 className="inline-flex h-10 items-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
@@ -513,6 +572,8 @@ export function ProductsEditor({
                 Cancel
               </button>
               <button
+                data-opus-button="primary"
+                data-opus-button-size="medium"
                 type="button"
                 onClick={submit}
                 disabled={pending || uploading > 0}
@@ -527,15 +588,21 @@ export function ProductsEditor({
 
       {pendingDelete ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setPendingDelete(null)} />
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setPendingDelete(null)}
+          />
           <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="text-base font-semibold text-gray-900">Delete this product?</h2>
+            <h2 className="text-base font-semibold text-gray-900">
+              Delete this product?
+            </h2>
             <p className="mt-1.5 text-sm text-gray-500">
-              “{pendingDelete.name}” will be removed from your shop and any registries
-              that link to it will keep only a snapshot.
+              “{pendingDelete.name}” will be removed from your shop and any
+              registries that link to it will keep only a snapshot.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
+                data-opus-button="control"
                 type="button"
                 onClick={() => setPendingDelete(null)}
                 className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
@@ -543,6 +610,8 @@ export function ProductsEditor({
                 Cancel
               </button>
               <button
+                data-opus-button="danger"
+                data-opus-button-size="medium"
                 type="button"
                 onClick={confirmDelete}
                 disabled={busyId === pendingDelete.id}
@@ -555,5 +624,5 @@ export function ProductsEditor({
         </div>
       ) : null}
     </div>
-  )
+  );
 }

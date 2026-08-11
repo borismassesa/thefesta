@@ -215,7 +215,7 @@ export default async function CandidatePortalPage() {
                     )}
                     className="mt-3"
                   >
-                    <button className="text-xs font-semibold text-rose-700">
+                    <button data-opus-button="control" className="text-xs font-semibold text-rose-700">
                       Remove saved role
                     </button>
                   </form>
@@ -303,7 +303,7 @@ export default async function CandidatePortalPage() {
                       placeholder="Reason (optional)"
                       className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm"
                     />
-                    <button className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold hover:bg-gray-50">
+                    <button data-opus-button="control" className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold hover:bg-gray-50">
                       Withdraw
                     </button>
                   </form>
@@ -432,7 +432,7 @@ export default async function CandidatePortalPage() {
                       placeholder="Why do you need another time?"
                       className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
                     />
-                    <button className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold">
+                    <button data-opus-button="control" className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold">
                       Request reschedule
                     </button>
                   </form>
@@ -450,7 +450,7 @@ export default async function CandidatePortalPage() {
                       placeholder="Accommodation needed"
                       className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
                     />
-                    <button className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold">
+                    <button data-opus-button="control" className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold">
                       Request accommodation
                     </button>
                   </form>
@@ -508,7 +508,7 @@ export default async function CandidatePortalPage() {
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                       />
                       <div className="grid grid-cols-3 gap-2">
-                        <button
+                        <button data-opus-button="control"
                           formAction={respondToCandidateOffer.bind(
                             null,
                             offer.id,
@@ -518,7 +518,7 @@ export default async function CandidatePortalPage() {
                         >
                           Accept
                         </button>
-                        <button
+                        <button data-opus-button="control"
                           formAction={respondToCandidateOffer.bind(
                             null,
                             offer.id,
@@ -528,7 +528,7 @@ export default async function CandidatePortalPage() {
                         >
                           Ask
                         </button>
-                        <button
+                        <button data-opus-button="danger" data-opus-button-size="small"
                           formAction={respondToCandidateOffer.bind(
                             null,
                             offer.id,
@@ -591,7 +591,7 @@ export default async function CandidatePortalPage() {
               placeholder="Time zone"
               className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
             />
-            <button className="rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white">
+            <button data-opus-button="primary" data-opus-button-size="medium" className="rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white">
               Save details
             </button>
           </form>
@@ -620,7 +620,7 @@ export default async function CandidatePortalPage() {
               <option value="withdraw_consent">Withdraw consent</option>
               <option value="delete">Deletion review</option>
             </select>
-            <button className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold">
+            <button data-opus-button="control" className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold">
               Submit
             </button>
           </form>
@@ -701,7 +701,7 @@ export default async function CandidatePortalPage() {
               />{' '}
               Willing to relocate
             </label>
-            <button className="rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white sm:col-span-2">
+            <button data-opus-button="primary" data-opus-button-size="medium" className="rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white sm:col-span-2">
               Save preferences
             </button>
           </form>
@@ -744,7 +744,7 @@ export default async function CandidatePortalPage() {
                       active ? 'withdraw' : 'grant'
                     )}
                   >
-                    <button className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold">
+                    <button data-opus-button="neutral" data-opus-button-size="small" className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold">
                       {active ? 'Withdraw' : 'Grant'}
                     </button>
                   </form>
@@ -779,7 +779,7 @@ export default async function CandidatePortalPage() {
                     <form
                       action={acknowledgeCandidateNotice.bind(null, notice.id)}
                     >
-                      <button className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold">
+                      <button data-opus-button="control" className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold">
                         Acknowledge
                       </button>
                     </form>

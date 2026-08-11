@@ -68,7 +68,7 @@ export function EventChooser({
             .filter(Boolean)
             .join(' · ')
           return (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               key={event.id}
               type="button"
               onClick={() => choose(event.id)}
@@ -92,7 +92,7 @@ export function EventChooser({
         })}
 
         {allowAll ? (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             onClick={() => choose('all')}
             className="group flex w-full items-center gap-4 rounded-2xl border border-dashed border-black/[0.12] bg-black/[0.015] p-4 text-left transition hover:border-[#C9A0DC]"

@@ -12,7 +12,7 @@ export default function AcceptInviteButton({ token }: { token: string }) {
 
   return (
     <div>
-      <button
+      <button data-opus-button="primary" data-opus-button-size="large"
         type="button"
         disabled={pending}
         onClick={() =>

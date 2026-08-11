@@ -82,7 +82,7 @@ function SortMenu({ sortBy, onChange }: Readonly<{ sortBy: SortOption; onChange:
   const [open, setOpen] = useState(false)
   return (
     <div className="relative">
-      <button
+      <button data-opus-button="control"
         type="button"
         aria-label="Sort requests"
         aria-haspopup="menu"
@@ -98,10 +98,10 @@ function SortMenu({ sortBy, onChange }: Readonly<{ sortBy: SortOption; onChange:
       </button>
       {open && (
         <>
-          <button type="button" aria-hidden="true" tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
+          <button data-opus-button="control" type="button" aria-hidden="true" tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
           <div role="menu" className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
             {(Object.keys(SORT_LABEL) as SortOption[]).map((option) => (
-              <button
+              <button data-opus-button="control"
                 key={option}
                 type="button"
                 role="menuitemradio"
@@ -215,7 +215,7 @@ export default function InquiriesInbox({ initialInquiries, marketplaceUrl, prese
                   const isActive = active === t
                   const count = tabCounts[t]
                   return (
-                    <button
+                    <button data-opus-button="neutral" data-opus-button-size="medium"
                       key={t}
                       type="button"
                       onClick={() => setActive(t)}
@@ -241,7 +241,7 @@ export default function InquiriesInbox({ initialInquiries, marketplaceUrl, prese
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
-                    type="text"
+                    type="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search vendors…"
@@ -266,7 +266,7 @@ export default function InquiriesInbox({ initialInquiries, marketplaceUrl, prese
                   const s = (inq.status ?? 'pending') as InquiryStatus
                   return (
                     <li key={inq.id}>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => selectInquiry(inq.id)}
                         className={cn(
@@ -318,7 +318,7 @@ export default function InquiriesInbox({ initialInquiries, marketplaceUrl, prese
             {selected ? (
               <>
                 {/* Mobile back to list */}
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => setMobileConversation(false)}
                   className="lg:hidden flex items-center gap-1.5 px-5 py-3 text-sm font-medium text-gray-500 border-b border-gray-100 hover:text-[#1A1A1A]"

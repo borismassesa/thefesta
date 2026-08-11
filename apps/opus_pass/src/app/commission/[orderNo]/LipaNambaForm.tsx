@@ -134,7 +134,7 @@ export default function LipaNambaForm({
 
         {error && <p className="mt-3 text-sm text-[#8A4A4A]">{error}</p>}
 
-        <button
+        <button data-opus-button="primary" data-opus-button-size="large"
           type="submit"
           disabled={busy || !merchantNumber}
           className="mt-4 w-full rounded-full bg-[#4A2D5C] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"

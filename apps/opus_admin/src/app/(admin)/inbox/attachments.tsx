@@ -147,7 +147,7 @@ export function StagedChip({
         <p className="text-[12px] font-semibold text-gray-800 truncate">{attachment.name}</p>
         <p className="text-[10px] text-gray-400 tabular-nums">{formatBytes(attachment.size)}</p>
       </div>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onRemove}
         title="Remove"

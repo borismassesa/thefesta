@@ -93,7 +93,7 @@ export default function MyRequestsView({
           counts={counts}
         />
         {monthOnly && (
-          <button
+          <button data-opus-button="secondary" data-opus-button-size="small"
             type="button"
             onClick={() => onFilter({ status: filter })}
             className="inline-flex items-center gap-1 rounded-full bg-[#F0DFF6] px-2.5 py-1 text-xs font-semibold text-[#5B2D8E] hover:bg-[#E8CEF4]"
@@ -140,7 +140,7 @@ export default function MyRequestsView({
             <span>Current approver</span>
           </div>
           {visible.map((r) => (
-            <button
+            <button data-opus-button="control"
               key={r.id}
               type="button"
               onClick={() => onOpen(r.id)}

@@ -47,7 +47,7 @@ function NavRowItem({ row, active }: { row: NavRow; active: boolean }) {
   )
   if (row.kind === 'action') {
     return (
-      <button type="button" onClick={row.onClick} className={className}>
+      <button data-opus-button="control" type="button" onClick={row.onClick} className={className}>
         {inner}
       </button>
     )

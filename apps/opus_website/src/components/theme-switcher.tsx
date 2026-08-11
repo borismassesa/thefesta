@@ -27,7 +27,7 @@ export default function ThemeSwitcher() {
         <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 flex flex-col gap-2 min-w-[160px]">
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Choose theme</p>
           {THEMES.map((theme) => (
-            <button
+            <button data-opus-button="control"
               key={theme.name}
               onClick={() => applyTheme(theme)}
               className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all hover:bg-gray-50 ${active === theme.name ? 'bg-gray-100' : ''}`}
@@ -48,7 +48,7 @@ export default function ThemeSwitcher() {
       )}
 
       {/* Toggle button */}
-      <button
+      <button data-opus-button="control"
         onClick={() => setOpen((o) => !o)}
         className="w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition-transform hover:scale-105 border border-black/10"
         style={{ background: THEMES.find(t => t.name === active)?.accent }}

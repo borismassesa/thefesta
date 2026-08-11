@@ -2,28 +2,29 @@
 
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
+import { opusButtonClass, type OpusButtonSize, type OpusButtonVariant } from '@opusfesta/lib'
 import { cn } from '@/lib/utils'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
-const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-[#C9A0DC] text-[#1A1A1A] hover:bg-[#b97fd0] disabled:opacity-50',
-  secondary: 'bg-white text-[#1A1A1A] ring-1 ring-inset ring-black/[0.12] hover:bg-black/[0.03]',
-  ghost: 'text-[#1A1A1A]/70 hover:bg-black/[0.05]',
-  danger: 'bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50',
+const VARIANTS: Record<Variant, OpusButtonVariant> = {
+  primary: 'primary',
+  secondary: 'neutral',
+  ghost: 'tertiary',
+  danger: 'danger',
 }
 
 export function Button({
   variant = 'primary',
+  size = 'medium',
   className,
   children,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: OpusButtonSize }) {
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed',
-        VARIANTS[variant],
+        opusButtonClass({ variant: VARIANTS[variant], size }),
         className
       )}
       {...props}
@@ -68,7 +69,7 @@ export function Dialog({
       <div className={cn('relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl', widthClass)}>
         <div className="flex items-center justify-between border-b border-black/[0.06] px-6 py-4">
           <h3 className="text-base font-semibold text-[#1A1A1A]">{title}</h3>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             aria-label="Close"
@@ -221,7 +222,7 @@ export function Slideover({
       >
         <div className="flex items-center justify-between border-b border-black/[0.06] px-6 py-4">
           <h3 className="text-base font-semibold text-[#1A1A1A]">{title}</h3>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             aria-label="Close"
@@ -259,28 +260,42 @@ export function Tabs<T extends string>({
   trailing?: ReactNode
 }) {
   return (
-    <div className="-mx-6 mb-5 flex items-center gap-6 border-b border-black/[0.06] px-6" role="tablist">
-      {tabs.map((t) => {
-        const active = t.id === value
-        return (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(t.id)}
-            className={cn(
-              '-mb-px border-b-2 pb-3 text-sm font-medium transition-colors',
-              active
-                ? 'border-[#1A1A1A] text-[#1A1A1A]'
-                : 'border-transparent text-[#1A1A1A]/55 hover:text-[#1A1A1A]',
-            )}
-          >
-            {t.label}
-          </button>
-        )
-      })}
-      {trailing ? <div className="-mb-px ml-auto flex items-center pb-3">{trailing}</div> : null}
+    // The tabs stay on ONE row and scroll sideways when they outgrow the
+    // width; only the trailing action group drops below them on phones (it
+    // holds buttons, which should not be hidden inside a scroller). The
+    // scrolling strip carries -mb-px itself, so its children need no negative
+    // margin and nothing overflows it vertically to be clipped.
+    <div className="-mx-6 mb-5 flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-black/[0.06] px-6">
+      <div
+        role="tablist"
+        className="no-scrollbar -mb-px flex min-w-0 flex-1 items-center gap-x-6 overflow-x-auto overflow-y-hidden [&>*]:shrink-0"
+      >
+        {tabs.map((t) => {
+          const active = t.id === value
+          return (
+            <button data-opus-button="control"
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onChange(t.id)}
+              className={cn(
+                'whitespace-nowrap border-b-2 pb-3 text-sm font-medium transition-colors',
+                active
+                  ? 'border-[#1A1A1A] text-[#1A1A1A]'
+                  : 'border-transparent text-[#1A1A1A]/55 hover:text-[#1A1A1A]',
+              )}
+            >
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+      {trailing ? (
+        <div className="-mb-px flex basis-full items-center pb-3 sm:ml-auto sm:basis-auto">
+          {trailing}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -330,7 +345,7 @@ export function Toggle({
   label?: string
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       role="switch"
       aria-checked={checked}

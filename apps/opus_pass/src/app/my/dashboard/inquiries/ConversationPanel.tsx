@@ -228,7 +228,7 @@ function ProposalCard({
               />
             </div>
             <div className="flex justify-end gap-2">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={actionLoading}
                 onClick={onCounterCancel}
@@ -236,7 +236,7 @@ function ProposalCard({
               >
                 Cancel
               </button>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 disabled={actionLoading || (!counterAmount.trim() && !counterMessage.trim())}
                 onClick={onCounterSubmit}
@@ -248,7 +248,7 @@ function ProposalCard({
           </div>
         ) : (
           <div className="flex flex-wrap justify-end gap-2">
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               disabled={actionLoading}
               onClick={onCounterOpen}
@@ -256,7 +256,7 @@ function ProposalCard({
             >
               Counter
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               disabled={actionLoading}
               onClick={onAccept}
@@ -545,7 +545,7 @@ export default function ConversationPanel({ inquiryId, onStatusChange, onDeleted
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_STYLE[status]}`}>{STATUS_LABEL[status]}</span>
             {status !== 'closed' && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={actionLoading}
                 onClick={handleClose}
@@ -554,7 +554,7 @@ export default function ConversationPanel({ inquiryId, onStatusChange, onDeleted
                 Close
               </button>
             )}
-            <button
+            <button data-opus-button="danger" data-opus-button-size="small"
               type="button"
               disabled={actionLoading}
               onClick={handleDelete}
@@ -632,7 +632,7 @@ export default function ConversationPanel({ inquiryId, onStatusChange, onDeleted
                   <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                   <span className="truncate">{file.name}</span>
                   <span className="text-gray-400 shrink-0">{formatFileSize(file.size)}</span>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => removeFile(i)}
                     aria-label={`Remove ${file.name}`}
@@ -666,7 +666,7 @@ export default function ConversationPanel({ inquiryId, onStatusChange, onDeleted
             />
             {/* WhatsApp-style "+" attach menu */}
             <div className="relative shrink-0">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setAttachMenuOpen((o) => !o)}
                 disabled={sending || attachFiles.length >= MAX_ATTACH}
@@ -680,7 +680,7 @@ export default function ConversationPanel({ inquiryId, onStatusChange, onDeleted
               </button>
               {attachMenuOpen && (
                 <>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     aria-hidden="true"
                     tabIndex={-1}
@@ -691,7 +691,7 @@ export default function ConversationPanel({ inquiryId, onStatusChange, onDeleted
                     role="menu"
                     className="absolute bottom-full left-0 z-20 mb-2 w-56 overflow-hidden rounded-2xl border border-gray-100 bg-white py-1.5 shadow-lg"
                   >
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       role="menuitem"
                       onClick={() => openPicker('photo')}
@@ -702,7 +702,7 @@ export default function ConversationPanel({ inquiryId, onStatusChange, onDeleted
                       </span>
                       Photos &amp; videos
                     </button>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       role="menuitem"
                       onClick={() => openPicker('doc')}
@@ -728,7 +728,7 @@ export default function ConversationPanel({ inquiryId, onStatusChange, onDeleted
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void sendMessage() }
               }}
             />
-            <button
+            <button data-opus-button="primary" data-opus-button-size="large"
               type="submit"
               disabled={sending || (!draft.trim() && attachFiles.length === 0)}
               className="shrink-0 flex items-center gap-1.5 px-4 py-3 rounded-xl bg-[#1A1A1A] text-white text-sm font-semibold hover:bg-black/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -745,7 +745,7 @@ export default function ConversationPanel({ inquiryId, onStatusChange, onDeleted
           ) : (
             <div className="flex flex-col items-center gap-2">
               <p className="text-xs text-gray-400">This conversation is closed.</p>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="small"
                 type="button"
                 disabled={actionLoading}
                 onClick={handleReopen}
