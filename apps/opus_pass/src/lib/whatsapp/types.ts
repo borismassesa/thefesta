@@ -104,6 +104,21 @@ export const ENTRANCE_PASS_TEMPLATE = {
 } as const
 
 /**
+ * Wallet-enabled entrance-pass template.
+ *
+ * Same approved artwork and copy as ENTRANCE_PASS_TEMPLATE, with one dynamic
+ * URL button whose fixed base is:
+ *   https://opuspass.opusfesta.com/t/{{1}}
+ *
+ * It uses a separate template name so enabling the button cannot break sends
+ * through the already-approved image-only template during rollout.
+ */
+export const ENTRANCE_PASS_WALLET_TEMPLATE = {
+  ...ENTRANCE_PASS_TEMPLATE,
+  buttons: [{ type: 'URL', label: 'Hifadhi kwenye Google Wallet' }] as const,
+} as const
+
+/**
  * Thank-you template spec — a one-way, post-event message to guests who
  * confirmed "attending". Header is an IMAGE like INVITE_TEMPLATE: the
  * couple's chosen card design (from the invitation catalog) or a generic
@@ -160,6 +175,12 @@ export interface EntrancePassSend {
   venue: string
   /** Absolute URL of the generated ticket image (template image header). */
   headerImageUrl: string
+  /**
+   * Guest wallet-management capability for the dynamic `/t/{{1}}` button.
+   * Omitted when Google, token encryption, or the wallet template is not ready;
+   * the provider then uses the existing image-only entrance-pass template.
+   */
+  walletToken?: string
   /** Template language code, e.g. 'sw' or 'en'. */
   languageCode?: string
 }

@@ -9,6 +9,9 @@ import {
   hashCredential,
   loadCredentialKeyring,
 } from './credential-core'
+import { isWalletTokenShape, WALLET_TOKEN_PREFIX } from './wallet-token-core'
+
+export { isWalletTokenShape, WALLET_TOKEN_PREFIX } from './wallet-token-core'
 
 /**
  * The guest's pass-management capability: the token behind /p/<token>.
@@ -24,12 +27,7 @@ import {
  * so presenting one of these at a door fails as malformed rather than being
  * filed as a legacy scan.
  */
-export const WALLET_TOKEN_PREFIX = 'WMT1'
-
 const TOKEN_BYTES = 32
-
-/** Same shape rules as an admission credential, different namespace. */
-const TOKEN_PATTERN = /^[A-Za-z0-9_-]{22,88}$/
 
 let cachedKeyring: CredentialKeyring | null = null
 function keyring(): CredentialKeyring {
@@ -48,16 +46,6 @@ export function walletTokensConfigured(): boolean {
 
 function generateRawWalletToken(): string {
   return `${WALLET_TOKEN_PREFIX}:${randomBytes(TOKEN_BYTES).toString('base64url')}`
-}
-
-/**
- * Accept only exactly what we mint. Same strictness as the admission parser:
- * no trimming, no case folding, nothing repaired into validity.
- */
-export function isWalletTokenShape(input: unknown): input is string {
-  if (typeof input !== 'string') return false
-  if (!input.startsWith(`${WALLET_TOKEN_PREFIX}:`)) return false
-  return TOKEN_PATTERN.test(input.slice(WALLET_TOKEN_PREFIX.length + 1))
 }
 
 export interface WalletManagementToken {

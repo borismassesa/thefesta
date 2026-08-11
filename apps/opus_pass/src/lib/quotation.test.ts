@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 import { quoteSignature } from './quotation'
+import { QUOTE_VALID_DAYS } from './quote-terms'
 
 /**
  * The quotation number has to stay the same for an unchanged cart.
@@ -78,5 +80,33 @@ describe('quoteSignature', () => {
 
   it('treats a missing guest count and add-on list as empty rather than throwing', () => {
     assert.equal(quoteSignature([item({ id: 'a' })]), quoteSignature([item({ id: 'a' })]))
+  })
+})
+
+/**
+ * The validity window is what makes the document a quotation rather than a
+ * price list, and it once printed as "VALID UNTIL INVALID DATE" in production:
+ * the constant lived in cart-storage.ts (`'use client'`), so the server-rendered
+ * PDF imported a client-reference stub instead of a number, and adding that
+ * stub to a date produced an Invalid Date.
+ *
+ * Run: npm run test --workspace apps/opus_pass
+ */
+describe('quotation validity window', () => {
+  it('is a whole number of days a date can actually be offset by', () => {
+    assert.equal(typeof QUOTE_VALID_DAYS, 'number')
+    assert.ok(Number.isInteger(QUOTE_VALID_DAYS) && QUOTE_VALID_DAYS > 0)
+    const d = new Date('2026-08-09T10:00:00.000Z')
+    d.setDate(d.getDate() + QUOTE_VALID_DAYS)
+    assert.ok(!Number.isNaN(d.getTime()))
+  })
+
+  it('lives in a module the server can import as a value', () => {
+    // The specific regression: any `'use client'` in this file, or any import
+    // pulling one in, turns the constant back into a stub inside the PDF route.
+    const src = readFileSync('src/lib/quote-terms.ts', 'utf8')
+    // Anchored so the directive is caught but the comment explaining it is not.
+    assert.doesNotMatch(src, /^\s*['"]use client['"]/m)
+    assert.doesNotMatch(src, /^import\b/m)
   })
 })

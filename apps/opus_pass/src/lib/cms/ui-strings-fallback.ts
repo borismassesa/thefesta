@@ -662,6 +662,9 @@ export interface FormsRsvpStrings {
   // attach it to a message.
   card_alt: string
   card_download: string
+  // Shown in place of the card when the page is printed. The artwork is held
+  // back on paper because "Print to PDF" is a save route like any other.
+  card_view_only: string
   card_pass_id: string
   // Event card
   dress_code_prefix: string // "Dress code:" — value appended in markup
@@ -1697,7 +1700,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     checkout_cta: 'Continue to checkout',
     we_accept: 'We accept:',
     quote_cta: 'Download quotation',
-    quote_hint: 'A priced PDF you can send to whoever is paying. Prices held for 3 days.',
+    quote_hint: 'A priced PDF you can send to whoever is paying. Prices held for 7 days.',
     quote_failed: 'Could not generate the quotation. Please try again.',
     secure_note: 'Secure checkout · designs delivered within 48-72 hours',
     explore_title_has: 'You might also like',
@@ -1965,6 +1968,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     submitted_change: 'Change my response',
     card_alt: 'Your invitation card',
     card_download: 'Download invitation card',
+    card_view_only: 'This invitation is view-only. Please open the link on your phone to see it.',
     card_pass_id: 'Entrance Pass ID',
     dress_code_prefix: 'Dress code:',
     status_attending: "I'll be there",

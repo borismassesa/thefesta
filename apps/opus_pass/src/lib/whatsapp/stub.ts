@@ -41,6 +41,7 @@ export class StubWhatsAppProvider implements WhatsAppProvider {
       guest: send.guestName,
       event: `${send.eventCategory} ya ${send.coupleName}`,
       header: send.headerImageUrl,
+      hasWalletButton: Boolean(send.walletToken),
     })
     return { ok: true, wamid: this.fakeWamid(), dryRun: true }
   }

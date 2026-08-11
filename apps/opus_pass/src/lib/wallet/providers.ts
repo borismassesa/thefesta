@@ -22,17 +22,6 @@ import {
  * than failing when the guest taps the other.
  */
 
-/**
- * Google Wallet is PAUSED.
- *
- * The adapter is finished but has not been fixed and tested end to end, and it
- * must not reach a client until it has. Reported as unconfigured rather than
- * deleted: the surface already treats an unconfigured provider as "no button",
- * and issue() refuses too so a hand-built /p/<token>/google request cannot mint
- * an object behind the hidden button. Flip this to false to resume.
- */
-const GOOGLE_WALLET_PAUSED = true
-
 let cachedGoogleConfig: GoogleWalletConfig | null | undefined
 
 function googleConfig(): GoogleWalletConfig | null {
@@ -42,9 +31,11 @@ function googleConfig(): GoogleWalletConfig | null {
 
 const googleProvider: WalletProvider = {
   id: 'google',
-  isConfigured: () => !GOOGLE_WALLET_PAUSED && googleConfig() !== null,
+  // The environment flag and validated credentials are the rollout gate.
+  // loadGoogleWalletConfig parses the key and validates the public asset
+  // origin before this can become true.
+  isConfigured: () => googleConfig() !== null,
   async issue(model: WalletPassModel): Promise<WalletIssueResult> {
-    if (GOOGLE_WALLET_PAUSED) return { ok: false, reason: 'not_configured' }
     const config = googleConfig()
     if (!config) return { ok: false, reason: 'not_configured' }
 
