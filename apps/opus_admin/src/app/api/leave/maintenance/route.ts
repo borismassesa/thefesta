@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
 import { logDbError } from '@/lib/log-safe'
+import { isCronAuthorized } from '@/lib/cron-auth'
 
 // Leave maintenance. Three idempotent jobs, one endpoint.
 //
@@ -22,7 +23,7 @@ const AVAILABILITY_HORIZON_DAYS = 60
 export async function POST(request: NextRequest) {
   const secret = process.env.LEAVE_CRON_SECRET
   const auth = request.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!isCronAuthorized(auth, secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   if (!hasSupabaseAdminConfig()) {
@@ -30,25 +31,36 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createSupabaseAdminClient()
+  const failedJobs: string[] = []
 
   const { data: accrued, error: accrualError } = await supabase.rpc('leave_accrue_monthly', {
     p_date: null,
   })
-  if (accrualError) logDbError('leave.accrual', accrualError)
+  if (accrualError) {
+    logDbError('leave.accrual', accrualError)
+    failedJobs.push('accrue_monthly')
+  }
 
   const { data: expired, error: expiryError } = await supabase.rpc('leave_expire_carryover', {
     p_date: null,
   })
-  if (expiryError) logDbError('leave.expiry', expiryError)
+  if (expiryError) {
+    logDbError('leave.expiry', expiryError)
+    failedJobs.push('expire_carryover')
+  }
 
   const refreshed = await refreshAvailability(supabase)
 
-  return NextResponse.json({
-    ok: true,
-    accrued: typeof accrued === 'number' ? accrued : 0,
-    expired: typeof expired === 'number' ? expired : 0,
-    availabilityRefreshed: refreshed,
-  })
+  return NextResponse.json(
+    {
+      ok: failedJobs.length === 0,
+      accrued: typeof accrued === 'number' ? accrued : 0,
+      expired: typeof expired === 'number' ? expired : 0,
+      availabilityRefreshed: refreshed,
+      failedJobs,
+    },
+    { status: failedJobs.length === 0 ? 200 : 500 },
+  )
 }
 
 async function refreshAvailability(

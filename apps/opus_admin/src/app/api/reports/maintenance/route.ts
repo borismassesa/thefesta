@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
 import { logDbError } from '@/lib/log-safe'
 import { emitWorkflowEvent } from '@/lib/notifications/emit'
+import { isCronAuthorized } from '@/lib/cron-auth'
 
 // Report maintenance. Four jobs, one endpoint, all idempotent.
 //
@@ -42,7 +43,7 @@ type DueRow = {
 export async function POST(request: NextRequest) {
   const secret = process.env.REPORTS_CRON_SECRET
   const auth = request.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!isCronAuthorized(auth, secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   if (!hasSupabaseAdminConfig()) {
@@ -50,32 +51,46 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createSupabaseAdminClient()
+  const failedJobs: string[] = []
 
   const { data: generated, error: generateError } = await supabase.rpc(
     'report_generate_obligations',
     { p_today: null },
   )
-  if (generateError) logDbError('reports.generate', generateError)
+  if (generateError) {
+    logDbError('reports.generate', generateError)
+    failedJobs.push('generate_obligations')
+  }
 
   const { data: overdue, error: overdueError } = await supabase.rpc('report_mark_overdue', {
     p_today: null,
   })
-  if (overdueError) logDbError('reports.overdue', overdueError)
+  if (overdueError) {
+    logDbError('reports.overdue', overdueError)
+    failedJobs.push('mark_overdue')
+  }
 
   const { data: locked, error: lockError } = await supabase.rpc('report_lock_accepted', {
     p_today: null,
   })
-  if (lockError) logDbError('reports.lock', lockError)
+  if (lockError) {
+    logDbError('reports.lock', lockError)
+    failedJobs.push('lock_accepted')
+  }
 
   const reminded = await sendReminders(supabase)
 
-  return NextResponse.json({
-    ok: true,
-    generated: typeof generated === 'number' ? generated : 0,
-    markedOverdue: typeof overdue === 'number' ? overdue : 0,
-    locked: typeof locked === 'number' ? locked : 0,
-    reminded,
-  })
+  return NextResponse.json(
+    {
+      ok: failedJobs.length === 0,
+      generated: typeof generated === 'number' ? generated : 0,
+      markedOverdue: typeof overdue === 'number' ? overdue : 0,
+      locked: typeof locked === 'number' ? locked : 0,
+      reminded,
+      failedJobs,
+    },
+    { status: failedJobs.length === 0 ? 200 : 500 },
+  )
 }
 
 async function sendReminders(

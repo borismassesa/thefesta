@@ -39,9 +39,22 @@ BEGIN
     e.slug,
     e.name,
     -- The legacy tracker moved from one md_employee_id to an ordered
-    -- md_employee_ids array in 20260701000007. Keep the first permanent MD as
-    -- the stable owner, falling back to the acting MD only when none is set.
-    COALESCE(e.md_employee_ids[1], e.acting_md_employee_id),
+    -- md_employee_ids array in 20260701000007. Keep the first *existing*
+    -- permanent MD as the stable owner, falling back to an existing acting MD.
+    -- Historical engine rows can retain employee IDs after the employee row
+    -- has been removed; carrying one of those IDs forward would violate the
+    -- tracking_units owner foreign key and abort the entire guarded backfill.
+    (
+      SELECT candidate.employee_id
+      FROM unnest(
+        COALESCE(e.md_employee_ids, '{}'::uuid[])
+        || ARRAY[e.acting_md_employee_id]
+      ) WITH ORDINALITY AS candidate(employee_id, priority)
+      JOIN workforce_employees employee
+        ON employee.id = candidate.employee_id
+      ORDER BY candidate.priority
+      LIMIT 1
+    ),
     e.sort_order,
     jsonb_build_object('imported_from', 'md_tracker_engines', 'engine_id', e.id)
   FROM md_tracker_engines e
