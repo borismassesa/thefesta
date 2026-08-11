@@ -154,7 +154,7 @@ export default async function CommissionTaskPage(props: {
             Accepting starts your first-draft clock. If nobody accepts within two hours the task
             returns to the queue.
           </p>
-          <button type="submit" className="mt-3 rounded-lg bg-[#4A2D5C] px-4 py-2 text-sm font-semibold text-white">
+          <button data-opus-button="primary" data-opus-button-size="medium" type="submit" className="mt-3 rounded-lg bg-[#4A2D5C] px-4 py-2 text-sm font-semibold text-white">
             Accept
           </button>
         </form>
@@ -176,7 +176,7 @@ export default async function CommissionTaskPage(props: {
               required
               className="mt-3 block w-full text-sm"
             />
-            <button type="submit" className="mt-3 rounded-lg bg-[#4A2D5C] px-4 py-2 text-sm font-semibold text-white">
+            <button data-opus-button="primary" data-opus-button-size="medium" type="submit" className="mt-3 rounded-lg bg-[#4A2D5C] px-4 py-2 text-sm font-semibold text-white">
               Run validator and submit
             </button>
           </form>
@@ -195,7 +195,7 @@ export default async function CommissionTaskPage(props: {
               placeholder="e.g. Which spelling of the surname should we use?"
               className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
             />
-            <button type="submit" className="mt-3 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700">
+            <button data-opus-button="neutral" data-opus-button-size="medium" type="submit" className="mt-3 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700">
               Send question
             </button>
           </form>
@@ -275,7 +275,7 @@ export default async function CommissionTaskPage(props: {
                 Note (optional)
                 <input name="note" className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
               </label>
-              <button type="submit" className="mt-3 w-full rounded-lg bg-[#4A2D5C] px-4 py-2 text-sm font-semibold text-white">
+              <button data-opus-button="primary" data-opus-button-size="medium" type="submit" className="mt-3 w-full rounded-lg bg-[#4A2D5C] px-4 py-2 text-sm font-semibold text-white">
                 Pass QA
               </button>
             </form>
@@ -287,7 +287,7 @@ export default async function CommissionTaskPage(props: {
                 What needs changing (required)
                 <input name="note" required minLength={3} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
               </label>
-              <button type="submit" className="mt-3 w-full rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700">
+              <button data-opus-button="danger" data-opus-button-size="medium" type="submit" className="mt-3 w-full rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700">
                 Send back to the designer
               </button>
             </form>

@@ -108,7 +108,7 @@ export default function BookingDetailClient({ booking }: { booking: Booking }) {
               <p className="text-xs text-rose-600 font-medium">{action.error}</p>
             ) : null}
             {primaryAction ? (
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 disabled={action.loading}
                 onClick={() => handlePrimaryCta(primaryAction.key, patch, t)}
@@ -454,7 +454,7 @@ function DocumentsCard({ booking: b }: { booking: Booking }) {
               <p className="text-[10px] text-gray-500 truncate">{d.done ? d.hintDone : d.hintMissing}</p>
             </div>
             {d.done ? (
-              <button type="button" className="text-gray-400 hover:text-gray-700 transition-colors" aria-label={t('doc_download', { doc: d.label })}>
+              <button data-opus-button="control" type="button" className="text-gray-400 hover:text-gray-700 transition-colors" aria-label={t('doc_download', { doc: d.label })}>
                 <Download className="w-3.5 h-3.5" />
               </button>
             ) : null}
@@ -541,7 +541,7 @@ function QuickActions({
           const Icon = a.icon
           return (
             <li key={a.label}>
-              <button
+              <button data-opus-button="danger" data-opus-button-size="small"
                 type="button"
                 disabled={loading}
                 onClick={a.onClick}
@@ -596,7 +596,7 @@ function QuickActions({
             </div>
           </div>
           <div className="flex items-center gap-2 pt-1">
-            <button
+            <button data-opus-button="primary" data-opus-button-size="small"
               type="button"
               disabled={loading || !rescheduleDate}
               onClick={confirmReschedule}
@@ -604,7 +604,7 @@ function QuickActions({
             >
               {loading ? t('reschedule_saving') : t('reschedule_confirm')}
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={loading}
               onClick={() => setShowReschedule(false)}
@@ -633,7 +633,7 @@ function QuickActions({
             />
           </label>
           <div className="flex items-center gap-2 pt-1">
-            <button
+            <button data-opus-button="danger" data-opus-button-size="small"
               type="button"
               disabled={loading}
               onClick={confirmCancel}
@@ -641,7 +641,7 @@ function QuickActions({
             >
               {loading ? t('cancel_cancelling') : t('cancel_confirm')}
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={loading}
               onClick={() => setShowCancel(false)}

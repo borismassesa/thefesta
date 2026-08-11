@@ -303,7 +303,7 @@ export default function ReviewSendDrawer({
               <span className="rphone">{phone}</span>
             </div>
           </div>
-          <button className="rx" onClick={onClose} aria-label={strings.preview_close}><X size={16} /></button>
+          <button data-opus-button="control" className="rx" onClick={onClose} aria-label={strings.preview_close}><X size={16} /></button>
         </div>
 
         <div className="rbody">
@@ -342,7 +342,7 @@ export default function ReviewSendDrawer({
                     <span>{serverSkip.detail}</span>
                   </div>
                 ) : null}
-                <button className="rlink" onClick={onEditGuest}>
+                <button data-opus-button="control" className="rlink" onClick={onEditGuest}>
                   <Pencil size={12} /> {strings.review_edit_guest}
                 </button>
               </section>
@@ -418,7 +418,7 @@ export default function ReviewSendDrawer({
                     {isSms ? strings.review_sms_message_note : strings.review_sms_note}
                   </p>
                   <pre className="rsms">{smsFallback}</pre>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     className="rbtn copy"
                     onClick={() => {
@@ -452,7 +452,7 @@ export default function ReviewSendDrawer({
                           c.fix.href ? (
                             <a className="rlink" href={c.fix.href}>{c.fix.label} <ArrowRight size={12} /></a>
                           ) : (
-                            <button className="rlink" onClick={c.fix.onClick}>{c.fix.label} <ArrowRight size={12} /></button>
+                            <button data-opus-button="control" className="rlink" onClick={c.fix.onClick}>{c.fix.label} <ArrowRight size={12} /></button>
                           )
                         ) : null}
                       </div>
@@ -466,7 +466,7 @@ export default function ReviewSendDrawer({
                   <b>{isPass ? strings.review_error_title_pass : strings.review_error_title_invite}</b>
                   <span>{sendError.message}</span>
                   {sendError.canTopUp && onTopUp ? (
-                    <button className="rlink" onClick={onTopUp}>{strings.review_topup} <ArrowRight size={12} /></button>
+                    <button data-opus-button="control" className="rlink" onClick={onTopUp}>{strings.review_topup} <ArrowRight size={12} /></button>
                   ) : null}
                 </div>
               ) : null}
@@ -476,7 +476,7 @@ export default function ReviewSendDrawer({
 
         <div className="rfoot">
           {sentAt ? (
-            <button className="rbtn pri" onClick={onClose}>{strings.review_done}</button>
+            <button data-opus-button="control" className="rbtn pri" onClick={onClose}>{strings.review_done}</button>
           ) : (
             <>
               <div className="rfnote">
@@ -489,16 +489,16 @@ export default function ReviewSendDrawer({
                 ) : null}
               </div>
               <div className="rfacts-row">
-                <button className="rbtn ghost" onClick={onClose} disabled={sending}>{strings.confirm_cancel}</button>
+                <button data-opus-button="control" className="rbtn ghost" onClick={onClose} disabled={sending}>{strings.confirm_cancel}</button>
                 {isSms ? (
                   // Nothing is sent from here. The handset's own composer opens
                   // pre-filled and the couple presses send there, which is what
                   // makes it an ordinary person-to-person SMS.
-                  <button className="rbtn send" disabled={!onOpenSms} onClick={() => onOpenSms?.()}>
+                  <button data-opus-button="control" className="rbtn send" disabled={!onOpenSms} onClick={() => onOpenSms?.()}>
                     <Smartphone size={15} /> {strings.review_open_sms}
                   </button>
                 ) : (
-                  <button className="rbtn send" disabled={!canSend} onClick={runSend}>
+                  <button data-opus-button="control" className="rbtn send" disabled={!canSend} onClick={runSend}>
                     {sending ? (
                       <><Loader2 size={15} className="spin" /> {strings.review_sending}</>
                     ) : (
@@ -535,7 +535,7 @@ export default function ReviewSendDrawer({
           font-size:12.5px; color:#8b8790; }
         .rmeta span + span::before{ content:'·'; margin-right:7px; color:#c9c6ce; }
         .rphone{ font-variant-numeric:tabular-nums }
-        .rx{ border:none; background:#f6f4f8; color:#8b8790; border-radius:10px; width:30px; height:30px;
+        .rx{ border:none; background:#f6f4f8; color:#8b8790; border-radius:var(--opus-radius-small); width:30px; height:30px;
           display:grid; place-items:center; cursor:pointer; flex:none; }
         .rx:hover{ background:#efecf3; color:#1c1b1f }
 
@@ -547,7 +547,7 @@ export default function ReviewSendDrawer({
         .rtag{ background:#EAF6EF; color:#2E7D55; font-size:9.5px; font-weight:700; letter-spacing:.04em;
           padding:2px 7px; border-radius:999px; }
 
-        .rto{ display:flex; flex-direction:column; gap:2px; border:1px solid #ededf0; border-radius:12px;
+        .rto{ display:flex; flex-direction:column; gap:2px; border:1px solid #ededf0; border-radius:var(--opus-radius-small);
           padding:11px 13px; font-size:13.5px; }
         .rto b{ font-weight:650; color:#1c1b1f }
         .rto span{ color:#5f5b66; font-variant-numeric:tabular-nums }
@@ -558,7 +558,7 @@ export default function ReviewSendDrawer({
         .rsmsnote{ margin:0 0 9px; font-size:12px; line-height:1.5; }
         /* Monospace and pre-wrap so the couple sees the exact line breaks the
            guest will get, including the Entrance Pass ID on its own line. */
-        .rsms{ margin:0; padding:12px 13px; border:1px solid #ededf0; border-radius:11px;
+        .rsms{ margin:0; padding:12px 13px; border:1px solid #ededf0; border-radius:var(--opus-radius-small);
           background:#faf8fc; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
           font-size:11.5px; line-height:1.55; color:#1c1b1f; white-space:pre-wrap;
           word-break:break-word; max-height:260px; overflow-y:auto; }
@@ -567,11 +567,11 @@ export default function ReviewSendDrawer({
         .rbtn.copy:hover{ background:#F6EEFB; border-color:#6B3FA0; }
 
         .rwarn{ display:flex; align-items:flex-start; gap:8px; background:#FFFBEB; border:1px solid #FBE8B0;
-          color:#8a6d1a; border-radius:10px; padding:9px 11px; font-size:12.5px; line-height:1.45; }
+          color:#8a6d1a; border-radius:var(--opus-radius-small); padding:9px 11px; font-size:12.5px; line-height:1.45; }
         .rwarn.danger{ background:#fcecec; border-color:#f3d2d2; color:#c0392b }
         .rwarn :global(svg){ flex:none; margin-top:1px }
 
-        .rart{ border:1px solid #ededf0; border-radius:14px; overflow:hidden; background:#faf8fc; }
+        .rart{ border:1px solid #ededf0; border-radius:var(--opus-radius-medium); overflow:hidden; background:#faf8fc; }
         .rimg{ display:block; width:100%; height:auto }
         .rph{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
           min-height:200px; color:#8b8790; font-size:12.5px; text-align:center; padding:20px; }
@@ -582,11 +582,11 @@ export default function ReviewSendDrawer({
         .rfacts b{ font-weight:650; color:#1c1b1f; text-align:right }
         .rmono{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.02em }
 
-        .rbubble{ background:#fff; border:1px solid #ededf0; border-radius:14px; padding:12px 14px;
+        .rbubble{ background:#fff; border:1px solid #ededf0; border-radius:var(--opus-radius-medium); padding:12px 14px;
           box-shadow:0 1px 2px rgba(20,18,30,.05); }
         .rbtext{ font-size:13.5px; line-height:1.55; color:#1c1b1f; white-space:pre-wrap }
         .rbfoot{ margin-top:8px; font-size:11px; color:#b6b2ba }
-        .rbbtn{ border:1px solid #ededf0; border-radius:10px; padding:8px; text-align:center;
+        .rbbtn{ border:1px solid #ededf0; border-radius:var(--opus-radius-small); padding:8px; text-align:center;
           font-size:12.5px; font-weight:600; color:#2E7D55; background:#fff; }
 
         .rchecks{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px }
@@ -605,7 +605,7 @@ export default function ReviewSendDrawer({
         .rlink:hover{ text-decoration:underline }
 
         .rerr{ display:flex; flex-direction:column; gap:4px; background:#fcecec; border:1px solid #f3d2d2;
-          border-radius:12px; padding:12px 14px; font-size:12.5px; color:#c0392b; }
+          border-radius:var(--opus-radius-small); padding:12px 14px; font-size:12.5px; color:#c0392b; }
         .rerr b{ font-size:13px; font-weight:700 }
 
         .rdone{ display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center;

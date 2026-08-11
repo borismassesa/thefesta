@@ -145,7 +145,7 @@ export default async function JobDetailPage({ params, searchParams }: Props) {
               ))}
             </ol>
           </ContentSection>
-          <section className="rounded-[28px] bg-[#E3F0D6] p-7 md:p-9">
+          <section className="rounded-[var(--opus-radius-large)] bg-[#E3F0D6] p-7 md:p-9">
             <h2 className="text-2xl font-medium tracking-tight">
               A fair, respectful process
             </h2>
@@ -162,7 +162,7 @@ export default async function JobDetailPage({ params, searchParams }: Props) {
         </div>
 
         <aside className="lg:sticky lg:top-28 lg:self-start">
-          <div className="rounded-[28px] border border-black/10 bg-white p-6 shadow-[0_18px_50px_rgba(0,0,0,0.06)]">
+          <div className="rounded-[var(--opus-radius-large)] border border-black/10 bg-white p-6 shadow-[0_18px_50px_rgba(0,0,0,0.06)]">
             <h2 className="text-lg font-medium">Role at a glance</h2>
             <dl className="mt-5 divide-y divide-black/10 text-sm">
               <Fact icon={MapPin} label="Location" value={job.location} />
@@ -202,7 +202,7 @@ export default async function JobDetailPage({ params, searchParams }: Props) {
               Apply now <ArrowRight className="h-4 w-4" />
             </Link>
             <form action={toggleCandidateSavedJob.bind(null, job.id, 'save')}>
-              <button className="mt-2 min-h-11 w-full rounded-full border border-black/15 px-5 text-sm font-semibold">
+              <button data-opus-button="control" className="mt-2 min-h-11 w-full rounded-full border border-black/15 px-5 text-sm font-semibold">
                 Save to candidate portal
               </button>
             </form>

@@ -145,7 +145,11 @@ export default function CollectorCustomizeClient({
     // Pinned to exactly 100vh with overflow-hidden so the page body is never
     // itself a scroll candidate alongside the editor column below it.
     <div className="-mx-3 -my-6 bg-[#FBF7F2] sm:-mx-4 lg:-mx-6 lg:-my-8 lg:h-screen lg:overflow-hidden">
-      <div className="grid lg:h-full lg:grid-cols-[minmax(0,440px)_1fr]">
+      {/* grid-cols-1 with min-w-0 children: grid items default to
+          min-width:auto, so without it the editor column refused to shrink
+          below its content's min-content width (~522px) and hung 147px off
+          the side of a phone screen with no way to scroll to it. */}
+      <div className="grid grid-cols-1 lg:h-full lg:grid-cols-[minmax(0,440px)_1fr]">
         {/* Editor column. data-lenis-prevent: the root SmoothScrollProvider
             (Lenis) hijacks wheel events on the whole app and calls
             preventDefault on them unless the target is inside an
@@ -153,9 +157,13 @@ export default function CollectorCustomizeClient({
             does nothing and only dragging the native scrollbar works. */}
         <div
           data-lenis-prevent
-          className="border-b border-black/[0.06] bg-white lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r"
+          className="min-w-0 border-b border-black/[0.06] bg-white lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r"
         >
-          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-black/[0.06] bg-white/90 px-5 py-3.5 backdrop-blur">
+          {/* Sticky only where the editor column is its own scroll area. On
+              phones the whole page scrolls under the dashboard's top bar,
+              which is also top-0 but z-30, so a sticky header here just slid
+              underneath it and disappeared. */}
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-black/[0.06] bg-white/90 px-5 py-3.5 backdrop-blur lg:sticky lg:top-0">
             <Link
               href="/my/dashboard/guests"
               className="inline-flex items-center gap-1.5 text-sm font-medium text-[#1A1A1A]/60 hover:text-[#1A1A1A]"
@@ -224,7 +232,7 @@ export default function CollectorCustomizeClient({
                     <div className="min-w-0 flex-1 truncate rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-xs text-[#1A1A1A]/80">
                       {previewUrl.replace(/^https?:\/\//, '')}
                     </div>
-                    <button
+                    <button data-opus-button="neutral" data-opus-button-size="small"
                       type="button"
                       onClick={copyLink}
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-black/[0.18] bg-white px-3 py-2 text-xs font-semibold text-[#1A1A1A] hover:bg-black/[0.03]"
@@ -233,7 +241,12 @@ export default function CollectorCustomizeClient({
                     </button>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  {/* Deliberately nowrap: with flex-wrap the line break is
+                      decided from each item's max-content width, so the QR
+                      block dropped to its own row before it ever got a chance
+                      to shrink. Nowrap keeps the pair together and lets the QR
+                      caption reflow into the space that's left. */}
+                  <div className="flex items-center gap-2">
                     <a
                       href={waHref ?? '#'}
                       target="_blank"
@@ -244,12 +257,19 @@ export default function CollectorCustomizeClient({
                     </a>
 
                     {qr ? (
-                      <div className="ml-auto flex shrink-0 items-center gap-2.5 rounded-xl border border-black/[0.1] bg-black/[0.015] p-2">
+                      // min-w-0 (not shrink-0) is what lets this share the row:
+                      // it can give up width to fit beside the button instead
+                      // of forcing a wrap.
+                      <div className="ml-auto flex min-w-0 items-center gap-2.5 rounded-xl border border-black/[0.1] bg-black/[0.015] p-2">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={qr} alt="QR code for the Contact Collector link" className="h-12 w-12 shrink-0" />
-                        <div className="space-y-0.5 text-[11px] text-[#1A1A1A]/55">
+                        <img
+                          src={qr}
+                          alt="QR code for the Contact Collector link"
+                          className="h-11 w-11 shrink-0 sm:h-12 sm:w-12"
+                        />
+                        <div className="min-w-0 space-y-0.5 text-[11px] text-[#1A1A1A]/55">
                           <p className="flex items-center gap-1 font-semibold text-[#1A1A1A]">
-                            <QrCode className="h-3 w-3" /> Scan to open
+                            <QrCode className="h-3 w-3 shrink-0" /> Scan to open
                           </p>
                           <p>For a printed table card</p>
                         </div>
@@ -272,7 +292,7 @@ export default function CollectorCustomizeClient({
         </div>
 
         {/* Live preview column */}
-        <div className="lg:h-full">
+        <div className="min-w-0 lg:h-full">
           <div className="dash-header-safe flex min-h-[58px] flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] bg-white/70 px-5 py-3 backdrop-blur">
             <p className="text-xs font-medium uppercase tracking-wide text-[#1A1A1A]/45">Live preview</p>
             <div className="shrink-0">
@@ -293,13 +313,15 @@ export default function CollectorCustomizeClient({
                     {previewUrl.replace(/^https?:\/\//, '')}
                   </div>
                 </div>
+                {/* Stacked under the editor on phones, so a full-viewport
+                    frame would bury the form it previews. Only the side-by-side
+                    layout gets the tall frame. */}
                 <iframe
                   ref={iframeRef}
                   src={previewUrl}
                   title="Collector page preview"
                   onLoad={() => postConfig(cfgRef.current)}
-                  className="w-full bg-white"
-                  style={{ height: 'calc(100vh - 138px)' }}
+                  className="h-[65vh] w-full bg-white lg:h-[calc(100vh-138px)]"
                 />
               </div>
             ) : (

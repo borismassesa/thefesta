@@ -118,7 +118,7 @@ export function DesignCarousel({
         )}
 
         {onFavourite && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onFavourite}
             aria-label={favourited ? 'Remove from favourites' : 'Add to favourites'}
@@ -141,7 +141,7 @@ export function DesignCarousel({
           {slides.map((slide, i) => {
             const thumbActive = i === activeIndex
             return (
-              <button
+              <button data-opus-button="control"
                 key={`${slide.url}-${i}`}
                 type="button"
                 aria-label={slide.portrait ? 'View card design' : `View card view ${i + 1}`}

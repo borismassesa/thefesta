@@ -58,7 +58,7 @@ export default function GlobalError({
             {error?.message || 'Unknown error'}
             {error?.digest ? `\n\ndigest: ${error.digest}` : ''}
           </pre>
-          <button
+          <button data-opus-button="control"
             onClick={() => reset()}
             style={{
               marginTop: 16,

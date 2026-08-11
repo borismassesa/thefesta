@@ -340,7 +340,7 @@ export default function PublicRsvpForm({
           <Check className="mx-auto h-8 w-8 text-emerald-600" />
           <h2 className="mt-3 text-lg font-semibold text-[#1A1A1A]">{t('submitted_title')}</h2>
           <p className="mt-1 text-sm text-[#1A1A1A]/60">{t('submitted_body')}</p>
-          <button
+          <button data-opus-button="control"
             onClick={() => setSubmitted(false)}
             className="mt-4 text-sm font-semibold text-[#8e57b3] hover:underline"
           >
@@ -402,7 +402,7 @@ export default function PublicRsvpForm({
                             ? t('status_maybe')
                             : t('status_declined')
                       return (
-                        <button
+                        <button data-opus-button="danger" data-opus-button-size="medium"
                           key={s}
                           onClick={() => update(e.invitation.id, { rsvp_status: s })}
                           className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -493,7 +493,7 @@ export default function PublicRsvpForm({
             </div>
           ) : null}
 
-          {!followupMode || hasFollowupQuestions ? <button
+          {!followupMode || hasFollowupQuestions ? <button data-opus-button="primary" data-opus-button-size="large"
             onClick={submit}
             disabled={pending}
             className="w-full rounded-xl bg-[#C9A0DC] px-4 py-3.5 text-sm font-semibold text-[#1A1A1A] transition-colors hover:bg-[#b97fd0] disabled:opacity-50"
@@ -541,7 +541,7 @@ function QuestionField({
             const detailPrompt = opt.description?.trim()
             return (
               <div key={opt.id} className="space-y-2">
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="medium"
                   type="button"
                   onClick={() => onChange({ optionId: opt.id, detailText: active ? value.detailText : '' })}
                   className={`flex w-full items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-sm transition-colors ${

@@ -122,7 +122,7 @@ export default async function VendorPayoutsPage() {
                       className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 outline-none focus:border-gray-400"
                     />
                   </label>
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="submit"
                     className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-gray-800"
                   >

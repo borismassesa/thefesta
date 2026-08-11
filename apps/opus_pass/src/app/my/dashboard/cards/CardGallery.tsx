@@ -83,11 +83,11 @@ export default function CardGallery({ cards }: { cards: GalleryCard[] }) {
 
   return (
     <div>
-      {/* One row on a wide screen. On a phone the search takes its own row and
-          the sort and the buy button share the next, rather than three
-          full-width controls stacked before the cards. */}
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative sm:flex-1">
+      {/* One row at every width. Phones drop the sort control, so the search
+          and the buy button share the line instead of stacking three
+          full-width controls ahead of the cards. */}
+      <div className="mb-5 flex items-center gap-3">
+        <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1A1A1A]/35" />
           <input
             type="search"
@@ -101,12 +101,14 @@ export default function CardGallery({ cards }: { cards: GalleryCard[] }) {
         <label className="sr-only" htmlFor="card-sort">
           Sort cards
         </label>
-        <div className="flex gap-3">
+        <div className="flex shrink-0 gap-3">
+          {/* Hidden on phones so the search keeps a usable width beside the
+              buy button; unchanged from sm up. */}
           <select
             id="card-sort"
             value={sort}
             onChange={(e) => setSort(e.target.value as Sort)}
-            className="min-w-0 flex-1 rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-sm font-medium text-[#1A1A1A] outline-none focus:border-[#7E5896] sm:flex-none"
+            className="hidden min-w-0 flex-1 rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-sm font-medium text-[#1A1A1A] outline-none focus:border-[#7E5896] sm:block sm:flex-none"
           >
             {SORTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -116,12 +118,16 @@ export default function CardGallery({ cards }: { cards: GalleryCard[] }) {
           </select>
           {/* Buying the next card is an action on this list, so it lives on the
               list's own toolbar rather than up in the page header. */}
+          {/* Deliberately smaller than the search beside it on phones: the
+              search is the control you reach for most, so it should read as
+              the primary field rather than tie with the button for width.
+              Full padding, type and wording return from sm up. */}
           <Link
             href="/digital-cards"
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(126,88,150,0.9)] transition-colors hover:bg-[#6b4a80]"
+            className="inline-flex shrink-0 items-center justify-center gap-1 rounded-xl bg-[#7E5896] px-2.5 py-2.5 text-xs font-semibold text-white shadow-[0_10px_24px_-12px_rgba(126,88,150,0.9)] transition-colors hover:bg-[#6b4a80] sm:gap-1.5 sm:px-4 sm:text-sm"
           >
-            <Plus className="h-4 w-4" />
-            Buy another card
+            <Plus className="h-4 w-4 shrink-0" />
+            Buy<span className="hidden sm:inline">&nbsp;another</span>&nbsp;card
           </Link>
         </div>
       </div>
@@ -295,7 +301,7 @@ function HoverAction({
   children: React.ReactNode
 }) {
   return (
-    <button
+    <button data-opus-button="primary" data-opus-button-size="small"
       type="button"
       onClick={onClick}
       disabled={busy}
@@ -318,7 +324,7 @@ function FilterPill({
   children: React.ReactNode
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       aria-pressed={active}
@@ -336,7 +342,7 @@ function FilterPill({
 
 function EmptyState() {
   return (
-    <div className="rounded-[28px] border border-black/[0.06] bg-gradient-to-b from-[#F7F2FA] to-white px-6 py-16 text-center">
+    <div className="rounded-[var(--opus-radius-large)] border border-black/[0.06] bg-gradient-to-b from-[#F7F2FA] to-white px-6 py-16 text-center">
       <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm">
         <Sparkles className="h-6 w-6 text-[#C9A0DC]" />
       </span>

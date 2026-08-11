@@ -118,7 +118,7 @@ export default function ProductEditor({
             {isNew ? 'New card' : product.name || 'Untitled card'}
           </h2>
           {!isNew && (
-            <button
+            <button data-opus-button="danger" data-opus-button-size="small"
               type="button"
               onClick={remove}
               disabled={pending}
@@ -276,7 +276,7 @@ export default function ProductEditor({
                 {error}
               </span>
             )}
-            <button
+            <button data-opus-button="control"
               // ml-auto pins Save to the right, leaving Cancel bottom-left.
               type="button"
               onClick={save}
@@ -347,7 +347,7 @@ function DesignsEditor({ value, onChange }: { value: string[]; onChange: (v: str
               accept="raster"
             />
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => remove(i)}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded mt-5"
@@ -358,7 +358,7 @@ function DesignsEditor({ value, onChange }: { value: string[]; onChange: (v: str
         </div>
       ))}
       {canAdd ? (
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           onClick={add}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-[#7E5896] hover:text-[#5d3a78] px-2.5 py-1.5 rounded-lg border border-[#C9A0DC] hover:bg-[#F0DFF6] transition-colors"

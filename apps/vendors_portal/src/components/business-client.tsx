@@ -23,7 +23,7 @@ export default function BusinessClient({ content }: { content: BusinessContent }
 
   return (
     <section className="px-4 sm:px-6 md:px-10 max-w-6xl mx-auto mb-14 sm:mb-20 md:mb-24">
-      <div className="bg-[#1A1A1A] rounded-[24px] sm:rounded-[32px] md:rounded-[40px] overflow-hidden">
+      <div className="bg-[#1A1A1A] rounded-[var(--opus-radius-large)] sm:rounded-[var(--opus-radius-xlarge)] md:rounded-[var(--opus-radius-xlarge)] overflow-hidden">
         <div className="flex flex-col md:flex-row">
 
           {/* Left — text */}
@@ -154,7 +154,7 @@ export default function BusinessClient({ content }: { content: BusinessContent }
               {/* Dot indicators */}
               <div className="flex justify-center gap-1.5 mt-1">
                 {VENDORS.map((vendor, i) => (
-                  <button
+                  <button data-opus-button="control"
                     key={vendor.id}
                     onClick={() => setIndex(i)}
                     className={`rounded-full transition-all ${i === index ? 'w-4 h-1.5 bg-[var(--accent)]' : 'w-1.5 h-1.5 bg-white/20'}`}

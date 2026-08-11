@@ -193,7 +193,7 @@ export default function PackagesEditor({ initial, hasDraft: initialHasDraft }: P
       <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] space-y-5">
         <div className="flex items-center justify-between">
           <h3 className="text-[15px] font-semibold text-gray-900">Packages & pricing</h3>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => { setDraft(OPUS_PASS_PACKAGES_FALLBACK); setMessage('Reset to defaults — save the draft to keep this.') }}
             className="text-[11px] font-medium text-gray-500 underline underline-offset-2 hover:text-gray-800"
@@ -242,10 +242,10 @@ export default function PackagesEditor({ initial, hasDraft: initialHasDraft }: P
           <div className="flex items-center justify-between px-1">
             <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Tiers ({draft.tiers.length})</p>
             <div className="flex items-center gap-1">
-              <button type="button" onClick={() => setOpenTiers(new Set(draft.tiers.map((_, i) => i)))} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
+              <button data-opus-button="control" type="button" onClick={() => setOpenTiers(new Set(draft.tiers.map((_, i) => i)))} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
                 <ChevronsUpDown className="w-3 h-3" /> Expand all
               </button>
-              <button type="button" onClick={() => setOpenTiers(new Set())} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
+              <button data-opus-button="control" type="button" onClick={() => setOpenTiers(new Set())} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
                 <ChevronsDownUp className="w-3 h-3" /> Collapse all
               </button>
             </div>
@@ -296,7 +296,7 @@ export default function PackagesEditor({ initial, hasDraft: initialHasDraft }: P
                       const Glyph = BADGE_ICON[key]
                       const active = tier.badge_icon === key
                       return (
-                        <button
+                        <button data-opus-button="control"
                           key={key}
                           type="button"
                           onClick={() => setTier(idx, { badge_icon: key })}
@@ -337,9 +337,9 @@ export default function PackagesEditor({ initial, hasDraft: initialHasDraft }: P
                         <GripVertical className="w-3.5 h-3.5 text-gray-300 shrink-0" />
                         <span className="text-[11px] font-semibold text-gray-400">#{bIdx + 1}</span>
                         <div className="ml-auto flex items-center gap-0.5">
-                          <button type="button" onClick={() => moveBullet(idx, bIdx, -1)} disabled={bIdx === 0} className="px-1 text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Move up">↑</button>
-                          <button type="button" onClick={() => moveBullet(idx, bIdx, 1)} disabled={bIdx === tier.includes.length - 1} className="px-1 text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Move down">↓</button>
-                          <button type="button" onClick={() => removeBullet(idx, bIdx)} className="px-1 text-gray-400 hover:text-red-600" aria-label="Remove"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <button data-opus-button="control" type="button" onClick={() => moveBullet(idx, bIdx, -1)} disabled={bIdx === 0} className="px-1 text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Move up">↑</button>
+                          <button data-opus-button="control" type="button" onClick={() => moveBullet(idx, bIdx, 1)} disabled={bIdx === tier.includes.length - 1} className="px-1 text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Move down">↓</button>
+                          <button data-opus-button="control" type="button" onClick={() => removeBullet(idx, bIdx)} className="px-1 text-gray-400 hover:text-red-600" aria-label="Remove"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
@@ -353,7 +353,7 @@ export default function PackagesEditor({ initial, hasDraft: initialHasDraft }: P
                     </div>
                   ))}
                 </div>
-                <button type="button" onClick={() => addBullet(idx)} className="flex items-center gap-1.5 text-[13px] font-medium text-[#7E5896] hover:text-[#5d3a78] px-2.5 py-1.5 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6]">
+                <button data-opus-button="neutral" data-opus-button-size="small" type="button" onClick={() => addBullet(idx)} className="flex items-center gap-1.5 text-[13px] font-medium text-[#7E5896] hover:text-[#5d3a78] px-2.5 py-1.5 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6]">
                   <Plus className="w-3.5 h-3.5" /> Add bullet
                 </button>
               </FieldGroup>
@@ -361,7 +361,7 @@ export default function PackagesEditor({ initial, hasDraft: initialHasDraft }: P
               <p className="text-[11px] text-gray-400">Internal key: <code className="font-mono">{tier.id}</code></p>
             </CollapsibleCard>
           ))}
-          <button type="button" onClick={addTier} className="flex items-center gap-2 text-sm font-medium text-[#7E5896] hover:text-[#5d3a78] px-3 py-2 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6]">
+          <button data-opus-button="neutral" data-opus-button-size="medium" type="button" onClick={addTier} className="flex items-center gap-2 text-sm font-medium text-[#7E5896] hover:text-[#5d3a78] px-3 py-2 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6]">
             <Plus className="w-4 h-4" /> Add tier
           </button>
         </div>
@@ -373,11 +373,11 @@ export default function PackagesEditor({ initial, hasDraft: initialHasDraft }: P
               <div key={a.id} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
                 <input className={inputCls} placeholder="Add-on (EN)" value={a.label} onChange={(e) => setAddon(i, { label: e.target.value })} />
                 <input className={inputCls} placeholder="Add-on (SW)" value={a.label_sw} onChange={(e) => setAddon(i, { label_sw: e.target.value })} />
-                <button type="button" onClick={() => removeAddon(i)} className="px-1.5 text-gray-400 hover:text-red-600" aria-label="Remove"><Trash2 className="w-4 h-4" /></button>
+                <button data-opus-button="control" type="button" onClick={() => removeAddon(i)} className="px-1.5 text-gray-400 hover:text-red-600" aria-label="Remove"><Trash2 className="w-4 h-4" /></button>
               </div>
             ))}
           </div>
-          <button type="button" onClick={addAddon} className="flex items-center gap-1.5 text-[13px] font-medium text-[#7E5896] hover:text-[#5d3a78] px-2.5 py-1.5 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6]">
+          <button data-opus-button="neutral" data-opus-button-size="small" type="button" onClick={addAddon} className="flex items-center gap-1.5 text-[13px] font-medium text-[#7E5896] hover:text-[#5d3a78] px-2.5 py-1.5 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6]">
             <Plus className="w-3.5 h-3.5" /> Add add-on
           </button>
         </FieldGroup>

@@ -775,10 +775,19 @@ export default function GuestsManager({
         />
       ) : null}
 
+      {/* Toolbar wraps on phones: the three shrink-0 buttons alone are wider
+          than a 375px viewport, so nowrap pushed "Add guests" off the right
+          edge with no page scroll to reach it. Single line from sm up, where
+          the row fits as designed.
+
+          The order-* utilities put the two actions on the first row and drop
+          filter + search beneath them on phones, without reshuffling the DOM
+          (so tab order still runs filter, search, upload, add). They reset at
+          sm, where everything shares one line anyway. */}
       {guests.length > 0 ? (
-        <div className="flex flex-nowrap items-center gap-3">
-          <div className="relative shrink-0" ref={filterRef}>
-            <button
+        <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap">
+          <div className="relative order-3 shrink-0 sm:order-none" ref={filterRef}>
+            <button data-opus-button="control"
               type="button"
               onClick={() => setFilterOpen((v) => !v)}
               aria-expanded={filterOpen}
@@ -806,7 +815,7 @@ export default function GuestsManager({
                     RSVP status
                   </span>
                   {rsvpFilter.size > 0 ? (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => setRsvpFilter(new Set())}
                       className="text-xs font-medium text-[#7E5896] hover:text-[#5d3a78]"
@@ -820,7 +829,7 @@ export default function GuestsManager({
                     const checked = rsvpFilter.has(status)
                     return (
                       <li key={status}>
-                        <button
+                        <button data-opus-button="primary" data-opus-button-size="small"
                           type="button"
                           role="menuitemcheckbox"
                           aria-checked={checked}
@@ -846,27 +855,32 @@ export default function GuestsManager({
               </div>
             ) : null}
           </div>
-          <div className="relative flex-1 min-w-0">
+          {/* Shares row one with Filter. The 12rem basis is what pushes the two
+              buttons onto their own row on phones: it leaves too little room
+              for "Upload a spreadsheet" to fit beside it, so the pair wraps
+              together instead of the search collapsing to a few characters. */}
+          <div className="relative order-4 min-w-0 grow basis-48 sm:order-none sm:basis-auto">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1A1A1A]/35" />
             <input
+              type="search"
               className={`${inputClass} pl-9`}
               placeholder={copy.search_placeholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             onClick={() => setImportOpen(true)}
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-black/[0.12] bg-white px-3.5 py-2.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-black/[0.03]"
+            className="order-1 inline-flex shrink-0 items-center gap-2 rounded-xl border border-black/[0.12] bg-white px-3.5 py-2.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-black/[0.03] sm:order-none"
           >
             <Upload className="h-4 w-4" />
             <span>{copy.upload_spreadsheet_cta}</span>
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={openCreate}
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#C9A0DC] px-4 py-2.5 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0]"
+            className="order-2 inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#C9A0DC] px-4 py-2.5 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0] sm:order-none"
           >
             <Plus className="h-4 w-4" /> {copy.add_guests_cta}
           </button>
@@ -907,28 +921,28 @@ export default function GuestsManager({
                 {selected.size} {selected.size === 1 ? 'guest' : 'guests'} selected
               </span>
               <div className="flex items-center gap-2">
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={clearSelection}
                   className="rounded-md px-2 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white"
                 >
                   Clear
                 </button>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={bulkSendCollectorLink}
                   className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20"
                 >
                   <MessageCircle className="h-3.5 w-3.5" /> WhatsApp: Collector link
                 </button>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={bulkSendRsvpReminder}
                   className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20"
                 >
                   <MessageCircle className="h-3.5 w-3.5" /> WhatsApp: RSVP reminder
                 </button>
-                <button
+                <button data-opus-button="danger" data-opus-button-size="small"
                   type="button"
                   onClick={() => setPendingBulkDelete(true)}
                   className="inline-flex items-center gap-1.5 rounded-md bg-rose-500/90 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-500"
@@ -940,7 +954,7 @@ export default function GuestsManager({
           ) : null}
 
           <Card className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="opus-table w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-black/[0.06] align-bottom">
                   <th scope="col" className="w-10 px-4 py-3">
@@ -956,7 +970,7 @@ export default function GuestsManager({
                     />
                   </th>
                   <th scope="col" className="py-3 pr-4">
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={toggleSort}
                       aria-label={`Sort by name, currently ${sortDir === 'asc' ? 'ascending' : 'descending'}`}
@@ -1062,7 +1076,7 @@ export default function GuestsManager({
                           if (!gate || gate.deliverable) return null
                           if (gate.reason === 'missing_phone') return null // already shown above
                           return (
-                            <button
+                            <button data-opus-button="danger" data-opus-button-size="small"
                               type="button"
                               onClick={() => openResolve(g.id)}
                               className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100"
@@ -1090,7 +1104,7 @@ export default function GuestsManager({
                               {formatAddress(g)}
                             </p>
                           ) : (
-                            <button
+                            <button data-opus-button="control"
                               type="button"
                               onClick={() => {
                                 openEdit(g)
@@ -1113,14 +1127,14 @@ export default function GuestsManager({
                             table is for managing the roster, so it keeps only
                             edit + remove. */}
                         <div className="inline-flex gap-1">
-                          <button
+                          <button data-opus-button="control"
                             onClick={() => openEdit(g)}
                             aria-label="Edit"
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-[#1A1A1A]/50 hover:bg-black/[0.05]"
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
-                          <button
+                          <button data-opus-button="control"
                             onClick={() => setPendingDelete(g)}
                             aria-label="Remove"
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50"
@@ -1255,7 +1269,7 @@ export default function GuestsManager({
                 <Upload className="h-4 w-4" /> Choose file
               </Button>
               {importText ? (
-                <button
+                <button data-opus-button="primary" data-opus-button-size="small"
                   type="button"
                   onClick={() => {
                     setImportText('')
@@ -1463,12 +1477,12 @@ function GuestSubNav({
     <nav
       role="tablist"
       aria-label="Guest list views"
-      className="-mx-4 flex flex-wrap items-center gap-x-6 gap-y-2 overflow-x-auto overflow-y-hidden border-b border-black/[0.06] px-4 pb-2 sm:mx-0 sm:px-0"
+      className="no-scrollbar -mx-4 flex items-center gap-x-6 overflow-x-auto overflow-y-hidden border-b border-black/[0.06] px-4 pb-2 [&>*]:shrink-0 [&>*]:whitespace-nowrap sm:mx-0 sm:px-0"
     >
       {items.map((item) => {
         const active = item.id === view
         return (
-          <button
+          <button data-opus-button="control"
             key={item.id}
             type="button"
             role="tab"
@@ -1550,7 +1564,7 @@ function ViewBanner({
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.06] bg-[#FBFAF8] px-4 py-2.5 text-xs text-[#1A1A1A]/70">
       <p className="leading-snug">{copy}</p>
-      <button
+      <button data-opus-button="primary" data-opus-button-size="small"
         type="button"
         onClick={onClear}
         className="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold text-[#1A1A1A]/70 hover:bg-black/[0.05] hover:text-[#1A1A1A]"
@@ -1614,7 +1628,7 @@ function NameRow({
               autoFocus
               onChange={(e) => onChange({ title: e.target.value })}
             />
-            <button
+            <button data-opus-button="control"
               type="button"
               className="text-xs text-[#1A1A1A]/50 underline underline-offset-2 hover:text-[#1A1A1A]/80"
               onClick={() => {
@@ -1758,7 +1772,7 @@ function GuestInfoTab({
             {TICKET_TYPES.map(({ size, label }) => {
               const active = ticketPartyFor(form.max_party_size ?? 1) === size
               return (
-                <button
+                <button data-opus-button="control"
                   key={size}
                   type="button"
                   aria-pressed={active}
@@ -1785,7 +1799,7 @@ function GuestInfoTab({
         <section className="space-y-3 border-t border-black/[0.06] pt-5">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-[#1A1A1A]">Plus one</h4>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={removePlusOne}
               aria-label="Remove plus one"
@@ -1843,7 +1857,7 @@ function GuestInfoTab({
                     onChange={(e) => updateChild(idx, { last_name: e.target.value })}
                   />
                 </Field>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => removeChild(idx)}
                   aria-label="Remove child"

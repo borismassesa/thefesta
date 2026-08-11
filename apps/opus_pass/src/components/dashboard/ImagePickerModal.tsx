@@ -248,7 +248,7 @@ export default function ImagePickerModal({ open, onClose, aspect, title, circula
       <div className="flex max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
         {/* Left rail */}
         <div className="w-44 shrink-0 border-r border-black/[0.08] bg-[#FBFAF8] px-3 py-6 sm:w-52">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setTab('upload')}
             className={cn(
@@ -258,7 +258,7 @@ export default function ImagePickerModal({ open, onClose, aspect, title, circula
           >
             <UploadCloud className="h-4 w-4 shrink-0" /> Upload
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setTab('gallery')}
             className={cn(
@@ -274,7 +274,7 @@ export default function ImagePickerModal({ open, onClose, aspect, title, circula
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between border-b border-black/[0.06] px-6 py-4">
             <h3 className="text-base font-semibold text-[#1A1A1A]">{step === 'crop' ? 'Adjust photo' : title}</h3>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onClose}
               aria-label="Close"
@@ -316,7 +316,7 @@ export default function ImagePickerModal({ open, onClose, aspect, title, circula
                     e.target.value = ''
                   }}
                 />
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="rounded-full bg-[#C9A0DC] px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0]"
@@ -329,7 +329,7 @@ export default function ImagePickerModal({ open, onClose, aspect, title, circula
             {step === 'source' && tab === 'gallery' ? (
               <div className="grid grid-cols-3 gap-3">
                 {GALLERY_IMAGES.map((url) => (
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     key={url}
                     type="button"
                     onClick={() => pickGalleryImage(url)}
@@ -392,14 +392,14 @@ export default function ImagePickerModal({ open, onClose, aspect, title, circula
           <div className="flex items-center justify-end gap-2 border-t border-black/[0.06] px-6 py-4">
             {step === 'crop' ? (
               <>
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="medium"
                   type="button"
                   onClick={() => setStep('source')}
                   className="rounded-full border border-black/[0.18] bg-white px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-black/[0.03]"
                 >
                   Cancel
                 </button>
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="button"
                   onClick={confirmCrop}
                   disabled={saving || !naturalSize}
@@ -409,7 +409,7 @@ export default function ImagePickerModal({ open, onClose, aspect, title, circula
                 </button>
               </>
             ) : (
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 type="button"
                 onClick={onClose}
                 className="rounded-full border border-black/[0.18] bg-white px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-black/[0.03]"

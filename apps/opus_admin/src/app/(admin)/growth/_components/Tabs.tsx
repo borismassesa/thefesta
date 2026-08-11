@@ -32,7 +32,7 @@ export default function Tabs({
     <div className="space-y-4">
       <div className="flex flex-wrap gap-1.5 border-b border-gray-100 pb-px">
         {tabs.map((tab) => (
-          <button
+          <button data-opus-button="control"
             key={tab.key}
             type="button"
             onClick={() => selectTab(tab.key)}

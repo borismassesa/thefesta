@@ -288,7 +288,7 @@ function BudgetWidget({ profile, onSave, onCancel, saving }: {
         </label>
         <div className="flex flex-wrap gap-2">
           {BUDGET_OPTIONS.map(opt => (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               key={opt.value} type="button"
               onClick={() => setRange(r => r === opt.value ? '' : opt.value)}
               className={cn(
@@ -416,7 +416,7 @@ function CategoriesWidget({ profile, onSave, onCancel, saving }: {
         </label>
         <div className="grid grid-cols-2 gap-1.5">
           {CATEGORY_OPTIONS.map(cat => (
-            <button
+            <button data-opus-button="control"
               key={cat.value} type="button" onClick={() => toggle(cat.value)}
               className={cn(
                 'flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-xs font-semibold transition-all text-left',
@@ -457,13 +457,13 @@ function SaveBar({ onSave, onCancel, saving, disabled }: {
 }) {
   return (
     <div className="flex gap-2">
-      <button
+      <button data-opus-button="control"
         type="button" onClick={onCancel}
         className="px-4 py-2 rounded-full border-2 border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
       >
         Cancel
       </button>
-      <button
+      <button data-opus-button="primary" data-opus-button-size="small"
         type="button" onClick={onSave} disabled={saving || disabled}
         className="px-4 py-2 rounded-full bg-(--accent) text-(--on-accent) text-xs font-bold hover:bg-(--accent-hover) transition-colors disabled:opacity-40"
       >
@@ -672,7 +672,7 @@ export default function PlanningClient({ userId, profile: initialProfile }: Prop
                 )}
               >
                 {/* Section header */}
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="button"
                   onClick={() => toggleSection(section.id)}
                   className={cn(
@@ -714,7 +714,7 @@ export default function PlanningClient({ userId, profile: initialProfile }: Prop
                       return (
                         <li key={task.id}>
                           {/* Task row */}
-                          <button
+                          <button data-opus-button="control"
                             type="button"
                             onClick={() => wired ? toggleExpand(task.id) : toggleTask(task.id)}
                             className={cn(

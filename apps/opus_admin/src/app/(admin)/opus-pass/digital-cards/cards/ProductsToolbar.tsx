@@ -133,7 +133,7 @@ export default function ProductsToolbar({
       </label>
 
       {hasFilters && (
-        <button
+        <button data-opus-button="danger" data-opus-button-size="small"
           type="button"
           onClick={() => {
             setQ('')

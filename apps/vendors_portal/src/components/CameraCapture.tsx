@@ -111,7 +111,7 @@ export default function CameraCapture({
           {hint && <p className="text-xs text-gray-500">{hint}</p>}
         </div>
         {onCancel && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => {
               stop()
@@ -168,7 +168,7 @@ export default function CameraCapture({
       <div className="mt-3 flex items-center justify-center gap-2">
         {preview ? (
           <>
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={start}
               disabled={busy}
@@ -177,7 +177,7 @@ export default function CameraCapture({
               <RefreshCw className="h-4 w-4" />
               Retake
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={() => preview && onCapture(preview)}
               disabled={busy}
@@ -188,7 +188,7 @@ export default function CameraCapture({
             </button>
           </>
         ) : !error ? (
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={shoot}
             disabled={!ready || busy}
@@ -198,7 +198,7 @@ export default function CameraCapture({
             {ready ? 'Take photo' : 'Starting camera…'}
           </button>
         ) : (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             onClick={start}
             className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"

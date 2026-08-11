@@ -144,7 +144,7 @@ export default function PledgeConsole({
 
       <div className="mt-6 flex flex-wrap gap-1.5 border-b border-gray-200">
         {TABS.map((t) => (
-          <button
+          <button data-opus-button="control"
             key={t}
             type="button"
             onClick={() => setTab(t)}
@@ -302,7 +302,7 @@ function PledgesTab({
 
       {canWrite ? (
         <div className="mb-4">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setCreating((v) => !v)}
             className="rounded-xl bg-[#7E5896] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#6c4884]"
@@ -327,7 +327,7 @@ function PledgesTab({
       {error ? <p className="mb-3 text-sm text-rose-600">{error}</p> : null}
 
       <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <table className="w-full text-sm">
+        <table className="opus-table w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
               <th className="px-4 py-3">Contributor</th>
@@ -367,7 +367,7 @@ function PledgesTab({
                           placeholder="Amount"
                           className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-sm outline-none focus:border-[#7E5896]"
                         />
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           disabled={pending || !paymentDraft[p.id]}
                           onClick={() => recordPayment(p.id)}
@@ -382,7 +382,7 @@ function PledgesTab({
                   </td>
                   {canWrite ? (
                     <td className="px-4 py-3 text-right">
-                      <button type="button" onClick={() => remove(p.id)} className="text-xs font-medium text-rose-600 hover:underline">
+                      <button data-opus-button="control" type="button" onClick={() => remove(p.id)} className="text-xs font-medium text-rose-600 hover:underline">
                         Delete
                       </button>
                     </td>
@@ -474,7 +474,7 @@ function NewPledgeForm({
         placeholder="Pledged amount"
         className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm"
       />
-      <button
+      <button data-opus-button="control"
         type="button"
         disabled={pending || (!guestContactId && !newName.trim())}
         onClick={submit}
@@ -534,7 +534,7 @@ function ContributorsTab({
     <div className="mt-5">
       {canWrite ? (
         <div className="mb-4">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setAdding((v) => !v)}
             className="rounded-xl bg-[#7E5896] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#6c4884]"
@@ -546,7 +546,7 @@ function ContributorsTab({
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm" />
               <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm" />
               <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm" />
-              <button type="button" disabled={pending || !name.trim()} onClick={add} className="rounded-lg bg-[#7E5896] px-3.5 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
+              <button data-opus-button="control" type="button" disabled={pending || !name.trim()} onClick={add} className="rounded-lg bg-[#7E5896] px-3.5 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
                 Save
               </button>
             </div>
@@ -555,7 +555,7 @@ function ContributorsTab({
       ) : null}
       {error ? <p className="mb-3 text-sm text-rose-600">{error}</p> : null}
       <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <table className="w-full text-sm">
+        <table className="opus-table w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
               <th className="px-4 py-3">Name</th>
@@ -581,7 +581,7 @@ function ContributorsTab({
                   <td className="px-4 py-3 text-gray-600">{g.pledgeInviteCount}</td>
                   {canWrite ? (
                     <td className="px-4 py-3 text-right">
-                      <button type="button" onClick={() => remove(g.id)} className="text-xs font-medium text-rose-600 hover:underline">
+                      <button data-opus-button="control" type="button" onClick={() => remove(g.id)} className="text-xs font-medium text-rose-600 hover:underline">
                         Remove
                       </button>
                     </td>
@@ -647,7 +647,7 @@ function SendTab({
 
         <div className="mt-3 flex gap-1.5">
           {(['whatsapp', 'sms', 'email'] as const).map((c) => (
-            <button
+            <button data-opus-button="control"
               key={c}
               type="button"
               onClick={() => setChannel(c)}
@@ -678,7 +678,7 @@ function SendTab({
         </div>
 
         {canWrite ? (
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={pending || selected.size === 0}
             onClick={sendRequests}
@@ -728,7 +728,7 @@ function ReminderPanel({
 
       <div className="mt-3 flex gap-1.5">
         {(['whatsapp', 'sms', 'email'] as const).map((c) => (
-          <button
+          <button data-opus-button="control"
             key={c}
             type="button"
             onClick={() => setChannel(c)}
@@ -755,7 +755,7 @@ function ReminderPanel({
             <div key={p.id} className="flex items-center justify-between gap-2 border-b border-gray-50 px-3 py-2 text-sm last:border-0">
               <span className="min-w-0 truncate">{p.guestName} owes {formatTzs(p.pledgedAmount - p.amountReceived)}</span>
               {canWrite ? (
-                <button
+                <button data-opus-button="control"
                   type="button"
                   disabled={pending}
                   onClick={() => remind(p)}
@@ -846,7 +846,7 @@ function SettingsTab({
           </div>
         ))}
         {canWrite ? (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setMethods((prev) => [...prev, { label: '', value: '', name: '' }])}
             className="text-xs font-medium text-[#7E5896] hover:underline"
@@ -857,7 +857,7 @@ function SettingsTab({
       </div>
 
       {canWrite ? (
-        <button
+        <button data-opus-button="control"
           type="button"
           disabled={pending}
           onClick={save}

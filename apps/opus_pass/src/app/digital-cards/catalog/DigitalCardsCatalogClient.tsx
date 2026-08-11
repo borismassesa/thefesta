@@ -191,7 +191,7 @@ export default function DigitalCardsCatalogClient({
                 <strong className="font-bold text-[#1A1A1A]">{promoBanner.promo_code || PROMO_CODE}</strong>
               </span>
             </div>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={dismissPromo}
               aria-label="Dismiss promotion"
@@ -270,7 +270,7 @@ export default function DigitalCardsCatalogClient({
               <p className="mt-1 text-[13px] text-[#1A1A1A]/55">
                 Try a different search or clear the filters.
               </p>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={clearFilters}
                 className="mt-4 inline-flex items-center rounded-full bg-[var(--accent)] px-6 py-2.5 text-[13px] font-bold text-[var(--on-accent)] hover:bg-[var(--accent-hover)]"
@@ -294,7 +294,7 @@ export default function DigitalCardsCatalogClient({
           )}
           {hasMore && !autoLoading && (
             <div className="mt-10 flex justify-center">
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="large"
                 type="button"
                 onClick={loadMore}
                 className="inline-flex items-center rounded-full border border-[#1A1A1A]/20 bg-white px-7 py-3 text-[13px] font-bold text-[#1A1A1A] transition-colors hover:border-[#1A1A1A]"
@@ -330,7 +330,7 @@ function SortToggle({
   label: string
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       aria-pressed={active}
@@ -380,7 +380,7 @@ function FilterMenu<T extends string>({
 
   return (
     <div ref={ref} className="relative shrink-0">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
@@ -401,7 +401,7 @@ function FilterMenu<T extends string>({
           className="absolute right-0 z-20 mt-2 max-h-72 w-52 overflow-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
         >
           {options.map((o) => (
-            <button
+            <button data-opus-button="control"
               key={o.key}
               type="button"
               role="option"
@@ -445,7 +445,7 @@ export function CategoryStrip({ items }: { items: StyleStripItem[] }) {
         {/* Arrows flank the row (outside the circles), not overlapping them, and
             only appear on hover or while scrolling. */}
         <div className="group flex items-center gap-2 sm:gap-3">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={scrollPrev}
             disabled={progress <= 1}
@@ -486,7 +486,7 @@ export function CategoryStrip({ items }: { items: StyleStripItem[] }) {
             ))}
           </div>
 
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={scrollNext}
             disabled={progress >= 99}
@@ -595,7 +595,7 @@ export function ProductCard({
         )}
 
         {/* Heart button — stays put (above zoom layer) */}
-        <button
+        <button data-opus-button="control"
           type="button"
           aria-label={favourited ? 'Remove from favourites' : 'Add to favourites'}
           aria-pressed={favourited}

@@ -132,12 +132,12 @@ export default function CareersOpenRoles({
         </div>
 
         {jobs.length > 0 && (
-          <div className="mb-14 rounded-[28px] border border-black/10 bg-[#F4F4F0] p-5 md:p-6">
+          <div className="mb-14 rounded-[var(--opus-radius-large)] border border-black/10 bg-[#F4F4F0] p-5 md:p-6">
             <div className="mb-4 flex items-center justify-between">
               <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-black/55">
                 <SlidersHorizontal className="h-4 w-4" /> Filter roles
               </span>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={resetFilters}
                 className="text-sm font-medium underline-offset-4 hover:underline"
@@ -175,7 +175,7 @@ export default function CareersOpenRoles({
         )}
 
         {matches === 0 ? (
-          <div className="rounded-[36px] bg-[#191919] px-7 py-16 text-center text-white md:px-12">
+          <div className="rounded-[var(--opus-radius-xlarge)] bg-[#191919] px-7 py-16 text-center text-white md:px-12">
             <p className="mb-3 text-2xl font-medium tracking-tight">
               {jobs.length === 0
                 ? 'No open roles right now.'
@@ -212,7 +212,7 @@ export default function CareersOpenRoles({
                     return (
                       <article
                         key={job.id}
-                        className="group rounded-[24px] border border-black/10 bg-[#F7F7F3] p-5 transition hover:border-black/25 hover:bg-[#F1F0EB] md:p-7"
+                        className="group rounded-[var(--opus-radius-large)] border border-black/10 bg-[#F7F7F3] p-5 transition hover:border-black/25 hover:bg-[#F1F0EB] md:p-7"
                       >
                         <div className="flex items-start justify-between gap-5">
                           <Link
@@ -254,7 +254,7 @@ export default function CareersOpenRoles({
                               )}
                             </div>
                           </Link>
-                          <button
+                          <button data-opus-button="control"
                             type="button"
                             onClick={() => toggleSaved(job.id)}
                             aria-label={

@@ -14,7 +14,7 @@ export default function RegistryBagButton({ variant = 'dark' }: { variant?: 'lig
 
   return (
     <>
-      <button
+      <button data-opus-button="control"
         onClick={() => setOpen(true)}
         aria-label="Your cart"
         className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${

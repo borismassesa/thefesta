@@ -50,7 +50,7 @@ export default function CatalogGiftCard({
         </div>
         <div className="flex-1" />
         <div className="mt-3 flex items-center gap-1.5">
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             onClick={() => onAdd(gift)}
             disabled={busy}
@@ -58,7 +58,7 @@ export default function CatalogGiftCard({
           >
             <Plus className="h-3.5 w-3.5" /> {busy ? 'Adding…' : 'Add'}
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             onClick={() => onEdit(gift)}
             className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-black/[0.12] px-3 text-xs font-semibold text-[#1A1A1A]/70 transition-colors hover:bg-black/[0.04]"

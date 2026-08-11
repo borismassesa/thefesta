@@ -103,7 +103,7 @@ export default async function CommissionAnalyticsPage(props: {
               <p className="mt-3 text-sm text-gray-500">No designer profiles yet.</p>
             ) : (
               <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[640px] text-sm">
+                <table className="opus-table w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wider text-gray-500">
                       <th className="pb-2 font-semibold">Designer</th>

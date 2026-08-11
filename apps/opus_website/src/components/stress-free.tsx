@@ -72,7 +72,7 @@ export default function StressFree() {
 
       {/* CTA — after reading content + proof */}
       <div className="flex justify-center sm:justify-start mt-10 sm:mt-12">
-        <button className="w-full sm:w-auto bg-[#1A1A1A] hover:bg-[#333333] text-white px-8 py-3.5 sm:py-4 rounded-full font-bold transition-colors text-sm sm:text-base">
+        <button data-opus-button="primary" data-opus-button-size="large" className="w-full sm:w-auto bg-[#1A1A1A] hover:bg-[#333333] text-white px-8 py-3.5 sm:py-4 rounded-full font-bold transition-colors text-sm sm:text-base">
           Start planning today
         </button>
       </div>

@@ -144,7 +144,7 @@ export default function BridalCollectionPage() {
             ))}
           </div>
           <div className="mt-8 flex justify-center">
-            <button className="border border-gray-300 text-gray-900 font-medium px-6 py-2.5 rounded-full hover:bg-gray-50 transition text-sm">
+            <button data-opus-button="control" className="border border-gray-300 text-gray-900 font-medium px-6 py-2.5 rounded-full hover:bg-gray-50 transition text-sm">
               Show more
             </button>
           </div>
@@ -160,7 +160,7 @@ export default function BridalCollectionPage() {
             ))}
           </div>
           <div className="mt-8 flex justify-center">
-            <button className="border border-gray-300 text-gray-900 font-medium px-6 py-2.5 rounded-full hover:bg-gray-50 transition text-sm">
+            <button data-opus-button="control" className="border border-gray-300 text-gray-900 font-medium px-6 py-2.5 rounded-full hover:bg-gray-50 transition text-sm">
               Show more
             </button>
           </div>

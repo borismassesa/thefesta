@@ -189,7 +189,7 @@ function ProposalPanel({ open, sending, draft, packages, venueSuggestions, onTog
   const t = usePortalT('leads')
   return (
     <div className="rounded-xl border border-gray-100 overflow-hidden">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onToggle}
         className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
@@ -330,10 +330,10 @@ function ProposalPanel({ open, sending, draft, packages, venueSuggestions, onTog
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+            <button data-opus-button="control" type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
               {t('proposal_cancel_button')}
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="small"
               type="button"
               disabled={sending || !draft.invoiceAmount || Number(draft.invoiceAmount) <= 0}
               onClick={onSend}
@@ -372,10 +372,10 @@ function DeclinePanel({ reason, loading, onReasonChange, onCancel, onConfirm }: 
         className="w-full resize-none rounded-lg border border-red-200 bg-white px-3 py-2 text-sm focus:outline-none focus:border-red-400 transition-colors"
       />
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+        <button data-opus-button="control" type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
           {t('decline_cancel_button')}
         </button>
-        <button
+        <button data-opus-button="danger" data-opus-button-size="small"
           type="button"
           disabled={loading}
           onClick={onConfirm}
@@ -562,7 +562,7 @@ function ProposalStateCard({
             <p className="text-sm text-amber-900 whitespace-pre-wrap">{inquiryDetail.proposal_counter_message}</p>
           )}
           <div className="flex flex-wrap justify-end gap-2 pt-1">
-            <button
+            <button data-opus-button="danger" data-opus-button-size="medium"
               type="button"
               disabled={acceptingCounter}
               onClick={onDecline}
@@ -570,7 +570,7 @@ function ProposalStateCard({
             >
               {t('counter_decline_button')}
             </button>
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               disabled={acceptingCounter}
               onClick={onCounterBack}
@@ -578,7 +578,7 @@ function ProposalStateCard({
             >
               {t('counter_back_button')}
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={acceptingCounter}
               onClick={onAcceptCounter}
@@ -739,7 +739,7 @@ function SortMenu({
   const [open, setOpen] = useState(false)
   return (
     <div className="relative">
-      <button
+      <button data-opus-button="control"
         type="button"
         aria-label={t('sort_aria_label')}
         aria-haspopup="menu"
@@ -755,7 +755,7 @@ function SortMenu({
       </button>
       {open && (
         <>
-          <button
+          <button data-opus-button="control"
             type="button"
             aria-hidden="true"
             tabIndex={-1}
@@ -767,7 +767,7 @@ function SortMenu({
             className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
           >
             {(Object.keys(sortLabel) as SortOption[]).map((option) => (
-              <button
+              <button data-opus-button="control"
                 key={option}
                 type="button"
                 role="menuitemradio"
@@ -1162,7 +1162,7 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                     const isActive = active === tab
                     const count = tabCounts[tab]
                     return (
-                      <button
+                      <button data-opus-button="control"
                         key={tab}
                         type="button"
                         title={buildTabHint(t)[tab]}
@@ -1193,7 +1193,7 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                   <div className="relative flex-1">
                     <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
-                      type="text"
+                      type="search"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder={t('search_placeholder')}
@@ -1221,7 +1221,7 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                 ) : (
                   visibleInquiries.map((row) => (
                     <li key={row.id}>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => { setSelected(row.id); setReplyOpen(false) }}
                         className={cn(
@@ -1284,7 +1284,7 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                         </div>
                       )}
                     </div>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       disabled={isSampleData}
                       onClick={() => setReplyOpen((o) => !o)}
@@ -1351,7 +1351,7 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                         <div className="flex items-end gap-2">
                           {/* WhatsApp-style "+" attach menu — sits at the left of the text box */}
                           <div className="relative shrink-0">
-                            <button
+                            <button data-opus-button="control"
                               type="button"
                               onClick={() => setReplyMenuOpen((o) => !o)}
                               disabled={sending || replyFiles.length >= 6}
@@ -1365,13 +1365,13 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                             </button>
                             {replyMenuOpen && (
                               <>
-                                <button type="button" aria-hidden="true" tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setReplyMenuOpen(false)} />
+                                <button data-opus-button="control" type="button" aria-hidden="true" tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setReplyMenuOpen(false)} />
                                 <div role="menu" className="absolute bottom-full left-0 z-20 mb-2 w-56 overflow-hidden rounded-2xl border border-gray-100 bg-white py-1.5 shadow-lg">
-                                  <button type="button" role="menuitem" onClick={() => openReplyPicker('photo')} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50">
+                                  <button data-opus-button="control" type="button" role="menuitem" onClick={() => openReplyPicker('photo')} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50">
                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F0DFF6] text-[#7E5896]"><ImageIcon className="w-4 h-4" /></span>
                                     {t('reply_file_photos_videos')}
                                   </button>
-                                  <button type="button" role="menuitem" onClick={() => openReplyPicker('doc')} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50">
+                                  <button data-opus-button="control" type="button" role="menuitem" onClick={() => openReplyPicker('doc')} className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50">
                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-indigo-600"><FileText className="w-4 h-4" /></span>
                                     {t('reply_file_document')}
                                   </button>
@@ -1393,7 +1393,7 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                               <span key={`${file.name}-${i}`} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 max-w-[14rem]">
                                 <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                 <span className="truncate">{file.name}</span>
-                                <button type="button" onClick={() => setReplyFiles((prev) => prev.filter((_, idx) => idx !== i))} aria-label={t('reply_file_remove_label', { filename: file.name })} className="text-gray-400 hover:text-gray-700 shrink-0">
+                                <button data-opus-button="control" type="button" onClick={() => setReplyFiles((prev) => prev.filter((_, idx) => idx !== i))} aria-label={t('reply_file_remove_label', { filename: file.name })} className="text-gray-400 hover:text-gray-700 shrink-0">
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               </span>
@@ -1401,14 +1401,14 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                           </div>
                         )}
                         <div className="mt-3 flex items-center justify-end gap-2">
-                          <button
+                          <button data-opus-button="control"
                             type="button"
                             onClick={() => { setReplyOpen(false); setReplyText(''); setReplyFiles([]) }}
                             className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                           >
                             {t('reply_cancel_button')}
                           </button>
-                          <button
+                          <button data-opus-button="primary" data-opus-button-size="medium"
                             type="button"
                             disabled={sending || (!replyText.trim() && replyFiles.length === 0)}
                             onClick={handleReply}
@@ -1444,7 +1444,7 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                       )}
 
                       <div className="flex items-center gap-2 flex-wrap">
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           disabled={actionLoading}
                           onClick={() => handleStatusChange('booked')}
@@ -1455,7 +1455,7 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                         </button>
 
                         {selectedRow.status !== 'declined' && (
-                          <button
+                          <button data-opus-button="danger" data-opus-button-size="medium"
                             type="button"
                             disabled={actionLoading}
                             onClick={() => { setDeclineOpen((o) => !o); setProposalOpen(false) }}
@@ -1471,7 +1471,7 @@ export default function LeadsClient({ inquiries: initialInquiries, source, vendo
                           </button>
                         )}
 
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           disabled={actionLoading}
                           onClick={handleClose}

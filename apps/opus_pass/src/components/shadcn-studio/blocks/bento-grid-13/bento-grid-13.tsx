@@ -422,11 +422,11 @@ const BentoGrid = ({ content }: { content: GuestsFeaturesContent }) => {
               >
                 <Marquee pauseOnHover reverse duration={30} gap={0.5} className='px-2 py-1.5'>
                   <div className='flex w-58 items-center gap-3 rounded-xl border py-1.5 pr-3 pl-2 hover:shadow-md'>
-                    <Avatar className='size-9.5 rounded-[12px] after:border-0'>
+                    <Avatar className='size-9.5 rounded-[var(--opus-radius-small)] after:border-0'>
                       <AvatarImage
                         src={assetPath('/assets/images/cutesy_couple.jpg')}
                         alt='Neema Abdallah'
-                        className='rounded-[12px]'
+                        className='rounded-[var(--opus-radius-small)]'
                       />
                       <AvatarFallback className='text-xs'>NA</AvatarFallback>
                     </Avatar>
@@ -438,11 +438,11 @@ const BentoGrid = ({ content }: { content: GuestsFeaturesContent }) => {
                   </div>
 
                   <div className='flex w-58 items-center gap-3 rounded-xl border py-1.5 pr-3 pl-2 hover:shadow-md'>
-                    <Avatar className='size-9.5 rounded-[12px] after:border-0'>
+                    <Avatar className='size-9.5 rounded-[var(--opus-radius-small)] after:border-0'>
                       <AvatarImage
                         src={assetPath('/assets/images/churchcouples.jpg')}
                         alt='Amani Mushi'
-                        className='rounded-[12px]'
+                        className='rounded-[var(--opus-radius-small)]'
                       />
                       <AvatarFallback className='text-xs'>AM</AvatarFallback>
                     </Avatar>
@@ -454,11 +454,11 @@ const BentoGrid = ({ content }: { content: GuestsFeaturesContent }) => {
                   </div>
 
                   <div className='flex w-58 items-center gap-3 rounded-xl border py-1.5 pr-3 pl-2 hover:shadow-md'>
-                    <Avatar className='size-9.5 rounded-[12px] after:border-0'>
+                    <Avatar className='size-9.5 rounded-[var(--opus-radius-small)] after:border-0'>
                       <AvatarImage
                         src={assetPath('/assets/images/coupleswithpiano.jpg')}
                         alt='Bakari Temu'
-                        className='rounded-[12px]'
+                        className='rounded-[var(--opus-radius-small)]'
                       />
                       <AvatarFallback className='text-xs'>BT</AvatarFallback>
                     </Avatar>
@@ -472,11 +472,11 @@ const BentoGrid = ({ content }: { content: GuestsFeaturesContent }) => {
 
                 <Marquee pauseOnHover duration={30} gap={0.5} className='px-2 py-1.5'>
                   <div className='flex w-58 items-center gap-3 rounded-xl border py-1.5 pr-3 pl-2 hover:shadow-md'>
-                    <Avatar className='size-9.5 rounded-[12px] after:border-0'>
+                    <Avatar className='size-9.5 rounded-[var(--opus-radius-small)] after:border-0'>
                       <AvatarImage
                         src={assetPath('/assets/images/authentic_couple.jpg')}
                         alt='Joyce Paulo'
-                        className='rounded-[12px]'
+                        className='rounded-[var(--opus-radius-small)]'
                       />
                       <AvatarFallback className='text-xs'>JP</AvatarFallback>
                     </Avatar>
@@ -488,11 +488,11 @@ const BentoGrid = ({ content }: { content: GuestsFeaturesContent }) => {
                   </div>
 
                   <div className='flex w-58 items-center gap-3 rounded-xl border py-1.5 pr-3 pl-2 hover:shadow-md'>
-                    <Avatar className='size-9.5 rounded-[12px] after:border-0'>
+                    <Avatar className='size-9.5 rounded-[var(--opus-radius-small)] after:border-0'>
                       <AvatarImage
                         src={assetPath('/assets/images/couples_together.jpg')}
                         alt='Faith Rwegasira'
-                        className='rounded-[12px]'
+                        className='rounded-[var(--opus-radius-small)]'
                       />
                       <AvatarFallback className='text-xs'>FR</AvatarFallback>
                     </Avatar>
@@ -504,11 +504,11 @@ const BentoGrid = ({ content }: { content: GuestsFeaturesContent }) => {
                   </div>
 
                   <div className='flex w-58 items-center gap-3 rounded-xl border py-1.5 pr-3 pl-2 hover:shadow-md'>
-                    <Avatar className='size-9.5 rounded-[12px] after:border-0'>
+                    <Avatar className='size-9.5 rounded-[var(--opus-radius-small)] after:border-0'>
                       <AvatarImage
                         src={assetPath('/assets/images/beautiful_bride.jpg')}
                         alt='Daniel Lyimo'
-                        className='rounded-[12px]'
+                        className='rounded-[var(--opus-radius-small)]'
                       />
                       <AvatarFallback className='text-xs'>DL</AvatarFallback>
                     </Avatar>
@@ -522,11 +522,11 @@ const BentoGrid = ({ content }: { content: GuestsFeaturesContent }) => {
 
                 <Marquee pauseOnHover reverse duration={30} gap={0.5} className='px-2 py-1.5'>
                   <div className='flex w-58 items-center gap-3 rounded-xl border py-1.5 pr-3 pl-2 hover:shadow-md'>
-                    <Avatar className='size-9.5 rounded-[12px] after:border-0'>
+                    <Avatar className='size-9.5 rounded-[var(--opus-radius-small)] after:border-0'>
                       <AvatarImage
                         src={assetPath('/assets/images/beautyinbride.jpg')}
                         alt='Grace Mremi'
-                        className='rounded-[12px]'
+                        className='rounded-[var(--opus-radius-small)]'
                       />
                       <AvatarFallback className='text-xs'>GM</AvatarFallback>
                     </Avatar>
@@ -538,11 +538,11 @@ const BentoGrid = ({ content }: { content: GuestsFeaturesContent }) => {
                   </div>
 
                   <div className='flex w-58 items-center gap-3 rounded-xl border py-1.5 pr-3 pl-2 hover:shadow-md'>
-                    <Avatar className='size-9.5 rounded-[12px] after:border-0'>
+                    <Avatar className='size-9.5 rounded-[var(--opus-radius-small)] after:border-0'>
                       <AvatarImage
                         src={assetPath('/assets/images/bride_umbrella.jpg')}
                         alt='Peter Kessy'
-                        className='rounded-[12px]'
+                        className='rounded-[var(--opus-radius-small)]'
                       />
                       <AvatarFallback className='text-xs'>PK</AvatarFallback>
                     </Avatar>
@@ -554,11 +554,11 @@ const BentoGrid = ({ content }: { content: GuestsFeaturesContent }) => {
                   </div>
 
                   <div className='flex w-58 items-center gap-3 rounded-xl border py-1.5 pr-3 pl-2 hover:shadow-md'>
-                    <Avatar className='size-9.5 rounded-[12px] after:border-0'>
+                    <Avatar className='size-9.5 rounded-[var(--opus-radius-small)] after:border-0'>
                       <AvatarImage
                         src={assetPath('/assets/images/brideincar.jpg')}
                         alt='Asha Ndossi'
-                        className='rounded-[12px]'
+                        className='rounded-[var(--opus-radius-small)]'
                       />
                       <AvatarFallback className='text-xs'>AN</AvatarFallback>
                     </Avatar>

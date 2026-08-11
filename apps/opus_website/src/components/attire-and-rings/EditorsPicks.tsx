@@ -7,7 +7,7 @@ function PickCard({ pick }: { pick: AttirePickItem }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={pick.img} alt="Editor pick" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
       {pick.has_heart && (
-        <button className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-700 hover:text-red-500 transition-colors z-10" aria-label="Favourite">
+        <button data-opus-button="control" className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-700 hover:text-red-500 transition-colors z-10" aria-label="Favourite">
           <Heart size={16} />
         </button>
       )}

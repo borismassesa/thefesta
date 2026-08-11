@@ -187,7 +187,7 @@ function Navbar({ lang, onPickLang }: { lang: Lang; onPickLang: (l: Lang) => voi
         <Logo />
         <div className="inline-flex overflow-hidden rounded-full text-[11px] font-bold" style={{ border: `1px solid ${BORDER}` }}>
           {(['en', 'sw'] as Lang[]).map((l) => (
-            <button
+            <button data-opus-button="control"
               key={l}
               onClick={() => onPickLang(l)}
               className="px-3 py-1.5 uppercase tracking-wide transition-colors"
@@ -299,7 +299,7 @@ function ClaimReceiptView({
   const hasShop = Boolean(item.shop_name || item.shop_location || item.shop_contact)
   return (
     <div className="relative z-10 w-full max-w-md rounded-t-3xl bg-white p-8 shadow-2xl sm:rounded-2xl">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onClose}
         aria-label={t.receipt_close}
@@ -365,7 +365,7 @@ function ClaimReceiptView({
         </p>
       )}
 
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onClose}
         className="mt-6 w-full rounded-full py-3 text-xs font-bold uppercase tracking-widest text-white transition-opacity hover:opacity-90"
@@ -436,7 +436,7 @@ function ClaimModal({
         <ClaimReceiptView item={item} receipt={receipt} t={t} onClose={onClose} />
       ) : (
         <form onSubmit={onSubmit} className="relative z-10 w-full max-w-md rounded-t-3xl bg-white p-8 shadow-2xl sm:rounded-2xl">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             aria-label={t.cancel}
@@ -510,7 +510,7 @@ function ClaimModal({
             </p>
           ) : null}
           <div className="mt-6 flex gap-3">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onClose}
               className="flex-1 rounded-full py-3 text-xs font-bold uppercase tracking-widest"
@@ -518,7 +518,7 @@ function ClaimModal({
             >
               {t.cancel}
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="large"
               type="submit"
               disabled={pending}
               className="flex-1 rounded-full py-3 text-xs font-bold uppercase tracking-widest transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -644,14 +644,14 @@ function GiftCardMedia({ item, claimed, title }: { item: GiftRegistryItemWithCla
 
       {slides.length > 1 ? (
         <>
-          <button
+          <button data-opus-button="control"
             onClick={prev}
             aria-label="Previous media"
             className="absolute left-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 opacity-0 shadow-sm transition-opacity hover:bg-white group-hover/media:opacity-100"
           >
             <ChevronLeft className="h-3 w-3" style={{ color: INK }} />
           </button>
-          <button
+          <button data-opus-button="control"
             onClick={next}
             aria-label="Next media"
             className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 opacity-0 shadow-sm transition-opacity hover:bg-white group-hover/media:opacity-100"
@@ -660,7 +660,7 @@ function GiftCardMedia({ item, claimed, title }: { item: GiftRegistryItemWithCla
           </button>
           <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
             {slides.map((_, i) => (
-              <button
+              <button data-opus-button="control"
                 key={i}
                 onClick={(e) => {
                   e.preventDefault()
@@ -774,7 +774,7 @@ function GiftCard({
           >
             {remaining}
           </div>
-          <button
+          <button data-opus-button="control"
             onClick={buyable ? onOpenBuy : onOpenClaim}
             disabled={fullyClaimed}
             className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors"
@@ -881,7 +881,7 @@ function ShopGiftCard({ gift, t, onOpenBuy }: { gift: CatalogGift; t: Record<str
           >
             1
           </div>
-          <button
+          <button data-opus-button="control"
             onClick={onOpenBuy}
             className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors"
             style={{ ...sans, backgroundColor: ACCENT, color: INK, cursor: 'pointer' }}
@@ -1076,11 +1076,11 @@ export default function GiftRegistryPublicClient({
                 <div className="relative w-40 sm:w-52">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: SECONDARY }} />
                   <input
+                    type="search"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder={t.search_ph}
                     className="w-full rounded-full py-2 pl-8 pr-3 text-xs outline-none"
-                    style={{ ...sans, border: `1.5px solid ${BORDER}`, color: INK, backgroundColor: '#fff' }}
                   />
                 </div>
                 <FilterSelect value={sortKey} onChange={(v) => setSortKey(v as SortKey)}>

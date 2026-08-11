@@ -94,7 +94,7 @@ export default function DashboardPreview({ slug, hero, copy }: Props) {
           {hasEmpty ? (
             <div className="inline-flex items-center rounded-full border border-gray-200 p-0.5 text-[11px] font-semibold">
               {(['data', 'empty'] as ViewState[]).map((v) => (
-                <button
+                <button data-opus-button="control"
                   key={v}
                   type="button"
                   onClick={() => setView(v)}
@@ -111,7 +111,7 @@ export default function DashboardPreview({ slug, hero, copy }: Props) {
           ) : null}
           <div className="inline-flex items-center rounded-full border border-gray-200 p-0.5 text-[11px] font-semibold">
             {LOCALES.map((l) => (
-              <button
+              <button data-opus-button="control"
                 key={l}
                 type="button"
                 onClick={() => setLocale(l)}

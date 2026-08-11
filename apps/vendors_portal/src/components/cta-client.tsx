@@ -15,7 +15,7 @@ export default function CtaClient({ content }: { content: CtaContent }) {
   return (
     <section className="px-4 sm:px-6 md:px-10 max-w-6xl mx-auto mb-14 sm:mb-20 md:mb-24">
       <motion.div
-        className="rounded-[24px] sm:rounded-[32px] md:rounded-[40px] overflow-hidden relative min-h-[500px] sm:min-h-[560px] md:min-h-[600px] flex flex-col items-center justify-center text-center py-16 sm:py-20 md:py-24 px-6 sm:px-10 md:px-16"
+        className="rounded-[var(--opus-radius-large)] sm:rounded-[var(--opus-radius-xlarge)] md:rounded-[var(--opus-radius-xlarge)] overflow-hidden relative min-h-[500px] sm:min-h-[560px] md:min-h-[600px] flex flex-col items-center justify-center text-center py-16 sm:py-20 md:py-24 px-6 sm:px-10 md:px-16"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true, amount: 0.1 }}

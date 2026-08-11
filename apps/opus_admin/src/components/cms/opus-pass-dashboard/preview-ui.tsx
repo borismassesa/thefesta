@@ -261,15 +261,14 @@ export function DividedStat({
 export function PreviewSearch({ placeholder }: { placeholder: string }) {
   return (
     <div className="relative flex-1 min-w-0">
-      <span className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1A1A1A]/35">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
-      </span>
-      <div className="w-full rounded-xl border border-black/[0.12] bg-white px-3.5 py-2.5 pl-9 text-sm text-[#1A1A1A]/35">
-        {placeholder}
-      </div>
+      <input
+        type="search"
+        readOnly
+        tabIndex={-1}
+        aria-label={placeholder}
+        placeholder={placeholder}
+        className="w-full"
+      />
     </div>
   )
 }

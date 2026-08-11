@@ -218,7 +218,7 @@ function RosterTable({ roster, canAdmin, month }: { roster: RosterRow[]; canAdmi
           </Link>
         </div>
       </div>
-      <table className="w-full min-w-[900px] text-[12px]">
+      <table className="opus-table w-full min-w-[900px] text-[12px]">
         <thead>
           <tr className="border-b border-gray-100 text-left text-gray-500">
             <th className="px-4 py-2 font-medium">Staff</th>
@@ -347,7 +347,7 @@ function OutreachLog({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
         <div className="text-[12px] text-gray-500">Every vendor touch point, even if it didn&apos;t convert.</div>
         {canWrite && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setShowAdd(true)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-2 text-sm font-semibold text-white hover:bg-[#6c4884]"
@@ -358,7 +358,7 @@ function OutreachLog({
         )}
       </div>
 
-      <table className="w-full min-w-[1100px] text-[12px]">
+      <table className="opus-table w-full min-w-[1100px] text-[12px]">
         <thead>
           <tr className="border-b border-gray-100 text-left text-gray-500">
             <th className="px-4 py-2 font-medium">Date</th>
@@ -489,7 +489,7 @@ function LogRowItem({
       <td className="whitespace-nowrap px-3 py-2 text-right">
         {editing ? (
           <div className="flex justify-end gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={commit}
               disabled={isPending}
@@ -497,7 +497,7 @@ function LogRowItem({
             >
               Save
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setEditing(false)}
               className="text-[11px] font-medium text-gray-500 hover:underline"
@@ -507,14 +507,14 @@ function LogRowItem({
           </div>
         ) : (
           <div className="flex justify-end gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setEditing(true)}
               className="text-[11px] font-semibold text-gray-600 hover:underline"
             >
               Edit
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={remove}
               disabled={isPending}
@@ -601,7 +601,7 @@ function AddContactDrawer({ staffOptions, onClose }: { staffOptions: string[]; o
 
   return (
     <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="Add contact">
-      <button type="button" aria-label="Close" className="flex-1 bg-gray-900/30" onClick={onClose} />
+      <button data-opus-button="control" type="button" aria-label="Close" className="flex-1 bg-gray-900/30" onClick={onClose} />
       <form
         onSubmit={submit}
         className="flex h-full w-full max-w-md flex-col border-l border-gray-100 bg-white shadow-2xl"
@@ -611,7 +611,7 @@ function AddContactDrawer({ staffOptions, onClose }: { staffOptions: string[]; o
             <h2 className="text-base font-semibold text-gray-900">Log an outreach contact</h2>
             <p className="text-xs text-gray-500">Record every vendor touch point, even if it didn't convert.</p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100"
@@ -755,14 +755,14 @@ function AddContactDrawer({ staffOptions, onClose }: { staffOptions: string[]; o
 
         <footer className="border-t border-gray-100 px-5 py-3">
           <div className="flex items-center justify-end gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onClose}
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="submit"
               disabled={isPending}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-2 text-sm font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"

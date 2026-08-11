@@ -84,7 +84,7 @@ export default function OrderTracker({ orderRef }: { orderRef?: string }) {
               className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
             />
             {error && <p className="text-xs text-red-600">{error}</p>}
-            <button
+            <button data-opus-button="primary" data-opus-button-size="large"
               type="submit"
               disabled={busy}
               className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1A1A1A] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-black disabled:opacity-60"

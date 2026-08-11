@@ -50,7 +50,7 @@ export default function InvoiceButton({
 
   return (
     <div>
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="medium"
         type="button"
         onClick={download}
         disabled={busy}

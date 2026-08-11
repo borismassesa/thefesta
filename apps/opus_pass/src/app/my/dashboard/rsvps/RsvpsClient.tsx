@@ -132,7 +132,7 @@ export default function RsvpsClient({
             { id: 'responses', label: 'Responses' },
           ]}
           trailing={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Responses is URL-scoped (?event=) with an all-events view;
                   Setup is per-event local state, so it drives setupEventId
                   directly via onSelect instead of navigating. */}
@@ -147,7 +147,7 @@ export default function RsvpsClient({
                 />
               )}
               {hasResponses ? (
-                <button
+                <button data-opus-button="primary" data-opus-button-size="small"
                   type="button"
                   onClick={downloadReport}
                   className="inline-flex items-center gap-2 rounded-full bg-black/[0.05] px-4 py-2 text-xs font-semibold text-[#1A1A1A] hover:bg-black/[0.08]"

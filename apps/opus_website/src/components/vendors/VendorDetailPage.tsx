@@ -17,7 +17,6 @@ import {
   Heart,
   Upload,
   LayoutGrid,
-  Search,
   Globe,
   Calendar,
   X,
@@ -152,10 +151,10 @@ function VendorHeader({ vendor, onSave, saved }: { vendor: Vendor; onSave: () =>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="p-2 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors">
+          <button data-opus-button="control" className="p-2 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors">
             <Upload className="w-5 h-5" />
           </button>
-          <button
+          <button data-opus-button="control"
             onClick={onSave}
             className={`p-2 border rounded-full transition-colors ${saved ? 'border-(--accent) bg-(--accent)/10 text-(--accent-hover)' : 'border-gray-300 hover:bg-gray-50'}`}
           >
@@ -190,7 +189,7 @@ function VendorTabs({ onPhotos, saved, onSave, active, onActiveChange }: {
       {/* Tabs */}
       <div className="flex items-center gap-6 overflow-x-auto scrollbar-none flex-1 pr-4">
         {VENDOR_TABS.map((tab) => (
-          <button
+          <button data-opus-button="control"
             key={tab}
             onClick={() => handleClick(tab)}
             className={`shrink-0 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
@@ -205,13 +204,13 @@ function VendorTabs({ onPhotos, saved, onSave, active, onActiveChange }: {
       </div>
       {/* Actions */}
       <div className="flex shrink-0 items-center gap-2">
-        <button
+        <button data-opus-button="control"
           aria-label="Share"
           className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-400 transition hover:border-gray-400 hover:text-[#1A1A1A]"
         >
           <Upload size={15} />
         </button>
-        <button
+        <button data-opus-button="control"
           aria-label="Save vendor"
           onClick={onSave}
           className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
@@ -267,7 +266,7 @@ function AboutText({ text }: { text: string }) {
       ) : (
         <p>{preview}&hellip;</p>
       )}
-      <button
+      <button data-opus-button="control"
         type="button"
         className="font-semibold underline mt-2 hover:text-gray-900 transition-colors"
         onClick={() => setExpanded((v) => !v)}
@@ -393,7 +392,7 @@ function VendorAboutSection({ vendor }: { vendor: Vendor }) {
             </div>
           )}
           {/* CTA */}
-          <button className="w-full py-2.5 rounded-full bg-[#1A1A1A] text-white font-semibold text-sm hover:bg-[#333] transition-colors">
+          <button data-opus-button="primary" data-opus-button-size="medium" className="w-full py-2.5 rounded-full bg-[#1A1A1A] text-white font-semibold text-sm hover:bg-[#333] transition-colors">
             Message Vendor
           </button>
         </div>
@@ -608,13 +607,13 @@ function VendorServicesSection({ vendor }: { vendor: Vendor }) {
         <p className="mt-1 text-sm text-gray-500">Everything included when you book {vendor.name}.</p>
       </div>
 
-      <div className="rounded-[20px] border border-gray-100 bg-white shadow-[0_2px_16px_rgba(0,0,0,0.06)] overflow-hidden divide-y divide-gray-100">
+      <div className="rounded-[var(--opus-radius-medium)] border border-gray-100 bg-white shadow-[0_2px_16px_rgba(0,0,0,0.06)] overflow-hidden divide-y divide-gray-100">
         {services.map((service, i) => {
           const open = openIdx === i
           const Icon = getServiceIcon(service)
           return (
             <div key={service}>
-              <button
+              <button data-opus-button="control"
                 onClick={() => setOpenIdx(open ? null : i)}
                 className="flex w-full items-center gap-3 px-6 py-4 text-left transition-colors hover:bg-gray-50"
               >
@@ -669,7 +668,7 @@ function VendorPricingSection({ vendor }: { vendor: Vendor }) {
             return (
               <div
                 key={pkg.label}
-                className={`group relative flex flex-col rounded-[20px] bg-white shadow-[0_2px_16px_rgba(0,0,0,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)] ${
+                className={`group relative flex flex-col rounded-[var(--opus-radius-medium)] bg-white shadow-[0_2px_16px_rgba(0,0,0,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)] ${
                   featured ? 'border-2 border-(--accent)' : 'border border-gray-100'
                 }`}
               >
@@ -723,7 +722,7 @@ function VendorPricingSection({ vendor }: { vendor: Vendor }) {
                   })()}
 
                   {/* CTA */}
-                  <button className={`mt-5 w-full rounded-full py-2.5 text-sm font-semibold transition-colors ${
+                  <button data-opus-button="primary" data-opus-button-size="medium" className={`mt-5 w-full rounded-full py-2.5 text-sm font-semibold transition-colors ${
                     featured
                       ? 'bg-(--accent) text-[#1A1A1A] hover:bg-(--accent-hover)'
                       : 'bg-[#1A1A1A] text-white hover:bg-[#333]'
@@ -877,7 +876,7 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
     <div className="flex flex-col items-center gap-4">
       <div className="flex items-center gap-3">
         {[1, 2, 3, 4, 5].map((i) => (
-          <button
+          <button data-opus-button="control"
             key={i}
             type="button"
             onMouseEnter={() => setHovered(i)}
@@ -1003,7 +1002,7 @@ function WriteReviewModal({ vendor, onClose }: { vendor: Vendor; onClose: () => 
               )}
               <p className="text-base font-black text-[#1A1A1A] truncate">{vendor.name}</p>
             </div>
-            <button
+            <button data-opus-button="control"
               onClick={onClose}
               className="ml-4 shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500"
             >
@@ -1079,7 +1078,7 @@ function WriteReviewModal({ vendor, onClose }: { vendor: Vendor; onClose: () => 
                     { val: 'yes' as const, label: 'Yes, it did', sub: 'We found them on OpusFesta' },
                     { val: 'no' as const,  label: 'No, it didn\'t', sub: 'We found them elsewhere' },
                   ]).map(({ val, label, sub }) => (
-                    <button
+                    <button data-opus-button="primary" data-opus-button-size="medium"
                       key={val}
                       type="button"
                       onClick={() => setHelpedHire(val)}
@@ -1141,7 +1140,7 @@ function WriteReviewModal({ vendor, onClose }: { vendor: Vendor; onClose: () => 
                 <p className="text-sm text-gray-400">Photos from your event help couples picture what to expect from this vendor.</p>
               </div>
 
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-(--accent)/5 hover:border-(--accent) transition-all duration-300 py-12 flex flex-col items-center gap-3 group"
@@ -1165,7 +1164,7 @@ function WriteReviewModal({ vendor, onClose }: { vendor: Vendor; onClose: () => 
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-cover" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))}
                           className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black"
@@ -1196,7 +1195,7 @@ function WriteReviewModal({ vendor, onClose }: { vendor: Vendor; onClose: () => 
                   Your review is in our moderation queue. Once our team verifies it, it&rsquo;ll appear publicly on this profile.
                 </p>
               </div>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="large"
                 onClick={onClose}
                 className="mt-2 rounded-full bg-[#1A1A1A] px-10 py-3 text-sm font-bold text-white hover:bg-black/80 transition-colors"
               >
@@ -1212,7 +1211,7 @@ function WriteReviewModal({ vendor, onClose }: { vendor: Vendor; onClose: () => 
             <div className="h-px bg-gray-100 mb-4" />
             <div className="flex items-center justify-between">
               {step > 1 ? (
-                <button
+                <button data-opus-button="control"
                   onClick={() => setStep(s => s - 1)}
                   className="rounded-full border border-gray-200 px-6 py-3 text-sm font-bold text-[#1A1A1A] hover:bg-gray-50 transition-colors"
                 >
@@ -1220,7 +1219,7 @@ function WriteReviewModal({ vendor, onClose }: { vendor: Vendor; onClose: () => 
                 </button>
               ) : <div />}
               {step < totalSteps ? (
-                <button
+                <button data-opus-button="primary" data-opus-button-size="large"
                   onClick={() => setStep(s => s + 1)}
                   disabled={step === 1 ? !step1Valid : step === 2 ? !step2Valid : false}
                   className="rounded-full bg-(--accent) px-8 py-3 text-sm font-bold text-[#1A1A1A] hover:bg-(--accent-hover) transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
@@ -1229,7 +1228,7 @@ function WriteReviewModal({ vendor, onClose }: { vendor: Vendor; onClose: () => 
                 </button>
               ) : (
                 <div className="flex flex-col items-end gap-1.5">
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="large"
                     onClick={handleSubmit}
                     disabled={submitting}
                     className="rounded-full bg-[#1A1A1A] px-8 py-3 text-sm font-bold text-white hover:bg-black/80 transition-colors shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
@@ -1257,7 +1256,7 @@ function ReviewText({ text }: { text: string }) {
   const isLong = text.length > limit
   return (
     <p className="text-sm text-[#1A1A1A] leading-relaxed">
-      {isLong && !expanded ? <>{text.slice(0, limit).trimEnd()}…{' '}<button className="font-semibold underline underline-offset-2 text-[#1A1A1A]" onClick={() => setExpanded(true)}>Read more</button></> : text}
+      {isLong && !expanded ? <>{text.slice(0, limit).trimEnd()}…{' '}<button data-opus-button="control" className="font-semibold underline underline-offset-2 text-[#1A1A1A]" onClick={() => setExpanded(true)}>Read more</button></> : text}
     </p>
   )
 }
@@ -1284,7 +1283,7 @@ function VendorReviewsSection({ vendor }: { vendor: Vendor }) {
           <p className="text-xs text-gray-500 mt-1">
             Be the first couple to share your experience with {vendor.name}.
           </p>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             onClick={() => setShowReviewModal(true)}
             className="mt-4 rounded-full bg-(--accent) px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-(--accent-hover) transition-colors"
           >
@@ -1343,7 +1342,7 @@ function VendorReviewsSection({ vendor }: { vendor: Vendor }) {
             </p>
             <StarRow rating={avg} size={18} />
             <p className="text-sm text-gray-500">{vendor.reviewCount} {vendor.reviewCount === 1 ? 'review' : 'reviews'}</p>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               onClick={() => setShowReviewModal(true)}
               className="mt-3 w-full rounded-full bg-(--accent) px-4 py-2.5 text-sm font-semibold text-[#1A1A1A] hover:bg-(--accent-hover) transition-colors sm:w-auto"
             >
@@ -1354,7 +1353,7 @@ function VendorReviewsSection({ vendor }: { vendor: Vendor }) {
           {/* Bar chart */}
           <div className="flex-1 flex flex-col justify-center gap-3 p-6">
             {dist.map(({ star, pct }) => (
-              <button
+              <button data-opus-button="control"
                 key={star}
                 onClick={() => setFilterStar(filterStar === star ? null : star)}
                 className="flex items-center gap-3 group"
@@ -1405,7 +1404,7 @@ function VendorReviewsSection({ vendor }: { vendor: Vendor }) {
                 </div>
               ))}
             </div>
-            <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+            <button data-opus-button="control" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
               <ChevronRight size={16} className="text-[#1A1A1A]" />
             </button>
           </div>
@@ -1456,17 +1455,14 @@ function VendorReviewsSection({ vendor }: { vendor: Vendor }) {
           {/* Row 1: search + sort */}
           <div className="flex flex-col gap-3 sm:flex-row">
             {/* Search */}
-            <div className="flex min-w-0 flex-1 items-stretch rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm">
+            <div className="min-w-0 flex-1">
               <input
-                type="text"
+                type="search"
                 placeholder="Search reviews"
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setVisible(PAGE_SIZE) }}
-                className="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none"
+                className="w-full min-w-0 bg-transparent px-4 py-2.5 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none"
               />
-              <button className="flex shrink-0 items-center justify-center bg-(--accent) px-4 text-[#1A1A1A] transition hover:bg-(--accent-hover)">
-                <Search size={16} />
-              </button>
             </div>
 
             {/* Sort */}
@@ -1487,7 +1483,7 @@ function VendorReviewsSection({ vendor }: { vendor: Vendor }) {
           <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden">
             <span className="mr-1 shrink-0 whitespace-nowrap text-xs font-semibold text-gray-400">Filter by rating:</span>
             {[5,4,3,2,1].map((s) => (
-              <button
+              <button data-opus-button="control"
                 key={s}
                 onClick={() => { setFilterStar(filterStar === s ? null : s); setVisible(PAGE_SIZE) }}
                 className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
@@ -1501,7 +1497,7 @@ function VendorReviewsSection({ vendor }: { vendor: Vendor }) {
               </button>
             ))}
             {(filterStar || searchQuery) && (
-              <button
+              <button data-opus-button="control"
                 onClick={() => { setFilterStar(null); setSearchQuery(''); setVisible(PAGE_SIZE) }}
                 className="ml-1 shrink-0 whitespace-nowrap text-xs font-semibold text-gray-400 hover:text-[#1A1A1A] underline underline-offset-2 transition-colors"
               >
@@ -1591,7 +1587,7 @@ function VendorReviewsSection({ vendor }: { vendor: Vendor }) {
                   <Users size={16} className="shrink-0 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-500">Any questions?</p>
-                    <button
+                    <button data-opus-button="control"
                       onClick={() => document.getElementById('vendor-contact')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                       className="text-sm font-bold text-[#1A1A1A] underline underline-offset-2"
                     >
@@ -1615,7 +1611,7 @@ function VendorReviewsSection({ vendor }: { vendor: Vendor }) {
           <p className="text-xs text-gray-400 font-medium">
             Showing {Math.min(visible, filtered.length)} of {filtered.length} reviews
           </p>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="large"
             onClick={() => setVisible((v) => v + PAGE_SIZE)}
             className="group flex items-center gap-2 rounded-full bg-[#1A1A1A] px-8 py-3 text-sm font-bold text-white hover:bg-black/80 transition-all shadow-sm hover:shadow-md"
           >
@@ -1647,12 +1643,12 @@ function VendorFaqSection({ vendor }: { vendor: Vendor }) {
         </p>
       </div>
 
-      <div className="rounded-[20px] border border-gray-100 bg-white shadow-[0_2px_16px_rgba(0,0,0,0.06)] overflow-hidden divide-y divide-gray-100">
+      <div className="rounded-[var(--opus-radius-medium)] border border-gray-100 bg-white shadow-[0_2px_16px_rgba(0,0,0,0.06)] overflow-hidden divide-y divide-gray-100">
         {faqs.map((faq, i) => {
           const open = openIdx === i
           return (
             <div key={i}>
-              <button
+              <button data-opus-button="control"
                 onClick={() => setOpenIdx(open ? null : i)}
                 className="flex w-full items-start gap-4 px-6 py-5 text-left transition-colors hover:bg-gray-50"
               >
@@ -1686,7 +1682,7 @@ function VendorFaqSection({ vendor }: { vendor: Vendor }) {
         </div>
         <p className="text-sm text-gray-600">
           Still have questions?{' '}
-          <button
+          <button data-opus-button="control"
             onClick={() => document.getElementById('vendor-contact')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             className="font-semibold text-[#1A1A1A] underline underline-offset-2"
           >
@@ -2010,7 +2006,7 @@ function VendorAvailabilitySection({ vendor }: { vendor: Vendor }) {
 
       {/* Calendar card */}
       <>
-          <div className="rounded-[20px] border border-gray-100 bg-white shadow-[0_2px_16px_rgba(0,0,0,0.06)] p-5 sm:p-6">
+          <div className="rounded-[var(--opus-radius-medium)] border border-gray-100 bg-white shadow-[0_2px_16px_rgba(0,0,0,0.06)] p-5 sm:p-6">
 
             {/* Inline status after a click */}
             {statusMsg && (
@@ -2025,7 +2021,7 @@ function VendorAvailabilitySection({ vendor }: { vendor: Vendor }) {
 
             {/* Month grids with flanking nav arrows */}
             <div className="flex items-start gap-3">
-              <button
+              <button data-opus-button="control"
                 onClick={() => setMonthOffset((o) => o - 1)}
                 disabled={!canGoBack}
                 className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1A1A1A] text-white shadow-sm transition hover:bg-[#333] disabled:opacity-25 disabled:cursor-not-allowed"
@@ -2048,7 +2044,7 @@ function VendorAvailabilitySection({ vendor }: { vendor: Vendor }) {
                 ))}
               </div>
 
-              <button
+              <button data-opus-button="control"
                 onClick={() => setMonthOffset((o) => o + 1)}
                 disabled={!canGoForward}
                 className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1A1A1A] text-white shadow-sm transition hover:bg-[#333] disabled:opacity-25 disabled:cursor-not-allowed"
@@ -2220,7 +2216,7 @@ function VendorContactSidebar({ vendor, compact = false }: { vendor: Vendor; com
           >
             Track your request
           </a>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => {
               setStatus('idle')
@@ -2344,7 +2340,7 @@ function VendorContactSidebar({ vendor, compact = false }: { vendor: Vendor; com
           <p className="text-sm text-red-600 rounded-lg bg-red-50 border border-red-200 px-3 py-2">{errorMsg}</p>
         )}
 
-        <button type="submit" disabled={status === 'submitting'}
+        <button data-opus-button="primary" data-opus-button-size="large" type="submit" disabled={status === 'submitting'}
           className={`w-full rounded-full bg-(--accent) font-semibold text-[#1A1A1A] transition-colors hover:bg-(--accent-hover) disabled:opacity-60 disabled:cursor-not-allowed ${
             compact ? 'py-2.5' : 'py-2.5 sm:py-3'
           }`}>
@@ -2679,19 +2675,17 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
           </Link>
 
           {/* Combined search + location bar */}
-          <div className="ml-auto hidden sm:flex items-stretch rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm">
+          <div className="ml-auto hidden items-center gap-2 sm:flex">
             {/* Search field */}
-            <div className="flex items-center px-4 py-2">
+            <div>
               <input
-                type="text"
+                type="search"
                 placeholder="Search by vendor, style or details"
                 className="w-52 bg-transparent text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none lg:w-72"
               />
             </div>
-            {/* Divider */}
-            <div className="w-px self-stretch bg-gray-200" />
             {/* Location field */}
-            <div className="flex flex-col justify-center px-4 py-1.5">
+            <div className="flex h-12 flex-col justify-center rounded-full border border-[#868685] bg-white px-4">
               <span className="text-[10px] font-semibold text-gray-400 leading-none">Location</span>
               <input
                 type="text"
@@ -2699,10 +2693,6 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                 className="mt-0.5 w-32 bg-transparent text-sm font-semibold text-[#1A1A1A] focus:outline-none"
               />
             </div>
-            {/* Search button */}
-            <button className="flex items-center justify-center bg-(--accent) px-4 text-[#1A1A1A] transition hover:bg-(--accent-hover)">
-              <Search size={18} />
-            </button>
           </div>
         </div>
       </div>
@@ -2733,7 +2723,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                 so the videos-first ordering above automatically promotes a
                 reel into the hero slot when the vendor has uploaded any. */}
             {portfolioItems[0] && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => openGallery(portfolioItems[0].kind === 'video' ? 'videos' : 'photos')}
               className="relative overflow-hidden sm:row-span-2"
@@ -2768,7 +2758,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
               return (
                 <>
                   {remainingPhotos.slice(0, 3).map((src, i) => (
-                    <button
+                    <button data-opus-button="control"
                       key={`grid-img-${i}-${src}`}
                       type="button"
                       onClick={() => openGallery('photos')}
@@ -2794,7 +2784,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                         className="h-full w-full object-cover"
                       />
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-black/55 via-black/10 to-transparent" />
-                      <button
+                      <button data-opus-button="control"
                         onClick={() => openGallery('portfolio')}
                         className="absolute bottom-3 right-3 flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 text-[#1A1A1A] shadow-lg transition hover:bg-white"
                       >
@@ -2900,7 +2890,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                   <h2 className="truncate text-sm font-semibold text-[#1A1A1A]">{vendor.name}</h2>
                   <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {galleryTabs.map((tab) => (
-                      <button
+                      <button data-opus-button="control"
                         key={tab.key}
                         type="button"
                         onClick={() => setGalleryTab(tab.key)}
@@ -2916,7 +2906,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="button"
                     onClick={() => setSaved((value) => !value)}
                     className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold transition ${
@@ -2928,14 +2918,14 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                     <Heart size={15} fill={saved ? 'currentColor' : 'none'} />
                     <span className="hidden sm:inline">Save Vendor</span>
                   </button>
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="button"
                     onClick={handleRequestQuoteFromGallery}
                     className="inline-flex items-center rounded-full bg-(--accent) px-4 py-2 text-sm font-semibold text-[#1A1A1A] transition hover:bg-(--accent-hover)"
                   >
                     Request quote
                   </button>
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="button"
                     onClick={closeGallery}
                     className="inline-flex items-center gap-2 rounded-full border border-(--accent)/30 bg-(--accent)/10 px-3 py-2 text-sm font-semibold text-(--accent-hover) transition hover:border-(--accent) hover:bg-(--accent)/18 hover:text-[#1A1A1A]"
@@ -2961,7 +2951,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                       vendor.detailedReviews?.map((review) => (
                         <article
                           key={review.id}
-                          className="rounded-[24px] border border-gray-200 bg-white p-5 shadow-[0_18px_60px_rgba(17,17,17,0.06)]"
+                          className="rounded-[var(--opus-radius-large)] border border-gray-200 bg-white p-5 shadow-[0_18px_60px_rgba(17,17,17,0.06)]"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
@@ -2974,7 +2964,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                         </article>
                       ))
                     ) : (
-                      <div className="rounded-[24px] border border-dashed border-gray-200 bg-[#faf8fb] p-10 text-center text-sm text-gray-500 md:col-span-2">
+                      <div className="rounded-[var(--opus-radius-large)] border border-dashed border-gray-200 bg-[#faf8fb] p-10 text-center text-sm text-gray-500 md:col-span-2">
                         No review highlights available yet.
                       </div>
                     )}
@@ -2982,11 +2972,11 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                 ) : visiblePortfolioItems.length ? (
                   <div className="columns-1 gap-4 md:columns-2">
                     {visiblePortfolioItems.map((item, index) => (
-                      <button
+                      <button data-opus-button="control"
                         key={`${item.kind}-${item.index}-${item.src}`}
                         type="button"
                         onClick={() => openPreview(index)}
-                        className="group mb-4 block w-full break-inside-avoid overflow-hidden rounded-[18px] border border-gray-100 bg-[#f8f6f2] text-left shadow-[0_12px_40px_rgba(17,17,17,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_50px_rgba(17,17,17,0.08)]"
+                        className="group mb-4 block w-full break-inside-avoid overflow-hidden rounded-[var(--opus-radius-medium)] border border-gray-100 bg-[#f8f6f2] text-left shadow-[0_12px_40px_rgba(17,17,17,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_50px_rgba(17,17,17,0.08)]"
                       >
                         {item.kind === 'video' ? (
                           <div className="group relative">
@@ -3023,7 +3013,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-[24px] border border-dashed border-gray-200 bg-[#faf8fb] p-10 text-center text-sm text-gray-500">
+                  <div className="rounded-[var(--opus-radius-large)] border border-dashed border-gray-200 bg-[#faf8fb] p-10 text-center text-sm text-gray-500">
                     No {galleryTab} assets available yet.
                   </div>
                 )}
@@ -3043,7 +3033,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                     <div className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-[0.18em] uppercase text-white/85">
                       {previewIndex !== null ? `${previewIndex + 1} / ${visiblePortfolioItems.length}` : ''}
                     </div>
-                    <button
+                    <button data-opus-button="neutral" data-opus-button-size="medium"
                       type="button"
                       onClick={closePreview}
                       className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/16"
@@ -3056,7 +3046,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
 
                   <div className="relative mt-4 flex min-h-0 flex-1 items-center justify-center">
                     {visiblePortfolioItems.length > 1 && (
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={showPreviousPreview}
                         className="absolute left-0 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 focus:outline-none sm:left-2"
@@ -3066,7 +3056,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                       </button>
                     )}
 
-                    <div className="relative flex h-full w-full max-w-6xl items-center justify-center overflow-hidden rounded-[28px]">
+                    <div className="relative flex h-full w-full max-w-6xl items-center justify-center overflow-hidden rounded-[var(--opus-radius-large)]">
                       {previewItem.kind === 'video' ? (
                         <video
                           src={previewItem.src}
@@ -3087,7 +3077,7 @@ export default function VendorDetailPage({ vendor }: { vendor: Vendor }) {
                     </div>
 
                     {visiblePortfolioItems.length > 1 && (
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={showNextPreview}
                         className="absolute right-0 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 focus:outline-none sm:right-2"

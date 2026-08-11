@@ -74,7 +74,7 @@ export default function PoliciesPage() {
 
           <div className="mt-5 flex flex-wrap items-center gap-2 mb-4">
             {DEPOSIT_PRESETS.map((p) => (
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 key={p}
                 type="button"
                 onClick={() => update({ depositPercent: p })}

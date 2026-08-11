@@ -178,7 +178,7 @@ export default function RequestTypesView({
             <RequestTypeStat label="Total" value={categories.length} accent="#5B2D8E" />
           </div>
 
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="small"
             type="button"
             onClick={() => { setEditing({ draft: blankDraft(), isNew: true }); setError(null) }}
             className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-xs font-bold uppercase tracking-wider text-white shadow-[0_12px_24px_-16px_rgba(5,150,105,0.9)] transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 xl:w-auto"
@@ -213,7 +213,7 @@ export default function RequestTypesView({
             </div>
             <div className="inline-flex shrink-0 rounded-lg border border-gray-200 bg-gray-50 p-0.5">
               {STATUS_FILTERS.map((option) => (
-                <button
+                <button data-opus-button="control"
                   key={option}
                   type="button"
                   onClick={() => setStatus(option)}
@@ -370,7 +370,7 @@ function RequestTypeRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-1 md:justify-end">
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           disabled={busy}
           onClick={onEdit}
@@ -379,7 +379,7 @@ function RequestTypeRow({
           <FilePenLine className="h-3.5 w-3.5" />
           Edit
         </button>
-        <button
+        <button data-opus-button="danger" data-opus-button-size="small"
           type="button"
           disabled={busy}
           onClick={onToggle}
@@ -432,11 +432,11 @@ function Editor({
           {isNew ? 'New request type' : `Editing ${draft.label || draft.key}`}
         </p>
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" onClick={onCancel} disabled={busy}
+          <button data-opus-button="control" type="button" onClick={onCancel} disabled={busy}
             className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50">
             Cancel
           </button>
-          <button type="button" onClick={onSave} disabled={busy}
+          <button data-opus-button="control" type="button" onClick={onSave} disabled={busy}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
             {busy ? 'Saving…' : isNew ? 'Create type' : 'Save changes'}
           </button>
@@ -485,7 +485,7 @@ function Editor({
                 const Icon = ICONS[k]
                 const on = draft.iconKey === k
                 return (
-                  <button key={k} type="button" onClick={() => set({ iconKey: k })}
+                  <button data-opus-button="control" key={k} type="button" onClick={() => set({ iconKey: k })}
                     aria-label={k} aria-pressed={on}
                     className={cn('inline-flex h-9 w-9 items-center justify-center rounded-lg border transition',
                       on ? 'border-[#7E5896] ring-2 ring-[#C9A0DC]' : 'border-gray-200 hover:border-gray-300')}
@@ -550,15 +550,15 @@ function Editor({
                 Required
               </label>
               <div className="flex items-end gap-1 pb-1">
-                <button type="button" onClick={() => move(i, -1)} aria-label="Move up"
+                <button data-opus-button="control" type="button" onClick={() => move(i, -1)} aria-label="Move up"
                   className="rounded p-1.5 text-gray-400 hover:bg-gray-50 hover:text-gray-700">
                   <ArrowUp className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" onClick={() => move(i, 1)} aria-label="Move down"
+                <button data-opus-button="control" type="button" onClick={() => move(i, 1)} aria-label="Move down"
                   className="rounded p-1.5 text-gray-400 hover:bg-gray-50 hover:text-gray-700">
                   <ArrowDown className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" aria-label={`Remove ${f.label || 'field'}`}
+                <button data-opus-button="control" type="button" aria-label={`Remove ${f.label || 'field'}`}
                   onClick={() => set({ fields: draft.fields.filter((_, idx) => idx !== i) })}
                   className="rounded p-1.5 text-gray-400 hover:bg-gray-50 hover:text-rose-600">
                   <X className="h-3.5 w-3.5" />
@@ -568,7 +568,7 @@ function Editor({
           ))}
         </div>
         <div className="border-t border-gray-100 p-3">
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="small"
             type="button"
             onClick={() => set({ fields: [...draft.fields, { id: '', label: '', kind: 'text' }] })}
             className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs font-semibold text-[#5B2D8E] hover:border-[#C9A0DC] hover:bg-[#F8EDFF]"

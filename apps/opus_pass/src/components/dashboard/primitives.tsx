@@ -1,15 +1,17 @@
-import type { ReactNode } from 'react'
-import { cn } from '@/lib/utils'
-import type { RsvpStatus } from '@/lib/dashboard/types'
+import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
+import type { RsvpStatus } from '@/lib/dashboard/types';
+import { opusBadgeClass, type OpusBadgeTone } from '@opusfesta/lib';
+import { CircleAlert, CircleCheck, CircleX, Info } from 'lucide-react';
 
 export function Card({
   children,
   className,
   id,
 }: {
-  children: ReactNode
-  className?: string
-  id?: string
+  children: ReactNode;
+  className?: string;
+  id?: string;
 }) {
   return (
     <div
@@ -21,7 +23,7 @@ export function Card({
     >
       {children}
     </div>
-  )
+  );
 }
 
 export function StatCard({
@@ -31,19 +33,28 @@ export function StatCard({
   icon,
   accent,
 }: {
-  label: string
-  value: string | number
-  hint?: string
-  icon?: ReactNode
-  accent?: boolean
+  label: string;
+  value: string | number;
+  hint?: string;
+  icon?: ReactNode;
+  accent?: boolean;
 }) {
   return (
     <Card className={cn('p-5', accent && 'border-[#1A1A1A]/15')}>
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[#1A1A1A]/50">{label}</p>
-          <p className="mt-1.5 text-3xl font-bold tracking-tight text-[#1A1A1A]">{value}</p>
-          {hint ? <p className="mt-1 text-xs text-[#1A1A1A]/50">{hint}</p> : null}
+        {/* min-w-0 lets this column shrink below its content width. Without it
+            a long value (a TZS total, say) forced the card wider than its grid
+            cell and pushed the icon out past the card edge on phones. */}
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#1A1A1A]/50">
+            {label}
+          </p>
+          <p className="mt-1.5 break-words text-2xl font-bold tracking-tight text-[#1A1A1A] sm:text-3xl">
+            {value}
+          </p>
+          {hint ? (
+            <p className="mt-1 text-xs text-[#1A1A1A]/50">{hint}</p>
+          ) : null}
         </div>
         {icon ? (
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/[0.05] text-[#1A1A1A]/70">
@@ -52,7 +63,7 @@ export function StatCard({
         ) : null}
       </div>
     </Card>
-  )
+  );
 }
 
 export function SectionTitle({
@@ -60,51 +71,66 @@ export function SectionTitle({
   subtitle,
   action,
 }: {
-  title: string
-  subtitle?: string
-  action?: ReactNode
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
 }) {
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight text-[#1A1A1A]">{title}</h2>
-        {subtitle ? <p className="mt-0.5 text-sm text-[#1A1A1A]/55">{subtitle}</p> : null}
+        <h2 className="text-lg font-semibold tracking-tight text-[#1A1A1A]">
+          {title}
+        </h2>
+        {subtitle ? (
+          <p className="mt-0.5 text-sm text-[#1A1A1A]/55">{subtitle}</p>
+        ) : null}
       </div>
       {action}
     </div>
-  )
+  );
 }
 
-const STATUS_STYLES: Record<RsvpStatus, string> = {
-  attending: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  declined: 'bg-rose-50 text-rose-700 ring-rose-600/20',
-  maybe: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-  pending: 'bg-neutral-100 text-neutral-600 ring-neutral-500/20',
-}
+const STATUS_TONES: Record<RsvpStatus, OpusBadgeTone> = {
+  attending: 'success',
+  declined: 'error',
+  maybe: 'warning',
+  pending: 'info',
+};
+
+const STATUS_ICONS: Record<OpusBadgeTone, typeof Info> = {
+  error: CircleX,
+  info: Info,
+  success: CircleCheck,
+  warning: CircleAlert,
+  neutral: Info,
+};
 
 const STATUS_TEXT: Record<RsvpStatus, string> = {
   attending: 'Attending',
   declined: 'Declined',
   maybe: 'Maybe',
   pending: 'Awaiting',
-}
+};
 
-export function StatusPill({ status, className }: { status: RsvpStatus; className?: string }) {
+export function StatusPill({
+  status,
+  className,
+}: {
+  status: RsvpStatus;
+  className?: string;
+}) {
+  const tone = STATUS_TONES[status];
+  const StatusIcon = STATUS_ICONS[tone];
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
-        STATUS_STYLES[status],
-        className
-      )}
-    >
-      {STATUS_TEXT[status]}
+    <span className={cn(opusBadgeClass({ tone, size: 'small' }), className)}>
+      <StatusIcon aria-hidden="true" />
+      <span className="opus-badge__label">{STATUS_TEXT[status]}</span>
     </span>
-  )
+  );
 }
 
 export function ProgressBar({ value }: { value: number }) {
-  const clamped = Math.max(0, Math.min(100, value))
+  const clamped = Math.max(0, Math.min(100, value));
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-black/[0.06]">
       <div
@@ -112,7 +138,7 @@ export function ProgressBar({ value }: { value: number }) {
         style={{ width: `${clamped}%` }}
       />
     </div>
-  )
+  );
 }
 
 export function EmptyState({
@@ -121,10 +147,10 @@ export function EmptyState({
   description,
   action,
 }: {
-  icon?: ReactNode
-  title: string
-  description?: string
-  action?: ReactNode
+  icon?: ReactNode;
+  title: string;
+  description?: string;
+  action?: ReactNode;
 }) {
   return (
     <Card className="flex flex-col items-center justify-center px-6 py-14 text-center">
@@ -139,5 +165,5 @@ export function EmptyState({
       ) : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </Card>
-  )
+  );
 }

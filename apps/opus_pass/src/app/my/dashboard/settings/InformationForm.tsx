@@ -132,7 +132,7 @@ function ConnectedAccounts() {
         {!isLoaded ? null : google ? (
           <>
             <p className="mb-2 text-sm font-semibold text-[#1A1A1A]">Currently connected</p>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={disconnect}
               disabled={pending}
@@ -142,7 +142,7 @@ function ConnectedAccounts() {
             </button>
           </>
         ) : (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={connect}
             disabled={pending}

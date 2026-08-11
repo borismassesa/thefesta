@@ -270,7 +270,7 @@ export default function PledgeForm({
                 ) : null}
               </dl>
 
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => {
                   setName('')
@@ -353,7 +353,7 @@ export default function PledgeForm({
                       const active = ticketType === value
                       const label = value === 2 ? t('ticket_double') : t('ticket_single')
                       return (
-                        <button
+                        <button data-opus-button="control"
                           key={value}
                           type="button"
                           aria-pressed={active}
@@ -403,7 +403,7 @@ export default function PledgeForm({
                   />
                 </Field>
 
-                <button
+                <button data-opus-button="primary" data-opus-button-size="large"
                   type="submit"
                   disabled={pending}
                   style={{ backgroundColor: cfg.accent, color: onAccent }}

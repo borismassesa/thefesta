@@ -140,7 +140,7 @@ export default function PayrollClient({
               {runs.map((r) => {
                 const active = r.id === selectedRunId
                 return (
-                  <button
+                  <button data-opus-button="secondary" data-opus-button-size="medium"
                     type="button"
                     key={r.id}
                     onClick={() => setSelectedRunId(r.id)}
@@ -223,7 +223,7 @@ function CurrentRunCard({ run, lines }: { run: PayrollRun; lines: EmpLine[] }) {
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill tone={STATUS_TONE[run.status]} label={run.status} />
           {run.status !== 'Paid' && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={recompute}
               disabled={pending}
@@ -233,7 +233,7 @@ function CurrentRunCard({ run, lines }: { run: PayrollRun; lines: EmpLine[] }) {
               Recompute totals
             </button>
           )}
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => downloadPayrollCsv(run, lines)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -242,7 +242,7 @@ function CurrentRunCard({ run, lines }: { run: PayrollRun; lines: EmpLine[] }) {
             Download report
           </button>
           {primaryLabel && (
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={() => transitionTo(primaryLabel.next)}
               disabled={pending}
@@ -333,7 +333,7 @@ function PayrollBreakdown({ run, lines }: { run: PayrollRun; lines: EmpLine[] })
           <h3 className="text-sm font-semibold text-gray-900">Line items — {run.period}</h3>
           <p className="text-xs text-gray-500">{lines.length} employees · TZS gross / deductions / net</p>
         </div>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => downloadPayrollCsv(run, lines)}
           className="text-xs font-semibold text-[#7E5896] hover:underline"
@@ -341,7 +341,7 @@ function PayrollBreakdown({ run, lines }: { run: PayrollRun; lines: EmpLine[] })
           Export CSV
         </button>
       </div>
-      <div
+      <div data-opus-table-header
         role="row"
         className="grid min-w-[680px] grid-cols-[minmax(0,2fr)_120px_120px_120px_140px] items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-gray-500"
       >
@@ -352,7 +352,7 @@ function PayrollBreakdown({ run, lines }: { run: PayrollRun; lines: EmpLine[] })
         <span className="text-right">Net</span>
       </div>
       {lines.map((l) => (
-        <div
+        <div data-opus-table-row
           key={l.employee.id}
           role="row"
           className="grid min-w-[680px] grid-cols-[minmax(0,2fr)_120px_120px_120px_140px] items-center gap-3 border-b border-gray-100 px-5 py-3 last:border-b-0"
@@ -392,7 +392,7 @@ function StartRunButton() {
   return (
     <div className="flex items-center gap-2">
       {error && <span className="text-[11px] font-medium text-rose-700">{error}</span>}
-      <button
+      <button data-opus-button="secondary" data-opus-button-size="small"
         type="button"
         onClick={go}
         disabled={pending}

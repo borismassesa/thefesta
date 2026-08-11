@@ -136,7 +136,7 @@ export default async function ReferencePage({
           I confirm this reference is accurate to the best of my knowledge and
           may be used for this recruitment decision.
         </label>
-        <button className="w-full rounded-full bg-black px-5 py-3 text-sm font-semibold text-white">
+        <button data-opus-button="primary" data-opus-button-size="large" className="w-full rounded-full bg-black px-5 py-3 text-sm font-semibold text-white">
           Submit reference securely
         </button>
       </form>

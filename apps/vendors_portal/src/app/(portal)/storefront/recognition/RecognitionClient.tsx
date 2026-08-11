@@ -328,7 +328,7 @@ export default function RecognitionClient() {
                 <p className="text-xs text-gray-500">
                   {t('accepted_files_hint')}
                 </p>
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="submit"
                   disabled={!title.trim() || !pendingFile}
                   className="inline-flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
@@ -385,7 +385,7 @@ export default function RecognitionClient() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={onSave}
               disabled={saving}
@@ -394,7 +394,7 @@ export default function RecognitionClient() {
               <Save className="w-3.5 h-3.5" />
               {saving ? t('saving_label') : t('save_button')}
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={onNext}
               className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"
@@ -470,7 +470,7 @@ function CertificateRow({
             <ExternalLink className="w-4 h-4" />
           </a>
         ) : null}
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onRemove}
           className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
@@ -523,7 +523,7 @@ function FileDrop({
         className="hidden"
         onChange={(e) => onSelect(e.target.files?.[0] ?? null)}
       />
-      <button
+      <button data-opus-button="primary" data-opus-button-size="small"
         type="button"
         onClick={() => inputRef.current?.click()}
         className="inline-flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
@@ -539,7 +539,7 @@ function FileDrop({
         )}
       </div>
       {file ? (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => onSelect(null)}
           className="shrink-0 p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"

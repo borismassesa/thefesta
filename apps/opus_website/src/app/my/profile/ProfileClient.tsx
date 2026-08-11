@@ -129,7 +129,7 @@ function DeleteModal({ onCancel, onConfirm, deleting }: {
           <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
             <Trash2 className="w-5 h-5 text-red-500" />
           </div>
-          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button data-opus-button="control" onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -138,13 +138,13 @@ function DeleteModal({ onCancel, onConfirm, deleting }: {
           This will permanently delete your profile, wedding details, and all saved data. Your inquiry history with vendors will remain for their records but will no longer be linked to you. This cannot be undone.
         </p>
         <div className="flex gap-3">
-          <button
+          <button data-opus-button="control"
             onClick={onCancel}
             className="flex-1 py-2.5 rounded-full border-2 border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
-          <button
+          <button data-opus-button="danger" data-opus-button-size="medium"
             onClick={onConfirm}
             disabled={deleting}
             className="flex-1 py-2.5 rounded-full bg-red-500 hover:bg-red-600 text-sm font-semibold text-white transition-colors disabled:opacity-60"
@@ -300,7 +300,7 @@ function EditForm({
         <label className={labelCls}>Budget range</label>
         <div className="flex flex-wrap gap-2 mt-1">
           {BUDGET_OPTIONS.map(opt => (
-            <button key={opt.value} type="button"
+            <button data-opus-button="neutral" data-opus-button-size="small" key={opt.value} type="button"
               onClick={() => setBudgetRange(budgetRange === opt.value ? '' : opt.value)}
               className={cn('px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all',
                 budgetRange === opt.value
@@ -318,7 +318,7 @@ function EditForm({
         <label className={labelCls}>Vendor categories</label>
         <div className="grid grid-cols-2 gap-2 mt-1">
           {CATEGORY_OPTIONS.map(cat => (
-            <button key={cat.value} type="button" onClick={() => toggleCat(cat.value)}
+            <button data-opus-button="neutral" data-opus-button-size="small" key={cat.value} type="button" onClick={() => toggleCat(cat.value)}
               className={cn('flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all text-left',
                 categories.has(cat.value)
                   ? 'border-[#1A1A1A] bg-[#1A1A1A] text-white'
@@ -335,11 +335,11 @@ function EditForm({
       {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{error}</p>}
 
       <div className="flex gap-3 pt-2">
-        <button type="button" onClick={onCancel}
+        <button data-opus-button="control" type="button" onClick={onCancel}
           className="flex-1 py-3 rounded-full border-2 border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
           Cancel
         </button>
-        <button type="button" onClick={handleSave} disabled={saving || !partner1Name.trim() || !partner2Name.trim() || !city.trim()}
+        <button data-opus-button="primary" data-opus-button-size="large" type="button" onClick={handleSave} disabled={saving || !partner1Name.trim() || !partner2Name.trim() || !city.trim()}
           className="flex-1 py-3 rounded-full bg-(--accent) text-(--on-accent) hover:bg-(--accent-hover) text-sm font-semibold transition-colors disabled:opacity-40">
           {saving ? 'Saving…' : 'Save changes'}
         </button>
@@ -416,7 +416,7 @@ export default function ProfileClient({ clerkName, clerkEmail, clerkImageUrl, pr
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <h2 className="text-sm font-bold text-[#1A1A1A]">Wedding details</h2>
             {!editing && (
-              <button type="button" onClick={() => setEditing(true)}
+              <button data-opus-button="control" type="button" onClick={() => setEditing(true)}
                 className="flex items-center gap-1.5 text-xs font-semibold text-(--accent) hover:text-(--accent-hover) transition-colors">
                 <Pencil className="w-3.5 h-3.5" />
                 Edit
@@ -460,7 +460,7 @@ export default function ProfileClient({ clerkName, clerkEmail, clerkImageUrl, pr
             ) : (
               <div className="py-8 text-center">
                 <p className="text-sm text-gray-400 mb-4">Complete your wedding profile so vendors have what they need.</p>
-                <button type="button" onClick={() => setEditing(true)}
+                <button data-opus-button="primary" data-opus-button-size="medium" type="button" onClick={() => setEditing(true)}
                   className="inline-flex items-center gap-2 bg-(--accent) text-(--on-accent) hover:bg-(--accent-hover) px-5 py-2.5 rounded-full text-sm font-semibold transition-colors">
                   Set up profile
                 </button>
@@ -494,12 +494,12 @@ export default function ProfileClient({ clerkName, clerkEmail, clerkImageUrl, pr
           {deleteError && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-1">{deleteError}</p>
           )}
-          <button type="button" onClick={() => signOut().then(() => router.push('/')).catch(() => router.push('/'))}
+          <button data-opus-button="control" type="button" onClick={() => signOut().then(() => router.push('/')).catch(() => router.push('/'))}
             className="flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-[#1A1A1A] transition-colors">
             <LogOut className="w-4 h-4" />
             Sign out
           </button>
-          <button type="button" onClick={() => setShowDelete(true)}
+          <button data-opus-button="control" type="button" onClick={() => setShowDelete(true)}
             className="flex items-center gap-2 text-sm font-semibold text-red-400 hover:text-red-600 transition-colors">
             <Trash2 className="w-4 h-4" />
             Delete account

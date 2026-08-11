@@ -169,7 +169,7 @@ export default function AddonsFaqEditor({ initial, hasDraft: initialHasDraft }: 
       <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] space-y-5">
         <div className="flex items-center justify-between">
           <h3 className="text-[15px] font-semibold text-gray-900">Optional add-ons & FAQ</h3>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => { setDraft(OPUS_PASS_PRODUCT_ADDONS_FAQ_FALLBACK); setMessage('Reset to defaults — save the draft to keep this.') }}
             className="text-[11px] font-medium text-gray-500 underline underline-offset-2 hover:text-gray-800"
@@ -221,10 +221,10 @@ export default function AddonsFaqEditor({ initial, hasDraft: initialHasDraft }: 
           <div className="flex items-center justify-between px-1">
             <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Add-ons ({draft.addons.length})</p>
             <div className="flex items-center gap-1">
-              <button type="button" onClick={() => setOpenAddons(new Set(draft.addons.map((_, i) => i)))} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
+              <button data-opus-button="control" type="button" onClick={() => setOpenAddons(new Set(draft.addons.map((_, i) => i)))} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
                 <ChevronsUpDown className="w-3 h-3" /> Expand all
               </button>
-              <button type="button" onClick={() => setOpenAddons(new Set())} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
+              <button data-opus-button="control" type="button" onClick={() => setOpenAddons(new Set())} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
                 <ChevronsDownUp className="w-3 h-3" /> Collapse all
               </button>
             </div>
@@ -359,7 +359,7 @@ export default function AddonsFaqEditor({ initial, hasDraft: initialHasDraft }: 
               <p className="text-[11px] text-gray-400">Internal key: <code className="font-mono">{a.id}</code></p>
             </CollapsibleCard>
           ))}
-          <button type="button" onClick={addAddOn} className="flex items-center gap-2 text-sm font-medium text-[#7E5896] hover:text-[#5d3a78] px-3 py-2 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6]">
+          <button data-opus-button="neutral" data-opus-button-size="medium" type="button" onClick={addAddOn} className="flex items-center gap-2 text-sm font-medium text-[#7E5896] hover:text-[#5d3a78] px-3 py-2 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6]">
             <Plus className="w-4 h-4" /> Add add-on
           </button>
         </div>
@@ -369,10 +369,10 @@ export default function AddonsFaqEditor({ initial, hasDraft: initialHasDraft }: 
           <div className="flex items-center justify-between px-1">
             <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">FAQ accordion ({draft.faq.length})</p>
             <div className="flex items-center gap-1">
-              <button type="button" onClick={() => setOpenFaq(new Set(draft.faq.map((_, i) => i)))} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
+              <button data-opus-button="control" type="button" onClick={() => setOpenFaq(new Set(draft.faq.map((_, i) => i)))} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
                 <ChevronsUpDown className="w-3 h-3" /> Expand all
               </button>
-              <button type="button" onClick={() => setOpenFaq(new Set())} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
+              <button data-opus-button="control" type="button" onClick={() => setOpenFaq(new Set())} className="flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
                 <ChevronsDownUp className="w-3 h-3" /> Collapse all
               </button>
             </div>
@@ -413,7 +413,7 @@ export default function AddonsFaqEditor({ initial, hasDraft: initialHasDraft }: 
               <p className="text-[11px] text-gray-400">Internal key: <code className="font-mono">{item.id}</code></p>
             </CollapsibleCard>
           ))}
-          <button type="button" onClick={addFaqItem} className="flex items-center gap-2 text-sm font-medium text-[#7E5896] hover:text-[#5d3a78] px-3 py-2 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6]">
+          <button data-opus-button="neutral" data-opus-button-size="medium" type="button" onClick={addFaqItem} className="flex items-center gap-2 text-sm font-medium text-[#7E5896] hover:text-[#5d3a78] px-3 py-2 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6]">
             <Plus className="w-4 h-4" /> Add question
           </button>
         </div>

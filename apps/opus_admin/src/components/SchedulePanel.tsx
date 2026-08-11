@@ -7,10 +7,10 @@ export function SchedulePanel() {
       <div className="px-6 flex items-center justify-between mb-6">
         <h3 className="text-lg font-medium text-gray-900">Schedule</h3>
         <div className="flex items-center gap-2">
-          <button className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+          <button data-opus-button="control" className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
             <Search className="w-4 h-4" />
           </button>
-          <button className="px-4 py-1.5 rounded-full border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+          <button data-opus-button="control" className="px-4 py-1.5 rounded-full border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
             See All
           </button>
         </div>
@@ -18,17 +18,17 @@ export function SchedulePanel() {
 
       <div className="px-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-50 text-gray-400 transition-colors">
+          <button data-opus-button="control" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-50 text-gray-400 transition-colors">
             <ChevronLeft className="w-5 h-5" />
           </button>
           <span className="font-semibold text-gray-900 text-sm">October 2024</span>
-          <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-50 text-gray-400 transition-colors">
+          <button data-opus-button="control" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-50 text-gray-400 transition-colors">
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
         <div className="flex items-center justify-between">
-          <button className="w-8 h-8 flex items-center justify-center text-gray-400 hover:bg-gray-50 rounded-lg">
+          <button data-opus-button="control" className="w-8 h-8 flex items-center justify-center text-gray-400 hover:bg-gray-50 rounded-lg">
             <ChevronLeft className="w-4 h-4" />
           </button>
           <div className="flex text-center gap-1">
@@ -53,20 +53,20 @@ export function SchedulePanel() {
               <div className="text-sm font-medium text-gray-900 leading-none">04</div>
             </div>
           </div>
-          <button className="w-8 h-8 flex items-center justify-center text-gray-400 hover:bg-gray-50 rounded-lg">
+          <button data-opus-button="control" className="w-8 h-8 flex items-center justify-center text-gray-400 hover:bg-gray-50 rounded-lg">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       <div className="flex border-b border-gray-100 px-6 gap-6 relative">
-        <button className="text-sm font-semibold text-gray-900 pb-3 border-b-2 border-gray-900 shrink-0">
+        <button data-opus-button="control" className="text-sm font-semibold text-gray-900 pb-3 border-b-2 border-gray-900 shrink-0">
           Meetings
         </button>
-        <button className="text-sm font-medium text-gray-400 hover:text-gray-600 pb-3 shrink-0 transition-colors">
+        <button data-opus-button="control" className="text-sm font-medium text-gray-400 hover:text-gray-600 pb-3 shrink-0 transition-colors">
           Events
         </button>
-        <button className="text-sm font-medium text-gray-400 hover:text-gray-600 pb-3 shrink-0 transition-colors">
+        <button data-opus-button="control" className="text-sm font-medium text-gray-400 hover:text-gray-600 pb-3 shrink-0 transition-colors">
           Holiday
         </button>
       </div>

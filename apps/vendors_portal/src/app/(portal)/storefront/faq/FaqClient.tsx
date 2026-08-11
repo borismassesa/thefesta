@@ -112,7 +112,7 @@ export default function FaqClient() {
               <h2 className="text-base font-semibold text-gray-900 tracking-tight">
                 {t('suggestions_header')}
               </h2>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setShowSuggestions((v) => !v)}
                 className="text-xs font-semibold text-gray-600 hover:text-gray-900"
@@ -126,7 +126,7 @@ export default function FaqClient() {
             <div className="flex flex-wrap gap-2">
               {(showSuggestions ? availableSuggestions : availableSuggestions.slice(0, 4)).map(
                 (q) => (
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="small"
                     key={q}
                     type="button"
                     onClick={() => addFaq(q)}
@@ -148,7 +148,7 @@ export default function FaqClient() {
               <p className="text-sm text-gray-600 max-w-md mx-auto">
                 {t('empty_desc')}
               </p>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 onClick={() => addFaq()}
                 className="inline-flex items-center gap-2 mt-5 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"
@@ -169,7 +169,7 @@ export default function FaqClient() {
                 />
               ))}
 
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 type="button"
                 onClick={() => addFaq()}
                 className="w-full bg-white rounded-2xl border border-dashed border-gray-300 hover:border-gray-500 hover:bg-gray-50 transition-colors py-5 inline-flex items-center justify-center gap-2 text-sm font-semibold text-gray-900"
@@ -193,7 +193,7 @@ export default function FaqClient() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={onSave}
               disabled={saving}
@@ -204,7 +204,7 @@ export default function FaqClient() {
             </button>
             {/* FAQ is the last storefront section — send the vendor back to the
                 storefront overview so they can review completeness and publish. */}
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={() => router.push('/storefront')}
               className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"
@@ -237,7 +237,7 @@ function FaqCard({
         <span className="inline-flex items-center bg-gray-100 text-gray-700 text-xs font-semibold px-2.5 py-1 rounded-full">
           {t('question_index_label', { index })}
         </span>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onRemove}
           aria-label={t('remove_question_aria')}

@@ -86,7 +86,7 @@ function DesignsPicker({ content }: { content: WebsitesDesignsContent }) {
         {/* Tabs */}
         <div className="flex items-center justify-center gap-1 sm:gap-2 mb-8 sm:mb-10 overflow-x-auto px-2 [&::-webkit-scrollbar]:hidden">
           {DESIGN_TABS.map((tab) => (
-            <button
+            <button data-opus-button="control"
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
@@ -299,7 +299,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="border-b border-gray-200 last:border-b-0">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}

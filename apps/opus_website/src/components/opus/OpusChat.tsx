@@ -378,7 +378,7 @@ export default function OpusChat() {
 
   return (
     <>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Close Opus assistant' : 'Open Opus assistant'}
@@ -421,7 +421,7 @@ export default function OpusChat() {
                 {mode === 'bot' ? 'OpusFesta assistant' : mode === 'resolved' ? 'Conversation resolved' : 'Connected to support'}
               </p>
             </div>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close"
@@ -433,7 +433,7 @@ export default function OpusChat() {
 
           {/* Status bar / handoff entry */}
           {mode === 'bot' ? (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setHandoffOpen(true)}
               className="flex w-full items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2.5 text-left hover:bg-gray-100"
@@ -530,7 +530,7 @@ export default function OpusChat() {
                           </span>
                         ) : (
                           <>
-                            <button
+                            <button data-opus-button="control"
                               type="button"
                               onClick={() => rate(i, 'up')}
                               aria-label="Helpful"
@@ -538,7 +538,7 @@ export default function OpusChat() {
                             >
                               <ThumbsUp className="h-3.5 w-3.5" />
                             </button>
-                            <button
+                            <button data-opus-button="control"
                               type="button"
                               onClick={() => rate(i, 'down')}
                               aria-label="Not helpful"
@@ -557,7 +557,7 @@ export default function OpusChat() {
             {showSuggestions && (
               <div className="flex flex-col items-start gap-2 pl-8 pt-1">
                 {SUGGESTIONS.map((s) => (
-                  <button
+                  <button data-opus-button="control"
                     key={s}
                     type="button"
                     onClick={() => send(s)}
@@ -597,14 +597,14 @@ export default function OpusChat() {
                 className="w-full rounded-xl bg-gray-100 px-3 py-2 text-sm text-[#1A1A1A] outline-none placeholder:text-gray-400"
               />
               <div className="flex gap-2">
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="button"
                   onClick={submitHandoff}
                   className="flex-1 rounded-full bg-[#1A1A1A] py-2 text-sm font-bold text-white hover:bg-[#333]"
                 >
                   Connect me
                 </button>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => setHandoffOpen(false)}
                   className="rounded-full px-4 py-2 text-sm font-semibold text-gray-500 hover:bg-gray-100"
@@ -625,7 +625,7 @@ export default function OpusChat() {
                   placeholder={mode === 'human' ? 'Message the team...' : 'Ask Opus anything...'}
                   className="max-h-28 flex-1 resize-none bg-transparent text-sm text-[#1A1A1A] outline-none placeholder:text-gray-400"
                 />
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => send(input)}
                   disabled={busy || !input.trim()}

@@ -473,7 +473,7 @@ export default function ThankYouView({
         <Link role="tab" aria-selected={false} className="stb" href={inviteHref('checkins')}>
           <CalendarCheck size={14} /> Live Check-ins
         </Link>
-        <button role="tab" aria-selected className="stb on" type="button">
+        <button data-opus-button="control" role="tab" aria-selected className="stb on" type="button">
           <HeartHandshake size={14} /> Thank you
           {guests.length > 0 ? <span className="stbcnt">{guests.length}</span> : null}
         </button>
@@ -497,7 +497,7 @@ export default function ThankYouView({
             </div>
             <div>
               <p>{strings.card_uploaded_label}</p>
-              <button type="button" className="linkbtn" disabled={savingCover} onClick={clearCover}>
+              <button data-opus-button="control" type="button" className="linkbtn" disabled={savingCover} onClick={clearCover}>
                 {strings.card_remove}
               </button>
             </div>
@@ -530,7 +530,7 @@ export default function ThankYouView({
                     </div>
                     <p className="cardname">{t.name}</p>
                     {usable ? (
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         className="cardbtn"
                         disabled={savingCover}
@@ -545,11 +545,11 @@ export default function ThankYouView({
                         )}
                       </button>
                     ) : isPending ? (
-                      <button type="button" className="cardbtn cardpendingbtn" disabled>
+                      <button data-opus-button="control" type="button" className="cardbtn cardpendingbtn" disabled>
                         <Clock size={12} /> Payment under review
                       </button>
                     ) : (
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         className="cardbtn cardbuybtn"
                         onClick={() =>
@@ -615,10 +615,10 @@ export default function ThankYouView({
                     <Pencil size={14} /> Edit card
                   </Link>
                 ) : null}
-                <button className="btn ghost" disabled={pending} onClick={() => setPreviewOpen(true)}>
+                <button data-opus-button="control" className="btn ghost" disabled={pending} onClick={() => setPreviewOpen(true)}>
                   <Eye size={14} /> {strings.preview_test}
                 </button>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   className="btn ghost"
                   disabled={savingCover}
@@ -689,21 +689,21 @@ export default function ThankYouView({
           />
           <div className="acts">
             <div className="seg" role="tablist" aria-label="Thank-you status">
-              <button className={`sg ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
+              <button data-opus-button="control" className={`sg ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
                 All{guests.length ? ` ${guests.length}` : ''}
               </button>
-              <button className={`sg ${filter === 'notsent' ? 'on' : ''}`} onClick={() => setFilter('notsent')}>
+              <button data-opus-button="control" className={`sg ${filter === 'notsent' ? 'on' : ''}`} onClick={() => setFilter('notsent')}>
                 Not sent{notSentCount ? ` ${notSentCount}` : ''}
               </button>
-              <button className={`sg ${filter === 'thanked' ? 'on' : ''}`} onClick={() => setFilter('thanked')}>
+              <button data-opus-button="control" className={`sg ${filter === 'thanked' ? 'on' : ''}`} onClick={() => setFilter('thanked')}>
                 Thanked{thankedCount ? ` ${thankedCount}` : ''}
               </button>
             </div>
             {selected.size > 0 ? <span className="selcnt">{fmt(strings.selected_count, { n: selected.size })}</span> : null}
-            <button className="btn ghost" disabled={pending} onClick={() => setPreviewOpen(true)}>
+            <button data-opus-button="control" className="btn ghost" disabled={pending} onClick={() => setPreviewOpen(true)}>
               <Eye size={14} /> {strings.preview_test}
             </button>
-            <button
+            <button data-opus-button="control"
               className="btn send"
               disabled={pending || selected.size === 0}
               onClick={() => stageSend([...selected])}
@@ -716,7 +716,7 @@ export default function ThankYouView({
           <div className="empty">{search.trim() ? strings.empty_search : strings.empty_none}</div>
         ) : (
           <div className="scroll">
-            <table>
+            <table className="opus-table">
               <thead>
                 <tr>
                   <th style={{ width: 30 }}></th>
@@ -752,7 +752,7 @@ export default function ThankYouView({
                     </td>
                     <td>
                       <div className="ra">
-                        <button
+                        <button data-opus-button="control"
                           className="ia send"
                           disabled={pending || !hasPhone(g)}
                           onClick={() => stageSend([g.id])}
@@ -777,11 +777,11 @@ export default function ThankYouView({
             <h3>{strings.confirm_title}</h3>
             <p className="big">{fmt(strings.confirm_body, { n: confirmSend.recipients })}</p>
             <div className="mrow">
-              <button className="btn ghost" onClick={() => setConfirmSend(null)}>{strings.confirm_cancel}</button>
-              <button className="btn ghost" onClick={() => { setConfirmSend(null); setPreviewOpen(true) }}>
+              <button data-opus-button="control" className="btn ghost" onClick={() => setConfirmSend(null)}>{strings.confirm_cancel}</button>
+              <button data-opus-button="control" className="btn ghost" onClick={() => { setConfirmSend(null); setPreviewOpen(true) }}>
                 <Eye size={14} /> {strings.preview_test}
               </button>
-              <button className="btn send" disabled={pending} onClick={runSend}>
+              <button data-opus-button="control" className="btn send" disabled={pending} onClick={runSend}>
                 <MessageCircle size={15} /> {strings.confirm_confirm}
               </button>
             </div>
@@ -795,7 +795,7 @@ export default function ThankYouView({
           <div className="modal wide" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
             <div className="mhead">
               <h3>{strings.preview_title}</h3>
-              <button className="xbtn" onClick={() => setPreviewOpen(false)} aria-label={strings.preview_close}><X size={16} /></button>
+              <button data-opus-button="control" className="xbtn" onClick={() => setPreviewOpen(false)} aria-label={strings.preview_close}><X size={16} /></button>
             </div>
             <p className="mutedp">{strings.preview_note}</p>
             <div className="pgrid">
@@ -810,7 +810,7 @@ export default function ThankYouView({
                       placeholder={strings.test_placeholder}
                       inputMode="tel"
                     />
-                    <button className="btn solid" disabled={testSending || !testPhone.trim()} onClick={sendTest}>
+                    <button data-opus-button="control" className="btn solid" disabled={testSending || !testPhone.trim()} onClick={sendTest}>
                       {testSending ? <Loader2 size={14} className="spin" /> : <MessageCircle size={14} />} {strings.test_send}
                     </button>
                   </div>
@@ -841,7 +841,7 @@ export default function ThankYouView({
           <div className="drawer" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
             <div className="mhead">
               <h3>{strings.results_title}</h3>
-              <button className="xbtn" onClick={() => setReport(null)} aria-label={strings.results_close}><X size={16} /></button>
+              <button data-opus-button="control" className="xbtn" onClick={() => setReport(null)} aria-label={strings.results_close}><X size={16} /></button>
             </div>
             <div className="dsum">
               <span className="ds ok">{report.sent} {strings.results_sent}</span>
@@ -867,11 +867,11 @@ export default function ThankYouView({
             </div>
             <div className="mrow">
               {report.failed > 0 ? (
-                <button className="btn ghost" disabled={pending} onClick={retryFailed}>
+                <button data-opus-button="control" className="btn ghost" disabled={pending} onClick={retryFailed}>
                   <RotateCcw size={14} /> {strings.results_retry}
                 </button>
               ) : null}
-              <button className="btn pri" onClick={() => setReport(null)}>{strings.results_close}</button>
+              <button data-opus-button="control" className="btn pri" onClick={() => setReport(null)}>{strings.results_close}</button>
             </div>
           </div>
         </div>
@@ -903,9 +903,14 @@ const css = `
   .ty .subrow{ width:calc(100% + 15rem); }
 }
 .ty .sub{ color:var(--muted); font-size:14px; max-width:640px; line-height:1.5; }
-.ty .sendtabs{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; margin-top:22px;
-  border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding-top:12px; }
-.ty .stb{ display:inline-flex; align-items:center; gap:7px; margin-bottom:-9px; background:none; border:none;
+/* One scrolling row, not a wrapped stack. The 9px bottom padding matches
+   .stb's -9px margin so the active underline is never clipped. */
+.ty .sendtabs{ display:flex; flex-wrap:nowrap; align-items:center; gap:18px; margin-top:22px;
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding-top:12px;
+  padding-bottom:9px; overflow-x:auto; overflow-y:hidden;
+  scrollbar-width:none; -ms-overflow-style:none; }
+.ty .sendtabs::-webkit-scrollbar{ display:none; }
+.ty .stb{ display:inline-flex; flex:none; white-space:nowrap; align-items:center; gap:7px; margin-bottom:-9px; background:none; border:none;
   border-bottom:2px solid transparent; padding:0 0 14px; color:var(--muted); font-size:14px; font-weight:600; cursor:pointer; text-decoration:none; }
 .ty .stb:hover{ color:var(--ink); }
 .ty .stb.on{ border-bottom-color:var(--ink); color:var(--ink); font-weight:700; }
@@ -913,10 +918,10 @@ const css = `
   border-radius:999px; background:var(--lav-soft); color:var(--purple-d); padding:0 6px; font-size:11px; }
 .ty .stb.on .stbcnt{ background:var(--ink); color:#fff; }
 .ty .gt{ background:#fff; border:1px solid var(--line); border-radius:var(--radius); margin-top:24px; box-shadow:var(--soft); overflow:hidden; }
-.ty .cardpicker{ background:#fff; border:1px solid var(--line); border-radius:20px; margin:22px 0 18px; padding:18px 20px; box-shadow:var(--soft); }
+.ty .cardpicker{ background:#fff; border:1px solid var(--line); border-radius:var(--opus-radius-medium); margin:22px 0 18px; padding:18px 20px; box-shadow:var(--soft); }
 .ty .cphead h2{ font-size:16px; font-weight:700; }
-.ty .curcover{ display:flex; align-items:flex-start; gap:10px; margin-top:14px; padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--hover); }
-.ty .curthumb{ width:56px; height:56px; flex:none; border-radius:8px; overflow:hidden; border:1px solid var(--line); }
+.ty .curcover{ display:flex; align-items:flex-start; gap:10px; margin-top:14px; padding:10px; border:1px solid var(--line); border-radius:var(--opus-radius-small); background:var(--hover); }
+.ty .curthumb{ width:56px; height:56px; flex:none; border-radius:var(--opus-radius-small); overflow:hidden; border:1px solid var(--line); }
 .ty .curthumb img{ width:100%; height:100%; object-fit:cover; display:block; }
 .ty .curcover p{ font-size:13px; font-weight:600; }
 .ty .linkbtn{ border:none; background:none; padding:0; margin-top:4px; font-size:11.5px; font-weight:600; color:var(--bad-tx); cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
@@ -930,9 +935,9 @@ const css = `
 .ty .cardfade{ position:absolute; right:0; top:0; bottom:4px; width:40px; pointer-events:none;
   background:linear-gradient(to left, #fff, transparent); display:none; }
 @media(min-width:1024px){ .ty .cardfade{ display:block; } }
-.ty .cardtile{ position:relative; width:210px; flex:0 0 210px; scroll-snap-align:start; border:1px solid var(--line); border-radius:12px; padding:8px; }
+.ty .cardtile{ position:relative; width:210px; flex:0 0 210px; scroll-snap-align:start; border:1px solid var(--line); border-radius:var(--opus-radius-small); padding:8px; }
 .ty .cardtile.on{ border-color:var(--wa); box-shadow:0 0 0 1px var(--wa); }
-.ty .cardimg{ position:relative; aspect-ratio:5/7; width:100%; border-radius:8px; overflow:hidden; background:var(--hover); }
+.ty .cardimg{ position:relative; aspect-ratio:5/7; width:100%; border-radius:var(--opus-radius-small); overflow:hidden; background:var(--hover); }
 .ty .cardimg img{ width:100%; height:100%; object-fit:cover; display:block; }
 .ty .cardcheck{ position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:50%; background:var(--wa); color:#fff; display:grid; place-items:center; }
 .ty .cardlockbadge{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
@@ -947,7 +952,7 @@ const css = `
 .ty .cardbuybtn{ border-color:var(--ink); background:var(--ink); color:#fff; }
 .ty .cardbuybtn:hover:not(:disabled){ background:var(--ink); opacity:.9; }
 .ty .selectedcard{ display:flex; margin:22px 0 24px; overflow:hidden; background:#fff; border:1px solid var(--line);
-  border-radius:20px; box-shadow:var(--soft); }
+  border-radius:var(--opus-radius-medium); box-shadow:var(--soft); }
 .ty .selectedmedia{ position:relative; width:190px; min-height:266px; flex:none; overflow:hidden; background:linear-gradient(155deg,var(--purple),var(--lav)); }
 .ty .selectedbadge{ position:absolute; left:10px; top:10px; display:inline-flex; align-items:center; gap:5px; border-radius:999px;
   background:rgba(255,255,255,.95); padding:4px 9px; color:var(--ok-tx); font-size:10.5px; font-weight:700; box-shadow:var(--soft); }
@@ -956,7 +961,7 @@ const css = `
 .ty .selectedtop h3{ font-size:19px; font-weight:600; color:var(--ink); }
 .ty .selectedtop p{ margin-top:5px; max-width:620px; color:var(--muted); font-size:13.5px; line-height:1.5; }
 .ty .selectedlinkrow{ display:flex; align-items:center; gap:9px; }
-.ty .selectedlink{ min-width:0; flex:1; border:1px solid var(--line); border-radius:12px; background:#fff; padding:10px 12px;
+.ty .selectedlink{ min-width:0; flex:1; border:1px solid var(--line); border-radius:var(--opus-radius-small); background:#fff; padding:10px 12px;
   color:var(--muted); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ty .selectedlink span{ margin-right:10px; color:var(--faint); font-size:10.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; }
 .ty .selectedlink b{ color:var(--ink); font-weight:700; }
@@ -971,12 +976,10 @@ const css = `
 .ty .tyguesthead + .gth{ border-top:none; }
 .ty .gth{ display:flex; align-items:center; gap:14px; padding:18px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
 .ty .gth h2{ font-size:18px; font-weight:600; }
-.ty .gth .gsearch{ flex:0 1 240px; min-width:150px; border:1px solid var(--line); border-radius:10px;
-  padding:8px 12px; font-size:13px; color:var(--ink); background:#fff; }
-.ty .gth .gsearch:focus{ outline:none; border-color:var(--lav); }
+.ty .gth .gsearch{ flex:0 1 240px; min-width:150px; }
 .ty .gth .acts{ margin-left:auto; display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
 .ty .selcnt{ font-size:12px; font-weight:600; color:var(--purple-d); background:var(--lav-soft); padding:5px 11px; border-radius:999px; }
-.ty .seg{ display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.ty .seg{ display:inline-flex; border:1px solid var(--line); border-radius:var(--opus-radius-small); overflow:hidden; }
 .ty .seg .sg{ display:inline-flex; align-items:center; gap:4px; background:#fff; border:none; padding:8px 12px; font-size:12.5px; font-weight:600; color:var(--muted); cursor:pointer; }
 .ty .seg .sg + .sg{ border-left:1px solid var(--line); }
 .ty .seg .sg.on{ background:var(--lav-soft); color:var(--purple-d); }
@@ -1009,7 +1012,7 @@ const css = `
   font-weight:600; border:1px solid var(--line); background:#fff; }
 .ty .pillselect.pill-whatsapp{ color:#1a8a4a; border-color:#bfe8d2; background-color:#eefaf3; }
 .ty .ra{ display:flex; gap:7px; justify-content:flex-end; align-items:center; }
-.ty .ia{ height:32px; min-width:32px; padding:0 8px; border-radius:9px; border:1px solid var(--line); background:#fff; cursor:pointer;
+.ty .ia{ height:32px; min-width:32px; padding:0 8px; border-radius:var(--opus-radius-small); border:1px solid var(--line); background:#fff; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:600; color:var(--ink); }
 .ty .ia:hover{ background:var(--hover); border-color:var(--lav); }
 .ty .ia:disabled{ opacity:.45; cursor:not-allowed; }
@@ -1019,7 +1022,7 @@ const css = `
 /* Overlays: confirm modal, preview modal, report drawer */
 .ty .ovl{ position:fixed; inset:0; background:rgba(28,27,31,.42); z-index:60; display:flex; align-items:center; justify-content:center; padding:18px; }
 .ty .ovl.right{ justify-content:flex-end; padding:0; }
-.ty .modal{ background:#fff; border-radius:18px; padding:24px; width:min(440px,100%); box-shadow:0 18px 50px rgba(20,18,30,.25); }
+.ty .modal{ background:#fff; border-radius:var(--opus-radius-medium); padding:24px; width:min(440px,100%); box-shadow:0 18px 50px rgba(20,18,30,.25); }
 .ty .modal.wide{ width:min(760px,96vw); max-height:92vh; overflow-y:auto; overscroll-behavior:contain; }
 .ty .pgrid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:16px; align-items:start; }
 @media(max-width:640px){ .ty .pgrid{ grid-template-columns:1fr; } }
@@ -1030,17 +1033,17 @@ const css = `
 .ty .mhead{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .ty .xbtn{ border:none; background:#f3f2f5; color:var(--muted); width:30px; height:30px; border-radius:50%; cursor:pointer;
   display:grid; place-items:center; }
-.ty .wawrap{ margin-top:16px; background:#F3F3F5; border-radius:14px; padding:18px; display:flex; align-items:center; justify-content:center; }
-.ty .wabubble{ background:#fff; border-radius:10px; padding:6px; width:min(340px,100%); margin:0 auto;
+.ty .wawrap{ margin-top:16px; background:#F3F3F5; border-radius:var(--opus-radius-medium); padding:18px; display:flex; align-items:center; justify-content:center; }
+.ty .wabubble{ background:#fff; border-radius:var(--opus-radius-small); padding:6px; width:min(340px,100%); margin:0 auto;
   box-shadow:0 1px 1px rgba(0,0,0,.08); font-size:13.5px; line-height:1.45; }
-.ty .waimg{ position:relative; width:100%; aspect-ratio:4/3; border-radius:7px; overflow:hidden; background:linear-gradient(155deg,var(--purple),var(--lav)); }
-.ty .waimgfull{ display:block; width:100%; height:auto; border-radius:7px; }
+.ty .waimg{ position:relative; width:100%; aspect-ratio:4/3; border-radius:var(--opus-radius-small); overflow:hidden; background:linear-gradient(155deg,var(--purple),var(--lav)); }
+.ty .waimgfull{ display:block; width:100%; height:auto; border-radius:var(--opus-radius-small); }
 .ty .waimg-ph{ position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-family:var(--font-cormorant),Georgia,serif; font-size:18px; }
 .ty .wabody{ padding:9px 6px 4px; color:#111; white-space:normal; }
 .ty .wafoot{ padding:0 6px 8px; color:#8a8a8a; font-size:11px; }
 .ty .testrow label{ font-size:12px; font-weight:600; color:var(--muted); }
 .ty .trow{ display:flex; gap:9px; margin-top:8px; }
-.ty .trow input{ flex:1; border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-size:13px; }
+.ty .trow input{ flex:1; border:1px solid var(--line); border-radius:var(--opus-radius-small); padding:9px 12px; font-size:13px; }
 .ty .trow input:focus{ outline:none; border-color:var(--lav); }
 .ty .drawer{ background:#fff; width:min(420px,94vw); height:100%; padding:22px; overflow-y:auto; display:flex; flex-direction:column;
   box-shadow:-16px 0 40px rgba(20,18,30,.18); animation:ty-slide .18s ease-out; }

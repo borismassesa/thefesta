@@ -202,7 +202,7 @@ export default function HeroEditor({ initial, hasDraft: initialHasDraft }: Props
                 </div>
               )}
               <div className="flex items-center gap-3">
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-2 text-sm font-medium text-gray-700 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
@@ -360,7 +360,7 @@ function HeroPreview({ content }: { content: HeroContent }) {
               onError={() => setMediaError(true)}
               className="w-full h-full object-cover"
             />
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={togglePlay}
               aria-label={playing ? 'Pause preview' : 'Play preview'}

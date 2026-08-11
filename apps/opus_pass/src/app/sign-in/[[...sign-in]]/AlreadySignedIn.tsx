@@ -25,7 +25,7 @@ export default function AlreadySignedIn({ email }: { email: string }) {
       >
         Continue to dashboard
       </Link>
-      <button
+      <button data-opus-button="control"
         type="button"
         disabled={signingOut}
         onClick={() => {

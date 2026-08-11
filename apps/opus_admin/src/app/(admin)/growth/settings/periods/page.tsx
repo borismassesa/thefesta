@@ -52,13 +52,13 @@ export default async function GrowthPeriodsPage() {
           <span className="font-medium text-gray-600">Label</span>
           <input name="label" className="w-full rounded-md border border-gray-200 px-2 py-2" placeholder="Optional; generated when blank" />
         </label>
-        <button className="self-end rounded-md bg-gray-900 px-3 py-2 font-semibold text-white hover:bg-gray-700">
+        <button data-opus-button="primary" data-opus-button-size="medium" className="self-end rounded-md bg-gray-900 px-3 py-2 font-semibold text-white hover:bg-gray-700">
           Create Period
         </button>
       </form>
 
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <table className="w-full text-left text-[12px]">
+        <table className="opus-table w-full text-left text-[12px]">
           <thead className="border-b border-gray-100 text-gray-500">
             <tr>
               <th className="px-4 py-3 font-medium">Label</th>
@@ -83,13 +83,13 @@ export default async function GrowthPeriodsPage() {
                   <div className="flex flex-wrap gap-2">
                     <form action={lockPeriodAction}>
                       <input type="hidden" name="id" value={period.id} />
-                      <button disabled={period.status !== 'open'} className="rounded-md border border-gray-200 px-2 py-1 font-medium text-gray-700 disabled:text-gray-300">
+                      <button data-opus-button="control" disabled={period.status !== 'open'} className="rounded-md border border-gray-200 px-2 py-1 font-medium text-gray-700 disabled:text-gray-300">
                         Lock
                       </button>
                     </form>
                     <form action={closePeriodAction}>
                       <input type="hidden" name="id" value={period.id} />
-                      <button disabled={period.status === 'closed'} className="rounded-md border border-gray-200 px-2 py-1 font-medium text-gray-700 disabled:text-gray-300">
+                      <button data-opus-button="control" disabled={period.status === 'closed'} className="rounded-md border border-gray-200 px-2 py-1 font-medium text-gray-700 disabled:text-gray-300">
                         Close
                       </button>
                     </form>

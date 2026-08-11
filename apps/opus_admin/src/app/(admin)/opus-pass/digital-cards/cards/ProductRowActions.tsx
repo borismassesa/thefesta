@@ -44,7 +44,7 @@ export default function ProductRowActions({ id, name }: Props) {
       >
         <ExternalLink className="w-3.5 h-3.5" />
       </a>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={handleDelete}
         title="Delete card"

@@ -140,7 +140,7 @@ export default function HeroEditor({ initial, hasDraft: initialHasDraft }: Props
               <p className="text-xs text-gray-400">No rotating words — add at least one.</p>
             )}
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={addWord}
             className="flex items-center gap-1 text-xs font-semibold text-[#7E5896] hover:text-[#5c3f72]"
@@ -247,7 +247,7 @@ function IconBtn({
   children: React.ReactNode
 }) {
   return (
-    <button
+    <button data-opus-button="danger" data-opus-button-size="medium"
       type="button"
       title={title}
       onClick={onClick}

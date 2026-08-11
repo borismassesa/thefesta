@@ -183,7 +183,7 @@ export default function ExpensesClient({
       <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setShowNewExpense(true)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-2 text-sm font-semibold text-white hover:bg-[#6c4884]"
@@ -191,7 +191,7 @@ export default function ExpensesClient({
               <Plus className="h-4 w-4" />
               New expense
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               title="Upload a receipt to start a draft (coming soon)"
@@ -206,6 +206,7 @@ export default function ExpensesClient({
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
+                type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by reference, description, employee…"
@@ -227,7 +228,7 @@ export default function ExpensesClient({
               ))}
             </select>
 
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => {
                 setStatusFilter('all')
@@ -241,7 +242,7 @@ export default function ExpensesClient({
 
             {/* View switcher */}
             <div className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-0.5">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setView('list')}
                 className={cn(
@@ -252,7 +253,7 @@ export default function ExpensesClient({
               >
                 <List className="h-4 w-4" />
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setView('kanban')}
                 className={cn(
@@ -272,7 +273,7 @@ export default function ExpensesClient({
           {TABS.map((t) => {
             const active = tab === t.key
             return (
-              <button
+              <button data-opus-button="secondary" data-opus-button-size="small"
                 key={t.key}
                 type="button"
                 onClick={() => setTab(t.key)}
@@ -365,7 +366,7 @@ function ExpensesTable({ expenses }: { expenses: Expense[] }) {
           <h3 className="text-sm font-semibold text-gray-900">Expenses</h3>
           <p className="text-xs text-gray-500">{expenses.length} record{expenses.length === 1 ? '' : 's'}</p>
         </div>
-        <button
+        <button data-opus-button="control"
           type="button"
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
         >
@@ -374,7 +375,7 @@ function ExpensesTable({ expenses }: { expenses: Expense[] }) {
         </button>
       </div>
 
-      <div
+      <div data-opus-table-header
         role="row"
         className="hidden min-w-[1000px] grid-cols-[28px_minmax(0,1.6fr)_minmax(0,2fr)_110px_minmax(0,1fr)_110px_70px_140px_120px_44px] items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-gray-500 lg:grid"
       >
@@ -433,7 +434,7 @@ function ExpenseRow({ expense }: { expense: Expense }) {
   }
 
   return (
-    <div
+    <div data-opus-table-row
       role="row"
       className={cn(
         'grid min-w-[1000px] grid-cols-[28px_minmax(0,1.6fr)_minmax(0,2fr)_110px_minmax(0,1fr)_110px_70px_140px_120px_44px] items-center gap-3 border-b border-gray-100 px-5 py-3 text-sm last:border-b-0 hover:bg-gray-50/40',
@@ -496,7 +497,7 @@ function ExpenseRow({ expense }: { expense: Expense }) {
       </div>
 
       <div className="relative flex justify-end">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setShowActions((s) => !s)}
           className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700"
@@ -594,7 +595,7 @@ function ActionButton({
   tone?: 'neutral' | 'rose'
 }) {
   return (
-    <button
+    <button data-opus-button="danger" data-opus-button-size="small"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -715,7 +716,7 @@ function ReportingPanel({
             Across {totalExpenses} expense{totalExpenses === 1 ? '' : 's'} (excludes drafts and refused)
           </p>
         </div>
-        <button
+        <button data-opus-button="control"
           type="button"
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
         >
@@ -767,7 +768,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
         We&apos;ll read the merchant, amount and date, then open a draft for you to review.
       </p>
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onNew}
           className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-2 text-sm font-semibold text-white hover:bg-[#6c4884]"
@@ -776,7 +777,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
           Create a new expense
         </button>
         <span className="text-xs text-gray-400">or</span>
-        <button
+        <button data-opus-button="control"
           type="button"
           className="text-sm font-semibold text-[#7E5896] hover:underline"
         >
@@ -852,7 +853,7 @@ function NewExpenseDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="New expense">
-      <button
+      <button data-opus-button="control"
         type="button"
         aria-label="Close"
         className="flex-1 bg-gray-900/30"
@@ -869,7 +870,7 @@ function NewExpenseDrawer({
               Drafts can be edited until they&apos;re submitted for approval.
             </p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100"
@@ -984,14 +985,14 @@ function NewExpenseDrawer({
 
         <footer className="border-t border-gray-100 px-5 py-3">
           <div className="flex items-center justify-end gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onClose}
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="submit"
               disabled={pending}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-2 text-sm font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"

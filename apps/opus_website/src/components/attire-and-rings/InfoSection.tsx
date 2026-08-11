@@ -34,7 +34,7 @@ export function InfoSection() {
 
         <div className="text-center">
           <h3 className="text-xl font-medium text-gray-900 mb-6">Have a question? We&apos;re here to help.</h3>
-          <button className="border border-gray-900 text-gray-900 font-medium px-6 py-2.5 rounded-full hover:shadow-md transition bg-transparent hover:bg-white">
+          <button data-opus-button="tertiary" data-opus-button-size="medium" className="border border-gray-900 text-gray-900 font-medium px-6 py-2.5 rounded-full hover:shadow-md transition bg-transparent hover:bg-white">
             Go to Help Centre
           </button>
         </div>

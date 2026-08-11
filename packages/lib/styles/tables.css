@@ -1,0 +1,284 @@
+/*
+ * Opus product data-table system
+ * Shared by every OpusFesta web application.
+ *
+ * Semantic tables use `.opus-table`. Responsive CSS-grid tables use the
+ * `data-opus-table-header` and `data-opus-table-row` hooks.
+ */
+:root {
+  /* Structure stays neutral; lavender is reserved for interaction states. */
+  --opus-table-shell: #f7f7f7;
+  --opus-table-surface: #ffffff;
+  --opus-table-hover: #fcf7ff;
+  --opus-table-selected: #f0dff6;
+  --opus-table-selection-accent: #7e5896;
+  --opus-table-focus: #c9a0dc;
+  --opus-table-heading: #1a1a1a;
+  --opus-table-text: #454745;
+  --opus-table-strong: #1a1a1a;
+  --opus-table-muted: #6a6c6a;
+  --opus-table-divider: rgb(26 26 26 / 10%);
+  --opus-table-error: #cb272f;
+  --opus-table-success: #2f5711;
+  --opus-table-alert: #ffd11a;
+}
+
+table.opus-table[class] {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem;
+  border: 0;
+  border-collapse: separate;
+  border-spacing: 0 1px;
+  border-radius: var(--opus-radius-large, 1.5rem) !important;
+  background: var(--opus-table-shell);
+  color: var(--opus-table-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.5rem;
+  letter-spacing: -0.005em;
+}
+
+table.opus-table[class] caption {
+  padding: 0.75rem;
+  color: var(--opus-table-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  letter-spacing: 0.005em;
+  text-align: left;
+}
+
+table.opus-table[class] :is(thead, tbody, tfoot) {
+  border: 0;
+  background: transparent;
+}
+
+/* Put the surface on the row, not its cells. This lets existing `bg-*`
+ * utilities and `--opus-table-row-background` intentionally tint a row. */
+:where(table.opus-table) tbody tr {
+  background-color: var(--opus-table-row-background, var(--opus-table-surface));
+  transition: background-color 150ms ease;
+}
+
+table.opus-table[class] thead th {
+  box-sizing: border-box;
+  height: 3rem;
+  padding: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--opus-table-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  letter-spacing: 0.005em;
+  text-align: left;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+table.opus-table[class] tbody td,
+table.opus-table[class] tbody th[scope='row'] {
+  box-sizing: border-box;
+  height: 4.75rem;
+  padding: 1rem 0.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--opus-table-divider);
+  color: var(--opus-table-text);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5rem;
+  letter-spacing: -0.005em;
+  vertical-align: middle;
+}
+
+table.opus-table[class] tbody th[scope='row'] {
+  color: var(--opus-table-strong);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.375rem;
+  letter-spacing: 0.0125em;
+  text-align: left;
+}
+
+/* Inherit the row surface so rounded cell edges paint correctly. A cell-level
+ * background utility still wins because this selector has no class weight. */
+:where(table.opus-table) tbody :where(td, th[scope='row']) {
+  background-color: inherit;
+}
+
+table.opus-table[class] tbody tr > :first-child {
+  border-radius: var(--opus-radius-small, 0.5rem) 0 0 var(--opus-radius-small, 0.5rem) !important;
+}
+
+table.opus-table[class] tbody tr > :last-child {
+  border-radius: 0 var(--opus-radius-small, 0.5rem) var(--opus-radius-small, 0.5rem) 0 !important;
+}
+
+table.opus-table[class] tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+table.opus-table[class] tbody tr:last-child > :first-child {
+  border-radius: var(--opus-radius-small, 0.5rem) 0 0 var(--opus-radius-medium, 1rem) !important;
+}
+
+table.opus-table[class] tbody tr:last-child > :last-child {
+  border-radius: 0 var(--opus-radius-small, 0.5rem) var(--opus-radius-medium, 1rem) 0 !important;
+}
+
+:where(table.opus-table) tbody tr:hover,
+:where(table.opus-table) tbody tr:focus-within {
+  background-color: var(--opus-table-hover);
+}
+
+:where(table.opus-table) tbody tr:is(
+  [aria-selected='true'],
+  [data-selected='true'],
+  [data-highlighted='true']
+) {
+  background-color: var(--opus-table-selected);
+}
+
+table.opus-table[class] tbody tr:is(
+  [aria-selected='true'],
+  [data-selected='true'],
+  [data-highlighted='true']
+) > :first-child {
+  box-shadow: inset 3px 0 0 var(--opus-table-selection-accent);
+}
+
+table.opus-table[class] tbody tr:focus-within > :first-child {
+  box-shadow: inset 3px 0 0 var(--opus-table-focus);
+}
+
+table.opus-table[class] tfoot td,
+table.opus-table[class] tfoot th {
+  padding: 0.75rem;
+  color: var(--opus-table-heading);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.375rem;
+}
+
+table.opus-table[class] :is(th, td)[data-numeric='true'],
+table.opus-table[class] :is(th, td).opus-table-cell--currency {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+table.opus-table[class] .opus-table-cell--leading,
+table.opus-table[class] .opus-table-cell--currency,
+table.opus-table[class] .opus-table-cell--status {
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  letter-spacing: 0.0125em;
+}
+
+table.opus-table[class] :is(.opus-table-cell--error, [data-state='error']) {
+  color: var(--opus-table-error);
+  font-weight: 600;
+}
+
+table.opus-table[class] :is(.opus-table-cell--success, [data-state='success']) {
+  color: var(--opus-table-success);
+  font-weight: 600;
+}
+
+table.opus-table[class] :is(.opus-table-cell--alert, [data-state='alert']) {
+  color: var(--opus-table-strong);
+  font-weight: 600;
+}
+
+/* Existing responsive tables implemented as CSS grids keep their grid tracks,
+ * while these hooks provide the same shell, typography, spacing, dividers,
+ * and hover treatment as the semantic table contract. */
+:where(div):has(> [data-opus-table-header]) {
+  box-sizing: border-box;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: var(--opus-radius-large, 1.5rem) !important;
+  background: var(--opus-table-shell);
+  box-shadow: none;
+}
+
+[data-opus-table-header] {
+  box-sizing: border-box;
+  min-height: 3rem;
+  padding: 0 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--opus-table-heading);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  letter-spacing: 0.005em;
+  text-transform: none;
+}
+
+[data-opus-table-row] {
+  box-sizing: border-box;
+  min-height: 4.75rem;
+  padding: 1rem 0.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--opus-table-divider);
+  border-radius: var(--opus-radius-small, 0.5rem) !important;
+  color: var(--opus-table-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5rem;
+  letter-spacing: -0.005em;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+
+:where([data-opus-table-row]) {
+  background-color: var(--opus-table-row-background, var(--opus-table-surface));
+}
+
+:where([data-opus-table-row]):hover,
+:where([data-opus-table-row]):focus-within {
+  background-color: var(--opus-table-hover);
+}
+
+:where([data-opus-table-row]):is(
+  [aria-selected='true'],
+  [data-selected='true'],
+  [data-highlighted='true']
+) {
+  background-color: var(--opus-table-selected);
+  box-shadow: inset 3px 0 0 var(--opus-table-selection-accent);
+}
+
+:where([data-opus-table-row]):focus-within {
+  box-shadow: inset 3px 0 0 var(--opus-table-focus);
+}
+
+div:has(> table.opus-table[class]) {
+  border-radius: var(--opus-radius-large, 1.5rem) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(table.opus-table) tbody tr,
+  [data-opus-table-row] {
+    transition: none;
+  }
+}
+
+@media print {
+  table.opus-table[class] {
+    padding: 0;
+    border-collapse: collapse;
+    background: transparent;
+  }
+
+  table.opus-table[class] thead th,
+  table.opus-table[class] tbody td,
+  table.opus-table[class] tbody th[scope='row'] {
+    height: auto;
+    padding: 0.375rem 0.5rem;
+  }
+}

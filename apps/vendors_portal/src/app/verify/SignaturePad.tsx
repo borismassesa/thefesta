@@ -137,7 +137,7 @@ export function SignaturePad({ onChange, disabled }: Props) {
         <p className="text-[11px] text-gray-500">
           {t('signature_hint')}
         </p>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClear}
           disabled={disabled || !hasInk}

@@ -71,7 +71,7 @@ function ProductCard({ p, categorySlug }: { p: Product; categorySlug: string }) 
 
 function FilterPill({ children }: { children: React.ReactNode }) {
   return (
-    <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-medium text-gray-800 hover:bg-gray-50 hover:border-gray-400 transition whitespace-nowrap">
+    <button data-opus-button="neutral" data-opus-button-size="medium" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-gray-300 bg-white text-sm font-medium text-gray-800 hover:bg-gray-50 hover:border-gray-400 transition whitespace-nowrap">
       {children}
     </button>
   )
@@ -197,7 +197,7 @@ export default async function BridalCategoryPage({ params }: { params: Params })
             ))}
           </div>
           <div className="mt-10 flex justify-center">
-            <button className="border border-gray-300 text-gray-900 font-medium px-6 py-2.5 rounded-full hover:bg-gray-50 transition text-sm">
+            <button data-opus-button="control" className="border border-gray-300 text-gray-900 font-medium px-6 py-2.5 rounded-full hover:bg-gray-50 transition text-sm">
               Show more
             </button>
           </div>

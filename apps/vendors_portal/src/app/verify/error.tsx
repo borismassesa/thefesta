@@ -39,7 +39,7 @@ export default function VerifyError({
             Reference: {error.digest}
           </p>
         )}
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           onClick={reset}
           className="mt-6 bg-gray-900 text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-gray-800 transition-colors"

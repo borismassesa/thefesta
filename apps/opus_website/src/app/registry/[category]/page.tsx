@@ -25,7 +25,7 @@ export function generateStaticParams() {
 
 function FilterPill({ children }: { children: React.ReactNode }) {
   return (
-    <button className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 transition hover:border-gray-400 hover:bg-gray-50">
+    <button data-opus-button="neutral" data-opus-button-size="medium" className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 transition hover:border-gray-400 hover:bg-gray-50">
       {children}
     </button>
   )

@@ -189,7 +189,7 @@ export default function CommentsSection({
               <p className="text-[11px] text-gray-500">
                 Comments are moderated. No spam, no promotions.
               </p>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="submit"
                 disabled={!body.trim()}
                 className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent)] px-4 py-2 text-[13px] font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--accent)] disabled:hover:text-[var(--on-accent)]"
@@ -246,7 +246,7 @@ export default function CommentsSection({
                     {c.body}
                   </p>
                   <div className="mt-3 flex items-center gap-3">
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => toggleLike(c.id)}
                       aria-pressed={isLiked}
@@ -264,7 +264,7 @@ export default function CommentsSection({
                       />
                       {count > 0 ? count : 'Like'}
                     </button>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => {
                         setReplyTarget(isReplying ? null : c)
@@ -314,7 +314,7 @@ export default function CommentsSection({
                                 {reply.body}
                               </p>
                               <div className="mt-3 flex items-center gap-3">
-                                <button
+                                <button data-opus-button="control"
                                   type="button"
                                   onClick={() => toggleLike(reply.id)}
                                   aria-pressed={replyLiked}
@@ -365,7 +365,7 @@ export default function CommentsSection({
                         className="block w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-[14px] leading-relaxed text-[#1A1A1A] outline-none transition-colors focus:border-[var(--accent-hover)]"
                       />
                       <div className="mt-3 flex items-center justify-end gap-2">
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           onClick={() => {
                             setReplyTarget(null)
@@ -375,7 +375,7 @@ export default function CommentsSection({
                         >
                           Cancel
                         </button>
-                        <button
+                        <button data-opus-button="primary" data-opus-button-size="medium"
                           type="submit"
                           disabled={!replyBody.trim()}
                           className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent)] px-4 py-2 text-[13px] font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--accent)] disabled:hover:text-[var(--on-accent)]"

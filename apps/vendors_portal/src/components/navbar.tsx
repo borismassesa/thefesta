@@ -70,7 +70,7 @@ export default function Navbar() {
               }}
             />
           </SignedIn>
-          <button
+          <button data-opus-button="control"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-100 lg:hidden sm:h-10 sm:w-10"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
             onClick={() => setMobileOpen((v) => !v)}
@@ -90,7 +90,7 @@ export default function Navbar() {
           <Link href="/" aria-label="OpusFesta home" onClick={closeMobile}>
             <Logo className="h-8 w-auto" />
           </Link>
-          <button
+          <button data-opus-button="control"
             onClick={closeMobile}
             className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
             aria-label="Close menu"

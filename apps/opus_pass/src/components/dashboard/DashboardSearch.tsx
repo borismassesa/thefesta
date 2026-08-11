@@ -67,7 +67,7 @@ export default function DashboardSearch({
     <div className="relative">
       <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#1A1A1A]/35" />
       <input
-        type="text"
+        type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => setFocused(true)}
@@ -82,7 +82,7 @@ export default function DashboardSearch({
       {open && (
         <>
           {/* click-away */}
-          <button type="button" aria-hidden="true" tabIndex={-1} className="fixed inset-0 z-30 cursor-default" onClick={() => setFocused(false)} />
+          <button data-opus-button="control" type="button" aria-hidden="true" tabIndex={-1} className="fixed inset-0 z-30 cursor-default" onClick={() => setFocused(false)} />
           <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[60vh] overflow-y-auto overscroll-contain rounded-2xl border border-black/[0.08] bg-white py-2 shadow-xl">
             {pages.length > 0 && (
               <SearchGroup label="Pages">

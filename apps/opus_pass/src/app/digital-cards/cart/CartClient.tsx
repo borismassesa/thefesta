@@ -505,7 +505,7 @@ export default function CartClient({
                 </Link>
                 {/* For the couple who isn't the one paying: a priced document
                     they can send to a parent, a sponsor or a company. */}
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="large"
                   type="button"
                   onClick={downloadQuotation}
                   disabled={items.length === 0 || quoteBusy}

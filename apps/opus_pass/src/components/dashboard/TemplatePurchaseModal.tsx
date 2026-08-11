@@ -327,7 +327,7 @@ export default function TemplatePurchaseModal({
               <p className="text-xs text-[#1A1A1A]/55">Purchase — {formatTzs(price)}</p>
             </div>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={payPhase !== 'idle'}
@@ -377,14 +377,14 @@ export default function TemplatePurchaseModal({
             <div className="space-y-4">
               {SELCOM_ENABLED ? (
                 <div className="inline-flex rounded-full border border-black/[0.1] bg-black/[0.02] p-1">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => { setMpesaMode('push'); setPayError(null) }}
                     className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition', mpesaMode === 'push' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#1A1A1A]/55')}
                   >
                     {paymentStrings.toggle_push}
                   </button>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => { setMpesaMode('lipa'); setPayError(null) }}
                     className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition', mpesaMode === 'lipa' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#1A1A1A]/55')}
@@ -484,7 +484,7 @@ export default function TemplatePurchaseModal({
             </div>
           ) : null}
 
-          <button
+          <button data-opus-button="primary" data-opus-button-size="large"
             type="button"
             onClick={handlePay}
             disabled={submitting || payPhase !== 'idle'}

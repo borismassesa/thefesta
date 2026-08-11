@@ -61,7 +61,7 @@ export default async function LeadPreferencesPage() {
         <div className="sticky top-0 z-10 bg-white rounded-2xl border border-gray-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] px-5 py-3 flex items-center justify-between mb-6">
           <nav className="flex gap-1 text-sm font-medium overflow-x-auto">
             {['Budget', 'Calendar', 'Style', 'Storefront', 'Auto-reply'].map((l) => (
-              <button
+              <button data-opus-button="control"
                 key={l}
                 type="button"
                 className="px-3 py-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 whitespace-nowrap transition-colors"
@@ -70,7 +70,7 @@ export default async function LeadPreferencesPage() {
               </button>
             ))}
           </nav>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             className="bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-800 transition-colors"
           >
@@ -88,7 +88,7 @@ export default async function LeadPreferencesPage() {
                 <h2 className="text-[15px] font-semibold text-gray-900">{s.title}</h2>
                 <p className="text-sm text-gray-500 mt-1 leading-relaxed">{s.copy}</p>
               </div>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 aria-label={`Edit ${s.title}`}
                 className="shrink-0 inline-flex items-center gap-1.5 border border-gray-200 text-gray-700 text-sm font-semibold px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors"

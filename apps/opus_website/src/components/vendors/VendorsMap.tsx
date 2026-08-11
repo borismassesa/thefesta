@@ -46,7 +46,7 @@ function createPriceMarker(price: string, active: boolean, hovered: boolean) {
       align-items:center;
       background:${bg};
       border:2px solid ${border};
-      border-radius:20px;
+      border-radius:var(--opus-radius-medium);
       padding:5px 10px;
       font-size:11px;
       font-weight:700;

@@ -350,7 +350,7 @@ function InviteCard({
                   {t('invite_invited_pill')}
                 </span>
               ) : (
-                <button
+                <button data-opus-button="primary" data-opus-button-size="small"
                   type="button"
                   onClick={() => onSend(c.bookingId)}
                   className="inline-flex items-center gap-1 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-md transition-colors"
@@ -359,7 +359,7 @@ function InviteCard({
                   {t('invite_send_button')}
                 </button>
               )}
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => onDismiss(c.bookingId)}
                 className="text-gray-400 hover:text-gray-700 text-[10px] font-medium"
@@ -388,7 +388,7 @@ function SegmentedControl<T extends string>({
   return (
     <div className="inline-flex bg-gray-100 rounded-lg p-0.5">
       {options.map((o) => (
-        <button
+        <button data-opus-button="control"
           key={o.id}
           type="button"
           onClick={() => onChange(o.id)}
@@ -511,14 +511,14 @@ function ReviewCard({
               {t('reply_your_reply_prefix')} · {formatRelative(review.reply.repliedAt, t)}
             </span>
             <div className="flex items-center gap-2">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onStartReply}
                 className="text-[11px] font-semibold text-gray-600 hover:text-gray-900"
               >
                 {t('reply_edit')}
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onRemoveReply}
                 className="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
@@ -548,14 +548,14 @@ function ReviewCard({
               {t('reply_public_hint')}
             </p>
             <div className="flex items-center gap-2">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onCancelReply}
                 className="text-xs font-semibold text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-md"
               >
                 {t('reply_cancel')}
               </button>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="small"
                 type="button"
                 onClick={onSubmitReply}
                 disabled={!replyDraft.trim()}
@@ -567,7 +567,7 @@ function ReviewCard({
           </div>
         </div>
       ) : !review.reply ? (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onStartReply}
           className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-gray-900 px-3 py-1.5 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors"
@@ -626,7 +626,7 @@ function IconAction({
   tone?: 'default' | 'muted'
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       title={label}

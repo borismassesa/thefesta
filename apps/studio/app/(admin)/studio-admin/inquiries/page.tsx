@@ -112,7 +112,7 @@ export default function InquiriesPage() {
         </div>
       ) : (
         <div className="bg-white border border-[var(--admin-sidebar-border)]">
-          <table className="w-full">
+          <table className="opus-table w-full">
             <thead>
               <tr className="text-left border-b border-[var(--admin-sidebar-border)]">
                 <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--admin-muted)]">Name</th>

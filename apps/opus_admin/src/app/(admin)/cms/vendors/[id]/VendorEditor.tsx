@@ -160,7 +160,7 @@ export default function VendorEditor({ initial, categories, isNew }: Props) {
                 View
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
-              <button
+              <button data-opus-button="danger" data-opus-button-size="medium"
                 type="button"
                 onClick={handleDelete}
                 disabled={pending}
@@ -171,7 +171,7 @@ export default function VendorEditor({ initial, categories, isNew }: Props) {
               </button>
             </>
           )}
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={handleSave}
             disabled={pending}
@@ -329,7 +329,7 @@ export default function VendorEditor({ initial, categories, isNew }: Props) {
 
             <Field label="Badge">
               <div className="flex flex-wrap gap-2">
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="small"
                   type="button"
                   onClick={() => set('badge', null)}
                   className={cn(
@@ -342,7 +342,7 @@ export default function VendorEditor({ initial, categories, isNew }: Props) {
                   No badge
                 </button>
                 {VENDOR_BADGES.map((b) => (
-                  <button
+                  <button data-opus-button="neutral" data-opus-button-size="small"
                     key={b}
                     type="button"
                     onClick={() => set('badge', b)}
@@ -544,7 +544,7 @@ function HeroMediaField({
           className={cn(inputCls, 'text-xs')}
           placeholder="https://… or /assets/…"
         />
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={pending}

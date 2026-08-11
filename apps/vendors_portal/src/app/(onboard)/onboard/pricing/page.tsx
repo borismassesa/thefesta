@@ -176,7 +176,7 @@ export default function PricingPage() {
           <h2 className="text-lg font-semibold text-gray-900 tracking-tight">{t('pricing.your_packages')}</h2>
           {packages.length > 0 ? (
             <div className="flex items-center gap-5">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={requestUseSuggested}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-900 hover:text-gray-600 transition-colors"
@@ -184,7 +184,7 @@ export default function PricingPage() {
                 <Sparkles className="w-4 h-4" />
                 {t('pricing.use_suggested')}
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={requestClearAll}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-900 hover:text-gray-600 transition-colors"
@@ -205,7 +205,7 @@ export default function PricingPage() {
               <PrimaryButton onClick={requestUseSuggested}>
                 {t('pricing.use_suggested_for', { category: categoryLabel })}
               </PrimaryButton>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={startWithBlankPackage}
                 className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-gray-600 transition-colors"
@@ -232,7 +232,7 @@ export default function PricingPage() {
               />
             ))}
 
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={addPackage}
               className="w-full bg-white rounded-2xl border border-dashed border-gray-300 hover:border-gray-500 hover:bg-gray-50 transition-colors py-5 inline-flex items-center justify-center gap-2 text-sm font-semibold text-gray-900"
@@ -304,7 +304,7 @@ function PackageCard({
           {t('pricing.package_n', { n: index + 1 })}
         </span>
         {removable ? (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onRemove}
             aria-label={t('pricing.remove_package')}
@@ -360,7 +360,7 @@ function PackageCard({
                 onChange={(e) => onIncludeChange(idx, e.target.value)}
               />
               {pkg.includes.length > 1 ? (
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => onIncludeRemove(idx)}
                   aria-label={t('pricing.remove_item')}
@@ -372,7 +372,7 @@ function PackageCard({
             </div>
           ))}
         </div>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onIncludeAdd}
           className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-900 hover:text-gray-600 transition-colors"

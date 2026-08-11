@@ -122,7 +122,7 @@ function FAQItem({ q, a }: { q: string; a: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="border-b border-gray-200 last:border-b-0">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}

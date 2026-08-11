@@ -82,7 +82,7 @@ function TitleBlock({ product, className }: { product: CatalogProduct; className
         <h1 className="text-2xl md:text-3xl lg:text-[34px] font-serif font-medium text-gray-900 leading-tight">
           {product.name}
         </h1>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => toggle(product.id)}
           aria-label={favourited ? 'Remove from saved designs' : 'Save this design'}
@@ -425,7 +425,7 @@ export default function ProductDetailClient({ product, allProducts, packages, ad
                 )}
                 {detailsOverflows && (
                   <div className="mt-3 lg:hidden">
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => setDetailsExpanded((v) => !v)}
                       aria-expanded={detailsExpanded}
@@ -468,7 +468,7 @@ export default function ProductDetailClient({ product, allProducts, packages, ad
                   const tierActive = pill.active
                   const tierBorder = pill.border
                   return (
-                    <button
+                    <button data-opus-button="control"
                       key={t.id}
                       type="button"
                       role="radio"
@@ -636,14 +636,14 @@ export default function ProductDetailClient({ product, allProducts, packages, ad
 
             {/* Action buttons — Add to cart (secondary) then Buy now (commit) */}
             <div className="grid grid-cols-2 gap-3">
-              <button
+              <button data-opus-button="tertiary" data-opus-button-size="large"
                 type="button"
                 onClick={handleAddToCart}
                 className="inline-flex items-center justify-center rounded-full border border-[#1A1A1A] bg-transparent text-[#1A1A1A] px-5 py-3.5 text-[13px] font-extrabold uppercase tracking-[0.1em] hover:bg-gray-50 transition"
               >
                 Add to cart
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={handleBuyNow}
                 className="inline-flex items-center justify-center rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] px-5 py-3.5 text-[13px] font-extrabold uppercase tracking-[0.1em]"
@@ -790,7 +790,7 @@ function QtyStepper({
   const safe = Number.isNaN(value) ? min : value
   return (
     <div className="ml-auto inline-flex shrink-0 items-stretch overflow-hidden rounded-full border border-gray-300 bg-white">
-      <button
+      <button data-opus-button="control"
         type="button"
         aria-label={lessLabel}
         onClick={() => {
@@ -818,7 +818,7 @@ function QtyStepper({
         }}
         className="w-14 border-x border-gray-200 bg-white py-2 text-center text-[14px] font-bold text-gray-900 tabular-nums focus:outline-none sm:w-16 sm:py-2.5 sm:text-[15px]"
       />
-      <button
+      <button data-opus-button="control"
         type="button"
         aria-label={moreLabel}
         onClick={() => {
@@ -950,7 +950,7 @@ function Accordion({
   const panelId = `accordion-${(id ?? title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`
   return (
     <div className="border-b border-gray-200">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}

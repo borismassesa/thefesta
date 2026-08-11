@@ -86,7 +86,7 @@ export default function DraftRow({
   }
 
   return (
-    <div
+    <div data-opus-table-header
       role="row"
       className={cn(
         'grid grid-cols-[36px_minmax(0,1fr)_110px_120px] items-center gap-3 border-b border-gray-100 bg-white px-4 py-3.5 transition-colors last:border-b-0 hover:bg-gray-50/60 max-sm:grid-cols-[32px_minmax(0,1fr)_96px]',
@@ -136,7 +136,7 @@ export default function DraftRow({
             >
               <Pencil className="h-4 w-4" />
             </Link>
-            <button
+            <button data-opus-button="danger" data-opus-button-size="small"
               type="button"
               onClick={deleteDraft}
               disabled={pending}

@@ -37,7 +37,7 @@ export default function StaffSessionBanner({
           change here changes their real account. Access ends at {until}.
         </p>
         <form action="/api/staff-access/exit" method="post" className="shrink-0">
-          <button
+          <button data-opus-button="warning" data-opus-button-size="small"
             type="submit"
             className="rounded-xl bg-amber-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-amber-800"
           >

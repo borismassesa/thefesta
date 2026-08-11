@@ -194,7 +194,7 @@ function ReviewForm({ payment, canWrite }: { payment: DigitalCardPayment; canWri
         className="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-gray-50/60 px-3.5 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7E5896] focus:bg-white focus:ring-2 focus:ring-[#F0DFF6]"
       />
       <div className="mt-4 grid grid-cols-2 gap-3 sm:flex sm:justify-end">
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="submit"
           formAction={approveDigitalCardPayment}
           className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#7E5896] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6c4884]"
@@ -202,7 +202,7 @@ function ReviewForm({ payment, canWrite }: { payment: DigitalCardPayment; canWri
           <CheckCircle2 className="h-4 w-4" />
           Approve payment
         </button>
-        <button
+        <button data-opus-button="danger" data-opus-button-size="medium"
           type="submit"
           formAction={rejectDigitalCardPayment}
           className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-5 py-2.5 text-sm font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
@@ -264,14 +264,14 @@ function AdjustForm({
           />
         </div>
         <div className="flex justify-end gap-2">
-          <button
+          <button data-opus-button="danger" data-opus-button-size="small"
             type="submit"
             formAction={adjustEntitlementCredits.bind(null, 'revoke')}
             className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
           >
             <Minus className="h-3.5 w-3.5" /> Revoke
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="submit"
             formAction={adjustEntitlementCredits.bind(null, 'grant')}
             className="inline-flex items-center gap-1 rounded-lg bg-[#7E5896] px-2.5 py-1.5 font-semibold text-white transition hover:bg-[#6c4884]"
@@ -582,7 +582,7 @@ export default async function PaymentsPage({
               className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-[#7E5896] focus:ring-2 focus:ring-[#F0DFF6] sm:w-72"
             />
           </div>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="submit"
             className="rounded-xl bg-[#7E5896] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#6c4884]"
           >

@@ -44,7 +44,7 @@ export default async function GrowthBusinessUnitsPage() {
           <span className="font-medium text-gray-600">Order</span>
           <input name="displayOrder" type="number" defaultValue="40" className="w-full rounded-md border border-gray-200 px-2 py-2" />
         </label>
-        <button className="self-end rounded-md bg-gray-900 px-3 py-2 font-semibold text-white hover:bg-gray-700">
+        <button data-opus-button="primary" data-opus-button-size="medium" className="self-end rounded-md bg-gray-900 px-3 py-2 font-semibold text-white hover:bg-gray-700">
           Create
         </button>
         <label className="space-y-1 md:col-span-6">
@@ -54,7 +54,7 @@ export default async function GrowthBusinessUnitsPage() {
       </form>
 
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <table className="w-full text-left text-[12px]">
+        <table className="opus-table w-full text-left text-[12px]">
           <thead className="border-b border-gray-100 text-gray-500">
             <tr>
               <th className="px-4 py-3 font-medium">Code</th>
@@ -82,7 +82,7 @@ export default async function GrowthBusinessUnitsPage() {
                       <input type="checkbox" name="isActive" defaultChecked={unit.isActive && !unit.archivedAt} disabled={Boolean(unit.archivedAt)} />
                       Active
                     </label>
-                    <button disabled={Boolean(unit.archivedAt)} className="w-fit rounded-md border border-gray-200 px-2 py-1 font-medium text-gray-700 disabled:text-gray-300">
+                    <button data-opus-button="control" disabled={Boolean(unit.archivedAt)} className="w-fit rounded-md border border-gray-200 px-2 py-1 font-medium text-gray-700 disabled:text-gray-300">
                       Save
                     </button>
                   </form>
@@ -93,7 +93,7 @@ export default async function GrowthBusinessUnitsPage() {
                 <td className="px-4 py-3">
                   <form action={archiveBusinessUnitAction}>
                     <input type="hidden" name="id" value={unit.id} />
-                    <button disabled={Boolean(unit.archivedAt)} className="rounded-md border border-gray-200 px-2 py-1 font-medium text-gray-700 disabled:text-gray-300">
+                    <button data-opus-button="control" disabled={Boolean(unit.archivedAt)} className="rounded-md border border-gray-200 px-2 py-1 font-medium text-gray-700 disabled:text-gray-300">
                       Archive
                     </button>
                   </form>

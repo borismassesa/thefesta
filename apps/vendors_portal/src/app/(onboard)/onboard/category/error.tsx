@@ -43,7 +43,7 @@ export default function CategoryPageError({
                 <p className="mt-1 text-sm text-gray-500">
                   {t('category.error.body')}
                 </p>
-                <button
+                <button data-opus-button="primary" data-opus-button-size="small"
                   type="button"
                   onClick={() => reset()}
                   className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1A1A1A] hover:bg-black text-white text-sm font-semibold transition-colors"

@@ -346,7 +346,7 @@ export default function EventsManager({
         {/* ──────────────────────── Left: editor ──────────────────────── */}
         <div className="min-w-0 space-y-6">
           <div className="space-y-1.5">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={openList}
               className="mb-1 inline-flex items-center gap-1.5 text-sm font-medium text-[#1A1A1A]/55 transition-colors hover:text-[#1A1A1A]"
@@ -438,7 +438,7 @@ export default function EventsManager({
               label={strings.field_venue_name}
               hintInline={
                 form.address || form.city ? (
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={resetAddress}
                     className="text-xs font-medium text-[#7E5896] hover:text-[#5d3a78]"
@@ -489,7 +489,7 @@ export default function EventsManager({
           {/* Footer */}
           <div className="flex items-center gap-3 border-t border-black/[0.06] pt-5">
             {editing ? (
-              <button
+              <button data-opus-button="danger" data-opus-button-size="medium"
                 type="button"
                 onClick={() => setPendingDelete(editing)}
                 disabled={pending}
@@ -572,10 +572,10 @@ function ViewTabs({
     <nav
       role="tablist"
       aria-label={strings.tabs_aria}
-      className="-mx-4 flex flex-wrap items-center gap-x-6 gap-y-2 overflow-x-auto overflow-y-hidden border-b border-black/[0.06] px-4 pb-2 sm:mx-0 sm:px-0"
+      className="no-scrollbar -mx-4 flex items-center gap-x-6 overflow-x-auto overflow-y-hidden border-b border-black/[0.06] px-4 pb-2 [&>*]:shrink-0 [&>*]:whitespace-nowrap sm:mx-0 sm:px-0"
     >
       {tabs.map(({ id, label, icon: Icon, badge, active, onClick }) => (
-        <button
+        <button data-opus-button="control"
           key={id}
           type="button"
           role="tab"
@@ -629,7 +629,7 @@ function EventList({
         <p className="mx-auto mt-1 max-w-sm text-sm text-[#1A1A1A]/60">
           {strings.empty_body}
         </p>
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           onClick={onCreate}
           className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-[#1A1A1A] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black"
@@ -649,7 +649,7 @@ function EventList({
             key={e.id}
             className="group flex items-center gap-3 rounded-2xl border border-black/[0.08] bg-white p-3.5 transition-colors hover:border-black/[0.16]"
           >
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => onEdit(e.id)}
               className="flex min-w-0 flex-1 items-center gap-3.5 text-left"
@@ -677,7 +677,7 @@ function EventList({
                 </span>
               </span>
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => onEdit(e.id)}
               aria-label={strings.aria_edit_event}
@@ -685,7 +685,7 @@ function EventList({
             >
               <Pencil className="h-4 w-4" />
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => onDelete(e)}
               aria-label={strings.aria_delete_event}
@@ -733,7 +733,7 @@ function Toggle({
   return (
     <label className="flex items-center justify-between gap-3 py-1.5 text-sm text-[#1A1A1A]">
       <span>{label}</span>
-      <button
+      <button data-opus-button="control"
         type="button"
         role="switch"
         aria-checked={checked}
@@ -844,7 +844,7 @@ function OrderRow({
         <p className="truncate text-sm font-medium text-[#1A1A1A]">{order.cardName ?? FALLBACK_ORDER_NAME}</p>
         <p className="text-xs text-[#1A1A1A]/55">{fmt(strings.linked_order_guests, { count: order.purchasedGuests })}</p>
       </div>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onUnlink}
         disabled={unlinking}
@@ -954,7 +954,7 @@ function LinkedOrderCard({
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#1A1A1A]/45" />
                   </div>
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="button"
                     onClick={link}
                     disabled={!picked || pending}

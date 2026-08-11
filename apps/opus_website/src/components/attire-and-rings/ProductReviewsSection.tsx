@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Star, ChevronDown, ChevronRight, Search, Users } from 'lucide-react'
+import { Star, ChevronDown, ChevronRight, Users } from 'lucide-react'
 import type { ProductReview } from '@/lib/bridal-products'
 
 const PAGE_SIZE = 4
@@ -45,7 +45,7 @@ function ReviewText({ text }: { text: string }) {
       {isLong && !expanded ? (
         <>
           {text.slice(0, limit).trimEnd()}…{' '}
-          <button
+          <button data-opus-button="control"
             className="font-semibold underline underline-offset-2 text-[#1A1A1A]"
             onClick={() => setExpanded(true)}
           >
@@ -134,7 +134,7 @@ export default function ProductReviewsSection({ product }: { product: ReviewsPro
             </p>
             <StarRow rating={avg} size={18} />
             <p className="text-sm text-gray-500">{product.reviews.toLocaleString()} reviews</p>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               className="mt-2 rounded-full bg-(--accent) px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-(--accent-hover) transition-colors"
             >
@@ -144,7 +144,7 @@ export default function ProductReviewsSection({ product }: { product: ReviewsPro
 
           <div className="flex-1 flex flex-col justify-center gap-3 p-6">
             {dist.map(({ star, pct }) => (
-              <button
+              <button data-opus-button="control"
                 key={star}
                 type="button"
                 onClick={() => setFilterStar(filterStar === star ? null : star)}
@@ -196,7 +196,7 @@ export default function ProductReviewsSection({ product }: { product: ReviewsPro
                 </div>
               ))}
             </div>
-            <button
+            <button data-opus-button="control"
               type="button"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow"
             >
@@ -257,23 +257,17 @@ export default function ProductReviewsSection({ product }: { product: ReviewsPro
       {allReviews.length > 0 && (
         <div className="mb-5 space-y-3">
           <div className="flex gap-3">
-            <div className="flex flex-1 items-stretch rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm">
+            <div className="flex-1">
               <input
-                type="text"
+                type="search"
                 placeholder="Search reviews"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
                   setVisible(PAGE_SIZE)
                 }}
-                className="flex-1 bg-transparent px-4 py-2.5 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none"
+                className="w-full bg-transparent px-4 py-2.5 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none"
               />
-              <button
-                type="button"
-                className="flex items-center justify-center bg-(--accent) px-4 text-[#1A1A1A] transition hover:bg-(--accent-hover)"
-              >
-                <Search size={16} />
-              </button>
             </div>
 
             <div className="relative shrink-0">
@@ -298,7 +292,7 @@ export default function ProductReviewsSection({ product }: { product: ReviewsPro
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-gray-400 mr-1">Filter by rating:</span>
             {[5, 4, 3, 2, 1].map((s) => (
-              <button
+              <button data-opus-button="control"
                 key={s}
                 type="button"
                 onClick={() => {
@@ -317,7 +311,7 @@ export default function ProductReviewsSection({ product }: { product: ReviewsPro
               </button>
             ))}
             {(filterStar || searchQuery) && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => {
                   setFilterStar(null)
@@ -408,7 +402,7 @@ export default function ProductReviewsSection({ product }: { product: ReviewsPro
           <p className="text-xs text-gray-400 font-medium">
             Showing {Math.min(visible, filtered.length)} of {filtered.length} reviews
           </p>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="large"
             type="button"
             onClick={() => setVisible((v) => v + PAGE_SIZE)}
             className="group flex items-center gap-2 rounded-full bg-[#1A1A1A] px-8 py-3 text-sm font-bold text-white hover:bg-black/80 transition-all shadow-sm hover:shadow-md"

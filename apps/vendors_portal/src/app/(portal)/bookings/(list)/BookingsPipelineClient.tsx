@@ -294,7 +294,7 @@ function FilterPill({
   onClick: () => void
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       className={cn(

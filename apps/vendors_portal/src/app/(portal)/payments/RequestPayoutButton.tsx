@@ -49,7 +49,7 @@ export function RequestPayoutButton({
 
   return (
     <div className="text-right">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onClick}
         disabled={pending}

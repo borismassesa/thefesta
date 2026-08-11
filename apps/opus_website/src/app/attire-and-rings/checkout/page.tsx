@@ -268,7 +268,7 @@ export default function CheckoutPage() {
                 {SAVED_METHODS.map((m) => {
                   const isActive = selected === m.id
                   return (
-                    <button
+                    <button data-opus-button="control"
                       key={m.id}
                       type="button"
                       onClick={() => setSelected(m.id)}
@@ -336,7 +336,7 @@ export default function CheckoutPage() {
               <div className="mb-5">
                 <h2 className="text-base font-semibold text-gray-900 mb-3">Add a new payment method</h2>
                 <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-1 mb-5">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => {
                       setNewKind('card')
@@ -351,7 +351,7 @@ export default function CheckoutPage() {
                     <CreditCard size={14} />
                     Card
                   </button>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => {
                       setNewKind('mobile')
@@ -511,7 +511,7 @@ export default function CheckoutPage() {
                 )}
               </div>
 
-              <button
+              <button data-opus-button="primary" data-opus-button-size="large"
                 type="button"
                 onClick={handlePay}
                 disabled={submitting || items.length === 0}

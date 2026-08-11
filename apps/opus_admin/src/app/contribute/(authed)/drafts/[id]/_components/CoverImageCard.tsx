@@ -83,7 +83,7 @@ export default function CoverImageCard({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={url} alt={alt || ''} className="aspect-video w-full object-cover" />
             {!readOnly && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => onChange({ cover_image_url: '', cover_image_alt: '' })}
                 className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-sm hover:bg-white"
@@ -94,7 +94,7 @@ export default function CoverImageCard({
             )}
           </div>
           {!readOnly && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => inputRef.current?.click()}
               className="mt-2 text-[11px] font-semibold text-[#5B2D8E] hover:underline"
@@ -111,7 +111,7 @@ export default function CoverImageCard({
           />
         </div>
       ) : (
-        <button
+        <button data-opus-button="control"
           type="button"
           aria-label="Upload cover image"
           disabled={readOnly || uploading}

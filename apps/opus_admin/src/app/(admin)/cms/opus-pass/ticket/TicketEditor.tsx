@@ -91,7 +91,7 @@ export default function TicketEditor({
           {saved && !error && (
             <span className="text-xs text-emerald-600 font-medium">Saved</span>
           )}
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             onClick={save}
             disabled={pending}
@@ -162,7 +162,7 @@ function TicketPreviewCard({
       {safePalettes.length > 1 && (
         <div className="flex gap-1.5 flex-wrap">
           {safePalettes.map((p, i) => (
-            <button
+            <button data-opus-button="control"
               key={i}
               type="button"
               title={p.name || `Palette ${i + 1}`}
@@ -306,7 +306,7 @@ function FixedSvgUploadField({
         </div>
       </div>
 
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="small"
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={pending}

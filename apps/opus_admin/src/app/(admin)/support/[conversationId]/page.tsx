@@ -212,7 +212,7 @@ export default async function ConversationPage({
               {!convo.assignee_name && (
                 <form action={assignToMe}>
                   <input type="hidden" name="conversationId" value={convo.id} />
-                  <button
+                  <button data-opus-button="neutral" data-opus-button-size="medium"
                     type="submit"
                     className="w-full rounded-xl border border-gray-200 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-[#C9A0DC] hover:bg-[#F0DFF6] hover:text-[#7E5896]"
                   >
@@ -224,7 +224,7 @@ export default async function ConversationPage({
                 <form action={setConversationStatus}>
                   <input type="hidden" name="conversationId" value={convo.id} />
                   <input type="hidden" name="status" value="resolved" />
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="submit"
                     className="w-full rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
                   >
@@ -235,7 +235,7 @@ export default async function ConversationPage({
                 <form action={setConversationStatus}>
                   <input type="hidden" name="conversationId" value={convo.id} />
                   <input type="hidden" name="status" value="assigned" />
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="submit"
                     className="w-full rounded-xl border border-gray-200 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
                   >

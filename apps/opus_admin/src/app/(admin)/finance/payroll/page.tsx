@@ -2,9 +2,9 @@ import { redirect } from 'next/navigation'
 import { getAdminAccessRole, hasPermission, isAdminDashboardRole } from '@/lib/admin-auth'
 import PayrollClient from './PayrollClient'
 import FinancePayrollHeading from './FinancePayrollHeading'
-// Payroll lives under /finance now but the data still flows through the
-// workforce module's queries — per-employee salaries come from
-// workforce_employees, run history from workforce_payroll_runs.
+// Payroll is presented under HR & People in the application navigation while
+// its existing /finance/payroll URL is retained for bookmarks. Its data still
+// flows through workforce_employees and workforce_payroll_runs.
 import { getEmployees, getPayrollRuns } from '../../workforce/_lib/queries'
 
 export const dynamic = 'force-dynamic'

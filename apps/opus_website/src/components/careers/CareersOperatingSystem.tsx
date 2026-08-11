@@ -19,7 +19,7 @@ export default function CareersOperatingSystem() {
         {CAREERS_PILLARS.map((pillar) => (
           <div
             key={pillar.id}
-            className="flex min-h-[320px] flex-col justify-between rounded-[40px] p-10 md:p-12"
+            className="flex min-h-[320px] flex-col justify-between rounded-[var(--opus-radius-xlarge)] p-10 md:p-12"
             style={{ backgroundColor: pillar.bg }}
           >
             <span className="inline-block w-max rounded-full border border-black/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest">
@@ -32,7 +32,7 @@ export default function CareersOperatingSystem() {
         ))}
       </div>
 
-      <div className="-mx-6 rounded-none bg-gradient-to-br from-[#DCF0C0] via-[#F7F5E8] to-[#EBD6FD] px-6 py-24 text-center md:mx-0 md:rounded-[60px] md:px-16 md:text-left">
+      <div className="-mx-6 rounded-none bg-gradient-to-br from-[#DCF0C0] via-[#F7F5E8] to-[#EBD6FD] px-6 py-24 text-center md:mx-0 md:rounded-[var(--opus-radius-xlarge)] md:px-16 md:text-left">
         <div className="mx-auto mb-16 grid max-w-[1200px] items-center gap-8 md:grid-cols-2 md:gap-16">
           <h2 className="text-4xl font-medium tracking-tight md:text-6xl">
             How we operate
@@ -44,7 +44,7 @@ export default function CareersOperatingSystem() {
 
         <div className="mx-auto mb-16 flex max-w-[1200px] flex-wrap justify-center gap-3">
           {TABS.map((tab) => (
-            <button
+            <button data-opus-button="control"
               key={tab.id}
               type="button"
               onClick={() => setActive(tab.id)}
@@ -64,7 +64,7 @@ export default function CareersOperatingSystem() {
           {cards.map((card) => (
             <div
               key={card.id}
-              className="flex flex-col rounded-[40px] bg-white/80 p-10 backdrop-blur-sm md:p-12"
+              className="flex flex-col rounded-[var(--opus-radius-xlarge)] bg-white/80 p-10 backdrop-blur-sm md:p-12"
             >
               <span className="mb-12 inline-block w-max rounded-full border border-black/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest">
                 {card.eyebrow}
