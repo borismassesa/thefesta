@@ -98,7 +98,7 @@ export default function EventConsoleClient({
           for well past three items. */}
       <div className="flex items-center gap-6 border-b border-gray-200 print:hidden">
         {TABS.map(({ key, label, Icon }) => (
-          <button
+          <button data-opus-button="control"
             key={key}
             type="button"
             onClick={() => selectTab(key)}

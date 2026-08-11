@@ -50,7 +50,7 @@ export default function AuthorRow({ entry, reorderable }: Props) {
   }
 
   return (
-    <div
+    <div data-opus-table-header
       ref={setNodeRef}
       style={style}
       role="row"
@@ -59,7 +59,7 @@ export default function AuthorRow({ entry, reorderable }: Props) {
         isDragging && 'shadow-lg ring-1 ring-[#C9A0DC]/40 z-10 relative'
       )}
     >
-      <button
+      <button data-opus-button="control"
         type="button"
         {...attributes}
         {...listeners}
@@ -117,7 +117,7 @@ export default function AuthorRow({ entry, reorderable }: Props) {
         >
           <Pencil className="h-4 w-4" />
         </Link>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setConfirmOpen(true)}
           disabled={pendingDelete}

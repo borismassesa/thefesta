@@ -621,7 +621,7 @@ export default function PostEditor({
       ) : null}
 
       {dirty && mode === 'edit' && (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={handleRevert}
           disabled={pending}
@@ -632,7 +632,7 @@ export default function PostEditor({
         </button>
       )}
 
-      <button
+      <button data-opus-button="control"
         type="button"
         disabled={pending || (!dirty && mode === 'edit')}
         onClick={handleSaveDraft}
@@ -643,7 +643,7 @@ export default function PostEditor({
       </button>
 
       {isContributorSubmission ? (
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           disabled={pending}
           onClick={handlePublish}
@@ -654,7 +654,7 @@ export default function PostEditor({
         </button>
       ) : isAdminSubmission ? (
         <>
-          <button
+          <button data-opus-button="warning" data-opus-button-size="medium"
             type="button"
             disabled={pending}
             onClick={handleRequestCorrections}
@@ -663,7 +663,7 @@ export default function PostEditor({
             <MessageSquare className="h-4 w-4" />
             Request corrections
           </button>
-          <button
+          <button data-opus-button="danger" data-opus-button-size="medium"
             type="button"
             disabled={pending}
             onClick={handleRejectSubmission}
@@ -672,7 +672,7 @@ export default function PostEditor({
             <XCircle className="h-4 w-4" />
             Reject
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={pending}
             onClick={() => handleApproveSubmission(false)}
@@ -681,7 +681,7 @@ export default function PostEditor({
             <CheckCircle2 className="h-4 w-4" />
             Approve draft
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             disabled={pending}
             onClick={() => handleApproveSubmission(true)}
@@ -692,7 +692,7 @@ export default function PostEditor({
           </button>
         </>
       ) : draft.published ? (
-        <button
+        <button data-opus-button="control"
           type="button"
           disabled={pending}
           onClick={handleUnpublish}
@@ -702,7 +702,7 @@ export default function PostEditor({
           Unpublish
         </button>
       ) : (
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           disabled={pending}
           onClick={handlePublish}
@@ -742,7 +742,7 @@ export default function PostEditor({
           </Link>
 
           {canPreview && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setPreviewOpen(true)}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
@@ -895,7 +895,7 @@ export default function PostEditor({
                     </Field>
                   )}
                   <div className="flex items-center gap-2">
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => heroInputRef.current?.click()}
                       disabled={pending}
@@ -975,7 +975,7 @@ export default function PostEditor({
               <Card
                 title={`Seed comments (${draft.seed_comments.length})`}
                 action={
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() =>
                       set('seed_comments', [
@@ -1082,7 +1082,7 @@ export default function PostEditor({
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-gray-700">
                       Drag &amp; drop, or{' '}
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => avatarInputRef.current?.click()}
                         disabled={pending}
@@ -1094,7 +1094,7 @@ export default function PostEditor({
                     </p>
                   </div>
                   {draft.author_avatar_url && (
-                    <button
+                    <button data-opus-button="danger" data-opus-button-size="small"
                       type="button"
                       onClick={() => set('author_avatar_url', '')}
                       disabled={pending}
@@ -1247,7 +1247,7 @@ export default function PostEditor({
                     className={inputCls}
                   />
                   {readTimeManual && (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => {
                         setReadTimeManual(false)
@@ -1284,7 +1284,7 @@ export default function PostEditor({
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-500">
               Preview · matches the live article layout
             </p>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setPreviewOpen(false)}
               className="text-sm font-semibold text-[#7E5896] hover:underline"
@@ -1461,7 +1461,7 @@ function BodySectionRow({
   return (
     <div className="border border-gray-200 rounded-xl bg-gray-50/40">
       <div className="flex items-center gap-2 px-3 py-2">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setOpen((o) => !o)}
           className="text-gray-500 hover:text-gray-900 p-1 rounded-md hover:bg-gray-100 transition-colors"
@@ -1525,7 +1525,7 @@ function BodySectionRow({
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
               {ADVICE_BLOCK_TYPES.map((t) => (
-                <button
+                <button data-opus-button="control"
                   key={t}
                   type="button"
                   onClick={() => addBlock(t)}
@@ -1716,7 +1716,7 @@ function MediaBlockFields({
           className={inputCls}
           placeholder={`${kind} URL`}
         />
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
@@ -1810,7 +1810,7 @@ function GalleryBlockFields({
             className={inputCls}
             placeholder="Alt text"
           />
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => remove(i)}
             className="text-gray-500 hover:text-red-600 p-2 rounded-md hover:bg-gray-100"
@@ -1820,7 +1820,7 @@ function GalleryBlockFields({
           </button>
         </div>
       ))}
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={add}
         className="flex items-center gap-1 text-xs font-semibold text-[#7E5896] hover:text-[#5c3f72]"
@@ -1866,7 +1866,7 @@ function ListBlockFields({
             className={inputCls}
             placeholder={`Item ${i + 1}`}
           />
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => remove(i)}
             className="text-gray-500 hover:text-red-600 p-2 rounded-md hover:bg-gray-100 transition-colors"
@@ -1876,7 +1876,7 @@ function ListBlockFields({
           </button>
         </div>
       ))}
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={add}
         className="flex items-center gap-1 text-xs font-semibold text-[#7E5896] hover:text-[#5c3f72]"
@@ -1902,7 +1902,7 @@ function IconButton({
   danger?: boolean
 }) {
   return (
-    <button
+    <button data-opus-button="danger" data-opus-button-size="medium"
       type="button"
       title={title}
       onClick={onClick}

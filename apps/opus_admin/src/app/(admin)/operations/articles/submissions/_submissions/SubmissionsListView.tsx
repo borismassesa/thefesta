@@ -135,7 +135,7 @@ export default function SubmissionsListView({ submissions, upNextId }: Props) {
       />
 
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-        <div
+        <div data-opus-table-header
           role="row"
           className="grid grid-cols-[36px_minmax(0,1fr)_120px_120px] items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-gray-500"
         >
@@ -152,7 +152,7 @@ export default function SubmissionsListView({ submissions, upNextId }: Props) {
               title="No submissions match these filters"
               body="Adjust the filters or clear them to see the full queue."
               action={
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={clearFilters}
                   className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"

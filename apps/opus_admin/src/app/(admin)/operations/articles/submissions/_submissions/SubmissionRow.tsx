@@ -71,7 +71,7 @@ export default function SubmissionRow({
     : reviewHref
 
   return (
-    <div
+    <div data-opus-table-header
       role="row"
       className={cn(
         'relative grid grid-cols-[36px_minmax(0,1fr)_120px_120px] items-center gap-3 border-b border-gray-100 bg-white px-4 py-3.5 transition-colors hover:bg-gray-50/60',

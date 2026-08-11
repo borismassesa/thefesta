@@ -1,36 +1,41 @@
-'use client'
+'use client';
 
-import { cn } from '@/lib/utils'
-import type { ReactNode } from 'react'
+import { cn } from '@/lib/utils';
+import type { ReactNode } from 'react';
+import { opusBadgeClass, type OpusBadgeTone } from '@opusfesta/lib';
 
-export type StatusPillVariant = 'success' | 'warning' | 'danger' | 'neutral' | 'info'
+export type StatusPillVariant =
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'neutral'
+  | 'info';
 
-const VARIANT_CLASSES: Record<StatusPillVariant, string> = {
-  success: 'bg-emerald-50 text-emerald-700',
-  warning: 'bg-amber-50 text-amber-800',
-  danger: 'bg-rose-50 text-rose-700',
-  info: 'bg-[#EEEDFE] text-[#5B2D8E]',
-  neutral: 'bg-gray-100 text-gray-700',
-}
+const VARIANT_TONES: Record<StatusPillVariant, OpusBadgeTone> = {
+  success: 'success',
+  warning: 'warning',
+  danger: 'error',
+  info: 'info',
+  neutral: 'neutral',
+};
 
 export function StatusPill({
   variant = 'neutral',
   icon,
   children,
 }: {
-  variant?: StatusPillVariant
-  icon?: ReactNode
-  children: ReactNode
+  variant?: StatusPillVariant;
+  icon?: ReactNode;
+  children: ReactNode;
 }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
-        VARIANT_CLASSES[variant],
+        opusBadgeClass({ tone: VARIANT_TONES[variant], size: 'small' })
       )}
     >
-      {icon && <span className="inline-flex w-3 h-3">{icon}</span>}
-      {children}
+      {icon && <span className="opus-badge__icon">{icon}</span>}
+      <span className="opus-badge__label">{children}</span>
     </span>
-  )
+  );
 }

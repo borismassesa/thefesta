@@ -132,7 +132,7 @@ export default async function BookingsPage({
                 : `No ${FILTER_LABEL[filter].toLowerCase()} inquiries.`}
             </p>
           ) : (
-            <table className="w-full text-sm">
+            <table className="opus-table w-full text-sm">
               <thead className="border-b border-gray-100 bg-gray-50 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">
                 <tr>
                   <th className="px-5 py-3">Couple</th>

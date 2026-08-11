@@ -193,6 +193,7 @@ export default function EventsListClient({ events }: { events: CheckinEventRow[]
           <div className="relative min-w-[220px] flex-1">
             <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
+              type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by event, couple, venue, or type…"
@@ -202,7 +203,7 @@ export default function EventsListClient({ events }: { events: CheckinEventRow[]
 
           <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
             {TIME_FILTERS.map((f) => (
-              <button
+              <button data-opus-button="control"
                 key={f}
                 onClick={() => setTimeFilter(f)}
                 className={cn(
@@ -244,7 +245,7 @@ export default function EventsListClient({ events }: { events: CheckinEventRow[]
           </select>
 
           <div className="relative">
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               onClick={() => setSortOpen((v) => !v)}
               onBlur={() => setTimeout(() => setSortOpen(false), 120)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:border-[#C9A0DC] hover:text-[#7E5896]"
@@ -255,7 +256,7 @@ export default function EventsListClient({ events }: { events: CheckinEventRow[]
             {sortOpen ? (
               <div className="absolute top-full right-0 z-10 mt-1 w-52 overflow-hidden rounded-lg border border-gray-100 bg-white py-1 shadow-lg">
                 {(Object.keys(SORT_LABELS) as SortMode[]).map((s) => (
-                  <button
+                  <button data-opus-button="secondary" data-opus-button-size="small"
                     key={s}
                     onMouseDown={() => setSort(s)}
                     className={cn(

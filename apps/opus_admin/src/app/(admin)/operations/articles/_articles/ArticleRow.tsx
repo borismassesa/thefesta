@@ -60,7 +60,7 @@ function metaLine(entry: ArticleListEntry): string {
 
 export default function ArticleRow({ entry }: { entry: ArticleListEntry }) {
   return (
-    <div
+    <div data-opus-table-header
       role="row"
       className="grid grid-cols-[64px_minmax(0,1fr)_120px_120px] items-center gap-3 border-b border-gray-100 bg-white px-4 py-3.5 transition-colors hover:bg-gray-50/60"
     >

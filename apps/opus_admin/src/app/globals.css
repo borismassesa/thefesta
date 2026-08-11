@@ -2,6 +2,11 @@
 @import '../styles/_keyframe-animations.scss';
 
 @import "tailwindcss";
+@import '@opusfesta/lib/styles/radius.css';
+@import '@opusfesta/lib/styles/buttons.css';
+@import '@opusfesta/lib/styles/badges.css';
+@import '@opusfesta/lib/styles/search.css';
+@import '@opusfesta/lib/styles/tables.css';
 
 /* This app is light-only — no dark theme exists. Without declaring the
    scheme explicitly, browsers apply the OS's native dark-mode UA styling to
@@ -63,4 +68,59 @@ select:not([multiple]):not([size]) {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;            /* Safari / Chrome */
+}
+
+/* Recruitment contains long, form-heavy workflows assembled over several
+   iterations. This scoped baseline keeps their native controls aligned with
+   the Approvals design language without leaking into other admin modules. */
+.recruitment-ui :where(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea) {
+  font: inherit;
+  color: #111827;
+  accent-color: #5b2d8e;
+}
+
+.recruitment-ui :where(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea)::placeholder {
+  color: #9ca3af;
+}
+
+.recruitment-ui :where(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea):focus-visible {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px #c9a0dc;
+}
+
+.recruitment-ui :where(input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+
+.recruitment-ui :where(input[type='checkbox'], input[type='radio']) {
+  accent-color: #5b2d8e;
+}
+
+.recruitment-ui summary {
+  list-style: none;
+}
+
+.recruitment-ui summary::-webkit-details-marker {
+  display: none;
+}
+
+.recruitment-ui summary:not([data-summary-icon])::after {
+  content: '›';
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: #9ca3af;
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1;
+  transition: transform 150ms ease, color 150ms ease;
+}
+
+.recruitment-ui details[open] > summary:not([data-summary-icon])::after {
+  transform: rotate(90deg);
+  color: #5b2d8e;
+}
+
+.recruitment-ui :where(a, button, summary):focus-visible {
+  outline: none;
 }
