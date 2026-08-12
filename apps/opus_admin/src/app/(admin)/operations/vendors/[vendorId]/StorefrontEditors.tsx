@@ -137,7 +137,7 @@ function EmptyState({
         {icon}
       </div>
       <p className="text-sm text-gray-700 mb-4">{message}</p>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onCta}
         className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full bg-[#7E5896] hover:bg-[#6B4880] text-white transition-colors"
@@ -612,7 +612,7 @@ export function AdminStylePersonalityEditor({
           {LANGUAGE_OPTIONS.map((l) => {
             const on = languages.includes(l.id)
             return (
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="small"
                 key={l.id}
                 type="button"
                 onClick={() => toggleLang(l.id)}
@@ -1168,7 +1168,7 @@ export function AdminTeamEditor({
                   />
                 </Field>
               </div>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => remove(m.id)}
                 className="mt-2 inline-flex items-center gap-1 text-xs text-rose-700 hover:text-rose-900 font-semibold"
@@ -1180,7 +1180,7 @@ export function AdminTeamEditor({
         </ul>
       )}
       {team.length > 0 && (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={add}
           className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-gray-900"
@@ -1269,7 +1269,7 @@ export function AdminFaqEditor({
                   />
                 </Field>
               </div>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => remove(f.id)}
                 className="mt-2 inline-flex items-center gap-1 text-xs text-rose-700 hover:text-rose-900 font-semibold"
@@ -1281,7 +1281,7 @@ export function AdminFaqEditor({
         </ul>
       )}
       {faqs.length > 0 && (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={add}
           className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-gray-900"
@@ -1409,7 +1409,7 @@ export function AdminPackagesEditor({
                   />
                 </Field>
               </div>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => remove(p.id)}
                 className="mt-2 inline-flex items-center gap-1 text-xs text-rose-700 hover:text-rose-900 font-semibold"
@@ -1421,7 +1421,7 @@ export function AdminPackagesEditor({
         </ul>
       )}
       {packages.length > 0 && (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={add}
           className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-gray-900"
@@ -1637,7 +1637,7 @@ export function AdminPhotosVideosEditor({
             <div className="relative w-full max-w-xl rounded-xl overflow-hidden border border-gray-100 bg-gray-100 aspect-[16/9]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={coverImage} alt="Cover" className="w-full h-full object-cover" />
-              <button
+              <button data-opus-button="danger" data-opus-button-size="small"
                 type="button"
                 onClick={() => setCoverImage(null)}
                 className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs font-semibold bg-white/95 hover:bg-white text-rose-700 px-2 py-1 rounded-md shadow-sm"
@@ -1687,7 +1687,7 @@ export function AdminPhotosVideosEditor({
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt="Gallery photo" className="w-full h-full object-cover" />
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => removeGalleryAt(i)}
                     className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/95 text-rose-700 hover:bg-rose-50 inline-flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1756,7 +1756,7 @@ export function AdminPhotosVideosEditor({
                       className="w-full h-full object-cover bg-black"
                     />
                   )}
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => removeVideoAt(i)}
                     className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/95 text-rose-700 hover:bg-rose-50 inline-flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1779,7 +1779,7 @@ export function AdminPhotosVideosEditor({
                   onChange={(e) => setEmbedDraft(e.target.value)}
                   placeholder="https://www.youtube.com/watch?v=…"
                 />
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="button"
                   onClick={addEmbed}
                   disabled={!embedDraft.trim()}

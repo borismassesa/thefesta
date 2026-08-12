@@ -138,7 +138,7 @@ export default function ConfirmDialog({
               </div>
             )}
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onCancel}
             disabled={pending}
@@ -159,7 +159,7 @@ export default function ConfirmDialog({
         )}
 
         <div className="mt-2 flex items-center justify-end gap-2">
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             ref={cancelRef}
             type="button"
             onClick={onCancel}
@@ -168,7 +168,7 @@ export default function ConfirmDialog({
           >
             {cancelLabel}
           </button>
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             onClick={onConfirm}
             disabled={pending}

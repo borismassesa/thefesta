@@ -2,7 +2,9 @@
 // and Submissions tabs. Single visual grammar across the three tabs is the
 // whole point of this component existing.
 
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
+import { opusBadgeClass, type OpusBadgeTone } from '@opusfesta/lib';
+import { CircleAlert, CircleCheck, CircleX, Info } from 'lucide-react';
 
 export type StatusVariant =
   | 'active'
@@ -15,41 +17,50 @@ export type StatusVariant =
   | 'inactive'
   | 'rejected'
   | 'expired'
-  | 'revoked'
+  | 'revoked';
 
-const STYLES: Record<StatusVariant, { wrap: string; label: string }> = {
-  active: { wrap: 'bg-emerald-50 text-emerald-800', label: 'Active' },
-  approved: { wrap: 'bg-emerald-50 text-emerald-800', label: 'Approved' },
-  published: { wrap: 'bg-emerald-50 text-emerald-800', label: 'Published' },
-  pending: { wrap: 'bg-amber-50 text-amber-800', label: 'Pending' },
-  revisions: { wrap: 'bg-rose-50 text-rose-700', label: 'Revisions' },
-  scheduled: { wrap: 'bg-sky-50 text-sky-800', label: 'Scheduled' },
-  draft: { wrap: 'bg-gray-100 text-gray-600', label: 'Draft' },
-  inactive: { wrap: 'bg-gray-100 text-gray-600', label: 'Inactive' },
-  rejected: { wrap: 'bg-rose-50 text-rose-700', label: 'Rejected' },
-  expired: { wrap: 'bg-gray-100 text-gray-600', label: 'Expired' },
-  revoked: { wrap: 'bg-rose-50 text-rose-700', label: 'Revoked' },
-}
+const STYLES: Record<StatusVariant, { tone: OpusBadgeTone; label: string }> = {
+  active: { tone: 'success', label: 'Active' },
+  approved: { tone: 'success', label: 'Approved' },
+  published: { tone: 'success', label: 'Published' },
+  pending: { tone: 'warning', label: 'Pending' },
+  revisions: { tone: 'error', label: 'Revisions' },
+  scheduled: { tone: 'warning', label: 'Scheduled' },
+  draft: { tone: 'info', label: 'Draft' },
+  inactive: { tone: 'neutral', label: 'Inactive' },
+  rejected: { tone: 'error', label: 'Rejected' },
+  expired: { tone: 'neutral', label: 'Expired' },
+  revoked: { tone: 'error', label: 'Revoked' },
+};
+
+const ICONS: Record<OpusBadgeTone, typeof Info> = {
+  error: CircleX,
+  info: Info,
+  success: CircleCheck,
+  warning: CircleAlert,
+  neutral: Info,
+};
 
 export default function StatusPill({
   variant,
   label,
   className,
 }: {
-  variant: StatusVariant
-  label?: string
-  className?: string
+  variant: StatusVariant;
+  label?: string;
+  className?: string;
 }) {
-  const style = STYLES[variant]
+  const style = STYLES[variant];
+  const StatusIcon = ICONS[style.tone];
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold',
-        style.wrap,
+        opusBadgeClass({ tone: style.tone, size: 'small' }),
         className
       )}
     >
-      {label ?? style.label}
+      <StatusIcon aria-hidden="true" />
+      <span className="opus-badge__label">{label ?? style.label}</span>
     </span>
-  )
+  );
 }

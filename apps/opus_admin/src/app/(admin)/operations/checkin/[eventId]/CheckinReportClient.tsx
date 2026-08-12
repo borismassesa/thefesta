@@ -298,14 +298,14 @@ export default function CheckinReportClient({
           Snapshot taken {formatReportDateTime(report.generatedAt)}. Reload for current figures.
         </p>
         <div className="flex items-center gap-2 print:hidden">
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="small"
             type="button"
             onClick={exportCsv}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-[#C9A0DC] hover:text-[#7E5896]"
           >
             <Download className="h-3.5 w-3.5" /> Export CSV
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => window.print()}
             className="inline-flex items-center gap-2 rounded-lg bg-[#7E5896] px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#6b4a80]"
@@ -486,7 +486,7 @@ export default function CheckinReportClient({
           <Empty>No admin-assigned door staff for this event.</Empty>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="opus-table w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/70 text-[11px] font-semibold tracking-wide text-gray-500 uppercase">
                   <th className="px-5 py-2.5 text-left">Attendant</th>
@@ -521,7 +521,7 @@ export default function CheckinReportClient({
           <Empty>Nobody has checked in yet.</Empty>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[480px] text-sm">
+            <table className="opus-table w-full min-w-[480px] text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/70 text-[11px] font-semibold tracking-wide text-gray-500 uppercase">
                   <th className="px-5 py-2.5 text-left">Guest</th>

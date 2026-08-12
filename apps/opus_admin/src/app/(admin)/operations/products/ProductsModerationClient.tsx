@@ -101,7 +101,7 @@ export default function ProductsModerationClient({
 
       <div className="mb-5 grid grid-cols-3 gap-3">
         {tiles.map((t) => (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="large"
             key={t.key}
             type="button"
             onClick={() => go({ filter: t.key })}
@@ -123,7 +123,7 @@ export default function ProductsModerationClient({
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1.5">
           {FILTERS.map((f) => (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               key={f.key}
               type="button"
               onClick={() => go({ filter: f.key })}
@@ -145,6 +145,7 @@ export default function ProductsModerationClient({
         >
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
           <input
+            type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search products…"
@@ -221,7 +222,7 @@ export default function ProductsModerationClient({
                 </div>
                 {p.status !== 'approved' ? (
                   <div className="flex shrink-0 flex-col gap-1.5">
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => onApprove(p.id)}
                       disabled={busyId === p.id}
@@ -229,7 +230,7 @@ export default function ProductsModerationClient({
                     >
                       <Check className="h-3.5 w-3.5" /> Approve
                     </button>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => {
                         setRejectingId(rejectingId === p.id ? null : p.id)
@@ -242,7 +243,7 @@ export default function ProductsModerationClient({
                     </button>
                   </div>
                 ) : (
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => {
                       setRejectingId(rejectingId === p.id ? null : p.id)
@@ -265,7 +266,7 @@ export default function ProductsModerationClient({
                     placeholder="Reason (sent to the vendor)…"
                     className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
                   />
-                  <button
+                  <button data-opus-button="danger" data-opus-button-size="medium"
                     type="button"
                     onClick={() => onReject(p.id)}
                     disabled={busyId === p.id || !rejectNote.trim()}

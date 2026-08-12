@@ -97,7 +97,7 @@ function RequestTable({
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-      <table className="w-full text-sm">
+      <table className="opus-table w-full text-sm">
         <thead className="border-b border-gray-100 bg-gray-50/60">
           <tr>
             {['Business', 'Requested label', 'Submitted', 'Status', ''].map((h) => (
@@ -141,7 +141,7 @@ function RequestTable({
               <td className="px-5 py-3.5">
                 {req.status === 'pending' && (
                   <div className="flex items-center justify-end gap-2">
-                    <button
+                    <button data-opus-button="control"
                       onClick={() => onAct(req.id, 'approved')}
                       disabled={isPending}
                       title="Approve — add to Vendor Categories CMS"
@@ -149,7 +149,7 @@ function RequestTable({
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" /> Approve
                     </button>
-                    <button
+                    <button data-opus-button="danger" data-opus-button-size="small"
                       onClick={() => onAct(req.id, 'rejected')}
                       disabled={isPending}
                       title="Reject"
