@@ -1,7 +1,9 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
+import { isWalletTokenShape } from '@/lib/checkin/wallet-token-core'
 import { buildGoogleSaveLink, loadGoogleWalletConfig } from '@/lib/wallet/google-core'
 import { proofPassModel } from '@/lib/wallet/redirect-proof'
+import type { IssueWalletPassOutcome } from '@/lib/wallet/issue'
 
 // Signs on every request, and the destination differs each time. Nothing here
 // may be cached, at the edge or anywhere else.
@@ -9,36 +11,17 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 /**
- * `/t/<code>` — the redirect resolver, in its milestone-1 proof form.
+ * `/t/<code>` — the stable entrance-pass handoff.
  *
- * WHAT THIS EVENTUALLY BECOMES. One permanent, stable WhatsApp action per
- * guest. The message carries this URL and nothing else, and the destination is
- * decided here at tap time: a guest whose Google Wallet object is ready is sent
- * straight into Google's save flow, and everyone else lands on the Digital
- * Entrance Pass. That indirection is the whole point. A signed Google save URL
- * baked into a WhatsApp message would be frozen at send time, and a WhatsApp
- * message cannot be recalled, so a later credential rotation would leave the
- * guest tapping through to a pass the door has already stopped accepting.
+ * A wallet-enabled WhatsApp template carries one permanent management token,
+ * never a Google save URL. The destination is decided here at tap time: a
+ * guest whose current Google object can be provisioned is sent into Google's
+ * save flow, and every recoverable failure lands on the Digital Entrance Pass
+ * where the scannable ticket remains available.
  *
- * WHY IT IS A STUB TODAY. The architecture above depends on an undocumented
- * fact: that WhatsApp follows a template URL button through a 302 to
- * pay.google.com. Meta documents URL buttons and dynamic parameters, but says
- * nothing about where a redirect may land, and the button's base URL is frozen
- * when the template is approved. So this route exists first, in the smallest
- * form that can answer that question, and the resolver replaces its body once
- * the answer is in.
- *
- * WHY IT DOES NOT GO THROUGH THE PAUSED ADAPTER. `GOOGLE_WALLET_PAUSED` stops
- * Google Wallet reaching a guest, and it stays on. This route serves no guest:
- * it knows exactly one hardcoded test admission and cannot be pointed at a real
- * one, because it never reads a token, a database or a request body. Routing it
- * through `providers.ts` would only mean unpausing the thing the pause exists
- * to hold shut.
- *
- * WHY IT IS OFF BY DEFAULT. `WALLET_REDIRECT_PROOF_CODE` is unset everywhere
- * until someone sets it for a test, so the route 404s in every environment
- * including production. There is nothing to switch off afterwards beyond
- * clearing the variable.
+ * The isolated WALLET_REDIRECT_PROOF_CODE path remains temporarily so the
+ * off-domain WhatsApp redirect can be re-tested without touching a guest or
+ * database row. It has a deliberately fake admission and stays off by default.
  */
 
 const NO_TRACE = {
@@ -56,16 +39,91 @@ function sameCode(a: string, b: string): boolean {
   return timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest())
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ code: string }> }) {
+/** Never persist a raw capability in the rate-limit table. */
+export function walletRateLimitFingerprint(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+type IssueGooglePass = (token: string, provider: 'google') => Promise<IssueWalletPassOutcome>
+
+/**
+ * Resolve a valid guest capability using an injected issuer.
+ *
+ * Exported as a test seam: unit tests can exercise every redirect outcome
+ * without a live Supabase project or a Google service-account key.
+ */
+export async function resolveGuestHandoff(
+  token: string,
+  requestUrl: string,
+  issue: IssueGooglePass
+): Promise<NextResponse> {
+  try {
+    const outcome = await issue(token, 'google')
+    if (outcome.status === 'ok') {
+      return NextResponse.redirect(outcome.saveUrl, { status: 302, headers: NO_TRACE })
+    }
+    if (outcome.status === 'failed') {
+      console.error('[wallet:handoff] Google issuance failed; showing the digital pass')
+    }
+  } catch (err) {
+    console.error('[wallet:handoff] issuance threw; showing the digital pass', {
+      kind: (err as Error)?.name,
+    })
+  }
+
+  // Keep the guest on a useful surface for provider outages, missing rollout
+  // config, revoked links and past events. /p applies the detailed eligibility
+  // checks and never reveals contact information.
+  return NextResponse.redirect(
+    new URL(`/p/${encodeURIComponent(token)}`, requestUrl),
+    { status: 302, headers: NO_TRACE }
+  )
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
 
   const expected = process.env.WALLET_REDIRECT_PROOF_CODE
-  // Unset means the proof is not running. Indistinguishable from a wrong code
-  // on purpose: this is a public URL, and the shape of a 404 should not tell a
-  // stranger whether a test is in progress.
-  if (!expected || !sameCode(code, expected)) {
+  if (expected && sameCode(code, expected)) {
+    return proofRedirect()
+  }
+
+  if (!isWalletTokenShape(code)) {
     return new NextResponse('Not found', { status: 404, headers: NO_TRACE })
   }
+
+  // The template button is a GET, so it can be followed by link previewers.
+  // Provisioning is idempotent, but still costs database and Google calls; use
+  // both a broad per-IP budget and a tight per-capability budget. Dynamic
+  // imports keep the proof route independent of Supabase configuration.
+  const [{ createSupabaseServerClient }, rateLimit, walletIssue] = await Promise.all([
+    import('@/lib/supabase'),
+    import('@/lib/checkin/rate-limit'),
+    import('@/lib/wallet/issue'),
+  ])
+  const supabase = createSupabaseServerClient()
+  const fingerprint = walletRateLimitFingerprint(code)
+  const allowedByIp = await rateLimit.withinRateLimit(
+    supabase,
+    `wallet-handoff-ip:${rateLimit.clientIp(req)}`,
+    30,
+    60
+  )
+  const allowedByToken = allowedByIp
+    ? await rateLimit.withinRateLimit(supabase, `wallet-handoff:${fingerprint}`, 10, 60)
+    : false
+
+  if (!allowedByIp || !allowedByToken) {
+    return NextResponse.redirect(
+      new URL(`/p/${encodeURIComponent(code)}`, req.url),
+      { status: 302, headers: NO_TRACE }
+    )
+  }
+
+  return resolveGuestHandoff(code, req.url, walletIssue.issueWalletPassForToken)
+}
+
+async function proofRedirect(): Promise<NextResponse> {
 
   const config = loadGoogleWalletConfig(process.env)
   if (!config) {

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
 import { logDbError } from '@/lib/log-safe'
 import { emitWorkflowEvent } from '@/lib/notifications/emit'
+import { isCronAuthorized } from '@/lib/cron-auth'
 
 // Nightly attendance maintenance. Two jobs, one endpoint.
 //
@@ -36,7 +37,7 @@ type MissingRow = {
 export async function POST(request: NextRequest) {
   const secret = process.env.ATTENDANCE_CRON_SECRET
   const auth = request.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!isCronAuthorized(auth, secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createSupabaseAdminClient()
+  const failedJobs: string[] = []
 
   // ---- 1. Auto-close ----
   let autoClosed = 0
@@ -53,6 +55,7 @@ export async function POST(request: NextRequest) {
   )
   if (closeError) {
     logDbError('attendance.auto_close', closeError)
+    failedJobs.push('auto_close')
   } else {
     autoClosed = typeof closedCount === 'number' ? closedCount : 0
   }
@@ -64,7 +67,11 @@ export async function POST(request: NextRequest) {
   )
   if (missingError) {
     logDbError('attendance.detect_missing', missingError)
-    return NextResponse.json({ ok: true, autoClosed, missing: 0, notified: 0 })
+    failedJobs.push('detect_missing')
+    return NextResponse.json(
+      { ok: false, autoClosed, missing: 0, notified: 0, failedJobs },
+      { status: 500 },
+    )
   }
 
   // The RPC returns SETOF; supabase-js types it as unknown, so the shape is
@@ -111,12 +118,16 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({
-    ok: true,
-    autoClosed,
-    missing: rows.length,
-    notified,
-  })
+  return NextResponse.json(
+    {
+      ok: failedJobs.length === 0,
+      autoClosed,
+      missing: rows.length,
+      notified,
+      failedJobs,
+    },
+    { status: failedJobs.length === 0 ? 200 : 500 },
+  )
 }
 
 /** Names and addresses for the affected employees, in one round-trip. */

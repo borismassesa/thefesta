@@ -318,7 +318,7 @@ export default function VendorsListClient({
           next to the help/bell icons, matching the pattern used on the
           vendor review page. */}
       <HeaderActionsSlot>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setCreateOpen(true)}
           className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full bg-[#7E5896] hover:bg-[#6B4880] text-white shadow-sm transition-colors"
@@ -441,7 +441,7 @@ export default function VendorsListClient({
               status !== 'all' ||
               vertical !== 'all' ||
               categoryFilter !== 'All') && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={clearFilters}
                 className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-gray-500 hover:text-[#5B2D8E]"
@@ -457,7 +457,7 @@ export default function VendorsListClient({
                   : `${visibleVendors.length} of ${vendors.length}`}
               </span>
               <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs font-semibold">
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => setView('grid')}
                   className={cn(
@@ -467,7 +467,7 @@ export default function VendorsListClient({
                 >
                   Cards
                 </button>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => setView('list')}
                   className={cn(
@@ -487,7 +487,7 @@ export default function VendorsListClient({
           <EmptyState search={search} totalInStatus={totalCount} />
         ) : view === 'list' ? (
           <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-            <div
+            <div data-opus-table-header
               role="row"
               className={cn(
                 ROW_GRID,
@@ -653,7 +653,7 @@ function VendorRow({
 }) {
   const badge = STATUS_BADGE[vendor.status]
   return (
-    <div
+    <div data-opus-table-row
       role="row"
       onClick={onOpen}
       className={cn(
@@ -854,7 +854,7 @@ function VendorCard({
               <Mail className="h-3.5 w-3.5" />
             </CardAction>
           )}
-          <button
+          <button data-opus-button="control"
             type="button"
             title="Merge duplicate"
             aria-label="Merge duplicate"
@@ -1090,7 +1090,7 @@ function CreateVendorDialog({
               photos, hours) on the review page.
             </p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={pending}
@@ -1178,7 +1178,7 @@ function CreateVendorDialog({
         </div>
 
         <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-gray-100">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={pending}
@@ -1186,7 +1186,7 @@ function CreateVendorDialog({
           >
             Cancel
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={submit}
             disabled={!valid || pending}

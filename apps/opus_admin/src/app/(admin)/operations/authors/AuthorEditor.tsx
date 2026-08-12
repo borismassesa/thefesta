@@ -80,7 +80,7 @@ export default function AuthorEditor({ mode, initial }: Props) {
         </Link>
         <div className="flex items-center gap-2">
           {message && <span className="text-xs text-gray-500">{message}</span>}
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             disabled={pending}
             onClick={handleSave}
@@ -168,7 +168,7 @@ export default function AuthorEditor({ mode, initial }: Props) {
             />
           </Field>
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={pending}

@@ -40,7 +40,7 @@ export default function ProductCategoriesClient({
             The browse taxonomy for the registry shop. Vendors tag each product with one.
           </p>
         </div>
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           onClick={() => setAdding((v) => !v)}
           className="inline-flex h-10 items-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-gray-800"
@@ -82,7 +82,7 @@ export default function ProductCategoriesClient({
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
             />
           </label>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             disabled={pending || !draft.label.trim() || !draft.slug.trim()}
             onClick={() =>
@@ -117,7 +117,7 @@ export default function ProductCategoriesClient({
                   {c.slug} · {c.icon} · sort {c.sort_order}
                 </p>
               </div>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => run(() => updateProductCategory(c.slug, { active: !c.active }))}
                 className={cn(
@@ -130,7 +130,7 @@ export default function ProductCategoriesClient({
                 {c.active ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                 {c.active ? 'Active' : 'Hidden'}
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => run(() => deleteProductCategory(c.slug))}
                 aria-label={`Delete ${c.label}`}

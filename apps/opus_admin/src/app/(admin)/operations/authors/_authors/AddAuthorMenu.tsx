@@ -52,7 +52,7 @@ export default function AddAuthorMenu() {
   return (
     <>
       <div className="relative" ref={wrapperRef}>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-haspopup="menu"
@@ -72,7 +72,7 @@ export default function AddAuthorMenu() {
             role="menu"
             className="absolute right-0 z-30 mt-2 w-60 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg"
           >
-            <button
+            <button data-opus-button="control"
               role="menuitem"
               type="button"
               onClick={chooseDirect}
@@ -88,7 +88,7 @@ export default function AddAuthorMenu() {
                 </span>
               </span>
             </button>
-            <button
+            <button data-opus-button="control"
               role="menuitem"
               type="button"
               onClick={chooseInvite}

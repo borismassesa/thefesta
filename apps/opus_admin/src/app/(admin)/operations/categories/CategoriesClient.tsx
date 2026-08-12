@@ -98,7 +98,7 @@ export default function CategoriesClient({ categories }: { categories: CategoryR
             Add or edit categories without a code rebuild. Active categories appear on the onboarding portal.
           </p>
         </div>
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           onClick={() => { setAdding(true); setAddState(EMPTY_ADD); setError(null) }}
           className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded-lg hover:bg-gray-700"
         >
@@ -134,10 +134,10 @@ export default function CategoriesClient({ categories }: { categories: CategoryR
             <Field label="Sort order" value={String(addState.sortOrder)} onChange={(v) => setAddState((s) => ({ ...s, sortOrder: parseInt(v) || 0 }))} placeholder="12" />
           </div>
           <div className="flex gap-2">
-            <button onClick={saveAdd} disabled={isPending} className="px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
+            <button data-opus-button="primary" data-opus-button-size="medium" onClick={saveAdd} disabled={isPending} className="px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
               Save
             </button>
-            <button onClick={() => { setAdding(false); setError(null) }} className="px-4 py-2 border border-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50">
+            <button data-opus-button="control" onClick={() => { setAdding(false); setError(null) }} className="px-4 py-2 border border-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50">
               Cancel
             </button>
           </div>
@@ -146,7 +146,7 @@ export default function CategoriesClient({ categories }: { categories: CategoryR
 
       {/* Table */}
       <div className="border border-gray-200 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="opus-table w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               {['#', 'Slug', 'Onboarding label', 'Profile label', 'DB value', 'Icon', 'Products', 'Status', ''].map((h) => (
@@ -184,7 +184,7 @@ export default function CategoriesClient({ categories }: { categories: CategoryR
                       : cat.icon}
                   </td>
                   <td className="px-4 py-3">
-                    <button
+                    <button data-opus-button="control"
                       onClick={() => toggleSellsProducts(cat.slug, cat.sells_products)}
                       disabled={isPending}
                       title={cat.sells_products ? 'Sells products — click to disable' : 'Enable the Products tab for this category'}
@@ -211,19 +211,19 @@ export default function CategoriesClient({ categories }: { categories: CategoryR
                     <div className="flex items-center gap-2 justify-end">
                       {isEditing ? (
                         <>
-                          <button onClick={saveEdit} disabled={isPending} title="Save" className="p-1 text-emerald-600 hover:text-emerald-800"><Check className="w-4 h-4" /></button>
-                          <button onClick={() => setEditing(null)} title="Cancel" className="p-1 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+                          <button data-opus-button="control" onClick={saveEdit} disabled={isPending} title="Save" className="p-1 text-emerald-600 hover:text-emerald-800"><Check className="w-4 h-4" /></button>
+                          <button data-opus-button="control" onClick={() => setEditing(null)} title="Cancel" className="p-1 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                         </>
                       ) : (
                         <>
-                          <button
+                          <button data-opus-button="control"
                             onClick={() => setEditing({ slug: cat.slug, label: cat.label, profileLabel: cat.profile_label, dbValue: cat.db_value, icon: cat.icon, sortOrder: cat.sort_order })}
                             title="Edit"
                             className="p-1 text-gray-400 hover:text-gray-700"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button
+                          <button data-opus-button="control"
                             onClick={() => toggleActive(cat.slug, cat.active)}
                             disabled={isPending}
                             title={cat.active ? 'Hide' : 'Show'}

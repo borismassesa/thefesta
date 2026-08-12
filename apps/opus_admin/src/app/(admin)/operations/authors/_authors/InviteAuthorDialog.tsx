@@ -138,7 +138,7 @@ export default function InviteAuthorDialog({
               access.
             </p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
@@ -182,14 +182,14 @@ export default function InviteAuthorDialog({
             {error && <p className="text-sm text-rose-700">{error}</p>}
 
             <div className="flex justify-end gap-2 pt-2">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onClose}
                 className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 onClick={submit}
                 disabled={pending || !email}
@@ -238,7 +238,7 @@ export default function InviteAuthorDialog({
                     Mail client
                   </a>
                 )}
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="button"
                   onClick={copyLink}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-black"
@@ -253,7 +253,7 @@ export default function InviteAuthorDialog({
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 onClick={onClose}
                 className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-black"

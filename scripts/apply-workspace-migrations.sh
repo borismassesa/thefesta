@@ -38,12 +38,13 @@
 #
 # AFTER APPLYING
 #
-#   1. Set the cron secrets, or the hourly attendance job no-ops with a notice:
-#        ALTER DATABASE postgres SET app.settings.opus_admin_base_url = 'https://admin.opusfesta.com';
-#        ALTER DATABASE postgres SET app.settings.attendance_cron_secret = '<matches ATTENDANCE_CRON_SECRET on Vercel>';
-#        ALTER DATABASE postgres SET app.settings.reports_cron_secret = '<matches REPORTS_CRON_SECRET on Vercel>';
-#        ALTER DATABASE postgres SET app.settings.tracker_cron_secret = '<matches TRACKER_CRON_SECRET on Vercel>';
-#        ALTER DATABASE postgres SET app.settings.leave_cron_secret = '<matches LEAVE_CRON_SECRET on Vercel>';
+#   1. Store the URL and cron secrets in Supabase Vault. Hosted Supabase rejects
+#      ALTER DATABASE ... SET app.settings.*, so the workers read Vault first:
+#        SELECT vault.create_secret('https://admin.opusfesta.com', 'opus_admin_base_url');
+#        SELECT vault.create_secret('<matches Vercel>', 'attendance_cron_secret');
+#        SELECT vault.create_secret('<matches Vercel>', 'reports_cron_secret');
+#        SELECT vault.create_secret('<matches Vercel>', 'tracker_cron_secret');
+#        SELECT vault.create_secret('<matches Vercel>', 'leave_cron_secret');
 #   2. Add ATTENDANCE_CRON_SECRET, REPORTS_CRON_SECRET, TRACKER_CRON_SECRET and
 #      LEAVE_CRON_SECRET to the opus_admin project on Vercel.
 #   3. Give People Ops workforce.write. It is the permission that gates moving a
@@ -123,6 +124,9 @@ MIGRATIONS=(
   "20260802240000_performance_schema.sql"
   "20260802240100_performance_functions.sql"
   "20260802240200_performance_backfill.sql"
+  # Hosted Supabase cannot persist app.settings.* through the dashboard role.
+  # Repoint all four scheduled workers at encrypted Vault configuration.
+  "20260811041800_workspace_cron_vault.sql"
 )
 
 echo "Applying ${#MIGRATIONS[@]} migrations."

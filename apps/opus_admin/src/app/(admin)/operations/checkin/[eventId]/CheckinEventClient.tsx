@@ -194,7 +194,7 @@ function IconAction({
   children: ReactNode
 }) {
   return (
-    <button
+    <button data-opus-button="danger" data-opus-button-size="small"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -621,7 +621,7 @@ export default function CheckinEventClient({
                     ))}
                   </select>
                 </div>
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="submit"
                   disabled={!name.trim() || pending}
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#7E5896] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#6b4a80] disabled:cursor-not-allowed disabled:opacity-40"
@@ -710,7 +710,7 @@ export default function CheckinEventClient({
                       placeholder="coordinator@example.com"
                       className="min-w-[220px] flex-1 rounded-lg border border-[#7ec24a]/50 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition-colors focus:border-[#7E5896]"
                     />
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={resend}
                       disabled={!resendTo.trim() || pending}
@@ -741,7 +741,7 @@ export default function CheckinEventClient({
             icon={<ShieldCheck className="h-3.5 w-3.5 text-[#7E5896]" />}
             action={
               spent.length > 0 ? (
-                <button
+                <button data-opus-button="control"
                   onClick={() => setShowSpent((v) => !v)}
                   aria-expanded={showSpent}
                   className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition-colors hover:text-[#7E5896]"

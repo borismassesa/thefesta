@@ -263,7 +263,7 @@ function PrimaryButton({
   label: string
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       disabled={pending}
@@ -287,7 +287,7 @@ function SecondaryButton({
   label: string
 }) {
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="medium"
       type="button"
       onClick={onClick}
       disabled={pending}
@@ -311,7 +311,7 @@ function DestructiveButton({
   label: string
 }) {
   return (
-    <button
+    <button data-opus-button="danger" data-opus-button-size="medium"
       type="button"
       onClick={onClick}
       disabled={pending}
@@ -366,7 +366,7 @@ function NotesForm({
         />
       </label>
       <div className="flex justify-end gap-2">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onCancel}
           disabled={pending}
@@ -374,7 +374,7 @@ function NotesForm({
         >
           Cancel
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onConfirm}
           disabled={pending}

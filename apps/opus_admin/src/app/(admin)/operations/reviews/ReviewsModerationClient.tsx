@@ -80,7 +80,7 @@ export default function ReviewsModerationClient({
             {FILTER_TABS.map((tab) => {
               const isActive = tab.id === filter
               return (
-                <button
+                <button data-opus-button="control"
                   key={tab.id}
                   type="button"
                   onClick={() => writeFilter(tab.id)}
@@ -269,7 +269,7 @@ function ReviewCard({ review }: { review: ReviewRow }) {
 
       {isPending && (
         <div className="flex items-center gap-2 flex-wrap">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onPublish}
             disabled={pending}
@@ -278,7 +278,7 @@ function ReviewCard({ review }: { review: ReviewRow }) {
             <ThumbsUp className="w-3.5 h-3.5" />
             Publish
           </button>
-          <button
+          <button data-opus-button="danger" data-opus-button-size="small"
             type="button"
             onClick={() => setShowReject((s) => !s)}
             className={cn(
@@ -306,7 +306,7 @@ function ReviewCard({ review }: { review: ReviewRow }) {
             placeholder="e.g. Submitted by someone unrelated to the vendor; cannot verify."
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent"
           />
-          <button
+          <button data-opus-button="danger" data-opus-button-size="small"
             type="button"
             onClick={onReject}
             disabled={pending || !rejectReason.trim()}

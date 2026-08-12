@@ -449,7 +449,7 @@ export default function VendorReviewClient(props: VendorReviewProps) {
         <HeaderActionsSlot>
           <div className="flex items-center gap-2">
           {isApproved ? (
-            <button
+            <button data-opus-button="danger" data-opus-button-size="medium"
               type="button"
               onClick={() =>
                 setNotePrompt({
@@ -471,7 +471,7 @@ export default function VendorReviewClient(props: VendorReviewProps) {
               Suspend vendor
             </button>
           ) : isSuspended ? (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() =>
                 runAction('Reactivate', () => reactivateVendor(vendor.id))
@@ -484,7 +484,7 @@ export default function VendorReviewClient(props: VendorReviewProps) {
             </button>
           ) : (
             <>
-              <button
+              <button data-opus-button="danger" data-opus-button-size="medium"
                 type="button"
                 onClick={openCorrectionsPrompt}
                 disabled={pending}
@@ -493,7 +493,7 @@ export default function VendorReviewClient(props: VendorReviewProps) {
                 <ThumbsDown className="w-3.5 h-3.5" />
                 Request corrections
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() =>
                   runAction('Approve & activate', () =>
@@ -587,7 +587,7 @@ export default function VendorReviewClient(props: VendorReviewProps) {
                 a link to re-upload) and can fix everything in one pass.
               </p>
             </div>
-            <button
+            <button data-opus-button="danger" data-opus-button-size="small"
               type="button"
               onClick={openCorrectionsPrompt}
               disabled={pending}
@@ -609,7 +609,7 @@ export default function VendorReviewClient(props: VendorReviewProps) {
               const showPendingBadge =
                 tab.id === 'verification' && verificationPending
               return (
-                <button
+                <button data-opus-button="control"
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
@@ -1103,7 +1103,7 @@ function CategoryCard({
           ))}
         </select>
         {dirty && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={save}
             disabled={pending || saving}
@@ -1113,7 +1113,7 @@ function CategoryCard({
           </button>
         )}
         {dirty && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setChoice(currentCategory)}
             disabled={pending || saving}
@@ -1191,7 +1191,7 @@ function HeaderMoreMenu({
 
   return (
     <div className="relative" ref={ref}>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
@@ -1208,7 +1208,7 @@ function HeaderMoreMenu({
           role="menu"
           className="absolute right-0 top-full mt-1.5 w-56 rounded-xl border border-gray-100 bg-white p-1 shadow-lg z-20"
         >
-          <button
+          <button data-opus-button="control"
             type="button"
             role="menuitem"
             onClick={() => {
@@ -1332,7 +1332,7 @@ function DeleteVendorDialog({
             </div>
           </header>
           <div className="flex items-center justify-end px-6 py-3 border-t border-gray-100">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onDeleted}
               autoFocus
@@ -1441,7 +1441,7 @@ function DeleteVendorDialog({
         </div>
 
         <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-gray-100">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={pending}
@@ -1449,7 +1449,7 @@ function DeleteVendorDialog({
           >
             Cancel
           </button>
-          <button
+          <button data-opus-button="danger" data-opus-button-size="medium"
             type="button"
             onClick={onDelete}
             disabled={!confirmed || pending}
@@ -1544,7 +1544,7 @@ function NotePromptDialog({
           />
         </div>
         <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-gray-100">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onCancel}
             disabled={pending}
@@ -1552,7 +1552,7 @@ function NotePromptDialog({
           >
             Cancel
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => onConfirm(note.trim())}
             disabled={pending}
@@ -1753,7 +1753,7 @@ function GlobalSaveBar({ bottomOffsetClass = 'pb-4' }: { bottomOffsetClass?: str
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onDiscardAll}
                 disabled={saving}
@@ -1761,7 +1761,7 @@ function GlobalSaveBar({ bottomOffsetClass = 'pb-4' }: { bottomOffsetClass?: str
               >
                 Discard
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onSaveAll}
                 disabled={saving}
@@ -1830,7 +1830,7 @@ function ReviewPanelActions({
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         {children}
-        <button
+        <button data-opus-button="primary" data-opus-button-size="small"
           type="button"
           onClick={onSave}
           disabled={pending || !dirty}
@@ -1883,7 +1883,7 @@ function PayoutSection({
         )}
 
         {!adding && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setAdding(true)}
             className="inline-flex items-center gap-1.5 self-start text-sm font-semibold text-[#7E5896] hover:text-[#6B4880] transition-colors"
@@ -2008,7 +2008,7 @@ function PayoutCard({
           )}
         </div>
         {canSetPrimary && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={makePrimary}
             disabled={pending}
@@ -2081,7 +2081,7 @@ function PayoutCard({
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
           {payout?.id ? (
-            <button
+            <button data-opus-button="danger" data-opus-button-size="small"
               type="button"
               onClick={deletePayout}
               disabled={pending}
@@ -2091,7 +2091,7 @@ function PayoutCard({
               Delete
             </button>
           ) : onDone ? (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onDone}
               disabled={pending}
@@ -2100,7 +2100,7 @@ function PayoutCard({
               Cancel
             </button>
           ) : null}
-          <button
+          <button data-opus-button="danger" data-opus-button-size="small"
             type="button"
             onClick={() => saveWithStatus('failed')}
             disabled={pending || !payout}
@@ -2109,7 +2109,7 @@ function PayoutCard({
             <XCircle className="w-3 h-3" />
             Mark failed
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             onClick={() => save()}
             disabled={pending || !dirty}
@@ -2117,7 +2117,7 @@ function PayoutCard({
           >
             {pending ? 'Saving…' : payout ? 'Save' : 'Create'}
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => saveWithStatus('verified')}
             disabled={pending}
@@ -2189,7 +2189,7 @@ function printAgreementRecord(
   td{padding:7px 0;border-bottom:1px solid #eee;vertical-align:top}
   td.lbl{color:#888;width:170px;padding-right:16px} .mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all}
   .sig{margin-top:24px} .sig p{color:#888;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin:0 0 6px}
-  .sig img{max-width:280px;border:1px solid #ddd;border-radius:8px;background:#fff;padding:4px}
+  .sig img{max-width:280px;border:1px solid #ddd;border-radius:var(--opus-radius-small);background:#fff;padding:4px}
   .foot{margin-top:32px;font-size:11px;color:#999}
 </style></head><body>
   <div class="brand">OpusFesta — Vendor agreement record</div>
@@ -2371,7 +2371,7 @@ function DocReviewCard({
                 <ExternalLink className="w-3 h-3" />
                 Open in new tab
               </a>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() =>
                   downloadSignedUrl(
@@ -2401,7 +2401,7 @@ function DocReviewCard({
           {/* Actions */}
           {!actionsDisabled && (
             <div className="flex items-center gap-2 flex-wrap">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => onApprove(doc.id)}
                 disabled={isApproved}
@@ -2415,7 +2415,7 @@ function DocReviewCard({
                 <ThumbsUp className="w-3.5 h-3.5" />
                 {isApproved ? 'Approved' : 'Approve'}
               </button>
-              <button
+              <button data-opus-button="danger" data-opus-button-size="small"
                 type="button"
                 onClick={() => setShowRejectForm((s) => !s)}
                 className={cn(
@@ -2443,7 +2443,7 @@ function DocReviewCard({
                 placeholder="e.g. Image is blurry — please re-scan the certificate."
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent"
               />
-              <button
+              <button data-opus-button="danger" data-opus-button-size="small"
                 type="button"
                 onClick={() => {
                   if (!doc) return
@@ -2567,7 +2567,7 @@ function AgreementDocRow({
         <div className="flex items-center gap-2 shrink-0">
           {doc.signed ? (
             <>
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="small"
                 type="button"
                 onClick={() => printAgreementRecord(doc, signatureUrl)}
                 className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 hover:text-gray-900 px-2 py-0.5 rounded-md border border-gray-200 bg-white transition-colors"
@@ -2649,7 +2649,7 @@ function AgreementDocRow({
                 alt="Vendor's drawn signature"
                 className="block w-48 h-auto rounded-lg border border-gray-200 bg-white"
               />
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() =>
                   downloadSignedUrl(signatureUrl, `signature-${slugifyFilename(doc.code)}.png`)
@@ -2888,7 +2888,7 @@ function DocumentRequestsPanel({
             className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-[#C9A0DC]"
           />
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={submitRequest}
               disabled={pending || !title.trim()}
@@ -2897,7 +2897,7 @@ function DocumentRequestsPanel({
               {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
               Send request
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => { setShowForm(false); setError(null) }}
               disabled={pending}
@@ -2908,7 +2908,7 @@ function DocumentRequestsPanel({
           </div>
         </div>
       ) : (
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="medium"
           type="button"
           onClick={() => setShowForm(true)}
           className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors"
@@ -2948,7 +2948,7 @@ function DocumentRequestsPanel({
                   <div className="flex shrink-0 items-center gap-1.5">
                     {r.status === 'pending' && !expired && (
                       <>
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           onClick={() => copyLink(r.id, r.uploadUrl)}
                           className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
@@ -2956,7 +2956,7 @@ function DocumentRequestsPanel({
                           {copiedId === r.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                           {copiedId === r.id ? 'Copied' : 'Copy link'}
                         </button>
-                        <button
+                        <button data-opus-button="danger" data-opus-button-size="small"
                           type="button"
                           onClick={() => run(() => cancelVendorDocumentRequest(r.id))}
                           disabled={pending}
@@ -2970,7 +2970,7 @@ function DocumentRequestsPanel({
                     {r.status === 'submitted' && (
                       <>
                         {r.storagePath && (
-                          <button
+                          <button data-opus-button="control"
                             type="button"
                             onClick={() => preview(r.id)}
                             disabled={pending}
@@ -2980,7 +2980,7 @@ function DocumentRequestsPanel({
                             Preview
                           </button>
                         )}
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           onClick={() => run(() => completeVendorDocumentRequest(r.id))}
                           disabled={pending}

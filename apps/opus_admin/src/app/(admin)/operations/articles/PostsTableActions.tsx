@@ -145,7 +145,7 @@ function IconButton({
   active?: boolean
 }) {
   return (
-    <button
+    <button data-opus-button="danger" data-opus-button-size="medium"
       type="button"
       title={title}
       onClick={onClick}

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase'
 import { clientIp, RATE_LIMITED_RESPONSE, withinRateLimit } from '@/lib/checkin/rate-limit'
@@ -39,7 +40,11 @@ export async function POST(
   if (!(await withinRateLimit(supabase, `wallet-issue-ip:${clientIp(req)}`, 30, 60))) {
     return NextResponse.json(RATE_LIMITED_RESPONSE, { status: 429, headers: NO_REFERRER })
   }
-  if (!(await withinRateLimit(supabase, `wallet-issue:${token.slice(0, 40)}`, 10, 60))) {
+  // Store only a digest in the rate-limit ledger. The raw token is a guest
+  // capability, and even a 40-character prefix is enough secret material to
+  // have no place in an operational table.
+  const tokenFingerprint = createHash('sha256').update(token).digest('hex')
+  if (!(await withinRateLimit(supabase, `wallet-issue:${tokenFingerprint}`, 10, 60))) {
     return NextResponse.json(RATE_LIMITED_RESPONSE, { status: 429, headers: NO_REFERRER })
   }
 

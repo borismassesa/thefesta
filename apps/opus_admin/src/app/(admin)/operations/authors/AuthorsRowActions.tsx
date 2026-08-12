@@ -36,7 +36,7 @@ export default function AuthorsRowActions({
         >
           <Pencil className="h-4 w-4" />
         </Link>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setConfirmOpen(true)}
           disabled={pending}

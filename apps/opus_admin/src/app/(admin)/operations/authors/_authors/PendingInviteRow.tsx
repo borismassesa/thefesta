@@ -215,7 +215,7 @@ export default function PendingInviteRow({ entry }: Props) {
   const titleSuffix = entry.articleTitle ? ` · Article: ${entry.articleTitle}` : ''
 
   return (
-    <div
+    <div data-opus-table-header
       role="row"
       className="grid grid-cols-[24px_36px_minmax(0,1fr)_140px_90px_80px] items-center gap-3 border-b border-gray-100 bg-white px-4 py-3.5 transition-colors hover:bg-gray-50/60"
     >
@@ -247,7 +247,7 @@ export default function PendingInviteRow({ entry }: Props) {
       </div>
 
       <div role="cell" className="flex items-center justify-end gap-1">
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           onClick={resend}
           disabled={pending || revoking}
@@ -260,7 +260,7 @@ export default function PendingInviteRow({ entry }: Props) {
           <RefreshCw className={cn('h-3 w-3', pending && 'animate-spin')} />
           {pending ? 'Sending…' : 'Resend'}
         </button>
-        <button
+        <button data-opus-button="control"
           ref={triggerRef}
           type="button"
           onClick={() => setMenuOpen((o) => !o)}
@@ -288,7 +288,7 @@ export default function PendingInviteRow({ entry }: Props) {
             }}
             className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg"
           >
-            <button
+            <button data-opus-button="control"
               role="menuitem"
               type="button"
               onClick={copyLink}
@@ -297,7 +297,7 @@ export default function PendingInviteRow({ entry }: Props) {
               <Copy className="h-4 w-4 shrink-0 text-[#7E5896]" />
               Copy invite link
             </button>
-            <button
+            <button data-opus-button="control"
               role="menuitem"
               type="button"
               onClick={openEdit}
@@ -306,7 +306,7 @@ export default function PendingInviteRow({ entry }: Props) {
               <Pencil className="h-4 w-4 shrink-0 text-[#7E5896]" />
               Edit details
             </button>
-            <button
+            <button data-opus-button="control"
               role="menuitem"
               type="button"
               onClick={openCancel}

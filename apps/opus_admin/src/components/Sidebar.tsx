@@ -203,6 +203,19 @@ const sections: NavSection[] = [
     label: "Operations",
     icon: Briefcase,
     items: [
+      {
+        icon: LayoutDashboard,
+        label: "Command Center",
+        href: "/operations",
+        exact: true,
+        requiredAnyPermission: [
+          "opuspass.checkin",
+          "workforce.tasks.read",
+          "bookings.read",
+          "finance.read",
+          "workforce.read",
+        ],
+      },
       { icon: CalendarCheck, label: "Bookings", href: "/operations/bookings", requiredPermission: "bookings.read" },
       {
         icon: Newspaper,
@@ -259,9 +272,9 @@ const sections: NavSection[] = [
     id: "finance",
     label: "Finance",
     icon: Landmark,
-    // Section visible to anyone with finance.read OR workforce.payroll
-    // (payroll lives here even though its permission lives in the workforce
-    // module). The per-item gates still apply below.
+    // Finance owns the commercial ledgers. Payroll is intentionally grouped
+    // under HR & People below, while its existing route and permission remain
+    // unchanged.
     requiredPermission: undefined,
     items: [
       // The five OpusPass ledgers, moved here from the OpusPass section. Their
@@ -279,29 +292,31 @@ const sections: NavSection[] = [
       { icon: Wallet, label: "Vendor Payouts", href: "/finance/payouts", requiredPermission: "finance.read" },
       { icon: Receipt, label: "Invoices", href: "/finance/invoices", requiredPermission: "finance.read" },
       { icon: Receipt, label: "Expenses", href: "/finance/expenses", requiredPermission: "finance.read" },
-      { icon: Wallet, label: "Payroll", href: "/finance/payroll", requiredPermission: "workforce.payroll" },
       { icon: RefreshCw, label: "Refunds", href: "/finance/refunds", requiredPermission: "finance.write" },
     ],
   },
   {
-    id: "workforce",
-    label: "Workforce",
+    id: "hr-people",
+    label: "HR & People",
     icon: Users,
-    requiredPermission: "workforce.read",
+    // Item-level permissions keep the group available to payroll operators
+    // who may not hold the broader workforce.read permission.
+    requiredPermission: undefined,
     items: [
       { icon: UserCog, label: "Employees", href: "/workforce/employees", requiredPermission: "workforce.read" },
-      { icon: ListTodo, label: "Tasks", href: "/workforce/tasks", requiredPermission: "workforce.read" },
-      { icon: ClipboardList, label: "Schedule", href: "/workforce/schedule", requiredPermission: "workforce.read" },
-      { icon: Newspaper, label: "Reports", href: "/workforce/reports", requiredPermission: "workforce.read" },
-      { icon: TrendingUp, label: "Performance", href: "/workforce/performance", requiredPermission: "workforce.read" },
-      { icon: FileText, label: "Report Templates", href: "/workforce/report-templates", requiredPermission: "workforce.write" },
-      { icon: Plane, label: "Leave & Attendance", href: "/workforce/leave", requiredPermission: "workforce.read" },
-      { icon: Clock, label: "Attendance", href: "/workforce/timesheets", requiredPermission: "workforce.read" },
-      { icon: ClipboardCheck, label: "MD Tracker", href: "/workforce/daily-tracker", requiredPermission: "workforce.read" },
-      { icon: Shield, label: "Roles", href: "/workforce/roles", requiredPermission: "workforce.write" },
       // One sidebar entry per module. Recruitment's sub-pages — including
       // My requisitions — live in its own RecruitmentNav, not up here.
       { icon: UserPlus, label: "Recruitment", href: "/workforce/recruitment", requiredPermission: "workforce.recruitment.read" },
+      { icon: Plane, label: "Leave", href: "/workspace/leave", requiredPermission: "workforce.read" },
+      { icon: Clock, label: "Attendance", href: "/workforce/timesheets", requiredPermission: "workforce.read" },
+      { icon: ClipboardList, label: "Schedule", href: "/workforce/schedule", requiredPermission: "workforce.read" },
+      { icon: ListTodo, label: "Tasks", href: "/workforce/tasks", requiredPermission: "workforce.read" },
+      { icon: TrendingUp, label: "Performance", href: "/workforce/performance", requiredPermission: "workforce.read" },
+      { icon: Newspaper, label: "Reports", href: "/workforce/reports", requiredPermission: "workforce.read" },
+      { icon: FileText, label: "Report Templates", href: "/workforce/report-templates", requiredPermission: "workforce.write" },
+      { icon: Wallet, label: "Payroll", href: "/finance/payroll", requiredPermission: "workforce.payroll" },
+      { icon: ClipboardCheck, label: "MD Tracker", href: "/workforce/daily-tracker", requiredPermission: "workforce.read" },
+      { icon: Shield, label: "Roles", href: "/workforce/roles", requiredPermission: "workforce.write" },
     ],
   },
   {
@@ -381,16 +396,17 @@ export type WorkspaceNavEntry = {
 export function Sidebar({
   permissions,
   profile,
-  workspace,
+  workspace: _workspace,
   clerkEnabled = true,
 }: {
   permissions: string[]
   profile: CallerProfile
-  /** Non-empty when the caller has Workspace access — sidebar shows a single entry. */
+  /** Kept for callers; sub-pages live in WorkspaceNav, sidebar is a single entry. */
   workspace: WorkspaceNavEntry[]
   /** False under DISABLE_ADMIN_AUTH — skip useClerk so the shell does not 500. */
   clerkEnabled?: boolean
 }) {
+  void _workspace;
   const pathname = usePathname();
   // Filter sections + items by permission. An item without a
   // requiredPermission is always visible (e.g. Dashboard, Inbox); a
@@ -444,8 +460,9 @@ export function Sidebar({
   const filteredTopItems = query ? topItems.filter((i) => matchesQuery(i.label)) : topItems;
   // Workspace sits outside the `sections` array (it is server-built). Sub-pages
   // live in the in-page WorkspaceNav top bar — the sidebar only exposes a
-  // single entry point to /workspace.
-  const showWorkspace = workspace.length > 0;
+  // single entry point to /workspace. Keep that entry discoverable even when
+  // this dashboard account is not linked to an employee row yet; /workspace
+  // owns the identity check and shows the actionable People Ops message.
   // When the query matches the CMS group's own label (e.g. "System Management"),
   // surface the whole group rather than filtering it out for having no matching
   // child item/label.
@@ -459,7 +476,7 @@ export function Sidebar({
     ? otherSections.map(filterSectionItems).filter((s) => s.items.length > 0 || matchesQuery(s.label))
     : otherSections;
   const workspaceVisible =
-    showWorkspace && (query === '' || matchesQuery('Workspace'));
+    query === '' || matchesQuery('Workspace') || matchesQuery('Home');
   const noMatches =
     query !== '' &&
     filteredTopItems.length === 0 &&
@@ -552,7 +569,7 @@ export function Sidebar({
       )
     }
     return (
-      <button
+      <button data-opus-button="control"
         key={section.id}
         type="button"
         onClick={() => {
@@ -600,7 +617,7 @@ export function Sidebar({
     }
     return (
       <div key={section.id}>
-        <button
+        <button data-opus-button="control"
           onClick={() => setOpenSection(isOpen ? "" : section.id)}
           className={cn(
             'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors',
@@ -686,7 +703,7 @@ export function Sidebar({
             <Logo className="h-8 w-auto" />
           </Link>
         )}
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={toggle}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -699,7 +716,7 @@ export function Sidebar({
 
       {/* Search */}
       {collapsed ? (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={expand}
           aria-label="Search"
@@ -713,7 +730,7 @@ export function Sidebar({
           <div className="relative flex items-center">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" />
             <input
-              type="text"
+              type="search"
               // A placeholder is not a label: it is unreliable for screen
               // readers and disappears the moment anything is typed. This is
               // the only control naming the search box, so it carries the name.
@@ -724,7 +741,7 @@ export function Sidebar({
               className="pl-9 pr-9 py-2 bg-gray-50 border border-gray-200 rounded-lg w-full text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C9A0DC] focus:border-transparent transition-all"
             />
             {search && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setSearch('')}
                 aria-label="Clear search"
@@ -787,7 +804,7 @@ export function Sidebar({
         {/* Sections */}
         {collapsed ? (
           <>
-            {workspace.length > 0 && (
+            {workspaceVisible && (
               <Link
                 href="/workspace"
                 aria-label="Workspace"
@@ -803,7 +820,7 @@ export function Sidebar({
               </Link>
             )}
             {cmsGroupSections.length > 0 && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => {
                   expand()
@@ -828,7 +845,7 @@ export function Sidebar({
             {workspaceVisible && renderWorkspace()}
             {cmsGroupRender.length > 0 && (
               <div>
-                <button
+                <button data-opus-button="control"
                   onClick={() => setOpenGroup((o) => !o)}
                   className={cn(
                     'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors',
@@ -963,6 +980,7 @@ function SidebarProfile({
           {clerkEnabled && <SidebarManageAccount onDone={() => setOpen(false)} />}
           {clerkEnabled && <div className="my-1 border-t border-gray-100" />}
           <button
+            data-opus-button="control"
             type="button"
             role="menuitem"
             onClick={handleLogout}
@@ -975,7 +993,7 @@ function SidebarProfile({
         </div>
       )}
 
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={collapsed ? profile.name : undefined}

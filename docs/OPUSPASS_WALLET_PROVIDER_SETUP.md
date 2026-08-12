@@ -280,6 +280,11 @@ GOOGLE_WALLET_PRIVATE_KEY=""
 # Local development: REQUIRED, see below.
 GOOGLE_WALLET_ASSET_BASE_URL=""
 
+# Separately approved Meta template: same entrance-pass image + body, with one
+# dynamic URL button whose base is https://opuspass.opusfesta.com/t/{{1}}.
+WHATSAPP_TEMPLATE_NAME_ENTRANCE_PASS_WALLET=""
+WHATSAPP_TEMPLATE_LANG_ENTRANCE_PASS_WALLET="sw"
+
 APPLE_WALLET_ENABLED="true"
 APPLE_WALLET_PASS_TYPE_ID="pass.com.opusfesta.opuspass.entry"
 APPLE_WALLET_TEAM_ID=""
@@ -290,6 +295,55 @@ APPLE_WALLET_WWDR_CERT_BASE64=""
 
 Both providers are behind their own flag, and both ship off, so the code can
 merge and deploy before either account is finished.
+
+Google is offered only when `GOOGLE_WALLET_ENABLED` is exactly `true` and the
+issuer id, service-account email, private key and public HTTPS asset origin all
+validate. There is no second hard-coded pause switch.
+
+### WhatsApp entrance-pass button rollout
+
+Do not edit the component shape of the live image-only template. Create a new
+Meta template with the same image header, the same six body parameters, and one
+dynamic URL button:
+
+- Label: `Hifadhi kwenye Google Wallet`
+- Fixed URL: `https://opuspass.opusfesta.com/t/{{1}}`
+
+Set its approved name in `WHATSAPP_TEMPLATE_NAME_ENTRANCE_PASS_WALLET`. Until
+that variable exists, delivery automatically keeps using
+`WHATSAPP_TEMPLATE_NAME_ENTRANCE_PASS` with no button. When the wallet variant
+is configured but Google or token encryption is not ready, the same safe
+fallback applies.
+
+The button receives a stable wallet-management capability, not an admission
+credential and not a Google URL. `/t/<capability>` resolves the current guest
+admission at tap time, provisions the current Google object, and redirects to
+Google. If Google is unavailable, it redirects to `/p/<capability>` so the guest
+still sees the ordinary scannable entrance pass.
+
+### Live acceptance checklist
+
+1. Provision the fixed fake object from `apps/opus_pass`:
+
+   ```bash
+   GOOGLE_WALLET_ASSET_BASE_URL=https://opuspass.opusfesta.com \
+     npx tsx --env-file=.env.local scripts/provision-wallet-proof-pass.ts
+   ```
+
+2. Set a temporary random `WALLET_REDIRECT_PROOF_CODE` on the deployed app and
+   open `/t/<that-code>`. The response must be a non-cacheable `302` to
+   `https://pay.google.com/gp/v/save/...`, and Google Wallet must show
+   `Test Guest / OpusPass Redirect Test`. This pass admits nobody.
+3. Clear `WALLET_REDIRECT_PROOF_CODE` after the redirect test.
+4. Approve and configure `WHATSAPP_TEMPLATE_NAME_ENTRANCE_PASS_WALLET`, then
+   RSVP as an allowlisted Google Wallet test account. Confirm the message still
+   contains the ticket image and now has the wallet button.
+5. Tap the button, add the real test guest's pass, and scan its Wallet QR with
+   the OpusPass scanner. Confirm the displayed Pass ID, guest, allowance and
+   check-in result match the dashboard invitation.
+6. Re-send the same entrance pass and repeat the tap. It must update/reuse the
+   same active capability and Google object rather than creating a second live
+   admission.
 
 ### The one that is not provider-specific
 

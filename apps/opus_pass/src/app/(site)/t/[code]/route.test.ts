@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { generateKeyPairSync } from 'node:crypto'
 import { afterEach, test } from 'node:test'
-import { GET } from './route'
+import { GET, resolveGuestHandoff, walletRateLimitFingerprint } from './route'
 
 /**
  * The redirect resolver's contract, asserted without a dev server.
@@ -90,4 +90,42 @@ test('503s when the code is right but Google is unconfigured', async () => {
   process.env.WALLET_REDIRECT_PROOF_CODE = PROOF_CODE
   process.env.GOOGLE_WALLET_ENABLED = 'false'
   assert.equal((await call(PROOF_CODE)).status, 503)
+})
+
+const GUEST_TOKEN = `WMT1:${'a'.repeat(43)}`
+const HANDOFF_URL = `https://opuspass.opusfesta.com/t/${encodeURIComponent(GUEST_TOKEN)}`
+
+test('a valid guest handoff redirects to the freshly issued Google URL', async () => {
+  const saveUrl = 'https://pay.google.com/gp/v/save/signed-now'
+  const res = await resolveGuestHandoff(GUEST_TOKEN, HANDOFF_URL, async (token, provider) => {
+    assert.equal(token, GUEST_TOKEN)
+    assert.equal(provider, 'google')
+    return { status: 'ok', saveUrl }
+  })
+
+  assert.equal(res.status, 302)
+  assert.equal(res.headers.get('location'), saveUrl)
+  assert.match(res.headers.get('cache-control') ?? '', /no-store/)
+})
+
+test('provider and eligibility failures fall back to the scannable digital pass', async () => {
+  for (const outcome of [
+    { status: 'not_configured' as const },
+    { status: 'unavailable' as const },
+    { status: 'failed' as const },
+  ]) {
+    const res = await resolveGuestHandoff(GUEST_TOKEN, HANDOFF_URL, async () => outcome)
+    assert.equal(res.status, 302)
+    assert.equal(
+      res.headers.get('location'),
+      `https://opuspass.opusfesta.com/p/${encodeURIComponent(GUEST_TOKEN)}`
+    )
+  }
+})
+
+test('rate limiting keys contain a digest, never the guest capability', () => {
+  const fingerprint = walletRateLimitFingerprint(GUEST_TOKEN)
+  assert.equal(fingerprint.length, 64)
+  assert.doesNotMatch(fingerprint, /WMT1/)
+  assert.equal(fingerprint, walletRateLimitFingerprint(GUEST_TOKEN))
 })

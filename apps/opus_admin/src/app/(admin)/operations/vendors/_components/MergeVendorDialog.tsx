@@ -165,7 +165,7 @@ export function MergeVendorDialog({
               </p>
             </div>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={pending}
@@ -199,6 +199,7 @@ export function MergeVendorDialog({
               <div className="relative mb-2">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
+                  type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search by name, city, ID…"
@@ -213,7 +214,7 @@ export function MergeVendorDialog({
                   </p>
                 ) : (
                   candidates.map(({ v, score }) => (
-                    <button
+                    <button data-opus-button="neutral" data-opus-button-size="medium"
                       key={v.id}
                       type="button"
                       onClick={() => choosePartner(v)}
@@ -250,7 +251,7 @@ export function MergeVendorDialog({
                 <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
                   Keep this record
                 </p>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() =>
                     setSurvivorId((id) => (id === anchor.id ? partner.id : anchor.id))
@@ -266,7 +267,7 @@ export function MergeVendorDialog({
                 {[anchor, partner].map((v) => {
                   const isSurvivor = v.id === survivorId
                   return (
-                    <button
+                    <button data-opus-button="control"
                       key={v.id}
                       type="button"
                       onClick={() => {
@@ -331,7 +332,7 @@ export function MergeVendorDialog({
         {/* Footer */}
         <div className="flex items-center justify-between gap-2 border-t border-gray-100 px-6 py-3">
           {partner ? (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => {
                 setPartnerId(null)
@@ -347,7 +348,7 @@ export function MergeVendorDialog({
             <span />
           )}
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onClose}
               disabled={pending}
@@ -356,7 +357,7 @@ export function MergeVendorDialog({
               Cancel
             </button>
             {partner && (
-              <button
+              <button data-opus-button="danger" data-opus-button-size="medium"
                 type="button"
                 onClick={submit}
                 disabled={!canMerge}
