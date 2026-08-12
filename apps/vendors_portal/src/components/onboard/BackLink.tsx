@@ -50,7 +50,7 @@ export function BackLink({
   }
 
   return (
-    <button type="button" onClick={() => router.back()} className={classes}>
+    <button data-opus-button="control" type="button" onClick={() => router.back()} className={classes}>
       {inner}
     </button>
   )

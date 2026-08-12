@@ -185,7 +185,7 @@ export default function CategoryPageClient({ categories, otherCategory }: Props)
                 autoFocus
               />
               <div className="flex items-center justify-between">
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   onClick={confirmOther}
                   disabled={!customLabel.trim()}
                   className="px-6 py-2.5 bg-[#1A1A1A] text-white text-sm font-semibold rounded-lg hover:bg-black transition-colors disabled:opacity-40"

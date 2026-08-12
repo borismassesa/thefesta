@@ -256,7 +256,7 @@ export default function NotificationBell({
 
   return (
     <div className="relative" ref={ref}>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={openPanel}
         title="Notifications"
@@ -286,7 +286,7 @@ export default function NotificationBell({
               </Link>
             ) : (
               unread.length > 0 && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={markAll}
                 disabled={pending}
@@ -301,7 +301,7 @@ export default function NotificationBell({
 
           <div className="flex gap-1 border-b border-gray-100 px-2 py-1.5">
             {tabs.map((t) => (
-              <button
+              <button data-opus-button="control"
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
@@ -398,7 +398,7 @@ export default function NotificationBell({
 
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           {canApproveInline(n) && (
-                            <button
+                            <button data-opus-button="control"
                               type="button"
                               onClick={() => approve(n)}
                               disabled={busyId === n.id || pending}
@@ -419,7 +419,7 @@ export default function NotificationBell({
                             </a>
                           )}
                           {n.status === 'unread' && (
-                            <button
+                            <button data-opus-button="control"
                               type="button"
                               onClick={() => markRead(n.id)}
                               disabled={pending}
@@ -430,7 +430,7 @@ export default function NotificationBell({
                           )}
                         </div>
                       </div>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => archive(n.id)}
                         disabled={pending}

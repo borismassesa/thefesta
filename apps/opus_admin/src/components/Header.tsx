@@ -43,7 +43,7 @@ export function Header({ profile }: { profile: CallerProfile }) {
           //                   be a no-op)
           <div className="flex items-center gap-2 min-w-0">
             {'onClick' in heading.back ? (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={heading.back.onClick}
                 className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-[#5B2D8E] transition-colors truncate"
@@ -99,7 +99,7 @@ export function Header({ profile }: { profile: CallerProfile }) {
               className="w-full h-9 pl-9 pr-9 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5B2D8E]/30 focus:border-[#5B2D8E]/40 transition-all"
             />
             {search.value && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => (search.onClear ? search.onClear() : search.onChange(''))}
                 aria-label="Clear search"
@@ -188,7 +188,7 @@ function HeaderAccount({ profile }: { profile: CallerProfile }) {
 
   return (
     <div ref={ref} className="relative">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={profile.name}
@@ -217,7 +217,7 @@ function HeaderAccount({ profile }: { profile: CallerProfile }) {
             )}
           </div>
           <div className="my-1 border-t border-gray-100" />
-          <button
+          <button data-opus-button="control"
             type="button"
             role="menuitem"
             onClick={() => {
@@ -230,7 +230,7 @@ function HeaderAccount({ profile }: { profile: CallerProfile }) {
             Manage account
           </button>
           <div className="my-1 border-t border-gray-100" />
-          <button
+          <button data-opus-button="control"
             type="button"
             role="menuitem"
             disabled={pending}

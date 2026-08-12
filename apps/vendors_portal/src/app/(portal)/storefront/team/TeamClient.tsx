@@ -209,7 +209,7 @@ export default function TeamClient() {
               <p className="text-sm text-gray-700 mt-5 max-w-md mx-auto leading-relaxed">
                 {t('empty_team_desc')}
               </p>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 onClick={addMember}
                 className="inline-flex items-center gap-2 mt-5 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"
@@ -231,7 +231,7 @@ export default function TeamClient() {
                 />
               ))}
 
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 type="button"
                 onClick={addMember}
                 className="w-full bg-white rounded-2xl border border-dashed border-gray-300 hover:border-gray-500 hover:bg-gray-50 transition-colors py-5 inline-flex items-center justify-center gap-2 text-sm font-semibold text-gray-900"
@@ -259,7 +259,7 @@ export default function TeamClient() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={onSave}
               disabled={saving || uploadingIds.size > 0}
@@ -272,7 +272,7 @@ export default function TeamClient() {
                   ? t('uploading_photo_label')
                   : t('save_button')}
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={onNext}
               className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"
@@ -336,7 +336,7 @@ function MemberCard({
           </div>
         </div>
 
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onRemove}
           aria-label={t('remove_member_aria')}
@@ -368,7 +368,7 @@ function Avatar({
   const hasName = member.name.trim().length > 0
 
   return (
-    <button
+    <button data-opus-button="danger" data-opus-button-size="medium"
       type="button"
       onClick={() => fileInputRef.current?.click()}
       onDragOver={(e) => {

@@ -152,7 +152,7 @@ export default function FaqEditor({ initial, hasDraft: initialHasDraft }: Props)
                 />
               ))}
             </div>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={addItem}
               className="w-full flex items-center justify-center gap-2 py-2.5 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
@@ -168,7 +168,7 @@ export default function FaqEditor({ initial, hasDraft: initialHasDraft }: Props)
             <h3 className="text-[15px] font-semibold text-gray-900">Live preview</h3>
             <div className="inline-flex items-center rounded-full border border-gray-200 p-0.5 text-[11px] font-semibold">
               {LOCALES.map((l) => (
-                <button
+                <button data-opus-button="control"
                   key={l}
                   type="button"
                   onClick={() => setPreviewLocale(l)}
@@ -206,7 +206,7 @@ function ItemAccordion({
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/50">
-        <button type="button" onClick={onToggle} className="flex items-center gap-2 flex-1 min-w-0 text-left">
+        <button data-opus-button="control" type="button" onClick={onToggle} className="flex items-center gap-2 flex-1 min-w-0 text-left">
           {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />}
           <span className="text-sm font-semibold text-gray-900 truncate">{resolveLocalized(item.q, 'en')}</span>
         </button>
@@ -248,7 +248,7 @@ function IconBtn({
   children: React.ReactNode
 } & React.AriaAttributes) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -315,7 +315,7 @@ function FaqPreview({ content, locale }: { content: FaqContent; locale: Locale }
         </h2>
         <div className="w-8 h-1 bg-[#C9A0DC] rounded-full my-2" />
         <p className="text-[10px] text-gray-500 leading-relaxed">{resolveLocalized(content.subheadline, locale)}</p>
-        <button className="mt-2 inline-flex items-center gap-2 bg-[#1A1A1A] text-white text-[10px] font-bold px-3 py-1.5 rounded-full">
+        <button data-opus-button="primary" data-opus-button-size="small" className="mt-2 inline-flex items-center gap-2 bg-[#1A1A1A] text-white text-[10px] font-bold px-3 py-1.5 rounded-full">
           {resolveLocalized(content.cta_label, locale)}
           <span className="w-3 h-3 rounded-full bg-[#C9A0DC] flex items-center justify-center text-[#1A1A1A] text-[8px] leading-none">→</span>
         </button>
@@ -326,7 +326,7 @@ function FaqPreview({ content, locale }: { content: FaqContent; locale: Locale }
           const open = openIdx === i
           return (
             <div key={it.id}>
-              <button
+              <button data-opus-button="control"
                 onClick={() => setOpenIdx(open ? null : i)}
                 className="w-full flex items-center justify-between py-3 text-left gap-3 group"
               >

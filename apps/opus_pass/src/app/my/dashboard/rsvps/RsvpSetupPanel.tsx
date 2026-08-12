@@ -299,7 +299,7 @@ export default function RsvpSetupPanel({
               {eventPresetsLeft.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {eventPresetsLeft.map((p) => (
-                    <button
+                    <button data-opus-button="primary" data-opus-button-size="small"
                       key={p.key}
                       type="button"
                       disabled={pending}
@@ -312,7 +312,7 @@ export default function RsvpSetupPanel({
                 </div>
               ) : null}
 
-              <button
+              <button data-opus-button="secondary" data-opus-button-size="medium"
                 type="button"
                 onClick={() => setEditor({ open: true, scope: 'event', eventId: event.id, eventName: event.name, initial: null })}
                 className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-[#7E5896] ring-1 ring-inset ring-[#C9A0DC]/60 hover:bg-[#F0DFF6]/50"
@@ -344,7 +344,7 @@ export default function RsvpSetupPanel({
           {generalPresetsLeft.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {generalPresetsLeft.map((p) => (
-                <button
+                <button data-opus-button="primary" data-opus-button-size="small"
                   key={p.key}
                   type="button"
                   disabled={pending}
@@ -356,7 +356,7 @@ export default function RsvpSetupPanel({
               ))}
             </div>
           ) : null}
-          <button
+          <button data-opus-button="secondary" data-opus-button-size="medium"
             type="button"
             onClick={() => setEditor({ open: true, scope: 'general', eventId: null, initial: null })}
             className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-[#7E5896] ring-1 ring-inset ring-[#C9A0DC]/60 hover:bg-[#F0DFF6]/50"
@@ -490,7 +490,7 @@ function StatusBanner({
             Guests can’t reply yet. Turn on <b>Collect RSVPs</b> for an event below to start.
           </p>
         </div>
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="medium"
           type="button"
           disabled
           title="Turn on collection first — sharing a link now would lead nowhere"
@@ -530,7 +530,7 @@ function StatusBanner({
           Collection is on and your invite is shared. Replies appear here as guests respond.
         </p>
       </div>
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="medium"
         type="button"
         onClick={onCopyLink}
         className="shrink-0 rounded-full border border-[#9FE870]/70 bg-white px-4 py-2 text-sm font-semibold text-[#2f5417] hover:bg-[#9FE870]/15"
@@ -563,14 +563,14 @@ function FollowupsBanner({
           Collection is on. Guests answer these from their personal link after responding to the invitation.
         </p>
       </div>
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="medium"
         type="button"
         onClick={onPreview}
         className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#9FE870]/70 bg-white px-4 py-2 text-sm font-semibold text-[#2f5417] hover:bg-[#9FE870]/15"
       >
         <Eye className="h-3.5 w-3.5" /> Preview
       </button>
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="medium"
         type="button"
         onClick={onCopyLink}
         disabled={copyDisabled}
@@ -595,7 +595,7 @@ function FollowupGuestPreview({
   const visualSrc = preview?.cardImageUrl || EVENT_CARD_IMAGE
   const coupleName = preview?.coupleName || 'The Couple'
   return (
-    <div className="overflow-hidden rounded-[28px] border border-black/[0.08] bg-white shadow-[0_24px_70px_-48px_rgba(0,0,0,0.55)]">
+    <div className="overflow-hidden rounded-[var(--opus-radius-large)] border border-black/[0.08] bg-white shadow-[0_24px_70px_-48px_rgba(0,0,0,0.55)]">
       <div className="grid min-h-[640px] lg:grid-cols-[0.95fr_1fr]">
         <div className="flex items-center justify-center bg-gradient-to-br from-[#F1F4EB] to-[#EDF0E7] p-6 sm:p-8">
           <img
@@ -638,7 +638,7 @@ function FollowupGuestPreview({
             )}
           </div>
           {questions.length > 0 ? (
-            <button
+            <button data-opus-button="primary" data-opus-button-size="large"
               type="button"
               disabled
               className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[#C9A0DC] px-5 py-3.5 text-sm font-bold text-[#1A1A1A] opacity-90 shadow-[0_12px_26px_-18px_rgba(0,0,0,0.65)]"
@@ -748,7 +748,7 @@ function QuestionList({
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => onEdit(q)}
               aria-label="Edit question"
@@ -756,7 +756,7 @@ function QuestionList({
             >
               <Pencil className="h-4 w-4" />
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => onDelete(q)}
               aria-label="Remove question"

@@ -40,7 +40,7 @@ export default function RegistryBagDrawer({
           <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">
             <ShoppingBag size={18} /> Your cart {items.length > 0 ? `(${items.length})` : ''}
           </h2>
-          <button onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100">
+          <button data-opus-button="control" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100">
             <X size={18} />
           </button>
         </div>
@@ -64,7 +64,7 @@ export default function RegistryBagDrawer({
                       {item.price} · Qty {item.quantity}
                     </p>
                   </div>
-                  <button
+                  <button data-opus-button="control"
                     onClick={() => removeFromRegistryBag(item.category, item.id)}
                     aria-label="Remove"
                     className="p-1.5 text-gray-400 hover:text-rose-500"

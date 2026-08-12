@@ -53,7 +53,7 @@ export default function AuditFilters() {
         {SEVERITIES.map((s) => {
           const active = severity === s
           return (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               key={s}
               type="button"
               disabled={pending}

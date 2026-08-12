@@ -45,7 +45,7 @@ export function SvgInspector({ url }: { url: string }) {
 
   return (
     <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 text-xs overflow-hidden">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between px-3 py-2 text-left"

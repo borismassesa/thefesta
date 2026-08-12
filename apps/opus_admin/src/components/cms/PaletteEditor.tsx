@@ -71,7 +71,7 @@ export function PaletteEditor({
               placeholder={`Palette ${i + 1} name (e.g. Sage Green)`}
               aria-label={`Palette ${i + 1} name`}
             />
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => removePalette(i)}
               className="p-1 text-gray-400 hover:text-red-600 rounded shrink-0"
@@ -112,7 +112,7 @@ export function PaletteEditor({
       ))}
 
       {value.length < MAX_PALETTES && (
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           onClick={addPalette}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-[#7E5896] hover:text-[#5d3a78] px-2.5 py-1.5 rounded-lg border border-[#C9A0DC] hover:bg-[#F0DFF6] transition-colors"

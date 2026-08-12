@@ -105,7 +105,7 @@ export default function UploadRequestClient({
 
       {error && <p className="text-sm text-rose-600 font-medium">{error}</p>}
 
-      <button
+      <button data-opus-button="primary" data-opus-button-size="large"
         type="button"
         onClick={submit}
         disabled={pending || !file}

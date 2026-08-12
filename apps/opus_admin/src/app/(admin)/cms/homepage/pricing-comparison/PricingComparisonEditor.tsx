@@ -305,7 +305,7 @@ export default function PricingComparisonEditor({
               ))}
             </div>
 
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={addChecklistItem}
               className="w-full flex items-center justify-center gap-2 py-2 mt-2 border-2 border-dashed border-gray-200 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
@@ -334,7 +334,7 @@ export default function PricingComparisonEditor({
                 />
               ))}
             </div>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={addFeature}
               className="w-full flex items-center justify-center gap-2 py-2.5 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
@@ -439,7 +439,7 @@ function ImageField({
             className={inputCls}
             placeholder="https://… or /assets/…"
           />
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={pending}
@@ -486,7 +486,7 @@ function ChecklistRow({
 }) {
   return (
     <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 group border border-transparent hover:border-gray-100">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => onChange({ done: !item.done })}
         aria-label={item.done ? 'Mark not done' : 'Mark done'}
@@ -508,7 +508,7 @@ function ChecklistRow({
         placeholder="3 wks left"
       />
       <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onMoveUp}
           disabled={index === 0}
@@ -517,7 +517,7 @@ function ChecklistRow({
         >
           <ArrowUp className="w-3.5 h-3.5" />
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onMoveDown}
           disabled={index === total - 1}
@@ -526,7 +526,7 @@ function ChecklistRow({
         >
           <ArrowDown className="w-3.5 h-3.5" />
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onRemove}
           aria-label="Remove"
@@ -563,7 +563,7 @@ function FeatureCardEditor({
           Feature {index + 1}
         </span>
         <div className="flex items-center gap-0.5">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onMoveUp}
             disabled={index === 0}
@@ -572,7 +572,7 @@ function FeatureCardEditor({
           >
             <ArrowUp className="w-3.5 h-3.5" />
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onMoveDown}
             disabled={index === total - 1}
@@ -581,7 +581,7 @@ function FeatureCardEditor({
           >
             <ArrowDown className="w-3.5 h-3.5" />
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onRemove}
             aria-label="Remove"
@@ -633,7 +633,7 @@ function FeatureIconPicker({
         const Icon = opt.icon
         const isActive = opt.key === value
         return (
-          <button
+          <button data-opus-button="control"
             key={opt.key}
             type="button"
             onClick={() => onChange(opt.key)}
@@ -717,7 +717,7 @@ function PricingComparisonPreview({ content }: { content: PricingComparisonConte
           <span className="block">{content.headline_line_2}</span>
         </h2>
         <p className="text-xs text-[#1A1A1A]/60 mt-2 leading-relaxed">{content.subheadline}</p>
-        <button className="mt-3 bg-[#1A1A1A] text-white text-[11px] font-bold px-4 py-2 rounded-full">
+        <button data-opus-button="primary" data-opus-button-size="medium" className="mt-3 bg-[#1A1A1A] text-white text-[11px] font-bold px-4 py-2 rounded-full">
           {content.cta_label}
         </button>
       </div>

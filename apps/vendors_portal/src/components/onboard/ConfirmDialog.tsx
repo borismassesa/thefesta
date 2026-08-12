@@ -66,7 +66,7 @@ export function ConfirmDialog({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in"
     >
       {/* Backdrop */}
-      <button
+      <button data-opus-button="control"
         type="button"
         aria-label={resolvedCancelLabel}
         onClick={onCancel}
@@ -111,7 +111,7 @@ export function ConfirmDialog({
               ) : null}
             </div>
 
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onCancel}
               aria-label={t('common.close')}
@@ -122,7 +122,7 @@ export function ConfirmDialog({
           </div>
 
           <div className="mt-6 flex items-center justify-end gap-3">
-            <button
+            <button data-opus-button="control"
               ref={cancelBtnRef}
               type="button"
               onClick={onCancel}
@@ -130,7 +130,7 @@ export function ConfirmDialog({
             >
               {resolvedCancelLabel}
             </button>
-            <button
+            <button data-opus-button="danger" data-opus-button-size="medium"
               type="button"
               onClick={onConfirm}
               className={cn(

@@ -57,7 +57,7 @@ export default function CardDetailView({ card }: { card: CardDetail }) {
           where it belongs under the artwork. */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_1fr] lg:gap-10">
         <div className="lg:col-start-1 lg:row-start-1">
-          <div className="relative overflow-hidden rounded-[28px] border border-black/[0.06] bg-gradient-to-b from-[#F7F2FA] via-white to-[#FBF8F4] p-5 sm:p-8">
+          <div className="relative overflow-hidden rounded-[var(--opus-radius-large)] border border-black/[0.06] bg-gradient-to-b from-[#F7F2FA] via-white to-[#FBF8F4] p-5 sm:p-8">
             <div
               aria-hidden
               className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#C9A0DC]/20 blur-3xl"
@@ -67,7 +67,7 @@ export default function CardDetailView({ card }: { card: CardDetail }) {
               className="pointer-events-none absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-[#9FE870]/20 blur-3xl"
             />
             {released ? (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setZoomRelease('')}
                 className="group relative mx-auto flex w-full max-w-[420px] cursor-zoom-in justify-center"
@@ -223,7 +223,7 @@ function Actions({
         <Send className="h-4 w-4" />
         Send invitations
       </Link>
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="large"
         type="button"
         onClick={onZoom}
         className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm font-semibold text-[#1A1A1A] transition-colors hover:bg-black/[0.03]"
@@ -231,7 +231,7 @@ function Actions({
         <Maximize2 className="h-4 w-4" />
         View full size
       </button>
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="large"
         type="button"
         onClick={onDownload}
         disabled={downloading}
@@ -539,7 +539,7 @@ function IconButton({
   children: React.ReactNode
 }) {
   return (
-    <button
+    <button data-opus-button="primary" data-opus-button-size="small"
       type="button"
       onClick={onClick}
       disabled={busy}

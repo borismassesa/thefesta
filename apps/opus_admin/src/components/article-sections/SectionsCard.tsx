@@ -63,7 +63,7 @@ export default function SectionsCard({
         <ol className="mt-3 space-y-0.5">
           {sections.map((section, index) => (
             <li key={section.id}>
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="small"
                 type="button"
                 onClick={() => jumpToSection(index)}
                 className="group flex w-full gap-2 rounded-md py-1 pl-1 pr-2 text-left text-[12px] leading-5 text-gray-700 transition-colors hover:bg-[#FAF5FA] focus:bg-[#FAF5FA] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7E5896]/30"

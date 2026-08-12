@@ -304,10 +304,10 @@ function SubmitModal({
           </div>
         )}
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onCancel} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">
+          <button data-opus-button="control" type="button" onClick={onCancel} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">
             Cancel
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onSubmit}
             disabled={submitting}
@@ -330,7 +330,7 @@ function PreviewModal({ draft, onClose }: { draft: ContributorDraft; onClose: ()
         <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-500">
           Preview · matches the live article layout
         </p>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           className="text-sm font-semibold text-[#5B2D8E] hover:underline"

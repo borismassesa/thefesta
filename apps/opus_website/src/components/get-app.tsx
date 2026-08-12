@@ -13,7 +13,7 @@ export default function GetApp() {
         <div className="absolute inset-0 bg-gradient-to-b from-[#FFFFFF]/70 to-[#FFFFFF]/90"></div>
       </div>
 
-      <div className="relative z-10 max-w-4xl mx-auto bg-[#FFFFFF] rounded-[40px] p-12 md:p-20 text-center shadow-2xl">
+      <div className="relative z-10 max-w-4xl mx-auto bg-[#FFFFFF] rounded-[var(--opus-radius-xlarge)] p-12 md:p-20 text-center shadow-2xl">
         <h2 className="text-6xl md:text-[80px] font-black tracking-tighter uppercase leading-[0.85] mb-12 text-[#1A1A1A]">
           GET THE APP FOR
           <br />
@@ -35,14 +35,14 @@ export default function GetApp() {
           </div>
 
           <div className="flex gap-4">
-            <button className="bg-[#1A1A1A] text-white px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-black transition-colors">
+            <button data-opus-button="primary" data-opus-button-size="large" className="bg-[#1A1A1A] text-white px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-black transition-colors">
               <Apple size={24} />
               <div className="text-left">
                 <p className="text-[10px] leading-none text-gray-300">Download on the</p>
                 <p className="text-sm font-bold leading-tight">App Store</p>
               </div>
             </button>
-            <button className="bg-[#1A1A1A] text-white px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-black transition-colors">
+            <button data-opus-button="primary" data-opus-button-size="large" className="bg-[#1A1A1A] text-white px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-black transition-colors">
               <Play size={20} />
               <div className="text-left">
                 <p className="text-[10px] leading-none text-gray-300">GET IT ON</p>

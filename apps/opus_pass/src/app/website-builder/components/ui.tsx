@@ -129,7 +129,7 @@ export function Slider({
 
 export function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       role="switch"
       aria-checked={on}
@@ -182,7 +182,7 @@ export function Dropdown({
   const [open, setOpen] = useState(false)
   return (
     <div className="relative">
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="medium"
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between rounded-lg border border-black/12 bg-white px-3 py-2.5 text-[14px] transition-colors hover:border-black/25"
@@ -194,7 +194,7 @@ export function Dropdown({
         <ul className="absolute z-30 mt-1.5 max-h-64 w-full overflow-auto rounded-lg border border-black/10 bg-white py-1 shadow-lg">
           {options.map((o) => (
             <li key={o}>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => {
                   onChange(o)
@@ -229,7 +229,7 @@ export function SegmentedAlign<T extends string>({
   return (
     <div className="flex items-center gap-1.5 rounded-lg border border-black/12 bg-[#F7F6F2] p-1">
       {options.map((o) => (
-        <button
+        <button data-opus-button="control"
           key={o.key}
           type="button"
           aria-label={o.label}

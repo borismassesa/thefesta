@@ -290,7 +290,7 @@ export default function AvailabilityClient() {
                     {MONTHS[month]} {year}
                   </p>
                   {monthOffset !== 0 && (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => setMonthOffset(0)}
                       className="text-[11px] font-semibold text-gray-500 hover:text-gray-900 underline underline-offset-2 transition-colors"
@@ -300,7 +300,7 @@ export default function AvailabilityClient() {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => setMonthOffset((o) => Math.max(0, o - 1))}
                     disabled={monthOffset === 0}
@@ -309,7 +309,7 @@ export default function AvailabilityClient() {
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => setMonthOffset((o) => Math.min(MAX_MONTH_OFFSET, o + 1))}
                     disabled={monthOffset >= MAX_MONTH_OFFSET}
@@ -345,7 +345,7 @@ export default function AvailabilityClient() {
                   const isClosedDay =
                     !status && !isPast && closedWeekday[new Date(year, month, cell.day).getDay()]
                   return (
-                    <button
+                    <button data-opus-button="control"
                       key={cell.iso}
                       type="button"
                       onClick={() => selectDate(cell.iso)}
@@ -423,7 +423,7 @@ export default function AvailabilityClient() {
                     <p className="text-sm font-semibold text-gray-900">
                       {formatDateLong(selectedISO)}
                     </p>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => setSelectedISO(null)}
                       aria-label={t('close_aria')}
@@ -437,7 +437,7 @@ export default function AvailabilityClient() {
                     {STATUS_OPTIONS.map((opt) => {
                       const active = (selectedEntry?.status ?? 'open') === opt.value
                       return (
-                        <button
+                        <button data-opus-button="neutral" data-opus-button-size="small"
                           key={opt.value}
                           type="button"
                           onClick={() => setDateStatus(selectedISO, opt.value)}
@@ -473,7 +473,7 @@ export default function AvailabilityClient() {
 
                   <div className="mt-3 flex items-center justify-between gap-2">
                     {selectedEntry ? (
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => {
                           setDateStatus(selectedISO, 'open')
@@ -486,7 +486,7 @@ export default function AvailabilityClient() {
                     ) : (
                       <span />
                     )}
-                    <button
+                    <button data-opus-button="primary" data-opus-button-size="small"
                       type="button"
                       onClick={() => setSelectedISO(null)}
                       className="inline-flex items-center gap-1.5 bg-gray-900 text-white text-xs font-semibold px-4 py-2 rounded-full hover:bg-gray-800 transition-colors"
@@ -509,7 +509,7 @@ export default function AvailabilityClient() {
                   <Clock className="w-4 h-4 text-gray-400" />
                   {t('hours_header')}
                 </h2>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={copyMonToWeekdays}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-900 transition-colors"
@@ -563,7 +563,7 @@ export default function AvailabilityClient() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={onSave}
               disabled={saving || !hydrated || hoursLoading}
@@ -573,7 +573,7 @@ export default function AvailabilityClient() {
               {saving ? t('saving_label') : t('save_button')}
             </button>
             {nextHref && (
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 onClick={() => router.push(nextHref)}
                 className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"

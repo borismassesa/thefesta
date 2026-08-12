@@ -132,7 +132,7 @@ export default function CategoryMarqueeEditor({ initial, hasDraft: initialHasDra
             ))}
           </div>
 
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={addItem}
             className="w-full flex items-center justify-center gap-2 py-2.5 mt-2 border-2 border-dashed border-gray-200 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
@@ -147,7 +147,7 @@ export default function CategoryMarqueeEditor({ initial, hasDraft: initialHasDra
             <h3 className="text-[15px] font-semibold text-gray-900">Live preview</h3>
             <div className="inline-flex items-center rounded-full border border-gray-200 p-0.5 text-[11px] font-semibold">
               {LOCALES.map((l) => (
-                <button
+                <button data-opus-button="control"
                   key={l}
                   type="button"
                   onClick={() => setPreviewLocale(l)}
@@ -198,7 +198,7 @@ function CategoryRow({
       )}
     >
       <div className="flex items-center gap-2">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => onChange({ visible: !visible })}
           aria-label={visible ? 'Hide on website' : 'Show on website'}
@@ -232,7 +232,7 @@ function CategoryRow({
         </div>
         <div className="flex-1" />
         <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onMoveUp}
             disabled={index === 0}
@@ -241,7 +241,7 @@ function CategoryRow({
           >
             <ArrowUp className="w-3.5 h-3.5" />
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onMoveDown}
             disabled={index === total - 1}
@@ -250,7 +250,7 @@ function CategoryRow({
           >
             <ArrowDown className="w-3.5 h-3.5" />
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onRemove}
             aria-label="Remove"

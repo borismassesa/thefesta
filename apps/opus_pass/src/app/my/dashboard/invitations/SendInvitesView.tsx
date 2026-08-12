@@ -2049,7 +2049,7 @@ export default function SendInvitesView({
 
       {/* The guest communication pipeline: from first card to final thank-you. */}
       <div className="sendtabs" role="tablist">
-        <button
+        <button data-opus-button="control"
           role="tab"
           aria-selected={sendTab === 'saveDates'}
           className={`stb ${sendTab === 'saveDates' ? 'on' : ''}`}
@@ -2057,7 +2057,7 @@ export default function SendInvitesView({
         >
           <CalendarHeart size={14} /> {strings.tab_save_the_dates}
         </button>
-        <button
+        <button data-opus-button="control"
           role="tab"
           aria-selected={sendTab === 'cards'}
           className={`stb ${sendTab === 'cards' ? 'on' : ''}`}
@@ -2065,7 +2065,7 @@ export default function SendInvitesView({
         >
           <MessageCircle size={14} /> {strings.tab_digital_cards}
         </button>
-        <button
+        <button data-opus-button="control"
           role="tab"
           aria-selected={sendTab === 'responses'}
           className={`stb ${sendTab === 'responses' ? 'on' : ''}`}
@@ -2074,7 +2074,7 @@ export default function SendInvitesView({
           <ClipboardCheck size={14} /> {strings.tab_guest_responses}
           {funnel.rsvpd > 0 ? <span className="stbcnt">{funnel.rsvpd}</span> : null}
         </button>
-        <button
+        <button data-opus-button="control"
           role="tab"
           aria-selected={sendTab === 'followups'}
           className={`stb ${sendTab === 'followups' ? 'on' : ''}`}
@@ -2082,7 +2082,7 @@ export default function SendInvitesView({
         >
           <ListChecks size={14} /> {strings.tab_follow_up_questions}
         </button>
-        <button
+        <button data-opus-button="control"
           role="tab"
           aria-selected={sendTab === 'ticket'}
           className={`stb ${sendTab === 'ticket' ? 'on' : ''}`}
@@ -2091,7 +2091,7 @@ export default function SendInvitesView({
           <Ticket size={14} /> {strings.tab_pass_ticket}
           {attendingCount > 0 ? <span className="stbcnt">{attendingCount}</span> : null}
         </button>
-        <button
+        <button data-opus-button="control"
           role="tab"
           aria-selected={sendTab === 'checkins'}
           className={`stb ${sendTab === 'checkins' ? 'on' : ''}`}
@@ -2124,7 +2124,7 @@ export default function SendInvitesView({
                 <span className="uname">{o.cardName ?? strings.card_fallback_label}</span>
                 <span className="uguests">{fmt(strings.unassigned_guests, { n: o.purchasedGuests })}</span>
                 {selectedEventId ? (
-                  <button className="btn ghost" disabled={pending} onClick={() => assignUnassignedOrder(o.id)}>
+                  <button data-opus-button="control" className="btn ghost" disabled={pending} onClick={() => assignUnassignedOrder(o.id)}>
                     {fmt(strings.unassigned_assign, { event: event.eventName ?? event.coupleName })}
                   </button>
                 ) : (
@@ -2196,9 +2196,13 @@ export default function SendInvitesView({
                         <Check size={13} />
                       </span>
                     ) : null}
-                    <div className="sdname">{template.name}</div>
+                    {/* title: phones clip this to one line, so the full name
+                        has to stay reachable somewhere. */}
+                    <div className="sdname" title={template.name}>
+                      {template.name}
+                    </div>
                     {applied ? (
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         className="templatebtn applied"
                         disabled={pending}
@@ -2209,7 +2213,7 @@ export default function SendInvitesView({
                         {strings.save_dates_template_applied}
                       </button>
                     ) : (
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         className="templatebtn"
                         disabled={pending || !selectedEventId}
@@ -2257,7 +2261,7 @@ export default function SendInvitesView({
                     <Pencil size={14} /> Edit card
                   </Link>
                 ) : null}
-                <button
+                <button data-opus-button="control"
                   type="button"
                   className="btn ghost"
                   disabled={pending}
@@ -2270,7 +2274,7 @@ export default function SendInvitesView({
                     <ExternalLink size={14} /> {strings.save_dates_preview_guest}
                   </a>
                 ) : (
-                  <button className="btn solid" disabled={pending || !selectedEventId} onClick={enableSaveDateLink}>
+                  <button data-opus-button="control" className="btn solid" disabled={pending || !selectedEventId} onClick={enableSaveDateLink}>
                     {pending ? <Loader2 size={14} className="spin" /> : <Check size={14} />}
                     {strings.save_dates_enable_cta}
                   </button>
@@ -2284,7 +2288,7 @@ export default function SendInvitesView({
                   ? saveDateShareLink.replace(/^https?:\/\//, '')
                   : strings.link_off_placeholder}
               </div>
-              <button className="btn ghost" disabled={!saveDateShareLink} onClick={copySaveDateLink}>
+              <button data-opus-button="control" className="btn ghost" disabled={!saveDateShareLink} onClick={copySaveDateLink}>
                 <Copy size={14} /> {strings.copy}
               </button>
             </div>
@@ -2381,11 +2385,11 @@ export default function SendInvitesView({
               {sendTab === 'ticket' ? (
                 <div className="ctxhead">
                   {data.event.ticketFields && !ticketForm ? (
-                    <button className="btn ghost" disabled={pending} onClick={openTicketEditor}>
+                    <button data-opus-button="control" className="btn ghost" disabled={pending} onClick={openTicketEditor}>
                       <Pencil size={13} /> {strings.settings_edit}
                     </button>
                   ) : null}
-                  <button
+                  <button data-opus-button="control"
                     className="btn ghost"
                     disabled={!entrancePreviewGuest}
                     onClick={() => setEntrancePreviewOpen(true)}
@@ -2428,13 +2432,13 @@ export default function SendInvitesView({
             {sendTab === 'ticket' ? (
               <>
                 <div className="tstats" role="group" aria-label={strings.filter_aria}>
-                  <button type="button" className={`tstat${ticketFilter === 'all' ? ' on' : ''}`} aria-pressed={ticketFilter === 'all'} onClick={() => setTicketFilter('all')}>
+                  <button data-opus-button="control" type="button" className={`tstat${ticketFilter === 'all' ? ' on' : ''}`} aria-pressed={ticketFilter === 'all'} onClick={() => setTicketFilter('all')}>
                     <b>{attendingCount}</b><span>{strings.filter_attending}</span>
                   </button>
-                  <button type="button" className={`tstat${ticketFilter === 'sent' ? ' on' : ''}`} aria-pressed={ticketFilter === 'sent'} onClick={() => setTicketFilter('sent')}>
+                  <button data-opus-button="control" type="button" className={`tstat${ticketFilter === 'sent' ? ' on' : ''}`} aria-pressed={ticketFilter === 'sent'} onClick={() => setTicketFilter('sent')}>
                     <b>{ticketSentCount}</b><span>{strings.entrance_status_sent}</span>
                   </button>
-                  <button type="button" className={`tstat${ticketFilter === 'notsent' ? ' on' : ''}`} aria-pressed={ticketFilter === 'notsent'} onClick={() => setTicketFilter('notsent')}>
+                  <button data-opus-button="control" type="button" className={`tstat${ticketFilter === 'notsent' ? ' on' : ''}`} aria-pressed={ticketFilter === 'notsent'} onClick={() => setTicketFilter('notsent')}>
                     <b>{ticketNotSentCount}</b><span>{strings.entrance_status_notsent}</span>
                   </button>
                 </div>
@@ -2529,10 +2533,10 @@ export default function SendInvitesView({
             <div className="railcol">
               {!editingSettings ? (
                 <div className="railacts">
-                  <button className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
+                  <button data-opus-button="control" className="btn ghost" disabled={pending} onClick={() => setEditingSettings(true)}>
                     <Pencil size={13} /> {strings.settings_edit}
                   </button>
-                  <button className="btn ghost" disabled={guests.length === 0} onClick={() => setPreviewOpen(true)}>
+                  <button data-opus-button="control" className="btn ghost" disabled={guests.length === 0} onClick={() => setPreviewOpen(true)}>
                     <Eye size={15} /> {strings.preview_button}
                   </button>
                 </div>
@@ -2636,7 +2640,7 @@ export default function SendInvitesView({
                       >
                         <Users size={14} /> {strings.card_locked_guests_cta}
                       </Link>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         className="btn ghost"
                         onClick={() => { setSendTab('saveDates'); setSelected(new Set()) }}
@@ -2709,7 +2713,7 @@ export default function SendInvitesView({
                   <p className="mutedp">The venue/address stays visible to guests. Add both coordinates only when you want the Maps button to use an exact pin.</p>
                   <div className="vbtns">
                     {data.sendSettings.confirmed ? (
-                      <button
+                      <button data-opus-button="control"
                         className="btn ghost"
                         disabled={pending}
                         title={strings.preview_close}
@@ -2719,7 +2723,7 @@ export default function SendInvitesView({
                         }}
                       ><X size={14} /></button>
                     ) : null}
-                    <button className="btn solid" disabled={pending || !settingsValid} onClick={saveSettings}>
+                    <button data-opus-button="control" className="btn solid" disabled={pending || !settingsValid} onClick={saveSettings}>
                       <Check size={14} /> {strings.save_number}
                     </button>
                   </div>
@@ -2727,7 +2731,7 @@ export default function SendInvitesView({
               </div>
             ) : awaitingCount > 0 ? (
               <div className="chips">
-                <button className="chip remind" disabled={pending} onClick={remindAwaiting}>
+                <button data-opus-button="control" className="chip remind" disabled={pending} onClick={remindAwaiting}>
                   <BellRing size={15} />{fmt(strings.remind_awaiting, { n: awaitingCount })}
                 </button>
               </div>
@@ -2758,7 +2762,7 @@ export default function SendInvitesView({
                     </>
                   )}
                 </span>
-                <button type="button" className="topup" onClick={() => setTopUpOpen(true)}>
+                <button data-opus-button="control" type="button" className="topup" onClick={() => setTopUpOpen(true)}>
                   {strings.quota_topup}
                 </button>
               </div>
@@ -2848,10 +2852,10 @@ export default function SendInvitesView({
               <div className="vsave">
                 <p className="mutedp">{strings.ticket_note}</p>
                 <div className="vbtns">
-                  <button className="btn ghost" title={strings.preview_close} onClick={() => setTicketForm(null)}>
+                  <button data-opus-button="control" className="btn ghost" title={strings.preview_close} onClick={() => setTicketForm(null)}>
                     <X size={14} />
                   </button>
-                  <button className="btn solid" disabled={pending} onClick={saveTicketDetails}>
+                  <button data-opus-button="control" className="btn solid" disabled={pending} onClick={saveTicketDetails}>
                     <Check size={14} /> {strings.save_number}
                   </button>
                 </div>
@@ -2869,7 +2873,7 @@ export default function SendInvitesView({
         {/* Deliberately NOT gated on funnel.invited: a couple who has sent
             nothing yet is exactly who needs the "still to invite" list. */}
         <div className="funnelbar">
-          <button
+          <button data-opus-button="control"
             className="btn ghost"
             disabled={inviteReportBusy || guests.length === 0}
             onClick={downloadInviteReport}
@@ -2877,7 +2881,7 @@ export default function SendInvitesView({
             {inviteReportBusy ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
             {strings.invite_report_download}
           </button>
-          <button
+          <button data-opus-button="control"
             className="btn ghost"
             disabled={inviteReportBusy || guests.length === 0}
             onClick={shareInviteReport}
@@ -2893,7 +2897,7 @@ export default function SendInvitesView({
               scenery; an alarm that goes off only when it means something is
               the one people still trust on the day. */}
           {funnel.undelivered > 0 ? (
-            <button
+            <button data-opus-button="control"
               type="button"
               className="fc bad"
               onClick={() => { setSendTab('cards'); setFilter('undelivered') }}
@@ -2920,11 +2924,11 @@ export default function SendInvitesView({
                 <span>{checkinConnected ? strings.checkin_live : strings.checkin_offline}</span>
               </div>
               <div className="livebtns">
-                <button className="btn ghost" disabled={reportBusy || attendingCount === 0} onClick={downloadReport}>
+                <button data-opus-button="control" className="btn ghost" disabled={reportBusy || attendingCount === 0} onClick={downloadReport}>
                   {reportBusy ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
                   {strings.checkin_report_download}
                 </button>
-                <button className="btn ghost" disabled={reportBusy || attendingCount === 0} onClick={shareReport}>
+                <button data-opus-button="control" className="btn ghost" disabled={reportBusy || attendingCount === 0} onClick={shareReport}>
                   <Share2 size={14} /> {strings.checkin_report_share}
                 </button>
               </div>
@@ -2966,13 +2970,13 @@ export default function SendInvitesView({
               />
               <div className="acts">
                 <div className="seg" role="tablist" aria-label={strings.filter_aria}>
-                  <button className={`sg ${checkinFilter === 'all' ? 'on' : ''}`} onClick={() => setCheckinFilter('all')}>
+                  <button data-opus-button="control" className={`sg ${checkinFilter === 'all' ? 'on' : ''}`} onClick={() => setCheckinFilter('all')}>
                     {strings.filter_all}{attendingCount ? ` ${attendingCount}` : ''}
                   </button>
-                  <button className={`sg ${checkinFilter === 'arrived' ? 'on' : ''}`} onClick={() => setCheckinFilter('arrived')}>
+                  <button data-opus-button="control" className={`sg ${checkinFilter === 'arrived' ? 'on' : ''}`} onClick={() => setCheckinFilter('arrived')}>
                     <CalendarCheck size={12} /> {strings.checkin_filter_arrived}{arrivedCount ? ` ${arrivedCount}` : ''}
                   </button>
-                  <button className={`sg ${checkinFilter === 'pending' ? 'on' : ''}`} onClick={() => setCheckinFilter('pending')}>
+                  <button data-opus-button="control" className={`sg ${checkinFilter === 'pending' ? 'on' : ''}`} onClick={() => setCheckinFilter('pending')}>
                     {strings.checkin_filter_pending}{attendingCount - arrivedCount ? ` ${attendingCount - arrivedCount}` : ''}
                   </button>
                 </div>
@@ -2992,7 +2996,7 @@ export default function SendInvitesView({
               </div>
             ) : (
               <div className="scroll">
-                <table>
+                <table className="opus-table">
                   <thead>
                     <tr>
                       <th>{strings.th_guest}</th>
@@ -3067,20 +3071,20 @@ export default function SendInvitesView({
           <div className="acts">
             {isCardSendTab ? (
               <div className="seg" role="tablist" aria-label={strings.filter_aria}>
-                <button className={`sg ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
+                <button data-opus-button="control" className={`sg ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
                   {strings.filter_all}
                 </button>
-                <button className={`sg ${filter === 'notsent' ? 'on' : ''}`} onClick={() => setFilter('notsent')}>
+                <button data-opus-button="control" className={`sg ${filter === 'notsent' ? 'on' : ''}`} onClick={() => setFilter('notsent')}>
                   {strings.filter_notsent}{notSentCount ? ` ${notSentCount}` : ''}
                 </button>
-                <button className={`sg ${filter === 'awaiting' ? 'on' : ''}`} onClick={() => setFilter('awaiting')}>
+                <button data-opus-button="control" className={`sg ${filter === 'awaiting' ? 'on' : ''}`} onClick={() => setFilter('awaiting')}>
                   {strings.filter_awaiting}{awaitingCount ? ` ${awaitingCount}` : ''}
                 </button>
                 {/* Only offered once something has actually failed. A chip
                     reading "Not delivered 0" invites a click that shows an
                     empty table and teaches the couple to ignore it. */}
                 {sendTab === 'cards' && undeliveredCount > 0 ? (
-                  <button
+                  <button data-opus-button="control"
                     className={`sg alert ${filter === 'undelivered' ? 'on' : ''}`}
                     onClick={() => setFilter('undelivered')}
                   >
@@ -3090,20 +3094,20 @@ export default function SendInvitesView({
               </div>
             ) : (
               <div className="seg" role="tablist" aria-label={strings.filter_aria}>
-                <button className={`sg ${ticketFilter === 'all' ? 'on' : ''}`} onClick={() => setTicketFilter('all')}>
+                <button data-opus-button="control" className={`sg ${ticketFilter === 'all' ? 'on' : ''}`} onClick={() => setTicketFilter('all')}>
                   <Ticket size={12} /> {strings.filter_attending}{attendingCount ? ` ${attendingCount}` : ''}
                 </button>
-                <button className={`sg ${ticketFilter === 'notsent' ? 'on' : ''}`} onClick={() => setTicketFilter('notsent')}>
+                <button data-opus-button="control" className={`sg ${ticketFilter === 'notsent' ? 'on' : ''}`} onClick={() => setTicketFilter('notsent')}>
                   {strings.filter_notsent}{ticketNotSentCount ? ` ${ticketNotSentCount}` : ''}
                 </button>
-                <button className={`sg ${ticketFilter === 'sent' ? 'on' : ''}`} onClick={() => setTicketFilter('sent')}>
+                <button data-opus-button="control" className={`sg ${ticketFilter === 'sent' ? 'on' : ''}`} onClick={() => setTicketFilter('sent')}>
                   {strings.entrance_status_sent}{ticketSentCount ? ` ${ticketSentCount}` : ''}
                 </button>
               </div>
             )}
             {selected.size > 0 ? <span className="selcnt">{fmt(strings.selected_count, { n: selected.size })}</span> : null}
             {selected.size > 0 ? (
-              <button className="btn ghost danger" disabled={pending} onClick={() => setConfirmBulkDelete(true)}>
+              <button data-opus-button="control" className="btn ghost danger" disabled={pending} onClick={() => setConfirmBulkDelete(true)}>
                 <Trash2 size={14} /> {strings.bulk_delete}
               </button>
             ) : null}
@@ -3112,14 +3116,14 @@ export default function SendInvitesView({
                 downloaded pass into one the door will accept. Card tabs only —
                 on the Pass Ticket tab everyone already is. */}
             {selected.size > 0 && isCardSendTab ? (
-              <button className="btn ghost" disabled={pending} onClick={() => markAttending([...selected])}>
+              <button data-opus-button="control" className="btn ghost" disabled={pending} onClick={() => markAttending([...selected])}>
                 <Ticket size={14} /> {strings.bulk_mark_attending}
               </button>
             ) : null}
-            <button className="btn ghost" disabled={pending} onClick={() => setNewGuest({ name: '', phone: '' })}>
+            <button data-opus-button="control" className="btn ghost" disabled={pending} onClick={() => setNewGuest({ name: '', phone: '' })}>
               <Plus size={14} /> {strings.add_guest}
             </button>
-            <button
+            <button data-opus-button="control"
               className="btn send"
               disabled={pending || selected.size === 0}
               onClick={() => (effectiveFilter === 'attending' ? stageEntranceSend([...selected]) : stageBulkSend([...selected]))}
@@ -3142,7 +3146,7 @@ export default function SendInvitesView({
           </div>
         ) : (
           <div className="scroll">
-            <table>
+            <table className="opus-table">
               <thead>
                 <tr>
                   <th style={{ width: 30 }}></th><th>{strings.th_guest}</th><th>{strings.th_contact}</th>
@@ -3182,10 +3186,10 @@ export default function SendInvitesView({
                     <td colSpan={sendTab === 'saveDates' ? 2 : 3}></td>
                     <td>
                       <div className="ra">
-                        <button className="ia send" disabled={pending || !newGuest.name.trim()} onClick={addGuest}>
+                        <button data-opus-button="control" className="ia send" disabled={pending || !newGuest.name.trim()} onClick={addGuest}>
                           <Check size={14} /> {strings.save_number}
                         </button>
-                        <button className="ia" disabled={pending} onClick={() => setNewGuest(null)} title={strings.preview_close}><X size={15} /></button>
+                        <button data-opus-button="control" className="ia" disabled={pending} onClick={() => setNewGuest(null)} title={strings.preview_close}><X size={15} /></button>
                       </div>
                     </td>
                   </tr>
@@ -3216,10 +3220,10 @@ export default function SendInvitesView({
                       <td colSpan={sendTab === 'saveDates' ? 2 : 3}></td>
                       <td>
                         <div className="ra">
-                          <button className="ia send" disabled={pending} onClick={saveRowEdit}>
+                          <button data-opus-button="control" className="ia send" disabled={pending} onClick={saveRowEdit}>
                             <Check size={14} /> {strings.save_number}
                           </button>
-                          <button
+                          <button data-opus-button="control"
                             className="ia danger"
                             disabled={pending}
                             title={strings.row_delete}
@@ -3228,7 +3232,7 @@ export default function SendInvitesView({
                             <Trash2 size={14} />
                             {rowEdit.askDelete ? strings.row_delete_confirm : null}
                           </button>
-                          <button className="ia" disabled={pending} onClick={() => setRowEdit(null)} title={strings.preview_close}><X size={15} /></button>
+                          <button data-opus-button="control" className="ia" disabled={pending} onClick={() => setRowEdit(null)} title={strings.preview_close}><X size={15} /></button>
                         </div>
                       </td>
                     </tr>
@@ -3247,11 +3251,11 @@ export default function SendInvitesView({
                               onKeyDown={(e) => { if (e.key === 'Enter') savePhone(); if (e.key === 'Escape') setPhoneEdit(null) }}
                               placeholder={strings.test_placeholder}
                             />
-                            <button className="mini-btn" disabled={pending} onClick={savePhone}>{strings.save_number}</button>
-                            <button className="mini-btn ghost" onClick={() => setPhoneEdit(null)} aria-label={strings.preview_close}><X size={12} /></button>
+                            <button data-opus-button="control" className="mini-btn" disabled={pending} onClick={savePhone}>{strings.save_number}</button>
+                            <button data-opus-button="control" className="mini-btn ghost" onClick={() => setPhoneEdit(null)} aria-label={strings.preview_close}><X size={12} /></button>
                           </span>
                         ) : (
-                          <button className="addnum" onClick={() => setPhoneEdit({ id: g.id, value: '' })}>
+                          <button data-opus-button="control" className="addnum" onClick={() => setPhoneEdit({ id: g.id, value: '' })}>
                             <Plus size={12} /> {strings.add_number}
                           </button>
                         )
@@ -3271,7 +3275,7 @@ export default function SendInvitesView({
                           const channel = effectiveChannel(g)
                           return (
                             <div data-channel-menu style={{ position: 'relative', display: 'inline-block' }}>
-                              <button
+                              <button data-opus-button="control"
                                 type="button"
                                 className={`pillselect pill-${channel}`}
                                 onClick={(e) => {
@@ -3294,7 +3298,7 @@ export default function SendInvitesView({
                                   role="listbox"
                                   dataAttr="data-channel-menu"
                                 >
-                                  <button
+                                  <button data-opus-button="control"
                                     type="button"
                                     role="option"
                                     aria-selected={channel === 'whatsapp'}
@@ -3307,7 +3311,7 @@ export default function SendInvitesView({
                                   >
                                     <MessageCircle size={13} /> {strings.channel_whatsapp}
                                   </button>
-                                  <button
+                                  <button data-opus-button="control"
                                     type="button"
                                     role="option"
                                     aria-selected={channel === 'sms'}
@@ -3372,7 +3376,7 @@ export default function SendInvitesView({
                           // 'attending' (isAwaiting is false).
                           const passUnavailable = effectiveChannel(g) !== 'whatsapp'
                           return (
-                            <button
+                            <button data-opus-button="control"
                               className="ia send pass"
                               disabled={pending || !hasPhone(g) || passUnavailable}
                               title={passUnavailable ? strings.entrance_needs_whatsapp : strings.row_preview_send_pass}
@@ -3397,7 +3401,7 @@ export default function SendInvitesView({
                             ticket route refuses anyone not yet attending and
                             every row here is confirmed. */}
                         {effectiveFilter === 'attending' ? (
-                          <button
+                          <button data-opus-button="control"
                             className="ia"
                             disabled={pending}
                             title={strings.row_download_pass}
@@ -3425,7 +3429,7 @@ export default function SendInvitesView({
                             // out at all.
                             return (
                               <>
-                                <button
+                                <button data-opus-button="control"
                                   className="ia send"
                                   disabled
                                   title={strings.row_needs_number}
@@ -3433,7 +3437,7 @@ export default function SendInvitesView({
                                   <Send size={13} />
                                   {g.status === 'none' ? strings.row_send : strings.row_resend}
                                 </button>
-                                <button
+                                <button data-opus-button="control"
                                   className="ia"
                                   disabled={pending}
                                   title={strings.row_download_card}
@@ -3450,7 +3454,7 @@ export default function SendInvitesView({
                           }
                           if (g.status === 'none') {
                             return (
-                              <button
+                              <button data-opus-button="control"
                                 className="ia send"
                                 disabled={pending || !hasPhone(g)}
                                 title={strings.row_preview_send}
@@ -3466,7 +3470,7 @@ export default function SendInvitesView({
                           // keeps the plain button.
                           return (
                             <>
-                              <button
+                              <button data-opus-button="control"
                                 className="ia preview"
                                 disabled={pending}
                                 title={strings.row_preview}
@@ -3475,7 +3479,7 @@ export default function SendInvitesView({
                                 {strings.row_preview}
                               </button>
                               <div className="rsmenu" data-resend-menu>
-                                <button
+                                <button data-opus-button="control"
                                   className="ia resend"
                                   disabled={pending || !hasPhone(g)}
                                   aria-haspopup="menu"
@@ -3511,19 +3515,19 @@ export default function SendInvitesView({
                                         so the routes that actually work lead. */}
                                     {g.delivery?.state === 'failed' ? (
                                       <>
-                                        <button
+                                        <button data-opus-button="control"
                                           role="menuitem"
                                           onClick={() => { setResendMenuId(null); openRecovery(g) }}
                                         >
                                           <MessageCircle size={13} /> {strings.row_send_manually}
                                         </button>
-                                        <button
+                                        <button data-opus-button="control"
                                           role="menuitem"
                                           onClick={() => { setResendMenuId(null); openRecovery(g) }}
                                         >
                                           <Download size={13} /> {strings.row_download_card}
                                         </button>
-                                        <button
+                                        <button data-opus-button="control"
                                           role="menuitem"
                                           onClick={() => {
                                             setResendMenuId(null)
@@ -3533,7 +3537,7 @@ export default function SendInvitesView({
                                         >
                                           <Copy size={13} /> {strings.row_copy_message}
                                         </button>
-                                        <button
+                                        <button data-opus-button="control"
                                           role="menuitem"
                                           onClick={() => { setResendMenuId(null); rowShare(g, 'sms') }}
                                         >
@@ -3543,7 +3547,7 @@ export default function SendInvitesView({
                                       </>
                                     ) : null}
                                     {g.delivery?.state !== 'failed' ? (
-                                      <button
+                                      <button data-opus-button="control"
                                         role="menuitem"
                                         onClick={() => { setResendMenuId(null); downloadCardDirect(g) }}
                                       >
@@ -3556,7 +3560,7 @@ export default function SendInvitesView({
                                         That is what this does, and why the
                                         ticket download sits behind it. */}
                                     {g.status !== 'attending' && g.status !== 'declined' ? (
-                                      <button
+                                      <button data-opus-button="control"
                                         role="menuitem"
                                         onClick={() => { setResendMenuId(null); markAttending([g.id]) }}
                                       >
@@ -3564,7 +3568,7 @@ export default function SendInvitesView({
                                       </button>
                                     ) : null}
                                     {g.status === 'attending' ? (
-                                      <button
+                                      <button data-opus-button="control"
                                         role="menuitem"
                                         onClick={() => { setResendMenuId(null); downloadTicket(g) }}
                                       >
@@ -3574,7 +3578,7 @@ export default function SendInvitesView({
                                     {(() => {
                                       const until = heldBackUntil(g)
                                       return (
-                                        <button
+                                        <button data-opus-button="control"
                                           role="menuitem"
                                           disabled={Boolean(until)}
                                           title={until ? strings.row_resend_held_back : undefined}
@@ -3584,13 +3588,13 @@ export default function SendInvitesView({
                                         </button>
                                       )
                                     })()}
-                                    <button
+                                    <button data-opus-button="control"
                                       role="menuitem"
                                       onClick={() => { setResendMenuId(null); setReview({ guestId: g.id, mode: 'invite' }) }}
                                     >
                                       <Eye size={13} /> {strings.row_resend_preview}
                                     </button>
-                                    <button
+                                    <button data-opus-button="control"
                                       role="menuitem"
                                       onClick={() => { setResendMenuId(null); rowShare(g, 'copy') }}
                                     >
@@ -3602,7 +3606,7 @@ export default function SendInvitesView({
                             </>
                           )
                         })() : null}
-                        <button
+                        <button data-opus-button="control"
                           className="ia"
                           disabled={pending}
                           title={strings.row_edit}
@@ -3665,7 +3669,7 @@ export default function SendInvitesView({
               {sendProgress.stopping ? strings.progress_stopping : strings.progress_note}
             </p>
             <div className="mrow">
-              <button
+              <button data-opus-button="control"
                 className="btn ghost"
                 disabled={sendProgress.stopping}
                 onClick={() => {
@@ -3736,8 +3740,8 @@ export default function SendInvitesView({
               <p className="mutedp">These details come from the selected event.</p>
             </div>
             <div className="mrow">
-              <button className="btn ghost" onClick={() => setConfirmSend(null)}>{strings.confirm_cancel}</button>
-              <button
+              <button data-opus-button="control" className="btn ghost" onClick={() => setConfirmSend(null)}>{strings.confirm_cancel}</button>
+              <button data-opus-button="control"
                 className="btn send"
                 disabled={pending || !settingsValid}
                 onClick={() => runBulkSend(confirmSend.ids, confirmSend.reminder)}
@@ -3757,13 +3761,13 @@ export default function SendInvitesView({
             <h3>{strings.confirm_entrance_title}</h3>
             <p className="big">{fmt(strings.confirm_entrance_body, { n: confirmEntranceSend.recipients })}</p>
             <div className="mrow">
-              <button className="btn ghost" onClick={() => setConfirmEntranceSend(null)}>{strings.confirm_cancel}</button>
+              <button data-opus-button="control" className="btn ghost" onClick={() => setConfirmEntranceSend(null)}>{strings.confirm_cancel}</button>
               {entrancePreviewGuest ? (
-                <button className="btn ghost" onClick={() => setEntrancePreviewOpen(true)}>
+                <button data-opus-button="control" className="btn ghost" onClick={() => setEntrancePreviewOpen(true)}>
                   <Eye size={14} /> {strings.entrance_preview_button}
                 </button>
               ) : null}
-              <button className="btn send" disabled={pending} onClick={runEntranceSend}>
+              <button data-opus-button="control" className="btn send" disabled={pending} onClick={runEntranceSend}>
                 <Ticket size={15} /> {strings.confirm_confirm}
               </button>
             </div>
@@ -3779,7 +3783,7 @@ export default function SendInvitesView({
           <div className="modal wide" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
             <div className="mhead">
               <h3>{strings.entrance_preview_title}</h3>
-              <button className="xbtn" onClick={() => setEntrancePreviewOpen(false)} aria-label={strings.preview_close}><X size={16} /></button>
+              <button data-opus-button="control" className="xbtn" onClick={() => setEntrancePreviewOpen(false)} aria-label={strings.preview_close}><X size={16} /></button>
             </div>
             <p className="mutedp">{strings.entrance_preview_note}</p>
             <div className="wawrap">
@@ -3807,8 +3811,8 @@ export default function SendInvitesView({
             <h3>{strings.bulk_delete_title}</h3>
             <p className="big">{fmt(strings.bulk_delete_body, { n: selected.size })}</p>
             <div className="mrow">
-              <button className="btn ghost" onClick={() => setConfirmBulkDelete(false)}>{strings.confirm_cancel}</button>
-              <button className="btn dangerfill" disabled={pending} onClick={runBulkDelete}>
+              <button data-opus-button="control" className="btn ghost" onClick={() => setConfirmBulkDelete(false)}>{strings.confirm_cancel}</button>
+              <button data-opus-button="control" className="btn dangerfill" disabled={pending} onClick={runBulkDelete}>
                 <Trash2 size={14} /> {strings.bulk_delete_confirm}
               </button>
             </div>
@@ -3822,7 +3826,7 @@ export default function SendInvitesView({
           <div className="modal wide" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
             <div className="mhead">
               <h3>{strings.preview_title}</h3>
-              <button className="xbtn" onClick={() => setPreviewOpen(false)} aria-label={strings.preview_close}><X size={16} /></button>
+              <button data-opus-button="control" className="xbtn" onClick={() => setPreviewOpen(false)} aria-label={strings.preview_close}><X size={16} /></button>
             </div>
             <p className="mutedp">{strings.preview_note}</p>
             <div className="pgrid">
@@ -3866,7 +3870,7 @@ export default function SendInvitesView({
                       placeholder={strings.test_placeholder}
                       inputMode="tel"
                     />
-                    <button className="btn solid" disabled={testSending || previewCardLoading || !testPhone.trim() || !event.hasPaidOrder || !selectedPreviewGuest || !settingsValid} onClick={sendTest}>
+                    <button data-opus-button="control" className="btn solid" disabled={testSending || previewCardLoading || !testPhone.trim() || !event.hasPaidOrder || !selectedPreviewGuest || !settingsValid} onClick={sendTest}>
                       {testSending ? <Loader2 size={14} className="spin" /> : <MessageCircle size={14} />} {strings.test_send}
                     </button>
                   </div>
@@ -3999,7 +4003,7 @@ export default function SendInvitesView({
           <div className="modal manual" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
             <div className="mhead">
               <h3>{strings.manual_title}</h3>
-              <button className="xbtn" onClick={() => setRecover(null)} aria-label={strings.preview_close}><X size={16} /></button>
+              <button data-opus-button="control" className="xbtn" onClick={() => setRecover(null)} aria-label={strings.preview_close}><X size={16} /></button>
             </div>
             <div className="manbody">
             <p className="mutedp">{fmt(strings.manual_intro, { name: recover.guest.name })}</p>
@@ -4019,7 +4023,7 @@ export default function SendInvitesView({
                 <span className="mannum">{recover.downloaded ? <Check size={13} /> : 1}</span>
                 <div>
                   <b>{strings.manual_step_download}</b>
-                  <button
+                  <button data-opus-button="control"
                     className={`btn manstep ${recover.downloaded ? 'ghost' : 'dl'}`}
                     disabled={!recover.cardUrl}
                     onClick={() => recover.cardUrl && downloadPreparedCard(recover.guest, recover.cardUrl)}
@@ -4032,7 +4036,7 @@ export default function SendInvitesView({
                 <span className="mannum">2</span>
                 <div>
                   <b>{strings.manual_step_open}</b>
-                  <button
+                  <button data-opus-button="control"
                     className="btn manstep wa"
                     onClick={() => openWhatsAppFor(recover.guest)}
                   >
@@ -4047,7 +4051,7 @@ export default function SendInvitesView({
 
             <div className="mrow manacts">
               {recover.cardUrl ? (
-                <button
+                <button data-opus-button="control"
                   className="btn ghost"
                   onClick={() => {
                     const { guest, cardUrl } = recover
@@ -4059,10 +4063,10 @@ export default function SendInvitesView({
                   <Share2 size={14} /> {strings.manual_share}
                 </button>
               ) : null}
-              <button className="btn ghost" onClick={() => { navigator.clipboard.writeText(manualMessageFor(recover.guest)); toast.success(strings.row_message_copied) }}>
+              <button data-opus-button="control" className="btn ghost" onClick={() => { navigator.clipboard.writeText(manualMessageFor(recover.guest)); toast.success(strings.row_message_copied) }}>
                 <Copy size={14} /> {strings.row_copy_message}
               </button>
-              <button className="btn pri" onClick={() => setRecover(null)}>{strings.review_done}</button>
+              <button data-opus-button="control" className="btn pri" onClick={() => setRecover(null)}>{strings.review_done}</button>
             </div>
           </div>
         </div>
@@ -4085,7 +4089,7 @@ export default function SendInvitesView({
           <div className="drawer" data-lenis-prevent onClick={(e) => e.stopPropagation()}>
             <div className="mhead">
               <h3>{strings.results_title}</h3>
-              <button className="xbtn" onClick={() => setReport(null)} aria-label={strings.results_close}><X size={16} /></button>
+              <button data-opus-button="control" className="xbtn" onClick={() => setReport(null)} aria-label={strings.results_close}><X size={16} /></button>
             </div>
             <div className="dsum">
               <span className="ds ok">{report.sent} {strings.results_sent}</span>
@@ -4113,11 +4117,11 @@ export default function SendInvitesView({
             </div>
             <div className="mrow">
               {report.failed > 0 ? (
-                <button className="btn ghost" disabled={pending || Boolean(sendProgress)} onClick={retryFailed}>
+                <button data-opus-button="control" className="btn ghost" disabled={pending || Boolean(sendProgress)} onClick={retryFailed}>
                   <RotateCcw size={14} /> {strings.results_retry}
                 </button>
               ) : null}
-              <button className="btn pri" onClick={() => setReport(null)}>{strings.results_close}</button>
+              <button data-opus-button="control" className="btn pri" onClick={() => setReport(null)}>{strings.results_close}</button>
             </div>
           </div>
         </div>
@@ -4149,7 +4153,7 @@ const css = `
 }
 .si .evswitch{ display:flex; align-items:center; gap:8px; margin-left:auto; font-size:12px; font-weight:600; color:var(--muted); }
 .si .selwrap{ position:relative; display:inline-flex; align-items:center; }
-.si .evswitch select{ appearance:none; border:1px solid var(--line); border-radius:10px; padding:8px 34px 8px 12px;
+.si .evswitch select{ appearance:none; border:1px solid var(--line); border-radius:var(--opus-radius-small); padding:8px 34px 8px 12px;
   font-size:13px; font-weight:600; color:var(--ink); background:#fff; max-width:240px; }
 .si .evswitch select:focus{ outline:none; border-color:var(--lav); }
 .si .selchev{ position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--faint); pointer-events:none; }
@@ -4159,8 +4163,8 @@ const css = `
 .si .uhead .dp{ background:var(--amber-bd); color:var(--amber-tx); font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; flex:none; }
 .si .ulist{ display:flex; flex-direction:column; gap:8px; margin-top:12px; }
 .si .urow{ display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--amber-bd);
-  border-radius:12px; padding:8px 10px; flex-wrap:wrap; }
-.si .uimg{ position:relative; width:36px; height:48px; flex:none; border-radius:6px; overflow:hidden; }
+  border-radius:var(--opus-radius-small); padding:8px 10px; flex-wrap:wrap; }
+.si .uimg{ position:relative; width:36px; height:48px; flex:none; border-radius:var(--opus-radius-small); overflow:hidden; }
 .si .uname{ font-weight:600; font-size:13px; color:var(--ink); }
 .si .uguests{ font-size:12px; color:var(--muted); }
 .si .urow .btn{ margin-left:auto; }
@@ -4183,7 +4187,7 @@ const css = `
 .si .btn.dangerfill{ background:var(--bad-tx); color:#fff; }
 .si .spin{ animation:si-spin .8s linear infinite; }
 @keyframes si-spin{ to{ transform:rotate(360deg); } }
-.si .ctx{ position:relative; background:#fff; border:1px solid var(--line); border-radius:20px;
+.si .ctx{ position:relative; background:#fff; border:1px solid var(--line); border-radius:var(--opus-radius-medium);
   padding:22px; margin:22px 0 18px; box-shadow:var(--soft); }
 .si .ctx.production{ padding:24px 26px; }
 .si .ctxhead{ display:flex; gap:8px; flex-wrap:wrap; }
@@ -4199,7 +4203,7 @@ const css = `
    Grows into whatever width the reminder chip leaves rather than sitting as a
    fixed narrow box. */
 .si .quota.band{ flex:1 1 320px; min-width:260px; max-width:520px; padding:10px 12px;
-  border:1px solid var(--line); border-radius:12px; background:#fff; }
+  border:1px solid var(--line); border-radius:var(--opus-radius-small); background:#fff; }
 .si .quota.band .top{ display:flex; align-items:baseline; gap:12px;
   font-size:12px; color:var(--muted); margin-bottom:7px; }
 .si .quota.band .top b{ color:var(--ink); }
@@ -4243,12 +4247,12 @@ const css = `
 .si .ctx.production .ctxbody{ display:grid; grid-template-columns:132px minmax(0,1fr);
   align-items:start; gap:20px 26px; }
 .si .cinfo-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-.si .ccard{ width:92px; height:122px; flex:none; border-radius:14px; position:relative; overflow:hidden;
+.si .ccard{ width:92px; height:122px; flex:none; border-radius:var(--opus-radius-medium); position:relative; overflow:hidden;
   background:linear-gradient(155deg,var(--purple),var(--lav)); box-shadow:0 4px 14px rgba(107,63,160,.22); }
 /* 5:7 — the canonical card proportion, so the art is shown as designed. */
-.si .ctx.production .ccard{ width:132px; height:185px; border-radius:14px; box-shadow:0 8px 22px rgba(28,27,31,.16); }
+.si .ctx.production .ccard{ width:132px; height:185px; border-radius:var(--opus-radius-medium); box-shadow:0 8px 22px rgba(28,27,31,.16); }
 .si .ccard.noDesign{ background:linear-gradient(155deg,var(--lav-soft),#fff); border:1.5px dashed var(--lav); box-shadow:none; }
-.si .ccard.ticket{ width:112px; height:162px; border-radius:8px; background:transparent; box-shadow:0 4px 14px rgba(92,45,141,.25); }
+.si .ccard.ticket{ width:112px; height:162px; border-radius:var(--opus-radius-small); background:transparent; box-shadow:0 4px 14px rgba(92,45,141,.25); }
 .si .ccard .ci{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
   justify-content:center; gap:5px; text-align:center; color:#fff; padding:8px; }
 .si .ccard .ci b{ font-size:13px; line-height:1.25; }
@@ -4264,14 +4268,14 @@ const css = `
 .si .ctx .row .mi{ display:inline-flex; align-items:center; gap:6px; }
 .si .ctx .row .mi svg{ color:var(--faint); flex:none; }
 .si .sdtemplates{ margin:22px 0 18px; padding:18px 20px; background:#fff; border:1px solid var(--line);
-  border-radius:20px; box-shadow:var(--soft); }
+  border-radius:var(--opus-radius-medium); box-shadow:var(--soft); }
 .si .sdtemplates h3{ font-size:16px; font-weight:700; color:var(--ink); }
 .si .sdtemplates p{ margin-top:5px; color:var(--muted); font-size:13px; line-height:1.45; }
 .si .sdtrail{ display:flex; gap:10px; margin-top:14px; padding-bottom:4px; overflow-x:auto; }
 .si .sdtile{ position:relative; width:210px; flex:0 0 210px; padding:8px; border:1px solid var(--line);
-  border-radius:14px; background:#fff; transition:border-color .14s ease, background .14s ease; }
+  border-radius:var(--opus-radius-medium); background:#fff; transition:border-color .14s ease, background .14s ease; }
 .si .sdtile.applied{ border-color:var(--green); background:#F2FFE8; }
-.si .sdthumb{ position:relative; aspect-ratio:5/7; overflow:hidden; border-radius:9px; background:var(--lav-soft); }
+.si .sdthumb{ position:relative; aspect-ratio:5/7; overflow:hidden; border-radius:var(--opus-radius-small); background:var(--lav-soft); }
 .si .sdcheck{ position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:999px; display:grid; place-items:center;
   background:var(--green); color:var(--green-tx); box-shadow:0 2px 8px rgba(35,50,20,.12); }
 .si .sdname{ margin-top:7px; min-height:30px; color:var(--ink); font-size:11.5px; font-weight:700; line-height:1.25; }
@@ -4279,7 +4283,7 @@ const css = `
   border:none; border-radius:999px; background:var(--lav-btn); color:var(--ink); font-size:11px; font-weight:700; text-decoration:none; cursor:pointer; }
 .si .templatebtn.applied{ background:#E8FCDC; color:var(--green-tx); cursor:default; }
 .si .sdshare{ display:flex; margin:22px 0 24px; overflow:hidden; background:#fff; border:1px solid var(--line);
-  border-radius:20px; box-shadow:var(--soft); }
+  border-radius:var(--opus-radius-medium); box-shadow:var(--soft); }
 .si .sdmedia{ position:relative; width:220px; min-height:308px; flex:none; overflow:hidden; background:linear-gradient(155deg,var(--purple),var(--lav)); }
 .si .sdmedia.noDesign{ background:linear-gradient(155deg,var(--lav-soft),#fff); border-right:1px dashed var(--lav); }
 .si .sdempty{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
@@ -4293,10 +4297,10 @@ const css = `
 .si .sdtop p{ margin-top:5px; max-width:620px; color:var(--muted); font-size:13.5px; line-height:1.5; }
 .si .sdactions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .si .sdlinkrow{ display:flex; align-items:center; gap:9px; }
-.si .sdlink{ min-width:0; flex:1; border:1px solid var(--line); border-radius:12px; background:#fff; padding:10px 12px;
+.si .sdlink{ min-width:0; flex:1; border:1px solid var(--line); border-radius:var(--opus-radius-small); background:#fff; padding:10px 12px;
   color:var(--muted); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .si .sdsharetools{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
-.si .sdqr{ margin-left:auto; display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:14px;
+.si .sdqr{ margin-left:auto; display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:var(--opus-radius-medium);
   background:var(--hover); padding:10px; color:var(--ink); font-size:12px; font-weight:600; }
 .si .sdqr img{ width:64px; height:64px; flex:none; }
 .si .badge, .si .catpill{ display:inline-flex; align-items:center; gap:5px; background:var(--green); color:var(--green-tx);
@@ -4390,7 +4394,7 @@ const css = `
    two more funnel cards. */
 .si .funnelbar{ display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 .si .funnel{ display:grid; grid-template-columns:repeat(4,1fr) 1.5fr; gap:12px; }
-.si .fc{ position:relative; background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px 18px; box-shadow:var(--soft); }
+.si .fc{ position:relative; background:#fff; border:1px solid var(--line); border-radius:var(--opus-radius-medium); padding:16px 18px; box-shadow:var(--soft); }
 .si .fcicon{ position:absolute; top:14px; right:14px; width:26px; height:26px; border-radius:50%;
   display:flex; align-items:center; justify-content:center; background:#F3F3F5; color:var(--purple); }
 .si .fc .n{ font-size:27px; line-height:1; font-weight:600; }
@@ -4417,19 +4421,24 @@ const css = `
 .si .quota.over .bar i{ background:linear-gradient(90deg,#D89B1C,#F0C46A); }
 .si .quota .ft .overwarn{ display:inline-flex; align-items:center; gap:5px; color:#8A6100; font-weight:600; }
 .si .tstats{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
-.si .tstat{ display:inline-flex; align-items:baseline; gap:7px; padding:8px 14px; border-radius:12px;
+.si .tstat{ display:inline-flex; align-items:baseline; gap:7px; padding:8px 14px; border-radius:var(--opus-radius-small);
   border:1px solid var(--line); background:#fff; cursor:pointer; transition:border-color .15s ease, background .15s ease; }
 .si .tstat b{ font-size:17px; font-weight:700; color:var(--purple-d); }
 .si .tstat span{ font-size:12px; font-weight:600; color:var(--muted); }
 .si .tstat:hover:not(.on){ border-color:var(--lav); }
 .si .tstat.on{ background:var(--lav-soft); border-color:var(--lav); }
 .si .tstat.on b, .si .tstat.on span{ color:var(--purple-d); }
-.si .equota{ margin-top:12px; padding:10px 12px; max-width:520px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+.si .equota{ margin-top:12px; padding:10px 12px; max-width:520px; border:1px solid var(--line); border-radius:var(--opus-radius-small); background:#fff; }
 .si .equota .top{ display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:7px; }
 .si .equota .top b{ color:var(--ink); }
-.si .sendtabs{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; margin-top:22px;
-  padding-bottom:8px; border-bottom:1px solid var(--line); }
-.si .stb{ display:inline-flex; align-items:center; gap:7px; margin-bottom:-9px; background:none; border:none;
+/* One row that scrolls sideways rather than stacking into four. The 9px
+   bottom padding matches .stb's -9px margin exactly, so nothing overflows the
+   box vertically and overflow-y:hidden cannot clip the active underline. */
+.si .sendtabs{ display:flex; flex-wrap:nowrap; align-items:center; gap:18px; margin-top:22px;
+  padding-bottom:9px; border-bottom:1px solid var(--line);
+  overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -ms-overflow-style:none; }
+.si .sendtabs::-webkit-scrollbar{ display:none; }
+.si .stb{ display:inline-flex; flex:none; white-space:nowrap; align-items:center; gap:7px; margin-bottom:-9px; background:none; border:none;
   border-bottom:2px solid transparent; padding:0 0 10px; font-size:14px; font-weight:500; color:var(--muted);
   cursor:pointer; transition:color .12s, border-color .12s; }
 .si .stb:hover{ color:var(--ink); }
@@ -4449,12 +4458,12 @@ const css = `
 .si .ctxsend .chips{ margin-top:0; }
 .si .chips{ display:flex; gap:9px; margin-top:16px; flex-wrap:wrap; align-items:center; }
 .si .chip{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); background:#fff;
-  border-radius:11px; padding:9px 13px; font-size:13px; font-weight:600; cursor:pointer; color:var(--ink);
+  border-radius:var(--opus-radius-small); padding:9px 13px; font-size:13px; font-weight:600; cursor:pointer; color:var(--ink);
   transition:border-color .12s, background .12s; }
 .si .chip:hover{ background:var(--hover); border-color:var(--lav); }
 .si .chip:disabled{ opacity:.5; cursor:not-allowed; }
 .si .chip.remind svg{ color:#E0A458; }
-.si .connect{ display:flex; align-items:center; gap:10px; margin-top:16px; padding:11px 14px; border-radius:12px;
+.si .connect{ display:flex; align-items:center; gap:10px; margin-top:16px; padding:11px 14px; border-radius:var(--opus-radius-small);
   background:var(--amber-bg); border:1px solid var(--amber-bd); font-size:12.5px; color:var(--amber-tx); line-height:1.4; }
 .si .connect .dp{ background:var(--amber-bd); color:var(--amber-tx); font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; flex:none; }
 .si .gt{ background:#fff; border:1px solid var(--line); border-radius:var(--radius); margin-top:24px; box-shadow:var(--soft); overflow:hidden; }
@@ -4464,12 +4473,10 @@ const css = `
 .si .sdguesthead + .gth{ border-top:none; }
 .si .gth{ display:flex; align-items:center; gap:14px; padding:18px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
 .si .gth h2{ font-size:18px; font-weight:600; }
-.si .gth .gsearch{ flex:0 1 240px; min-width:150px; border:1px solid var(--line); border-radius:10px;
-  padding:8px 12px; font-size:13px; color:var(--ink); background:#fff; }
-.si .gth .gsearch:focus{ outline:none; border-color:var(--lav); }
+.si .gth .gsearch{ flex:0 1 240px; min-width:150px; }
 .si .gth .acts{ margin-left:auto; display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
 .si .selcnt{ font-size:12px; font-weight:600; color:var(--purple-d); background:var(--lav-soft); padding:5px 11px; border-radius:999px; }
-.si .seg{ display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.si .seg{ display:inline-flex; border:1px solid var(--line); border-radius:var(--opus-radius-small); overflow:hidden; }
 .si .seg .sg{ display:inline-flex; align-items:center; gap:4px; background:#fff; border:none; padding:8px 12px; font-size:12.5px; font-weight:600; color:var(--muted); cursor:pointer; }
 .si .seg .sg + .sg{ border-left:1px solid var(--line); }
 .si .seg .sg.on{ background:var(--lav-soft); color:var(--purple-d); }
@@ -4488,7 +4495,7 @@ const css = `
   white-space:nowrap; flex:none; }
 .si .addnum svg{ flex:none; }
 .si .pedit{ display:inline-flex; align-items:center; gap:6px; }
-.si .pedit input{ width:130px; border:1px solid var(--lav); border-radius:8px; padding:5px 8px; font-size:12px; }
+.si .pedit input{ width:130px; border:1px solid var(--lav); border-radius:var(--opus-radius-small); padding:5px 8px; font-size:12px; }
 .si .pedit input:focus{ outline:none; border-color:var(--purple); }
 .si .mini-btn{ border:none; background:var(--purple); color:#fff; font-size:11px; font-weight:600; padding:5px 10px;
   border-radius:999px; cursor:pointer; display:inline-flex; align-items:center; }
@@ -4504,8 +4511,8 @@ const css = `
 /* Placement (position/top/left) is set inline by AnchoredMenu — the panel is
    portalled out of the table, so it cannot be offset from its cell here. */
 .si .chmenu{ z-index:5; min-width:150px; background:#fff;
-  border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 24px rgba(20,18,30,.12); padding:4px; }
-.si .chmenu-item{ display:flex; width:100%; align-items:center; gap:7px; border:none; background:transparent; border-radius:8px;
+  border:1px solid var(--line); border-radius:var(--opus-radius-small); box-shadow:0 8px 24px rgba(20,18,30,.12); padding:4px; }
+.si .chmenu-item{ display:flex; width:100%; align-items:center; gap:7px; border:none; background:transparent; border-radius:var(--opus-radius-small);
   padding:7px 9px; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; text-align:left; }
 .si .chmenu-item:hover:not(:disabled){ background:var(--hover); }
 .si .chmenu-item.active{ background:var(--hover); }
@@ -4549,7 +4556,7 @@ const css = `
 .si .s-no{ background:var(--bad-bg); color:var(--bad-tx); }
 .si .s-maybe{ background:#fff5e6; color:#b9791a; }
 .si .ra{ display:flex; gap:7px; justify-content:flex-end; align-items:center; }
-.si .ia{ height:32px; min-width:32px; padding:0 8px; white-space:nowrap; flex:none; border-radius:9px; border:1px solid var(--line); background:#fff; cursor:pointer;
+.si .ia{ height:32px; min-width:32px; padding:0 8px; white-space:nowrap; flex:none; border-radius:var(--opus-radius-small); border:1px solid var(--line); background:#fff; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:600; color:var(--ink); }
 .si .ia:hover{ background:var(--hover); border-color:var(--lav); }
 .si .ia:disabled{ opacity:.45; cursor:not-allowed; }
@@ -4576,10 +4583,10 @@ const css = `
 .si .rsmenu{ position:relative; }
 /* Placement is set inline by AnchoredMenu (see .chmenu). */
 .si .rsmenupop{ z-index:20; min-width:210px;
-  background:#fff; border:1px solid var(--line); border-radius:12px; padding:5px;
+  background:#fff; border:1px solid var(--line); border-radius:var(--opus-radius-small); padding:5px;
   box-shadow:0 10px 28px rgba(20,18,30,.14); display:flex; flex-direction:column; }
 .si .rsmenupop button{ display:flex; align-items:center; gap:9px; width:100%; border:none; background:none;
-  padding:9px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--ink);
+  padding:9px 10px; border-radius:var(--opus-radius-small); font-size:12.5px; font-weight:600; color:var(--ink);
   cursor:pointer; text-align:left; }
 /* Taller, and split: the body scrolls while the actions stay put. The base
    .modal has no height cap at all, so this one used to grow until the viewport
@@ -4616,11 +4623,11 @@ const css = `
    next move. */
 .si .btn.manstep.ghost{ background:#fff; color:var(--muted); border:1px solid var(--line); }
 .si .mancard{ display:flex; justify-content:center; margin:14px 0; }
-.si .manimg{ width:auto; max-height:300px; border-radius:10px; box-shadow:var(--soft); }
+.si .manimg{ width:auto; max-height:300px; border-radius:var(--opus-radius-small); box-shadow:var(--soft); }
 .si .manph{ display:flex; align-items:center; gap:8px; padding:36px 18px; font-size:13px; color:var(--muted); }
 .si .manph.bad{ color:var(--bad-tx); }
 .si .mansteps{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
-.si .mansteps li{ display:flex; gap:11px; align-items:flex-start; padding:11px 12px; border:1px solid var(--line); border-radius:12px; }
+.si .mansteps li{ display:flex; gap:11px; align-items:flex-start; padding:11px 12px; border:1px solid var(--line); border-radius:var(--opus-radius-small); }
 /* The second step is emphasised only once the first is done, so the order is
    readable at a glance rather than stated in prose. */
 .si .mansteps li.next{ border-color:var(--wa); background:#f2fdf6; }
@@ -4630,18 +4637,18 @@ const css = `
 .si .mannum{ flex:none; width:22px; height:22px; border-radius:999px; background:var(--lav-soft); color:var(--purple-d);
   display:inline-flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; }
 .si .mansteps li.done .mannum{ background:var(--ok-bg); color:var(--ok-tx); }
-.si .manwarn{ margin:12px 0 0; padding:10px 12px; border-radius:10px; background:var(--amber-bg);
+.si .manwarn{ margin:12px 0 0; padding:10px 12px; border-radius:var(--opus-radius-small); background:var(--amber-bg);
   border:1px solid var(--amber-bd); color:var(--amber-tx); font-size:12.5px; line-height:1.5; }
 .si .rsmsep{ height:1px; margin:5px 0; background:var(--line); }
 .si .rsmenupop button:hover{ background:var(--hover); }
-.si .einp{ width:100%; max-width:220px; border:1px solid var(--lav); border-radius:8px; padding:6px 9px; font-size:13px; background:#fff; }
+.si .einp{ width:100%; max-width:220px; border:1px solid var(--lav); border-radius:var(--opus-radius-small); padding:6px 9px; font-size:13px; background:#fff; }
 .si .einp:focus{ outline:none; border-color:var(--purple); }
 .si .ck{ width:15px; height:15px; accent-color:var(--purple); }
 
 /* Overlays: confirm modal, preview modal, report drawer */
 .si .ovl{ position:fixed; inset:0; background:rgba(28,27,31,.42); z-index:60; display:flex; align-items:center; justify-content:center; padding:18px; }
 .si .ovl.right{ justify-content:flex-end; padding:0; }
-.si .modal{ background:#fff; border-radius:18px; padding:24px; width:min(440px,100%); box-shadow:0 18px 50px rgba(20,18,30,.25); }
+.si .modal{ background:#fff; border-radius:var(--opus-radius-medium); padding:24px; width:min(440px,100%); box-shadow:0 18px 50px rgba(20,18,30,.25); }
 .si .modal.wide{ width:min(960px,96vw); max-height:92vh; overflow-y:auto; overscroll-behavior:contain; }
 .si .pgrid{ display:grid; grid-template-columns:1fr 1.1fr; gap:20px; margin-top:16px; align-items:start; }
 .si .pgrid .vars{ margin-top:0; }
@@ -4654,7 +4661,7 @@ const css = `
 /* Pre-send warnings. Text carries the meaning, not colour alone — an admin
    scanning quickly, or one who cannot distinguish the tint, still reads
    exactly who is affected and why. */
-.si .sendwarn{ margin-top:12px; padding:10px 12px; border-radius:10px; border:1px solid rgba(0,0,0,.10); background:rgba(0,0,0,.03); font-size:12.5px; line-height:1.55; }
+.si .sendwarn{ margin-top:12px; padding:10px 12px; border-radius:var(--opus-radius-small); border:1px solid rgba(0,0,0,.10); background:rgba(0,0,0,.03); font-size:12.5px; line-height:1.55; }
 .si .sendwarn.danger{ border-color:#fecdd3; background:#fff1f2; color:#9f1239; }
 .si .sendwarn b{ display:block; margin-bottom:4px; }
 .si .sendwarn ul{ margin:0; padding-left:16px; }
@@ -4663,16 +4670,16 @@ const css = `
 .si .mhead{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .si .xbtn{ border:none; background:#f3f2f5; color:var(--muted); width:30px; height:30px; border-radius:50%; cursor:pointer;
   display:grid; place-items:center; }
-.si .wawrap{ margin-top:16px; background:#F3F3F5; border-radius:14px; padding:18px; }
-.si .wabubble{ background:#fff; border-radius:10px; padding:6px; width:min(380px,100%); margin:0 auto;
+.si .wawrap{ margin-top:16px; background:#F3F3F5; border-radius:var(--opus-radius-medium); padding:18px; }
+.si .wabubble{ background:#fff; border-radius:var(--opus-radius-small); padding:6px; width:min(380px,100%); margin:0 auto;
   box-shadow:0 1px 1px rgba(0,0,0,.08); font-size:13.5px; line-height:1.45; }
-.si .waimg{ position:relative; width:100%; aspect-ratio:4/3; border-radius:7px; overflow:hidden; background:linear-gradient(155deg,var(--purple),var(--lav)); }
-.si .waimgfull{ display:block; width:100%; height:auto; border-radius:7px; }
+.si .waimg{ position:relative; width:100%; aspect-ratio:4/3; border-radius:var(--opus-radius-small); overflow:hidden; background:linear-gradient(155deg,var(--purple),var(--lav)); }
+.si .waimgfull{ display:block; width:100%; height:auto; border-radius:var(--opus-radius-small); }
 .si .waimg-ph{ position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-family:var(--font-cormorant),Georgia,serif; font-size:18px; }
 .si .wabody{ padding:9px 6px 4px; color:#111; white-space:normal; }
 .si .wafoot{ padding:0 6px 8px; color:#8a8a8a; font-size:11px; }
 .si .wabtn{ border-top:1px solid #f0f0f0; text-align:center; color:#34B7F1; font-weight:600; font-size:13px; padding:9px 4px; }
-.si .vars{ margin-top:16px; padding:14px; border:1px solid var(--line); border-radius:12px; background:var(--hover); }
+.si .vars{ margin-top:16px; padding:14px; border:1px solid var(--line); border-radius:var(--opus-radius-small); background:var(--hover); }
 .si .vlegend{ font-size:10.5px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--purple); margin-bottom:10px; }
 .si .vgrid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
 .si .vgrid.two{ grid-template-columns:1fr 1fr; }
@@ -4684,12 +4691,12 @@ const css = `
 .si .vfield + .vfield{ margin-top:10px; }
 .si .vgrid .vfield + .vfield{ margin-top:0; }
 .si .vfield span{ font-size:11px; font-weight:600; color:var(--muted); }
-.si .vfield input, .si .vfield select{ width:100%; border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-size:13px; background:#fff; color:var(--ink); }
+.si .vfield input, .si .vfield select{ width:100%; border:1px solid var(--line); border-radius:var(--opus-radius-small); padding:8px 10px; font-size:13px; background:#fff; color:var(--ink); }
 .si .vfield input:focus, .si .vfield select:focus{ outline:none; border-color:var(--lav); }
 .si .confirmdetail{ display:flex; flex-direction:column; gap:3px; padding:9px 0; border-bottom:1px solid var(--line); }
 .si .confirmdetail span{ font-size:11px; color:var(--muted); }
 .si .confirmdetail b{ font-size:13px; }
-.si .locreply{ display:flex; flex-direction:column; gap:4px; margin-top:12px; padding:12px; border-radius:10px; background:#fff; border:1px solid var(--line); font-size:12px; }
+.si .locreply{ display:flex; flex-direction:column; gap:4px; margin-top:12px; padding:12px; border-radius:var(--opus-radius-small); background:#fff; border:1px solid var(--line); font-size:12px; }
 .si .locreply b{ font-size:12px; }
 .si .locreply span{ color:var(--ink); }
 .si .locreply a{ color:#258cc7; overflow-wrap:anywhere; }
@@ -4697,7 +4704,7 @@ const css = `
 .si .testrow{ margin-top:18px; }
 .si .testrow label{ font-size:12px; font-weight:600; color:var(--muted); }
 .si .trow{ display:flex; gap:9px; margin-top:8px; }
-.si .trow input{ flex:1; border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-size:13px; }
+.si .trow input{ flex:1; border:1px solid var(--line); border-radius:var(--opus-radius-small); padding:9px 12px; font-size:13px; }
 .si .trow input:focus{ outline:none; border-color:var(--lav); }
 .si .drawer{ background:#fff; width:min(420px,94vw); height:100%; padding:22px; overflow-y:auto; display:flex; flex-direction:column;
   box-shadow:-16px 0 40px rgba(20,18,30,.18); animation:si-slide .18s ease-out; }
@@ -4706,7 +4713,7 @@ const css = `
 /* Bulk-send progress */
 .si .pbar{ margin-top:14px; height:8px; border-radius:999px; background:var(--lav-soft); overflow:hidden; }
 .si .pbarfill{ display:block; height:100%; border-radius:999px; background:var(--green); transition:width .35s ease; }
-.si .plist{ margin-top:14px; max-height:190px; overflow-y:auto; overscroll-behavior:contain; border:1px solid var(--line); border-radius:12px; padding:6px 4px; }
+.si .plist{ margin-top:14px; max-height:190px; overflow-y:auto; overscroll-behavior:contain; border:1px solid var(--line); border-radius:var(--opus-radius-small); padding:6px 4px; }
 .si .prow{ display:flex; align-items:center; gap:9px; padding:6px 10px; font-size:13px; }
 .si .prow .pname{ font-weight:600; }
 .si .pdot{ width:7px; height:7px; border-radius:999px; flex:none; background:var(--faint); }
@@ -4731,7 +4738,7 @@ const css = `
 
 /* Live Check-ins tab — live door summary + attending roster */
 .si .checkins{ margin-top:22px; }
-.si .livesum{ background:#fff; border:1px solid var(--line); border-radius:20px; padding:22px; box-shadow:var(--soft); }
+.si .livesum{ background:#fff; border:1px solid var(--line); border-radius:var(--opus-radius-medium); padding:22px; box-shadow:var(--soft); }
 .si .livetop{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 .si .livebtns{ display:flex; gap:8px; flex-wrap:wrap; }
 .si .livehead{ display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:var(--muted); }
@@ -4768,6 +4775,10 @@ const css = `
   .si .sdlinkrow .btn{ justify-content:center; }
   .si .sdqr{ margin-left:0; width:100%; justify-content:flex-start; } }
 @media(max-width:640px){ .si .gth .acts{ margin-left:0; width:100%; justify-content:flex-start; }
+  /* One line per template name on phones. The 30px min-height exists to keep
+     the cards' buttons aligned when a name wraps; with no wrapping there is
+     nothing to reserve. Full name stays on the title attribute. */
+  .si .sdname{ min-height:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .si .ctx.production{ padding:18px; }
   .si .prodlock{ margin:6px -18px -18px; }
   .si .prodpanel{ padding:16px 18px 18px; }

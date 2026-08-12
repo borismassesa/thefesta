@@ -228,7 +228,7 @@ function ChangeRequest({
 
   if (!open) {
     return (
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 text-sm font-semibold underline underline-offset-2"
@@ -276,7 +276,7 @@ function ChangeRequest({
       />
       {error && <p className="text-sm font-medium text-red-700">{error}</p>}
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           onClick={send}
           disabled={pending}
@@ -285,7 +285,7 @@ function ChangeRequest({
           {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           Send to our designers
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => {
             setOpen(false)
@@ -564,7 +564,7 @@ function CardEditor({
               )}
             </p>
             {dirty && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => {
                   setAnswers(saved)
@@ -575,7 +575,7 @@ function CardEditor({
                 Discard changes
               </button>
             )}
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={submit}
               disabled={pending || filled === 0}
@@ -1024,7 +1024,7 @@ function ColourRow({
                   }`}
                 />
                 {canSample && (
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => sample(role)}
                     disabled={disabled}

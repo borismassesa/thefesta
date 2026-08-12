@@ -85,7 +85,7 @@ export default function StandoutStylesEditor({ initial, hasDraft: initialHasDraf
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-600">Style cards (max 5)</span>
             {draft.items.length < 5 && (
-              <button type="button" onClick={addItem} className="flex items-center gap-1.5 text-xs font-medium text-[#7E5896] hover:text-[#5d3d72] transition-colors">
+              <button data-opus-button="control" type="button" onClick={addItem} className="flex items-center gap-1.5 text-xs font-medium text-[#7E5896] hover:text-[#5d3d72] transition-colors">
                 <Plus className="w-3.5 h-3.5" />
                 Add style
               </button>
@@ -97,13 +97,13 @@ export default function StandoutStylesEditor({ initial, hasDraft: initialHasDraf
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-gray-500">#{idx + 1}</span>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => moveItem(item.id, -1)} disabled={idx === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30">
+                  <button data-opus-button="control" type="button" onClick={() => moveItem(item.id, -1)} disabled={idx === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30">
                     <ArrowUp className="w-3.5 h-3.5" />
                   </button>
-                  <button type="button" onClick={() => moveItem(item.id, 1)} disabled={idx === draft.items.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30">
+                  <button data-opus-button="control" type="button" onClick={() => moveItem(item.id, 1)} disabled={idx === draft.items.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30">
                     <ArrowDown className="w-3.5 h-3.5" />
                   </button>
-                  <button type="button" onClick={() => removeItem(item.id)} className="p-1 text-gray-400 hover:text-red-500 transition-colors ml-1">
+                  <button data-opus-button="control" type="button" onClick={() => removeItem(item.id)} className="p-1 text-gray-400 hover:text-red-500 transition-colors ml-1">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

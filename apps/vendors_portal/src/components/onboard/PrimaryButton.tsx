@@ -1,24 +1,19 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import type { ComponentProps, ReactNode } from 'react'
+import { Button } from '@/components/ui/Button'
 
-type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
+type Props = ComponentProps<typeof Button> & {
   children: ReactNode
 }
 
 export function PrimaryButton({ className, children, disabled, ...rest }: Props) {
   return (
-    <button
+    <Button
       {...rest}
       disabled={disabled}
-      className={cn(
-        'inline-flex items-center justify-center px-7 py-3.5 rounded-full text-sm font-semibold transition-colors',
-        disabled
-          ? 'bg-gray-300 text-white cursor-not-allowed'
-          : 'bg-[#1A1A1A] text-white hover:bg-black',
-        className,
-      )}
+      size="large"
+      className={className}
     >
       {children}
-    </button>
+    </Button>
   )
 }

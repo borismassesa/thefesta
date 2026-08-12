@@ -29,7 +29,7 @@ export default function AdminTable<T>({ columns, data, keyField, emptyMessage = 
   return (
     <div className="overflow-hidden border border-[var(--admin-border)] bg-[var(--admin-card)] shadow-[var(--admin-shadow-sm)]">
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="opus-table w-full">
           <thead>
             <tr className="border-b border-[var(--admin-border)] bg-[var(--admin-secondary)]">
               {columns.map((col) => (

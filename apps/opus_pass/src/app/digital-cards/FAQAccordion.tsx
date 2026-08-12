@@ -9,7 +9,7 @@ export function FAQItem({ q, a }: { q: string; a: string }) {
   const panelId = useId()
   return (
     <div className="border-b border-gray-200 last:border-b-0">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}

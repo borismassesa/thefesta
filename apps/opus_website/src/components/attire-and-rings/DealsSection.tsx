@@ -15,10 +15,10 @@ export async function DealsSection() {
           </div>
         </div>
         <div className="hidden md:flex gap-2">
-          <button className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-white bg-gray-50 transition cursor-not-allowed text-gray-400" aria-label="Previous">
+          <button data-opus-button="control" className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-white bg-gray-50 transition cursor-not-allowed text-gray-400" aria-label="Previous">
             <ChevronLeft size={20} />
           </button>
-          <button className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-white bg-gray-50 transition drop-shadow-sm text-gray-700" aria-label="Next">
+          <button data-opus-button="control" className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-white bg-gray-50 transition drop-shadow-sm text-gray-700" aria-label="Next">
             <ChevronRight size={20} />
           </button>
         </div>

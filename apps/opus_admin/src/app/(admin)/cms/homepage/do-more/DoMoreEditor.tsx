@@ -241,7 +241,7 @@ export default function DoMoreEditor({ initial, hasDraft: initialHasDraft }: Pro
                   onMoveDown={() => moveWebsite(w.id, 1)}
                 />
               ))}
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={addWebsite}
                 className="w-full flex items-center justify-center gap-2 py-2 mt-2 border-2 border-dashed border-gray-200 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
@@ -344,7 +344,7 @@ export default function DoMoreEditor({ initial, hasDraft: initialHasDraft }: Pro
                   }}
                 />
               ))}
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={addGuest}
                 className="w-full flex items-center justify-center gap-2 py-2 mt-2 border-2 border-dashed border-gray-200 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-colors"
@@ -384,7 +384,7 @@ function WebsiteAccordion({
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/50">
-        <button type="button" onClick={onToggle} className="flex items-center gap-2 flex-1 min-w-0 text-left">
+        <button data-opus-button="control" type="button" onClick={onToggle} className="flex items-center gap-2 flex-1 min-w-0 text-left">
           {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />}
           <span className="text-sm font-semibold text-gray-900 truncate">{website.name}</span>
           <span className="text-xs text-gray-400 truncate">· {website.theme}</span>
@@ -410,7 +410,7 @@ function WebsiteAccordion({
           <Field label="Theme">
             <div className="grid grid-cols-3 gap-2">
               {WEBSITE_THEME_OPTIONS.map((t) => (
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="small"
                   key={t.key}
                   type="button"
                   onClick={() => onChange({ theme: t.key })}
@@ -460,7 +460,7 @@ function GuestRow({
 
   return (
     <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-gray-100 hover:bg-gray-50 group">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => fileRef.current?.click()}
         className="w-9 h-9 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0 relative group/avatar"
@@ -519,7 +519,7 @@ function IconBtn({
   children: React.ReactNode
 } & React.AriaAttributes) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       disabled={disabled}

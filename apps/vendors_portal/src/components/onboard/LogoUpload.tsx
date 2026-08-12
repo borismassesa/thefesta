@@ -72,7 +72,7 @@ export function LogoUpload({
   return (
     <div>
       <div className="flex items-center gap-4">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={disabled || uploading}
@@ -125,7 +125,7 @@ export function LogoUpload({
           <p className="text-sm font-semibold text-gray-900">{label}</p>
           <p className="mt-0.5 text-xs text-gray-500">{hint}</p>
           {shown && !uploading && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => {
                 setPreview(null)

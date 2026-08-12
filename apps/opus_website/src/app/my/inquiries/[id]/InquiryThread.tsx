@@ -223,7 +223,7 @@ function ProposalCard({
                 />
               </div>
               <div className="flex justify-end gap-2">
-                <button
+                <button data-opus-button="control"
                   type="button"
                   disabled={actionLoading}
                   onClick={onCounterCancel}
@@ -231,7 +231,7 @@ function ProposalCard({
                 >
                   Cancel
                 </button>
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="button"
                   disabled={actionLoading || (!counterAmount.trim() && !counterMessage.trim())}
                   onClick={onCounterSubmit}
@@ -243,7 +243,7 @@ function ProposalCard({
             </div>
           ) : (
             <div className="flex flex-wrap justify-end gap-2">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={actionLoading}
                 onClick={onCounterOpen}
@@ -251,7 +251,7 @@ function ProposalCard({
               >
                 Counter
               </button>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 disabled={actionLoading}
                 onClick={onAccept}
@@ -541,7 +541,7 @@ export default function InquiryThread({ inquiry, messages: initialMessages, emai
               {STATUS_LABEL[status]}
             </span>
             {status !== 'closed' && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={inquiryActionLoading}
                 onClick={handleCloseInquiry}
@@ -550,7 +550,7 @@ export default function InquiryThread({ inquiry, messages: initialMessages, emai
                 Close request
               </button>
             )}
-            <button
+            <button data-opus-button="danger" data-opus-button-size="small"
               type="button"
               disabled={inquiryActionLoading}
               onClick={handleDeleteInquiry}
@@ -652,7 +652,7 @@ export default function InquiryThread({ inquiry, messages: initialMessages, emai
                   }
                 }}
               />
-              <button
+              <button data-opus-button="primary" data-opus-button-size="large"
                 type="submit"
                 disabled={sending || !draft.trim()}
                 className="shrink-0 flex items-center gap-1.5 px-4 py-3 rounded-xl bg-[#1A1A1A] text-white text-sm font-semibold hover:bg-black/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

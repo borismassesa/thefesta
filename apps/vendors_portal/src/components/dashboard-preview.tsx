@@ -104,7 +104,7 @@ export default function DashboardPreview() {
 
       {/* Mockup */}
       <Reveal direction="up" margin="-80px">
-        <div className="rounded-[24px] sm:rounded-[32px] md:rounded-[40px] bg-[#FDFDFD] border border-gray-200 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.18)] overflow-hidden">
+        <div className="rounded-[var(--opus-radius-large)] sm:rounded-[var(--opus-radius-xlarge)] md:rounded-[var(--opus-radius-xlarge)] bg-[#FDFDFD] border border-gray-200 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.18)] overflow-hidden">
           {/* Top bar */}
           <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-gray-100 flex items-center justify-between">
             <div>
@@ -116,10 +116,10 @@ export default function DashboardPreview() {
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <button className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400">
+              <button data-opus-button="control" className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400">
                 <HelpCircle size={16} />
               </button>
-              <button className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400 relative">
+              <button data-opus-button="control" className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400 relative">
                 <Bell size={16} />
                 <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-red-500" />
               </button>

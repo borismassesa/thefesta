@@ -378,7 +378,7 @@ export default function RsvpTracker({
                   Replies from your public link — confirm each one before it counts toward your headcount.
                 </p>
               </div>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={goToReview}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#7E5896] px-4 py-2 text-xs font-semibold text-white hover:bg-[#6c4a83]"
@@ -533,6 +533,7 @@ export default function RsvpTracker({
             <div className="relative ml-auto min-w-[280px] flex-1 sm:min-w-[340px] sm:flex-none lg:min-w-[420px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1A1A1A]/35" />
               <input
+                type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={copy.search_placeholder}
@@ -546,7 +547,7 @@ export default function RsvpTracker({
             <EmptyState title={copy.no_match_title} />
           ) : (
             <Card className="overflow-x-auto">
-              <table className="w-full min-w-[860px] text-left text-sm">
+              <table className="opus-table w-full min-w-[860px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/[0.06] text-xs uppercase tracking-wide text-[#1A1A1A]/45">
                     <th className="px-4 py-3 font-medium">{copy.th_guest}</th>
@@ -662,7 +663,7 @@ export default function RsvpTracker({
                         <td className="px-4 py-3.5">
                           {isReview ? (
                             <div className="flex gap-1.5">
-                              <button
+                              <button data-opus-button="control"
                                 type="button"
                                 disabled={pendingId === r.guestId}
                                 onClick={() => reviewAction(r.guestId, approveReviewGuest, 'Guest confirmed')}
@@ -670,7 +671,7 @@ export default function RsvpTracker({
                               >
                                 <Check className="h-3.5 w-3.5" /> Confirm
                               </button>
-                              <button
+                              <button data-opus-button="primary" data-opus-button-size="small"
                                 type="button"
                                 disabled={pendingId === r.guestId}
                                 onClick={() => reviewAction(r.guestId, dismissReviewGuest, 'Public response dismissed')}
@@ -691,7 +692,7 @@ export default function RsvpTracker({
                               <span className="text-xs text-[#1A1A1A]/35">Waiting for reply</span>
                             ) : sendRow ? (
                               <div className="flex items-center gap-1.5">
-                                <button
+                                <button data-opus-button="primary" data-opus-button-size="small"
                                   type="button"
                                   onClick={() => shareFollowup(r, sendRow.whatsappPhone ? 'whatsapp' : 'sms')}
                                   className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#1A1A1A] px-3 text-xs font-semibold text-white hover:bg-black"
@@ -700,7 +701,7 @@ export default function RsvpTracker({
                                   <Send className="h-3.5 w-3.5" />
                                   Send
                                 </button>
-                                <button
+                                <button data-opus-button="control"
                                   type="button"
                                   onClick={() => shareFollowup(r, 'copy')}
                                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.12] text-[#1A1A1A]/65 hover:bg-black/[0.04]"
@@ -876,7 +877,7 @@ function FilterChip({
   amber?: boolean
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       aria-pressed={active}

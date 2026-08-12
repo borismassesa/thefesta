@@ -108,7 +108,7 @@ export default function KpiMonthlyGrid({
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <div className="text-[12px] font-semibold tracking-wide text-gray-900">MONTHLY TARGET VS ACTUAL</div>
         <div className="flex items-center gap-2">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setYear((y) => y - 1)}
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -117,7 +117,7 @@ export default function KpiMonthlyGrid({
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
           <span className="min-w-[48px] text-center text-[12px] font-semibold text-gray-900">{year}</span>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setYear((y) => y + 1)}
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -128,7 +128,7 @@ export default function KpiMonthlyGrid({
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[900px] text-[12px]">
+        <table className="opus-table w-full min-w-[900px] text-[12px]">
           <thead>
             <tr className="border-b border-gray-100 text-left text-gray-500">
               <th className="sticky left-0 z-10 w-48 whitespace-nowrap bg-white px-4 py-2 font-medium">KPI</th>

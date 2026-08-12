@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { opusButtonClass } from '@opusfesta/lib';
 import { submitAgencyCandidate, type AgencySubmissionState } from './actions';
 
 const initial: AgencySubmissionState = { ok: false, message: null };
@@ -104,7 +105,7 @@ export default function AgencySubmissionForm({
       )}
       <button
         disabled={pending || jobs.length === 0}
-        className="min-h-12 rounded-full bg-black px-6 text-sm font-semibold text-white disabled:opacity-50"
+        className={opusButtonClass({ size: 'large' })}
       >
         {pending ? 'Submitting securely…' : 'Submit candidate'}
       </button>

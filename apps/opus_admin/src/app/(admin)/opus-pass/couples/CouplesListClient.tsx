@@ -159,7 +159,7 @@ export default function CouplesListClient({
           tiles, so they lead — same numbers, but each one filters. */}
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="small"
             key={f}
             type="button"
             onClick={() => setFilter(f)}
@@ -197,7 +197,7 @@ export default function CouplesListClient({
             </option>
           ))}
         </select>
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="medium"
           type="button"
           onClick={() => downloadCsv(visible)}
           className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#C9A0DC] hover:text-[#7E5896]"
@@ -228,7 +228,7 @@ export default function CouplesListClient({
         </div>
       ) : (
         <div className="mt-4 overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="opus-table w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
                 <th className="px-4 py-3">Couple</th>

@@ -203,14 +203,14 @@ function GiftMediaCarousel({ item }: { item: GiftRegistryItem }) {
 
       {slides.length > 1 ? (
         <>
-          <button
+          <button data-opus-button="control"
             onClick={prev}
             aria-label="Previous media"
             className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 opacity-0 shadow-sm transition-opacity hover:bg-white group-hover/carousel:opacity-100"
           >
             <ChevronLeft className="h-3.5 w-3.5 text-[#1A1A1A]" />
           </button>
-          <button
+          <button data-opus-button="control"
             onClick={next}
             aria-label="Next media"
             className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 opacity-0 shadow-sm transition-opacity hover:bg-white group-hover/carousel:opacity-100"
@@ -219,7 +219,7 @@ function GiftMediaCarousel({ item }: { item: GiftRegistryItem }) {
           </button>
           <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 gap-1">
             {slides.map((_, i) => (
-              <button
+              <button data-opus-button="control"
                 key={i}
                 onClick={(e) => {
                   e.preventDefault()
@@ -943,23 +943,28 @@ export default function GiftRegistryManager({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex rounded-full bg-black/[0.05] p-1">
-          <button
+      {/* All four controls hold one row on a phone. They only fit because each
+          steps down a size below sm (max-sm:*) — at full size the segmented
+          control plus the two buttons come to ~443px against ~351px of room.
+          max-sm rather than plain overrides: cn() here is a bare string join,
+          not tailwind-merge, so same-property utilities would collide. */}
+      <div className="no-scrollbar flex flex-nowrap items-center justify-between gap-2 overflow-x-auto max-sm:gap-1.5">
+        <div className="inline-flex shrink-0 rounded-full bg-black/[0.05] p-1">
+          <button data-opus-button="control"
             type="button"
             onClick={() => setActiveTab('gifts')}
             className={cn(
-              'rounded-full px-4 py-1.5 text-sm font-semibold transition-colors',
+              'rounded-full px-4 py-1.5 text-sm font-semibold transition-colors max-sm:px-2 max-sm:text-xs',
               activeTab === 'gifts' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#1A1A1A]/55 hover:text-[#1A1A1A]',
             )}
           >
             Gifts
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setActiveTab('claims')}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors',
+              'inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors max-sm:px-2 max-sm:text-xs',
               activeTab === 'claims' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-[#1A1A1A]/55 hover:text-[#1A1A1A]',
             )}
           >
@@ -971,12 +976,16 @@ export default function GiftRegistryManager({
             ) : null}
           </button>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={openHeroEditor}>
-            <Settings className="h-4 w-4" /> Settings
+        <div className="flex shrink-0 items-center gap-2 max-sm:gap-1.5">
+          <Button
+            variant="secondary"
+            onClick={openHeroEditor}
+            className="max-sm:gap-1 max-sm:px-2 max-sm:py-2 max-sm:text-xs"
+          >
+            <Settings className="h-4 w-4 shrink-0" /> Settings
           </Button>
-          <Button onClick={openCreate}>
-            <Gift className="h-4 w-4" /> Add gifts
+          <Button onClick={openCreate} className="max-sm:gap-1 max-sm:px-2 max-sm:py-2 max-sm:text-xs">
+            <Gift className="h-4 w-4 shrink-0" /> Add gifts
           </Button>
         </div>
       </div>
@@ -1008,7 +1017,7 @@ export default function GiftRegistryManager({
             </div>
           ) : null}
 
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             onClick={(e) => {
               e.stopPropagation()
@@ -1030,7 +1039,7 @@ export default function GiftRegistryManager({
           ) : null}
 
           {/* Bottom-center of the cover, straddling its edge — absolute + bottom/left/translate, not a margin hack. */}
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             onClick={(e) => {
               e.stopPropagation()
@@ -1055,7 +1064,7 @@ export default function GiftRegistryManager({
 
         {/* Message — below the cover, padded to clear the avatar overhanging from above. */}
         <div className="rounded-b-3xl bg-white px-6 pb-8 pt-16 text-center">
-          <button type="button" onClick={openHeroEditor} className="mx-auto block max-w-md text-sm text-[#1A1A1A]/55 hover:text-[#1A1A1A]/75">
+          <button data-opus-button="control" type="button" onClick={openHeroEditor} className="mx-auto block max-w-md text-sm text-[#1A1A1A]/55 hover:text-[#1A1A1A]/75">
             {heroMessage || 'Welcome guests to your registry with a short message!'}
           </button>
         </div>
@@ -1079,11 +1088,17 @@ export default function GiftRegistryManager({
 
       {activeTab === 'gifts' && (
       <>
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr_1fr]">
+      {/* Two columns on a phone so the pair of count tiles sit side by side;
+          the intro panel above them spans both. Back to 2fr/1fr/1fr on lg. */}
+      <div className="grid grid-cols-2 gap-3 [&>*:first-child]:col-span-2 lg:grid-cols-[2fr_1fr_1fr] lg:[&>*:first-child]:col-span-1">
         <div className="rounded-2xl bg-black/[0.04] p-6">
           <h3 className="text-lg font-semibold text-[#1A1A1A]">Add gifts to your registry</h3>
+          {/* The guest-count line stays on ONE row on a phone: at 14px it
+              measures 319px against 303px of panel, so it broke "Manage
+              guests" onto its own row. 12px brings it to 279px, leaving slack
+              for a guest count a few digits longer. */}
           {guestCount > 0 ? (
-            <p className="mt-1.5 text-sm text-[#1A1A1A]/60">
+            <p className="mt-1.5 text-sm text-[#1A1A1A]/60 max-sm:text-xs">
               You have <span className="font-semibold text-[#1A1A1A]">{guestCount}</span> guests on your list.{' '}
               <a href="/my/dashboard/guests" className="font-semibold text-[#1A1A1A] underline underline-offset-2">
                 Manage guests
@@ -1158,7 +1173,7 @@ export default function GiftRegistryManager({
                   <Image src={heroBannerUrl} alt="" fill sizes="480px" className="object-cover" />
                 </div>
                 <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => setBannerPickerOpen(true)}
                     disabled={bannerUploading}
@@ -1168,7 +1183,7 @@ export default function GiftRegistryManager({
                   >
                     <UploadCloud className="h-4 w-4" />
                   </button>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={removeHeroBanner}
                     disabled={bannerUploading}
@@ -1206,7 +1221,7 @@ export default function GiftRegistryManager({
                   <Image src={heroCoverUrl} alt="" fill sizes="64px" className="object-cover" />
                 </div>
                 <div className="flex flex-col items-start gap-1.5">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => setPhotoPickerOpen(true)}
                     disabled={photoUploading}
@@ -1214,7 +1229,7 @@ export default function GiftRegistryManager({
                   >
                     <RotateCcw className="h-3.5 w-3.5" /> Swap
                   </button>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={removeHeroPhoto}
                     disabled={photoUploading}
@@ -1266,6 +1281,7 @@ export default function GiftRegistryManager({
             <div className="relative flex-1 min-w-[180px]">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#1A1A1A]/35" />
               <input
+                type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search gifts…"
@@ -1302,7 +1318,7 @@ export default function GiftRegistryManager({
             />
           ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={openCreate}
             className="group flex h-full min-h-[280px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-black/[0.15] bg-black/[0.02] p-4 text-center transition hover:border-black/30 hover:bg-black/[0.04]"
@@ -1374,14 +1390,14 @@ export default function GiftRegistryManager({
                     grid row regardless of how much content (category pill, purchased pill, ...) sits above. */}
                 <div className="flex-1" />
                 <div className="mt-3 flex items-center gap-1.5">
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="small"
                     onClick={() => openEdit(item)}
                     className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.12] px-2.5 text-xs font-semibold text-[#1A1A1A]/70 hover:bg-black/[0.04]"
                   >
                     <Pencil className="h-3.5 w-3.5" /> Edit
                   </button>
                   {item.claimed_by_name ? (
-                    <button
+                    <button data-opus-button="primary" data-opus-button-size="small"
                       onClick={() => reopen(item)}
                       disabled={busyId === item.id}
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.12] px-2.5 text-xs font-semibold text-[#1A1A1A]/70 hover:bg-black/[0.04] disabled:opacity-50"
@@ -1389,7 +1405,7 @@ export default function GiftRegistryManager({
                       <RotateCcw className="h-3.5 w-3.5" /> Reopen
                     </button>
                   ) : null}
-                  <button
+                  <button data-opus-button="control"
                     onClick={() => setPendingDelete(item)}
                     aria-label="Remove"
                     className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50"
@@ -1433,6 +1449,7 @@ export default function GiftRegistryManager({
           <div className="relative max-w-sm">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#1A1A1A]/35" />
             <input
+              type="search"
               value={claimSearch}
               onChange={(e) => setClaimSearch(e.target.value)}
               placeholder="Search by guest or gift…"
@@ -1444,7 +1461,7 @@ export default function GiftRegistryManager({
             <EmptyState icon={<Search className="h-6 w-6" />} title="No claims match that search" />
           ) : (
             <Card className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
+              <table className="opus-table w-full min-w-[720px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-black/[0.06] align-bottom">
                     <th scope="col" className="py-3 pl-4 pr-4">
@@ -1510,7 +1527,7 @@ export default function GiftRegistryManager({
                         </td>
                         <td className="py-3.5 pr-4 text-right">
                           <div className="inline-flex gap-1">
-                            <button
+                            <button data-opus-button="control"
                               onClick={() => openClaimEdit(c)}
                               disabled={busy}
                               aria-label={`Edit ${c.guestName}'s claim`}
@@ -1518,7 +1535,7 @@ export default function GiftRegistryManager({
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
-                            <button
+                            <button data-opus-button="control"
                               onClick={() => setPendingDeleteClaim(c)}
                               disabled={busy}
                               aria-label={`Remove ${c.guestName}'s claim`}
@@ -1625,7 +1642,7 @@ export default function GiftRegistryManager({
               {(form.image_urls ?? []).map((url) => (
                 <div key={url} className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-black/[0.05]">
                   <Image src={url} alt="" fill sizes="64px" className="object-cover" />
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => removePhoto(url)}
                     aria-label="Remove photo"
@@ -1643,7 +1660,7 @@ export default function GiftRegistryManager({
                 className="hidden"
                 onChange={onPickPhotos}
               />
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => photoInputRef.current?.click()}
                 disabled={photoUploads > 0}
@@ -1662,7 +1679,7 @@ export default function GiftRegistryManager({
                   <span className="absolute inset-0 flex items-center justify-center bg-black/20">
                     <Play className="h-5 w-5 text-white" />
                   </span>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => setForm((f) => ({ ...f, video_url: '' }))}
                     aria-label="Remove video"
@@ -1953,9 +1970,15 @@ function ShareLinkCard({
   }
 
   return (
-    <Card className="px-5 py-4">
+    // Tighter side padding on phones: it buys the 8px that keeps "No link
+    // yet, generate one to start sharing your registry." on one line, which
+    // at 12px measures 309px against a 309px column.
+    <Card className="px-5 py-4 max-sm:px-4">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+        {/* Stacked on phones, same as the guestbook share card: side by side
+            the button's width won the row and squeezed the text column to a
+            few characters, wrapping the label across three lines. */}
+        <div className="flex min-w-0 flex-1 flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-xs text-[#1A1A1A]/65">
               <Link2 className="h-3.5 w-3.5 shrink-0" />
@@ -1966,36 +1989,36 @@ function ShareLinkCard({
                 {shareLink.replace(/^https?:\/\//, '')}
               </div>
             ) : (
-              <div className="mt-1 text-xs text-[#1A1A1A]/55">No link yet — generate one to start sharing your registry.</div>
+              <div className="mt-1 text-xs text-[#1A1A1A]/55">No link yet, generate one to start sharing your registry.</div>
             )}
           </div>
           {shareEnabled && shareLink ? (
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2 max-sm:gap-1.5">
               <a
                 href={shareLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full bg-[#C9A0DC] px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0]"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[#C9A0DC] px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0] sm:flex-none"
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Preview
               </a>
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 type="button"
                 onClick={onCopy}
-                className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.18] bg-white px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-black/[0.03]"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-black/[0.18] bg-white px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-black/[0.03] sm:flex-none"
               >
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 {copied ? 'Copied' : 'Copy link'}
               </button>
             </div>
           ) : (
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={onEnable}
               disabled={pending || !eventId}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#C9A0DC] px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0] disabled:opacity-50"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#C9A0DC] px-4 py-2 text-sm font-semibold text-[#1A1A1A] hover:bg-[#b97fd0] disabled:opacity-50"
             >
-              <Link2 className="h-3.5 w-3.5" /> {pending ? 'Generating…' : 'Get my registry link'}
+              <Link2 className="h-3.5 w-3.5 shrink-0" /> {pending ? 'Generating…' : 'Get my registry link'}
             </button>
           )}
         </div>

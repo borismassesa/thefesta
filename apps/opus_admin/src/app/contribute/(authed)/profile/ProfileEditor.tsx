@@ -177,7 +177,7 @@ export default function ProfileEditor({ initial, email, existingId }: Props) {
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-gray-700">
                   Drag &amp; drop, or{' '}
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => avatarInputRef.current?.click()}
                     disabled={avatarUploading}
@@ -192,7 +192,7 @@ export default function ProfileEditor({ initial, email, existingId }: Props) {
                 </p>
               </div>
               {draft.avatar_url && (
-                <button
+                <button data-opus-button="danger" data-opus-button-size="small"
                   type="button"
                   onClick={() => setDraft((d) => ({ ...d, avatar_url: '' }))}
                   className="shrink-0 rounded-md border border-transparent px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:border-gray-200 hover:bg-white hover:text-gray-900"
@@ -232,7 +232,7 @@ export default function ProfileEditor({ initial, email, existingId }: Props) {
             account menu, top right.
           </p>
         </div>
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           onClick={save}
           disabled={pending || !dirty || !draft.name.trim()}

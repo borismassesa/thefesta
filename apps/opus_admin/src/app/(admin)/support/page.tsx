@@ -135,7 +135,7 @@ export default async function SupportPage({
             placeholder="Search subject, name, email..."
             className="rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#C9A0DC]"
           />
-          <button type="submit" className="rounded-xl bg-[#7E5896] px-4 py-2 text-sm font-semibold text-white">
+          <button data-opus-button="primary" data-opus-button-size="medium" type="submit" className="rounded-xl bg-[#7E5896] px-4 py-2 text-sm font-semibold text-white">
             Search
           </button>
         </form>

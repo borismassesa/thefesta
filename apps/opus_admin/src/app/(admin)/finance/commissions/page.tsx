@@ -303,7 +303,7 @@ function QueueRow({ row, canDecide }: { row: PendingPayment; canDecide: boolean 
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
               </label>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="submit"
                 className="mt-3 w-full rounded-lg bg-[#4A2D5C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3b2449]"
               >
@@ -324,7 +324,7 @@ function QueueRow({ row, canDecide }: { row: PendingPayment; canDecide: boolean 
                   className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
               </label>
-              <button
+              <button data-opus-button="danger" data-opus-button-size="medium"
                 type="submit"
                 className="mt-3 w-full rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50"
               >

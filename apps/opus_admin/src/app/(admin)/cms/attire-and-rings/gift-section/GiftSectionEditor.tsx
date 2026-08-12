@@ -105,7 +105,7 @@ export default function GiftSectionEditor({ initial, hasDraft: initialHasDraft }
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-600">Featured items (max 3)</span>
             {draft.gifts.length < 3 && (
-              <button type="button" onClick={addGift} className="flex items-center gap-1.5 text-xs font-medium text-[#7E5896] hover:text-[#5d3d72] transition-colors">
+              <button data-opus-button="control" type="button" onClick={addGift} className="flex items-center gap-1.5 text-xs font-medium text-[#7E5896] hover:text-[#5d3d72] transition-colors">
                 <Plus className="w-3.5 h-3.5" />
                 Add item
               </button>
@@ -117,13 +117,13 @@ export default function GiftSectionEditor({ initial, hasDraft: initialHasDraft }
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-gray-500">Item {idx + 1}</span>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => moveGift(gift.id, -1)} disabled={idx === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30">
+                  <button data-opus-button="control" type="button" onClick={() => moveGift(gift.id, -1)} disabled={idx === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30">
                     <ArrowUp className="w-3.5 h-3.5" />
                   </button>
-                  <button type="button" onClick={() => moveGift(gift.id, 1)} disabled={idx === draft.gifts.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30">
+                  <button data-opus-button="control" type="button" onClick={() => moveGift(gift.id, 1)} disabled={idx === draft.gifts.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30">
                     <ArrowDown className="w-3.5 h-3.5" />
                   </button>
-                  <button type="button" onClick={() => removeGift(gift.id)} className="p-1 text-gray-400 hover:text-red-500 transition-colors ml-1">
+                  <button data-opus-button="control" type="button" onClick={() => removeGift(gift.id)} className="p-1 text-gray-400 hover:text-red-500 transition-colors ml-1">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

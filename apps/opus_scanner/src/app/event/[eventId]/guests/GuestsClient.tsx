@@ -162,7 +162,7 @@ export default function GuestsClient({ eventId }: { eventId: string }) {
 
       <div className="overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
+          <table className="opus-table w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-black/[0.06] bg-black/[0.015]">
                 <th className="px-6 py-4 text-[10px] tracking-wide text-[#1A1A1A] uppercase">Guest</th>

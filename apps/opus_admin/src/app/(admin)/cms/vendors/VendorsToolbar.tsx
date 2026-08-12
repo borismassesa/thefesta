@@ -57,7 +57,7 @@ export default function VendorsToolbar({
         ))}
       </select>
       {(initialQ || initialCategory) && (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => {
             setQ('')

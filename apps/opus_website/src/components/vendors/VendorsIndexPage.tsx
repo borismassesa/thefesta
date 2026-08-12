@@ -22,7 +22,6 @@ import {
   MapPin,
   Mic2,
   Music4,
-  Search,
   ShieldCheck,
   Shirt,
   Sparkles,
@@ -242,7 +241,7 @@ function HeroSection() {
             const Icon = tab.icon
             const isActive = activeTab === tab.label
             return (
-              <button
+              <button data-opus-button="control"
                 key={tab.label}
                 onClick={() => setActiveTab(tab.label)}
                 className={`flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${
@@ -256,33 +255,35 @@ function HeroSection() {
           })}
         </div>
 
-        <div className="relative mb-6 group/search">
-          <div className="absolute -inset-[2px] rounded-full bg-size-[200%_100%] animate-[shimmer_3s_ease-in-out_infinite] bg-linear-to-r from-[#C9A0DC]/20 via-[#C9A0DC] to-[#C9A0DC]/20 opacity-50 group-focus-within/search:opacity-80 transition-opacity" />
-          <input
-            type="text"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder={
-              activeTab === 'Venues' ? 'Search venues — beachfront, ballroom, garden…' :
-              activeTab === 'Photographers' ? 'Search photographers — editorial, documentary…' :
-              activeTab === 'Catering' ? 'Search caterers — buffet, plated, fusion…' :
-              'Search MCs — bilingual, high-energy, formal…'
-            }
-            className="relative w-full rounded-full border-0 bg-white py-4 pl-5 pr-14 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none"
-          />
-          <button
+        <div className="mb-6 flex items-center gap-2">
+          <div className="relative min-w-0 flex-1 group/search">
+            <div className="absolute -inset-[2px] rounded-full bg-size-[200%_100%] animate-[shimmer_3s_ease-in-out_infinite] bg-linear-to-r from-[#C9A0DC]/20 via-[#C9A0DC] to-[#C9A0DC]/20 opacity-50 group-focus-within/search:opacity-80 transition-opacity" />
+            <input
+              type="search"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder={
+                activeTab === 'Venues' ? 'Search venues — beachfront, ballroom, garden…' :
+                activeTab === 'Photographers' ? 'Search photographers — editorial, documentary…' :
+                activeTab === 'Catering' ? 'Search caterers — buffet, plated, fusion…' :
+                'Search MCs — bilingual, high-energy, formal…'
+              }
+              className="relative w-full"
+            />
+          </div>
+          <button data-opus-button="control"
             onClick={handleSearch}
-            className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-(--accent) transition-colors hover:bg-(--accent-hover)"
+            className="opus-button opus-button--primary opus-button--medium"
           >
-            <Search size={18} className="text-(--on-accent)" />
+            Search
           </button>
         </div>
 
         <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <span className="shrink-0 whitespace-nowrap text-sm font-bold text-[#1A1A1A]">{POPULAR_BY_TAB[activeTab]?.label ?? 'Popular:'}</span>
           {(POPULAR_BY_TAB[activeTab]?.items ?? []).map((tag) => (
-            <button
+            <button data-opus-button="control"
               key={tag}
               onClick={() => {
                 const params = new URLSearchParams({ q: tag })
@@ -343,14 +344,14 @@ function CardImageCarousel({ vendor }: { vendor: (typeof vendors)[number] }) {
 
       {images.length > 1 && (
         <>
-          <button
+          <button data-opus-button="control"
             onClick={prev}
             aria-label="Previous image"
             className="absolute left-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white"
           >
             <ArrowRight size={13} className="rotate-180 text-black" />
           </button>
-          <button
+          <button data-opus-button="control"
             onClick={next}
             aria-label="Next image"
             className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white"
@@ -360,7 +361,7 @@ function CardImageCarousel({ vendor }: { vendor: (typeof vendors)[number] }) {
 
           <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 gap-1">
             {images.map((_, i) => (
-              <button
+              <button data-opus-button="control"
                 key={i}
                 onClick={(e) => { e.preventDefault(); setIdx(i) }}
                 className={`h-1.5 rounded-full transition-all duration-300 ${i === idx ? 'w-3.5 bg-white' : 'w-1.5 bg-white/60'}`}
@@ -383,7 +384,7 @@ function CardImageCarousel({ vendor }: { vendor: (typeof vendors)[number] }) {
         )}
       </div>
 
-      <button
+      <button data-opus-button="control"
         onClick={(e) => e.preventDefault()}
         aria-label="Save to favourites"
         className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-white"
@@ -560,7 +561,7 @@ function CategoryBrowseStrip() {
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden items-center gap-1.5 sm:flex">
-            <button
+            <button data-opus-button="control"
               onClick={() => scroll('left')}
               aria-label="Scroll left"
               disabled={!canScrollLeft}
@@ -569,7 +570,7 @@ function CategoryBrowseStrip() {
             >
               <ArrowRight size={14} className="rotate-180 text-[#1A1A1A]" />
             </button>
-            <button
+            <button data-opus-button="control"
               onClick={() => scroll('right')}
               aria-label="Scroll right"
               disabled={!canScrollRight}

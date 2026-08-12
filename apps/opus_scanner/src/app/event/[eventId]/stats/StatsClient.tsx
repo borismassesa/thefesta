@@ -183,7 +183,7 @@ export default function StatsClient({ eventId }: { eventId: string }) {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="opus-table w-full text-left">
             <thead>
               <tr className="border-b border-black/[0.05]">
                 <th className="px-6 py-3 text-[9px] tracking-wide text-[#1A1A1A] uppercase">Guest</th>

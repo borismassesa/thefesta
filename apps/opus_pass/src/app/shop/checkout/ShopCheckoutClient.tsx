@@ -140,7 +140,7 @@ export default function ShopCheckoutClient({ lines }: { lines: CheckoutLine[] })
         <div className="mx-auto max-w-2xl px-4 py-10 lg:py-14">
           {/* Top nav: back (left) + continue shopping (right) */}
           <div className="mb-8 flex items-center justify-between">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => router.back()}
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1A1A1A]/70 transition-colors hover:text-[#1A1A1A]"
@@ -318,7 +318,7 @@ function AccordionSection({
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_2px_12px_-8px_rgba(0,0,0,0.12)]">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onToggle}
         aria-expanded={open}

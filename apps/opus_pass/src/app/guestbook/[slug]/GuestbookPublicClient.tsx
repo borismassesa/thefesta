@@ -489,7 +489,7 @@ function WishForm({
           <p className="text-sm leading-relaxed" style={{ ...body, color: SECONDARY }}>
             {t.done_body}
           </p>
-          <button
+          <button data-opus-button="control"
             onClick={reset}
             className="mt-6 rounded-full bg-white px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest"
             style={{ ...body, border: `1.5px solid ${FIELD_BORDER}`, color: SECONDARY }}
@@ -508,7 +508,7 @@ function WishForm({
   return (
     <aside className="lg:sticky lg:top-24 lg:col-span-5 lg:self-start">
       <form onSubmit={onSubmit} className="rounded-3xl p-8 lg:p-10" style={cardStyle}>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => onOpenChange(false)}
           aria-expanded={true}
@@ -613,7 +613,7 @@ function WishForm({
                 className="absolute inset-0 rounded-full"
                 style={{ backgroundColor: '#E03E3E', opacity: 0.5, transition: 'transform 60ms linear, opacity 60ms linear' }}
               />
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={stopRecording}
                 className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full text-white"
@@ -643,7 +643,7 @@ function WishForm({
                 <span className="font-mono text-[11px] font-bold text-white">{formatDuration(videoRecordingSeconds)}</span>
               </div>
             </div>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={stopVideoRecording}
               className="flex w-full items-center justify-center gap-2 py-3 text-[10px] font-bold uppercase tracking-widest text-white transition-opacity hover:opacity-90"
@@ -654,7 +654,7 @@ function WishForm({
           </div>
         ) : (
           <div className="mt-4 grid grid-cols-3 gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={audioBlob ? discardRecording : startRecording}
               className="flex flex-col items-center justify-center gap-1 rounded-2xl py-3 text-[9px] font-bold uppercase tracking-wide transition-colors"
@@ -670,7 +670,7 @@ function WishForm({
                 </>
               )}
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={recordedVideo ? discardVideoRecording : startVideoRecording}
               className="flex flex-col items-center justify-center gap-1 rounded-2xl py-3 text-[9px] font-bold uppercase tracking-wide transition-colors"
@@ -697,7 +697,7 @@ function WishForm({
                   ) : (
                     <Camera className="h-4 w-4 shrink-0" />
                   )}
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => mediaInputRef.current?.click()}
                     className="max-w-[48px] cursor-pointer truncate normal-case"
@@ -705,7 +705,7 @@ function WishForm({
                   >
                     {media.name}
                   </button>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={clearMedia}
                     aria-label={t.discard}
@@ -716,7 +716,7 @@ function WishForm({
                   </button>
                 </>
               ) : (
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => mediaInputRef.current?.click()}
                   className="flex w-full cursor-pointer flex-col items-center justify-center gap-1 hover:bg-[#FAF6FC]"
@@ -747,7 +747,7 @@ function WishForm({
           </p>
         )}
 
-        <button
+        <button data-opus-button="primary" data-opus-button-size="large"
           type="submit"
           disabled={pending}
           className="mt-4 w-full rounded-full py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -831,7 +831,7 @@ function VoiceNoteCard({ entry, t }: { entry: GuestbookEntry; t: Record<string, 
         <Mic className="h-4 w-4 shrink-0" style={{ color: PRIMARY, opacity: 0.4 }} />
       </div>
       <div className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: SURFACE_CONTAINER }}>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={toggle}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
@@ -1004,7 +1004,7 @@ function WishFeed({
     <section className={isFormOpen ? 'lg:col-span-7' : 'lg:col-span-12'}>
       <div className="no-scrollbar mb-4 flex gap-4 overflow-x-auto pt-1 pb-4 lg:mb-6">
         {!isFormOpen && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => onFormOpenChange(true)}
             aria-expanded={false}
@@ -1018,7 +1018,7 @@ function WishFeed({
         {chips.map((chip) => {
           const active = filter === chip.key
           return (
-            <button
+            <button data-opus-button="control"
               key={chip.key}
               onClick={() => setFilter(chip.key)}
               className="cursor-pointer rounded-full px-6 py-3 text-[11px] font-bold uppercase tracking-[0.2em] whitespace-nowrap transition-colors"
@@ -1082,7 +1082,7 @@ function Navbar({
           style={{ border: `1px solid ${OUTLINE_VARIANT}` }}
         >
           {(['en', 'sw'] as Lang[]).map((l) => (
-            <button
+            <button data-opus-button="control"
               key={l}
               onClick={() => onPickLang(l)}
               className="px-3.5 py-1.5 uppercase tracking-wide transition-colors"

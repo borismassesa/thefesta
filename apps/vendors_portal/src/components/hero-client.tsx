@@ -70,7 +70,7 @@ export default function HeroClient({ content }: { content: HeroContent }) {
       </motion.div>
 
       <motion.div
-        className="mt-10 sm:mt-14 md:mt-16 rounded-[20px] sm:rounded-[28px] md:rounded-[40px] overflow-hidden w-full mx-auto relative aspect-4/5 sm:aspect-4/3 md:aspect-video bg-gray-100 shadow-2xl"
+        className="mt-10 sm:mt-14 md:mt-16 rounded-[var(--opus-radius-medium)] sm:rounded-[var(--opus-radius-large)] md:rounded-[var(--opus-radius-xlarge)] overflow-hidden w-full mx-auto relative aspect-4/5 sm:aspect-4/3 md:aspect-video bg-gray-100 shadow-2xl"
         {...anim(0.48, drift.md)}
       >
         {content.media_type === 'video' ? (
@@ -87,7 +87,7 @@ export default function HeroClient({ content }: { content: HeroContent }) {
               onPause={() => setIsPlaying(false)}
               className="w-full h-full object-cover"
             />
-            <button
+            <button data-opus-button="control"
               onClick={togglePlay}
               aria-label={isPlaying ? 'Pause video' : 'Play video'}
               className="absolute top-4 right-4 sm:top-6 sm:right-6 w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center cursor-pointer shadow-sm text-[#1A1A1A] hover:bg-gray-50 transition-colors z-10"

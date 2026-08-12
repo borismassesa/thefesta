@@ -72,7 +72,7 @@ export function OverlayEditor({
                 </ToolbarBtn>
                 <div className="mx-1 h-4 w-px bg-gray-200" />
                 <div className="relative">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     aria-label="Change color"
                     onClick={() => colorInputRef.current?.click()}
@@ -280,7 +280,7 @@ function ToolbarBtn({
   'aria-label': string
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}

@@ -105,7 +105,7 @@ export default function JobApplicationForm({
 
   if (state.status === 'success') {
     return (
-      <div className="rounded-[32px] border border-black/10 bg-white p-7 text-center md:p-12">
+      <div className="rounded-[var(--opus-radius-xlarge)] border border-black/10 bg-white p-7 text-center md:p-12">
         <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-700" />
         <p className="mt-7 text-xs font-bold uppercase tracking-[0.18em] text-black/45">
           Application received
@@ -188,7 +188,7 @@ export default function JobApplicationForm({
             : 'Progress is saved on this device as you type. File uploads are never stored locally.'}
         </span>
         {draftRestored && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={clearDraft}
             className="font-semibold text-black underline underline-offset-4"
@@ -417,7 +417,7 @@ export default function JobApplicationForm({
           OpusFesta never charges application or recruitment fees. Final
           decisions are reviewed by people.
         </p>
-        <button
+        <button data-opus-button="primary" data-opus-button-size="large"
           type="submit"
           disabled={pending}
           className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-black px-7 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-50"
@@ -442,7 +442,7 @@ function FormSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[28px] border border-black/10 bg-white p-6 md:p-8">
+    <section className="rounded-[var(--opus-radius-large)] border border-black/10 bg-white p-6 md:p-8">
       <div className="mb-7 grid gap-2 border-b border-black/10 pb-6 sm:grid-cols-[42px_1fr]">
         <span className="text-xs font-semibold text-black/35">{number}</span>
         <div>

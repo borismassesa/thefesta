@@ -76,7 +76,7 @@ export function DetailsPanel({ item }: { item: CaseRecord }) {
             <ul className="space-y-1.5">
               {item.linked.map((l) => (
                 <li key={`${l.kind}-${l.id}`}>
-                  <button
+                  <button data-opus-button="neutral" data-opus-button-size="medium"
                     type="button"
                     className="w-full text-left px-3 py-2 rounded-xl border border-gray-100 hover:border-[#C9A0DC] hover:bg-gray-50 transition-colors"
                   >

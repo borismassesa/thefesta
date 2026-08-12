@@ -177,7 +177,7 @@ function ActionButtons() {
       )}
       {message && <span className="text-xs text-gray-500 mr-1">{message}</span>}
       {hasDraft && (
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onDiscard}
           disabled={pending}
@@ -187,7 +187,7 @@ function ActionButtons() {
           Discard
         </button>
       )}
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onSaveDraft}
         disabled={pending}
@@ -196,7 +196,7 @@ function ActionButtons() {
         <Save className="w-4 h-4" />
         Save draft
       </button>
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         type="button"
         onClick={onPublish}
         disabled={pending}

@@ -91,7 +91,7 @@ export function MediaUploadField({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           onClick={pickFile}
           disabled={pending}
@@ -101,7 +101,7 @@ export function MediaUploadField({
           {pending ? 'Uploading…' : value ? 'Replace media' : 'Upload image or video'}
         </button>
         {value && (
-          <button
+          <button data-opus-button="danger" data-opus-button-size="small"
             type="button"
             onClick={clear}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-red-600 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"

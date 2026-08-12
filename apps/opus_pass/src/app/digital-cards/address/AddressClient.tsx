@@ -56,7 +56,7 @@ function ModeCard({
   caption: string
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       aria-pressed={active}
@@ -269,7 +269,7 @@ export default function AddressClient() {
                 )}
               </div>
 
-              <button
+              <button data-opus-button="primary" data-opus-button-size="large"
                 type="button"
                 onClick={handleContinue}
                 className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-(--accent) px-6 py-3.5 text-[13px] font-extrabold uppercase tracking-[0.06em] text-(--on-accent) transition hover:bg-(--accent-hover)"

@@ -36,7 +36,7 @@ export default function CartMenu() {
 
   return (
     <div ref={ref} className="relative">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={count ? `Cart — ${count} item${count > 1 ? 's' : ''}` : 'Cart, empty'}
@@ -107,7 +107,7 @@ export default function CartMenu() {
                             {formatTzs(item.total)}
                           </span>
                         </span>
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           onClick={() => removeItem(item.id)}
                           aria-label={`Remove ${item.name}`}

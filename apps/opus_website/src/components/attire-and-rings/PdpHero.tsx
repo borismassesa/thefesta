@@ -57,14 +57,14 @@ export default function PdpHero({ product }: { product: Product }) {
             className="w-full h-full object-cover"
           />
           <div className="absolute top-4 right-4 flex flex-col gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               aria-label="Save to wishlist"
               className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-gray-700 hover:text-red-500 transition-colors"
             >
               <Heart size={18} />
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               aria-label="Share"
               className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-gray-700 hover:text-gray-900 transition-colors"
@@ -76,7 +76,7 @@ export default function PdpHero({ product }: { product: Product }) {
 
         <div className="grid grid-cols-4 gap-3 mt-4">
           {product.gallery.map((g, i) => (
-            <button
+            <button data-opus-button="control"
               key={i}
               type="button"
               onClick={() => setActiveImg(i)}
@@ -166,7 +166,7 @@ export default function PdpHero({ product }: { product: Product }) {
             {product.options.colors.map((c) => {
               const selected = c.name === color
               return (
-                <button
+                <button data-opus-button="control"
                   key={c.name}
                   type="button"
                   onClick={() => setColor(c.name)}
@@ -191,7 +191,7 @@ export default function PdpHero({ product }: { product: Product }) {
             {product.options.sizes.map((s) => {
               const selected = s === size
               return (
-                <button
+                <button data-opus-button="control"
                   key={s}
                   type="button"
                   onClick={() => setSize(s)}
@@ -231,7 +231,7 @@ export default function PdpHero({ product }: { product: Product }) {
               <Truck size={16} className="mt-0.5 text-gray-700 shrink-0" />
               <span>
                 Shipping <strong className="font-semibold">{baseDelivery === 0 ? 'free in Dar es Salaam' : formatTzs(baseDelivery)}</strong>
-                <button type="button" className="ml-2 inline-flex items-center gap-1 text-gray-700 hover:text-gray-900">
+                <button data-opus-button="control" type="button" className="ml-2 inline-flex items-center gap-1 text-gray-700 hover:text-gray-900">
                   Shipping Details <ChevronDown size={14} />
                 </button>
               </span>
@@ -301,14 +301,14 @@ export default function PdpHero({ product }: { product: Product }) {
           </div>
 
           {/* CTAs */}
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => handleAddToCart('/attire-and-rings/cart')}
             className="w-full h-10 inline-flex items-center justify-center bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--on-accent)] font-semibold rounded-full mb-2 transition-colors"
           >
             Add to cart
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={() => handleAddToCart('/attire-and-rings/address')}
             className="w-full h-10 inline-flex items-center justify-center bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-full mb-5 transition-colors"
@@ -352,7 +352,7 @@ export default function PdpHero({ product }: { product: Product }) {
             </div>
           </dl>
 
-          <button
+          <button data-opus-button="control"
             type="button"
             className="text-[13px] font-medium text-[#1c4dac] hover:underline inline-flex items-center gap-1 mb-5"
           >
@@ -360,7 +360,7 @@ export default function PdpHero({ product }: { product: Product }) {
           </button>
 
           {/* Wishlist */}
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             className="w-full h-10 rounded-full border border-gray-300 bg-white text-sm font-medium text-gray-900 hover:bg-gray-50 transition-colors"
           >

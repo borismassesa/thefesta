@@ -835,7 +835,7 @@ export default function LayerMapper({
             image layer{rasterLayers.length === 1 ? '' : 's'} found in <strong>{category}</strong>{' '}
             artwork.
           </p>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={autoMatch}
             className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
@@ -937,7 +937,7 @@ export default function LayerMapper({
       {/* Narrow screens get the same preview in a dialog rather than losing it.
           A capability that silently disappears below a breakpoint is one an
           admin learns not to rely on. */}
-      <button
+      <button data-opus-button="neutral" data-opus-button-size="medium"
         ref={previewOpener}
         type="button"
         onClick={() => setPreviewOpen(true)}
@@ -1006,7 +1006,7 @@ export default function LayerMapper({
             ) : (
               message && <span className="min-w-0 truncate text-xs text-gray-500">{message}</span>
             )}
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={save}
               disabled={pending}
@@ -1067,7 +1067,7 @@ function MappingPreview({
             </p>
           </div>
           {onClose && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onClose}
               aria-label="Close preview"
@@ -1102,7 +1102,7 @@ function MappingPreview({
                   choked on this file will choke again, so offering retry there
                   would just be a button that does nothing. */}
               {state.retryable && (
-                <button
+                <button data-opus-button="warning" data-opus-button-size="small"
                   type="button"
                   onClick={onRetry}
                   className="rounded-lg border border-amber-300 px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
@@ -1236,7 +1236,7 @@ function FontPanel({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onPickFolder}
               disabled={uploading !== null}
@@ -1249,7 +1249,7 @@ function FontPanel({
               )}
               {uploading ? `Reading ${uploading}` : 'Add font folder'}
             </button>
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               type="button"
               onClick={onPickFiles}
               disabled={uploading !== null}
@@ -1350,7 +1350,7 @@ function FontPanel({
 
               <div className="shrink-0">
                 {status === 'missing' && (
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={onPickFiles}
                     disabled={uploading !== null}
@@ -1489,7 +1489,7 @@ function LayerTable({
         {/* The task is "what is still unassigned", and on a 24-layer card that
             answer is otherwise buried in a long scroll of identical rows. */}
         {mappedCount < rows.length && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setOnlyUnmapped((v) => !v)}
             className={`shrink-0 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
@@ -1532,7 +1532,7 @@ function LayerTable({
         return (
           <div key={group.key} className="border-t border-gray-100 first:border-t-0">
             {showGroupHeadings && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 aria-expanded={!isCollapsed}
                 onClick={() => onToggleGroup(collapseKey(title, group.key), !isCollapsed)}
@@ -1655,7 +1655,7 @@ function LayerRowItem({
               own. The reason is shown so it can be judged rather than
               rubber-stamped. */}
           {!current && suggestion && (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               type="button"
               onClick={() => onAccept(row.id, suggestion.role)}
               className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-[#C9A0DC] bg-[#F3EAF8] px-2 py-0.5 text-[11px] font-medium text-[#7E5896] transition-colors hover:bg-[#e9d9f2]"
@@ -1679,7 +1679,7 @@ function LayerRowItem({
             user has no hover state at all, so inspection needs a control they
             can actually reach. Focusing it also activates, via the row's
             onFocusCapture, so Tab alone drives the preview too. */}
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => onActivate(row.id)}
           aria-pressed={active}

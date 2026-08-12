@@ -40,7 +40,7 @@ export default function NotificationBell() {
 
   return (
     <div className="relative">
-      <button
+      <button data-opus-button="control"
         onClick={() => setOpen((v) => !v)}
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
         aria-expanded={open}
@@ -57,7 +57,7 @@ export default function NotificationBell() {
       {open && (
         <>
           {/* Click-away backdrop */}
-          <button
+          <button data-opus-button="control"
             aria-hidden
             tabIndex={-1}
             onClick={() => setOpen(false)}
@@ -71,7 +71,7 @@ export default function NotificationBell() {
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <p className="text-sm font-bold text-[#1A1A1A]">Notifications</p>
               {unread > 0 && (
-                <button
+                <button data-opus-button="control"
                   onClick={() => markAllNotificationsRead()}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-800"
                 >
@@ -115,7 +115,7 @@ export default function NotificationBell() {
                             {inner}
                           </Link>
                         ) : (
-                          <button
+                          <button data-opus-button="control"
                             onClick={() => onItemClick(n)}
                             className="block w-full text-left"
                           >

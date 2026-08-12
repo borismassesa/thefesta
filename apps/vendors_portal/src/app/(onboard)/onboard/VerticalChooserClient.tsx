@@ -67,7 +67,7 @@ export default function VerticalChooserClient() {
               const examples = locale === 'sw' ? option.examplesSw : option.examples
 
               return (
-                <button
+                <button data-opus-button="control"
                   key={option.id}
                   type="button"
                   onClick={() => choose(option.id)}

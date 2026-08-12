@@ -135,7 +135,7 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
 
       <div className="flex flex-wrap gap-2">
         {TABS.map((tab) => (
-          <button
+          <button data-opus-button="control"
             key={tab.kind}
             type="button"
             onClick={() => switchTab(tab.kind)}
@@ -153,7 +153,7 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
           <div className="text-[12px] font-semibold tracking-wide text-gray-900">{activeTab.label.toUpperCase()}</div>
           {canAdmin && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setAdding((v) => !v)}
               className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-50"
@@ -195,7 +195,7 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
               ))}
             </div>
             {error && <div className="text-[11px] text-red-600">{error}</div>}
-            <button
+            <button data-opus-button="primary" data-opus-button-size="small"
               type="button"
               onClick={submitAdd}
               disabled={isPending}
@@ -207,7 +207,7 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full text-[12px]">
+          <table className="opus-table w-full text-[12px]">
             <thead>
               <tr className="border-b border-gray-100 text-left text-gray-500">
                 <th className="px-4 py-2 font-medium">Title</th>
@@ -263,7 +263,7 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
                   ))}
                   {canAdmin && (
                     <td className="px-3 py-2">
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => remove(idea.id)}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"

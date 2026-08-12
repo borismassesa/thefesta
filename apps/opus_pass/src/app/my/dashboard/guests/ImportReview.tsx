@@ -100,7 +100,7 @@ export function ImportVerification({ result }: { result: GuestImportVerification
 
       {clean ? null : (
         <div className="overflow-hidden rounded-xl border border-black/[0.1]">
-          <table className="w-full text-left text-sm">
+          <table className="opus-table w-full text-left text-sm">
             <thead className="bg-black/[0.03] text-xs uppercase tracking-wide text-[#1A1A1A]/50">
               <tr>
                 <th scope="col" className="px-3 py-2 font-medium">In your file</th>
@@ -198,7 +198,7 @@ export function ImportReview({
       {/* Data-quality summary. Each tile filters the rows below. */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {summary.map((tile) => (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             key={tile.key}
             type="button"
             onClick={() => setFilter(tile.key)}
@@ -249,7 +249,7 @@ export function ImportReview({
           {unresolved > 0 ? ` · ${unresolved} still unresolved` : ''}
         </p>
         {counts.needsReview > 0 ? (
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             onClick={onApproveAllHolds}
             className="rounded-lg px-2 py-1 text-xs font-medium text-[#1A1A1A]/70 underline-offset-2 hover:bg-black/[0.05] hover:underline"
@@ -262,7 +262,7 @@ export function ImportReview({
       </div>
 
       <div className="overflow-hidden rounded-xl border border-black/[0.1]">
-        <table className="w-full text-left text-sm">
+        <table className="opus-table w-full text-left text-sm">
           <thead className="bg-black/[0.03] text-xs uppercase tracking-wide text-[#1A1A1A]/50">
             <tr>
               <th scope="col" className="w-10 px-3 py-2" />

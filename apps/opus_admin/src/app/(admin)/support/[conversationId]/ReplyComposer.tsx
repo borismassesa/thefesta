@@ -14,7 +14,7 @@ const CANNED: Array<{ label: string; text: string }> = [
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <button
+    <button data-opus-button="primary" data-opus-button-size="medium"
       type="submit"
       disabled={pending}
       className="inline-flex items-center gap-2 rounded-full bg-[#7E5896] px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-[#6d4a83] disabled:opacity-50"
@@ -62,7 +62,7 @@ export default function ReplyComposer({
           <Sparkles className="h-3 w-3" /> Quick replies
         </span>
         {CANNED.map((c) => (
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="small"
             key={c.label}
             type="button"
             onClick={() => insert(c.text)}

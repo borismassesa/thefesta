@@ -55,7 +55,7 @@ export function PayoutMethodCard({ current }: { current: PayoutMethod | null }) 
           <Landmark className="h-4 w-4 text-gray-400" /> Payout method
         </h2>
         {current && !editing ? (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setEditing(true)}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1A1A1A] hover:underline"
@@ -137,7 +137,7 @@ export function PayoutMethodCard({ current }: { current: PayoutMethod | null }) 
           </p>
           {error && <p className="text-xs font-medium text-rose-600">{error}</p>}
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="submit"
               disabled={pending}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#1A1A1A] px-4 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60"
@@ -146,7 +146,7 @@ export function PayoutMethodCard({ current }: { current: PayoutMethod | null }) 
               Save payout method
             </button>
             {current ? (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setEditing(false)}
                 className="rounded-lg px-3 py-2 text-sm font-semibold text-gray-500 hover:text-gray-800"

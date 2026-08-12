@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { CalendarHeart, MapPin, Clock, Check, PartyPopper, Heart, ImagePlus, Download, Phone, Ticket } from 'lucide-react'
+import { CalendarHeart, MapPin, Clock, Check, PartyPopper, Heart, ImagePlus, Phone, Ticket } from 'lucide-react'
 import Image from 'next/image'
 import Logo from '@/components/ui/Logo'
 import { LocaleToggle } from '@/components/LocaleToggle'
+import { ProtectedCard } from '@/components/guests/ProtectedCard'
 import { useT } from '@/components/providers/UIStringsProvider'
 import { submitPublicRsvp, type PublicRsvpResponse, type PublicRsvpAnswerInput } from '@/lib/dashboard/actions'
 import { eventTypeLabel, type RsvpStatus, type RsvpQuestion } from '@/lib/dashboard/types'
@@ -246,7 +247,7 @@ export default function PublicRsvpForm({
         coupleName={data.coupleName}
         cardUrl={data.cardUrlByEvent[data.events[0]?.id ?? ''] ?? null}
         cardAlt={t('card_alt')}
-        cardDownloadLabel={t('card_download')}
+        cardViewOnlyLabel={t('card_view_only')}
         coverImageUrl={data.coverImageUrl}
       >
         <div className="text-center">
@@ -277,7 +278,7 @@ export default function PublicRsvpForm({
       coupleName={data.coupleName}
       cardUrl={followupMode ? null : (data.cardUrlByEvent[data.events[0]?.id ?? ''] ?? null)}
       cardAlt={t('card_alt')}
-      cardDownloadLabel={t('card_download')}
+      cardViewOnlyLabel={t('card_view_only')}
       coverImageUrl={followupMode ? null : data.coverImageUrl}
     >
       <div className="text-center">
@@ -339,7 +340,7 @@ export default function PublicRsvpForm({
           <Check className="mx-auto h-8 w-8 text-emerald-600" />
           <h2 className="mt-3 text-lg font-semibold text-[#1A1A1A]">{t('submitted_title')}</h2>
           <p className="mt-1 text-sm text-[#1A1A1A]/60">{t('submitted_body')}</p>
-          <button
+          <button data-opus-button="control"
             onClick={() => setSubmitted(false)}
             className="mt-4 text-sm font-semibold text-[#8e57b3] hover:underline"
           >
@@ -401,7 +402,7 @@ export default function PublicRsvpForm({
                             ? t('status_maybe')
                             : t('status_declined')
                       return (
-                        <button
+                        <button data-opus-button="danger" data-opus-button-size="medium"
                           key={s}
                           onClick={() => update(e.invitation.id, { rsvp_status: s })}
                           className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -492,7 +493,7 @@ export default function PublicRsvpForm({
             </div>
           ) : null}
 
-          {!followupMode || hasFollowupQuestions ? <button
+          {!followupMode || hasFollowupQuestions ? <button data-opus-button="primary" data-opus-button-size="large"
             onClick={submit}
             disabled={pending}
             className="w-full rounded-xl bg-[#C9A0DC] px-4 py-3.5 text-sm font-semibold text-[#1A1A1A] transition-colors hover:bg-[#b97fd0] disabled:opacity-50"
@@ -540,7 +541,7 @@ function QuestionField({
             const detailPrompt = opt.description?.trim()
             return (
               <div key={opt.id} className="space-y-2">
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="medium"
                   type="button"
                   onClick={() => onChange({ optionId: opt.id, detailText: active ? value.detailText : '' })}
                   className={`flex w-full items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-sm transition-colors ${
@@ -584,7 +585,7 @@ function Shell({
   coupleName,
   cardUrl,
   cardAlt,
-  cardDownloadLabel,
+  cardViewOnlyLabel,
   coverImageUrl,
 }: {
   children: React.ReactNode
@@ -593,7 +594,7 @@ function Shell({
    *  is the thing they opened the link to see. */
   cardUrl?: string | null
   cardAlt: string
-  cardDownloadLabel: string
+  cardViewOnlyLabel: string
   coverImageUrl?: string | null
 }) {
   return (
@@ -611,22 +612,27 @@ function Shell({
           />
         ) : cardUrl ? (
           <div className="flex w-full max-w-[420px] flex-col items-center">
-            <Image
-              src={cardUrl}
-              alt={cardAlt}
-              width={760}
-              height={1064}
-              className="max-h-[65vh] w-auto max-w-full rounded-2xl object-contain shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] sm:max-h-[75vh] lg:max-h-[calc(100vh-10rem)]"
-              unoptimized
-              priority
-            />
-            <a
-              href={cardUrl}
-              download
-              className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-[#4F2877] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#3E1F5E]"
+            {/* The explicit "download card" button that used to sit under this
+                image is gone deliberately: the card is now view-only on every
+                public surface. Note that the artwork is not thereby secret — the
+                PNG behind cardUrl is served from a public, long-cached URL
+                because Meta's servers fetch it when the WhatsApp template goes
+                out (see invite-card/[token]/route.ts). What this removes is the
+                one-tap save, not the possibility of one. */}
+            <ProtectedCard
+              className="w-full"
+              printNotice={cardViewOnlyLabel}
             >
-              <Download className="h-4 w-4" /> {cardDownloadLabel}
-            </a>
+              <Image
+                src={cardUrl}
+                alt={cardAlt}
+                width={760}
+                height={1064}
+                className="max-h-[65vh] w-auto max-w-full rounded-2xl object-contain shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] sm:max-h-[75vh] lg:max-h-[calc(100vh-10rem)]"
+                unoptimized
+                priority
+              />
+            </ProtectedCard>
           </div>
         ) : (
           /* Neither photo nor card. A quiet mark, never operator copy: a guest

@@ -201,7 +201,7 @@ export default function DesignsEditor({ initial, hasDraft: initialHasDraft }: Pr
                   onChange={(e) => setTab(idx, e.target.value)}
                   className={inputCls}
                 />
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => removeTab(idx)}
                   className="p-2 text-gray-400 hover:text-red-600 shrink-0"
@@ -211,7 +211,7 @@ export default function DesignsEditor({ initial, hasDraft: initialHasDraft }: Pr
                 </button>
               </div>
             ))}
-            <button
+            <button data-opus-button="secondary" data-opus-button-size="small"
               type="button"
               onClick={addTab}
               className="flex items-center gap-1.5 text-[11px] font-medium text-[#7E5896] hover:text-[#5d3a78] px-2 py-1 rounded hover:bg-[#F0DFF6] transition-colors"
@@ -267,7 +267,7 @@ export default function DesignsEditor({ initial, hasDraft: initialHasDraft }: Pr
                   {draft.tabs.map((tab) => {
                     const active = item.tags.includes(tab)
                     return (
-                      <button
+                      <button data-opus-button="control"
                         key={tab}
                         type="button"
                         onClick={() => toggleDesignTag(idx, tab)}
@@ -293,7 +293,7 @@ export default function DesignsEditor({ initial, hasDraft: initialHasDraft }: Pr
               />
             </CollapsibleCard>
           ))}
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             onClick={addDesign}
             className="flex items-center gap-2 text-sm font-medium text-[#7E5896] hover:text-[#5d3a78] px-3 py-2 rounded-lg border border-dashed border-[#C9A0DC] hover:bg-[#F0DFF6] transition-colors"
@@ -309,7 +309,7 @@ export default function DesignsEditor({ initial, hasDraft: initialHasDraft }: Pr
           <h3 className="text-[15px] font-semibold text-gray-900">Live preview</h3>
           <div className="inline-flex items-center rounded-full border border-gray-200 p-0.5 text-[11px] font-semibold">
             {LOCALES.map((l) => (
-              <button
+              <button data-opus-button="control"
                 key={l}
                 type="button"
                 onClick={() => setPreviewLocale(l)}

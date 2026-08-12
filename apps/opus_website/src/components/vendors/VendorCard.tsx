@@ -23,7 +23,7 @@ export default function VendorCard({
   return (
     <Link
       href={`${VENDORS_BASE_PATH}/${vendor.slug}`}
-      className={`group flex w-full flex-col overflow-hidden rounded-[24px] border transition-all duration-300 hover:-translate-y-1 ${
+      className={`group flex w-full flex-col overflow-hidden rounded-[var(--opus-radius-large)] border transition-all duration-300 hover:-translate-y-1 ${
         dark
           ? 'border-black bg-[#111111] text-white hover:bg-[#1A1A1A]'
           : 'border-gray-200 bg-white text-[#1A1A1A] hover:border-gray-300'

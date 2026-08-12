@@ -398,7 +398,7 @@ function OrderTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-black/[0.08] bg-white shadow-sm">
-      <table className="w-full min-w-[640px] text-sm">
+      <table className="opus-table w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b border-black/[0.06] text-left text-[11px] font-semibold uppercase tracking-wide text-[#1A1A1A]/45">
             <th className="px-4 py-3">Order</th>
@@ -429,9 +429,14 @@ function OrderTable({
                 <td className="whitespace-nowrap px-4 py-3 text-[#1A1A1A]/60">{formatDate(order.paidAt)}</td>
                 <td className="max-w-[220px] truncate px-4 py-3 text-[#1A1A1A]/80">{names}</td>
                 <td className="px-4 py-3">
+                  {/* whitespace-nowrap: two-word stages ("Design ready") were
+                      breaking inside the pill, which stretched the row and
+                      made the pill read as a block rather than a badge. The
+                      table already scrolls sideways, so there is nothing to
+                      gain by wrapping it. */}
                   <span
                     className={cn(
-                      'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
+                      'inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
                       TONE_PILL[tone],
                     )}
                   >
@@ -442,7 +447,7 @@ function OrderTable({
                   {formatTzs(order.total)}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
@@ -627,28 +632,37 @@ export default function OrdersManager({
         />
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-4">
+          {/* Three across only from sm up. On a phone the money KPI takes the
+              full row (a TZS total is far too wide for a third of 375px) and
+              the two counts share the row below it. */}
+          <div className="grid grid-cols-2 gap-4 [&>*:first-child]:col-span-2 sm:grid-cols-3 sm:[&>*:first-child]:col-span-1">
             {kpis.map((k) => (
               <StatCard key={k.label} label={k.label} value={k.value} hint={k.hint} icon={k.icon} accent={k.accent} />
             ))}
           </div>
 
-          {/* Toolbar: search on the left, status filter pills on the right. */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative sm:flex-1">
+          {/* Toolbar: search on the left, status filter pills on the right.
+              One row at every width — on phones the pills are hidden, so the
+              search and the view toggle share the line rather than stacking
+              into three separate rows. */}
+          <div className="flex items-center gap-3">
+            <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1A1A1A]/35" />
               <input
+                type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by order number or design…"
                 className="w-full rounded-full border border-black/[0.12] bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-[#1A1A1A] outline-none placeholder:text-[#1A1A1A]/35 focus:border-[#C9A0DC]"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
+            {/* Hidden on phones so the search keeps the width; unchanged from
+                sm up. */}
+            <div className="hidden flex-wrap gap-2 sm:flex">
               {STATUS_FILTERS.map((f) => {
                 const active = statusFilter === f.key
                 return (
-                  <button
+                  <button data-opus-button="control"
                     key={f.key}
                     type="button"
                     onClick={() => setStatusFilter(f.key)}
@@ -675,7 +689,7 @@ export default function OrdersManager({
                 const active = view === v.key
                 const Icon = v.icon
                 return (
-                  <button
+                  <button data-opus-button="control"
                     key={v.key}
                     type="button"
                     onClick={() => setView(v.key)}
@@ -697,7 +711,7 @@ export default function OrdersManager({
           {filtered.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-black/[0.12] px-6 py-12 text-center">
               <p className="text-sm font-medium text-[#1A1A1A]">No orders match your filters</p>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => {
                   setQuery('')

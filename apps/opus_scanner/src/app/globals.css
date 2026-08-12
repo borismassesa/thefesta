@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '@opusfesta/lib/styles/tables.css';
 
 /*
  * OpusFesta brand tokens (canonical source: apps/vendors_portal/src/lib/brand-palette.ts).

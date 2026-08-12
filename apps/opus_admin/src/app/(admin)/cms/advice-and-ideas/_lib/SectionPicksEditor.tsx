@@ -228,7 +228,7 @@ export default function SectionPicksEditor({
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   {idx > 0 && (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => move(idx, idx - 1)}
                       disabled={pending}
@@ -239,7 +239,7 @@ export default function SectionPicksEditor({
                     </button>
                   )}
                   {idx < picked.length - 1 && (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => move(idx, idx + 1)}
                       disabled={pending}
@@ -249,7 +249,7 @@ export default function SectionPicksEditor({
                       ↓
                     </button>
                   )}
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => unpick(article.id)}
                     disabled={pending}
@@ -321,7 +321,7 @@ export default function SectionPicksEditor({
                     {article.authorName ? ` · by ${article.authorName}` : ''}
                   </p>
                 </div>
-                <button
+                <button data-opus-button="primary" data-opus-button-size="small"
                   type="button"
                   onClick={() => add(article)}
                   disabled={pending || slotsFull}

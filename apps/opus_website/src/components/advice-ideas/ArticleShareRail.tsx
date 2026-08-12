@@ -91,7 +91,7 @@ export default function ArticleShareRail({
       }`}
     >
       <div className="pointer-events-auto flex flex-col items-center gap-3">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={toggleLike}
           aria-pressed={liked}
@@ -108,7 +108,7 @@ export default function ArticleShareRail({
             strokeWidth={liked ? 1.5 : 2}
           />
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={shareArticle}
           aria-label="Share article"
@@ -128,7 +128,7 @@ export default function ArticleShareRail({
         <a href={emailHref} aria-label="Share by email" className={btn}>
           <Mail size={16} />
         </a>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={copyLink}
           aria-label={copied ? 'Link copied' : 'Copy link'}

@@ -320,7 +320,7 @@ function CaptureTile({
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           onClick={onTake}
           disabled={disabled || locked}

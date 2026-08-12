@@ -82,7 +82,7 @@ export default function UnattributedBanner({ orders }: { orders: UnlinkedOrder[]
 
   return (
     <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-3 px-5 py-4 text-left"
@@ -145,7 +145,7 @@ export default function UnattributedBanner({ orders }: { orders: UnlinkedOrder[]
                       autoFocus
                       className="w-64 rounded-lg border border-amber-300 bg-white px-2 py-1 text-xs text-amber-900 placeholder:text-amber-400 focus:border-[#7E5896] focus:outline-none"
                     />
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       disabled={pending}
                       onClick={() => submitDismiss(order.orderId)}
@@ -154,7 +154,7 @@ export default function UnattributedBanner({ orders }: { orders: UnlinkedOrder[]
                       {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                       Confirm
                     </button>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       disabled={pending}
                       onClick={() => {
@@ -167,7 +167,7 @@ export default function UnattributedBanner({ orders }: { orders: UnlinkedOrder[]
                     </button>
                   </span>
                 ) : (
-                  <button
+                  <button data-opus-button="warning" data-opus-button-size="small"
                     type="button"
                     disabled={pending}
                     onClick={() => {
@@ -185,7 +185,7 @@ export default function UnattributedBanner({ orders }: { orders: UnlinkedOrder[]
             ))}
           </ul>
 
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={pending}
             onClick={toggleDismissedList}
@@ -211,7 +211,7 @@ export default function UnattributedBanner({ orders }: { orders: UnlinkedOrder[]
                         {order.dismissedReason}
                         {order.dismissedBy ? ` · ${order.dismissedBy}` : ''}
                       </span>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         disabled={pending}
                         onClick={() => restore(order.orderId)}

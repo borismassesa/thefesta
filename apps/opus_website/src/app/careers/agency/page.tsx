@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Building2, ShieldCheck } from 'lucide-react';
+import { opusButtonClass } from '@opusfesta/lib';
 import { requireAgencyPortalIdentity } from '@/lib/agency-portal';
 import { createSupabaseServerClient } from '@/lib/supabase';
 import AgencySubmissionForm from './AgencySubmissionForm';
@@ -23,7 +24,7 @@ export default async function AgencyPortalPage() {
           </p>
           <Link
             href="/careers"
-            className="mt-6 inline-flex rounded-full bg-black px-5 py-3 text-sm font-semibold text-white"
+            className={`mt-6 ${opusButtonClass()}`}
           >
             Back to careers
           </Link>
@@ -98,7 +99,7 @@ export default async function AgencyPortalPage() {
         <section className="rounded-3xl bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold">Submission history</h2>
           <div className="mt-5 overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="opus-table w-full text-left text-sm">
               <thead>
                 <tr className="border-b text-xs uppercase tracking-wide text-gray-400">
                   <th className="pb-3">Candidate</th>

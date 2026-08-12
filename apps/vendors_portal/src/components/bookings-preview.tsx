@@ -122,7 +122,7 @@ export default function BookingsPreview() {
 
       {/* Mockup */}
       <Reveal direction="up" margin="-80px">
-        <div className="rounded-[24px] sm:rounded-[32px] md:rounded-[40px] bg-[#FDFDFD] border border-gray-200 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.18)] overflow-hidden">
+        <div className="rounded-[var(--opus-radius-large)] sm:rounded-[var(--opus-radius-xlarge)] md:rounded-[var(--opus-radius-xlarge)] bg-[#FDFDFD] border border-gray-200 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.18)] overflow-hidden">
           {/* Top bar */}
           <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-gray-100 flex items-center justify-between">
             <div>
@@ -134,10 +134,10 @@ export default function BookingsPreview() {
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <button className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400">
+              <button data-opus-button="control" className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400">
                 <HelpCircle size={16} />
               </button>
-              <button className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400 relative">
+              <button data-opus-button="control" className="hidden sm:flex w-9 h-9 rounded-full bg-gray-50 border border-gray-100 items-center justify-center text-gray-400 relative">
                 <Bell size={16} />
                 <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-red-500" />
               </button>
@@ -150,14 +150,14 @@ export default function BookingsPreview() {
           {/* Tabs + new booking */}
           <div className="px-5 sm:px-8 pt-5 pb-4 flex items-center justify-between gap-4">
             <div className="flex gap-5 sm:gap-7 text-sm font-bold">
-              <button className="flex items-center gap-2 pb-2 border-b-2 border-[#1A1A1A] text-[#1A1A1A]">
+              <button data-opus-button="control" className="flex items-center gap-2 pb-2 border-b-2 border-[#1A1A1A] text-[#1A1A1A]">
                 <ListChecks size={15} /> Pipeline
               </button>
-              <button className="flex items-center gap-2 pb-2 text-gray-400">
+              <button data-opus-button="control" className="flex items-center gap-2 pb-2 text-gray-400">
                 <CalendarDays size={15} /> Calendar
               </button>
             </div>
-            <button className="shrink-0 inline-flex items-center gap-1.5 bg-[#1A1A1A] hover:bg-[#333] text-white text-xs sm:text-sm font-bold px-3 sm:px-5 py-2 sm:py-2.5 rounded-full">
+            <button data-opus-button="primary" data-opus-button-size="small" className="shrink-0 inline-flex items-center gap-1.5 bg-[#1A1A1A] hover:bg-[#333] text-white text-xs sm:text-sm font-bold px-3 sm:px-5 py-2 sm:py-2.5 rounded-full">
               <Plus size={14} /> New booking
             </button>
           </div>
@@ -188,7 +188,7 @@ export default function BookingsPreview() {
                         <p className="text-sm font-bold text-[#1A1A1A] leading-snug">{a.title}</p>
                         <p className="text-[11px] text-gray-500 mt-1">{a.meta}</p>
                       </div>
-                      <button className="text-xs font-bold text-[#1A1A1A] inline-flex items-center gap-1 hover:gap-1.5 transition-all">
+                      <button data-opus-button="control" className="text-xs font-bold text-[#1A1A1A] inline-flex items-center gap-1 hover:gap-1.5 transition-all">
                         {a.cta} <ArrowRight size={12} />
                       </button>
                     </div>
@@ -202,7 +202,7 @@ export default function BookingsPreview() {
           <div className="px-5 sm:px-8 mb-4 flex items-center justify-between gap-3 overflow-x-auto hide-scrollbar">
             <div className="flex gap-2 shrink-0">
               {filters.map((f) => (
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="small"
                   key={f.label}
                   className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
                     f.active ? 'bg-[#1A1A1A] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'

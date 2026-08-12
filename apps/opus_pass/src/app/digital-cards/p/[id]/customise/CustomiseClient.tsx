@@ -628,7 +628,7 @@ export default function CustomiseClient({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setCanvasVisible((v) => !v)}
               aria-label={canvasVisible ? 'Hide preview' : 'Show preview'}
@@ -638,7 +638,7 @@ export default function CustomiseClient({
             </button>
 
             <div className="relative" ref={confirmRef}>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setConfirmLeave((v) => !v)}
                 aria-expanded={confirmLeave}
@@ -671,7 +671,7 @@ export default function CustomiseClient({
                     >
                       Browse catalog
                     </Link>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => setConfirmLeave(false)}
                       className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-[12px] font-bold text-gray-700 transition hover:bg-gray-50"
@@ -683,14 +683,14 @@ export default function CustomiseClient({
               )}
             </div>
 
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={handleSave}
               className="rounded-full border border-gray-300 px-4 py-1.5 text-[12px] font-bold text-gray-800 transition hover:bg-gray-50 sm:px-5"
             >
               Save
             </button>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="small"
               type="button"
               onClick={isReview ? handleContinue : goNextTab}
               className="rounded-full bg-[#1A1A1A] px-4 py-1.5 text-[12px] font-bold text-white transition hover:bg-black sm:px-5"
@@ -717,7 +717,7 @@ export default function CustomiseClient({
           {MAIN_TABS.map((tab) => {
             const active = activeTab === tab.id
             return (
-              <button
+              <button data-opus-button="control"
                 key={tab.id}
                 data-tab={tab.id}
                 role="tab"
@@ -763,7 +763,7 @@ export default function CustomiseClient({
               {!isReview && (
                 <div className="flex items-center rounded-full border border-gray-200 bg-gray-100 p-0.5">
                   {(['front', 'back'] as const).map((side) => (
-                    <button
+                    <button data-opus-button="control"
                       key={side}
                       type="button"
                       onClick={() => setCardSide(side)}
@@ -788,7 +788,7 @@ export default function CustomiseClient({
                   const active = activePanel === p.id
                   const done = panelDone[p.id]
                   return (
-                    <button
+                    <button data-opus-button="control"
                       key={p.id}
                       type="button"
                       onClick={() => setActivePanel(p.id)}
@@ -864,7 +864,7 @@ export default function CustomiseClient({
                     <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-gray-500">Photo</span>
                     <div className="flex items-center gap-2">
                       <img src={photoSrc} alt="Uploaded photo" className="h-8 w-8 rounded object-cover ring-1 ring-black/10" />
-                      <button type="button" onClick={() => goEdit('theme')} aria-label="Edit photo" className="text-gray-400 hover:text-gray-900">
+                      <button data-opus-button="control" type="button" onClick={() => goEdit('theme')} aria-label="Edit photo" className="text-gray-400 hover:text-gray-900">
                         <Pencil size={12} />
                       </button>
                     </div>
@@ -977,7 +977,7 @@ export default function CustomiseClient({
                               className="h-10 w-12 cursor-pointer rounded-md border border-gray-300 bg-white p-1"
                             />
                             {palette.length > 1 && (
-                              <button
+                              <button data-opus-button="control"
                                 type="button"
                                 onClick={() => setPalette((p) => p.filter((_, idx) => idx !== i))}
                                 className="text-gray-500 hover:text-gray-900"
@@ -989,7 +989,7 @@ export default function CustomiseClient({
                           </div>
                         ))}
                         {palette.length < 4 && (
-                          <button
+                          <button data-opus-button="control"
                             type="button"
                             onClick={() => setPalette((p) => [...p, '#C8A35C'])}
                             className="grid h-10 w-10 place-items-center rounded-md border border-dashed border-gray-300 text-gray-500 hover:border-gray-500 hover:text-gray-900"
@@ -1016,7 +1016,7 @@ export default function CustomiseClient({
                               placeholder="+255 7XX XXX XXX"
                               className="h-11 w-full rounded-md border border-gray-300 px-3.5 text-[14px] tabular-nums focus:border-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#1A1A1A]"
                             />
-                            <button
+                            <button data-opus-button="control"
                               type="button"
                               onClick={() => setRsvpContacts((list) => list.filter((_, idx) => idx !== i))}
                               disabled={rsvpContacts.length <= 1}
@@ -1028,7 +1028,7 @@ export default function CustomiseClient({
                           </div>
                         ))}
                         {rsvpContacts.length < 3 && (
-                          <button
+                          <button data-opus-button="control"
                             type="button"
                             onClick={() => setRsvpContacts((list) => [...list, ''])}
                             className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-gray-700 hover:text-gray-900"
@@ -1042,7 +1042,7 @@ export default function CustomiseClient({
                     <Field label="QR entry label" hint="Tagged on the QR code at the door">
                       <div className="flex gap-2">
                         {(['SINGLE', 'DOUBLE'] as const).map((opt) => (
-                          <button
+                          <button data-opus-button="control"
                             key={opt}
                             type="button"
                             onClick={() => setQrLabel(opt)}
@@ -1092,14 +1092,14 @@ export default function CustomiseClient({
                 {activePanel === 'elements' && (
                   <>
                     <div className="flex gap-2">
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={addTextItem}
                         className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2.5 text-[12px] font-semibold text-gray-700 transition hover:border-gray-500 hover:text-gray-900"
                       >
                         <Text size={14} /> Add text
                       </button>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => elemImageInputRef.current?.click()}
                         className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2.5 text-[12px] font-semibold text-gray-700 transition hover:border-gray-500 hover:text-gray-900"
@@ -1123,7 +1123,7 @@ export default function CustomiseClient({
                           <p className="mb-1.5 text-[11px] font-semibold text-gray-500">{group.group}</p>
                           <div className="flex flex-wrap gap-1">
                             {group.items.map((char) => (
-                              <button
+                              <button data-opus-button="control"
                                 key={char}
                                 type="button"
                                 onClick={() => addStickerItem(char)}
@@ -1162,7 +1162,7 @@ export default function CustomiseClient({
                                 {item.type === 'image' ? 'Image' : item.content}
                               </span>
                               <div className="flex shrink-0 items-center gap-0.5">
-                                <button
+                                <button data-opus-button="control"
                                   type="button"
                                   aria-label="Move up"
                                   onClick={(e) => { e.stopPropagation(); moveOverlayItem(item.id, 'up') }}
@@ -1171,7 +1171,7 @@ export default function CustomiseClient({
                                 >
                                   <ChevronUp size={12} />
                                 </button>
-                                <button
+                                <button data-opus-button="control"
                                   type="button"
                                   aria-label="Move down"
                                   onClick={(e) => { e.stopPropagation(); moveOverlayItem(item.id, 'down') }}
@@ -1180,7 +1180,7 @@ export default function CustomiseClient({
                                 >
                                   <ChevronDown size={12} />
                                 </button>
-                                <button
+                                <button data-opus-button="control"
                                   type="button"
                                   aria-label="Delete element"
                                   onClick={(e) => { e.stopPropagation(); deleteOverlayItem(item.id) }}
@@ -1205,7 +1205,7 @@ export default function CustomiseClient({
                         <p className="mb-3 text-[11px] leading-relaxed text-gray-500">
                           This design uses your photo as a background with a teal colour overlay — upload to see the full effect.
                         </p>
-                        <button
+                        <button data-opus-button="primary" data-opus-button-size="medium"
                           type="button"
                           onClick={() => photoInputRef.current?.click()}
                           className="flex w-full items-center justify-center gap-2 rounded-md bg-[#1A1A1A] px-4 py-2.5 text-[12px] font-bold text-white transition hover:bg-black"
@@ -1220,7 +1220,7 @@ export default function CustomiseClient({
                         {product.palettes.map((p, i) => {
                           const active = paletteIndex === i
                           return (
-                            <button
+                            <button data-opus-button="control"
                               key={i}
                               type="button"
                               onClick={() => setPaletteIndex(i)}
@@ -1287,14 +1287,14 @@ export default function CustomiseClient({
                         <div className="flex items-center gap-3">
                           <img src={photoSrc} alt="Uploaded couple photo" className="h-16 w-16 rounded-md object-cover ring-1 ring-black/10" />
                           <div className="flex flex-col gap-1.5">
-                            <button
+                            <button data-opus-button="control"
                               type="button"
                               onClick={() => photoInputRef.current?.click()}
                               className="text-[12px] font-semibold text-gray-700 underline-offset-2 hover:underline"
                             >
                               Change photo
                             </button>
-                            <button
+                            <button data-opus-button="control"
                               type="button"
                               onClick={() => setPhotoSrc(undefined)}
                               className="text-left text-[12px] text-gray-400 hover:text-gray-700"
@@ -1304,7 +1304,7 @@ export default function CustomiseClient({
                           </div>
                         </div>
                       ) : (
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           onClick={() => photoInputRef.current?.click()}
                           className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 px-4 py-5 text-[13px] font-semibold text-gray-600 transition hover:border-gray-500 hover:text-gray-900"
@@ -1414,7 +1414,7 @@ export default function CustomiseClient({
                       { id: 'qr' as const,      label: 'QR Code',  hint: 'Modern square QR' },
                       { id: 'barcode' as const,  label: 'Barcode',  hint: 'Classic linear scan' },
                     ] as const).map((opt) => (
-                      <button
+                      <button data-opus-button="control"
                         key={opt.id}
                         type="button"
                         onClick={() => setTicketType(opt.id)}
@@ -1437,7 +1437,7 @@ export default function CustomiseClient({
                 <Field label="Stub accent colour" hint="The coloured left-hand stub of the ticket">
                   <div className="flex flex-wrap gap-2">
                     {ticketAccentColors.map((c, i) => (
-                      <button
+                      <button data-opus-button="control"
                         key={`${c.value}-${i}`}
                         type="button"
                         onClick={() => setTicketAccentColor(c.value)}
@@ -1488,7 +1488,7 @@ export default function CustomiseClient({
                         {sampleGuestCode}
                       </p>
                     </div>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => setSampleGuestCode(generateGuestCode())}
                       aria-label="Generate new sample code"
@@ -1590,7 +1590,7 @@ export default function CustomiseClient({
                         )}
                       >
                         {/* Emoji preview */}
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           onClick={() => toggleSwag(item.id)}
                           aria-pressed={selected}
@@ -1606,7 +1606,7 @@ export default function CustomiseClient({
                         <div className="flex flex-col gap-1 px-3 py-2.5">
                           <div className="flex items-start justify-between gap-1">
                             <p className="text-[12px] font-bold text-gray-900 leading-tight">{item.label}</p>
-                            <button
+                            <button data-opus-button="control"
                               type="button"
                               onClick={() => toggleSwag(item.id)}
                               aria-pressed={selected}
@@ -1626,7 +1626,7 @@ export default function CustomiseClient({
                           {/* Qty stepper — visible when selected */}
                           {selected && (
                             <div className="mt-1.5 flex items-center gap-1.5 border-t border-gray-100 pt-2">
-                              <button
+                              <button data-opus-button="control"
                                 type="button"
                                 onClick={() => setSwagQty(item.id, q - 1)}
                                 disabled={q <= 1}
@@ -1641,7 +1641,7 @@ export default function CustomiseClient({
                                 onChange={(e) => setSwagQty(item.id, Math.max(1, Number(e.target.value) || 1))}
                                 className="h-6 flex-1 rounded-md border border-gray-300 text-center text-[12px] font-bold tabular-nums focus:border-[#1A1A1A] focus:outline-none"
                               />
-                              <button
+                              <button data-opus-button="control"
                                 type="button"
                                 onClick={() => setSwagQty(item.id, q + 1)}
                                 className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-gray-300 text-gray-600 transition hover:bg-gray-50"
@@ -1712,7 +1712,7 @@ export default function CustomiseClient({
               <div className="absolute bottom-full left-0 right-0 z-10 border-t border-gray-200 bg-white shadow-[0_-8px_24px_-8px_rgba(0,0,0,0.12)]">
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
                   <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-gray-900">Contact us</p>
-                  <button type="button" onClick={() => setDrawer(null)} aria-label="Close" className="text-gray-400 hover:text-gray-900">
+                  <button data-opus-button="control" type="button" onClick={() => setDrawer(null)} aria-label="Close" className="text-gray-400 hover:text-gray-900">
                     <X size={15} />
                   </button>
                 </div>
@@ -1746,7 +1746,7 @@ export default function CustomiseClient({
               <div className="absolute bottom-full left-0 right-0 z-10 border-t border-gray-200 bg-white shadow-[0_-8px_24px_-8px_rgba(0,0,0,0.12)]">
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
                   <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-gray-900">Design tips</p>
-                  <button type="button" onClick={() => setDrawer(null)} aria-label="Close" className="text-gray-400 hover:text-gray-900">
+                  <button data-opus-button="control" type="button" onClick={() => setDrawer(null)} aria-label="Close" className="text-gray-400 hover:text-gray-900">
                     <X size={15} />
                   </button>
                 </div>
@@ -1769,14 +1769,14 @@ export default function CustomiseClient({
             )}
 
             <div className="flex items-center gap-5 border-t border-gray-200 px-5 py-3 text-[12px] font-semibold text-gray-600">
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setDrawer((d) => (d === 'contact' ? null : 'contact'))}
                 className={cn('inline-flex items-center gap-1.5 transition hover:text-gray-900', drawer === 'contact' && 'text-gray-900')}
               >
                 <HelpCircle size={15} /> Contact us
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setDrawer((d) => (d === 'tips' ? null : 'tips'))}
                 className={cn('inline-flex items-center gap-1.5 transition hover:text-gray-900', drawer === 'tips' && 'text-gray-900')}
@@ -2092,7 +2092,7 @@ function ReviewCardItem({
           {/* Front / Back toggle */}
           <div className="flex items-center rounded-full border border-gray-200 bg-gray-100 p-0.5">
             {(['front', 'back'] as const).map((s) => (
-              <button
+              <button data-opus-button="control"
                 key={s}
                 type="button"
                 onClick={() => setSide(s)}
@@ -2107,7 +2107,7 @@ function ReviewCardItem({
             ))}
           </div>
           {/* Edit button */}
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => onEdit(tab)}
             className="flex items-center gap-1 rounded-full border border-gray-300 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-gray-600 transition hover:border-gray-500 hover:text-gray-900"
@@ -2301,7 +2301,7 @@ function QuantityField({ value, onChange }: { value: number; onChange: (v: numbe
         <p className="text-[11px] text-gray-400">How many copies do you need?</p>
       </div>
       <div className="flex items-center gap-1">
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           onClick={() => onChange(value - (value > 100 ? 10 : 1))}
           aria-label="Decrease quantity"
@@ -2318,7 +2318,7 @@ function QuantityField({ value, onChange }: { value: number; onChange: (v: numbe
           aria-label="Quantity"
           className="h-8 w-16 rounded-md border border-gray-300 text-center text-[14px] font-bold tabular-nums text-gray-900 focus:border-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#1A1A1A]"
         />
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="small"
           type="button"
           onClick={() => onChange(value + (value >= 100 ? 10 : 1))}
           aria-label="Increase quantity"
@@ -2350,7 +2350,7 @@ function BackPrintToggle({
         ] as const).map(({ v, label, sub }) => {
           const selected = (value ?? 'blank') === v
           return (
-          <button
+          <button data-opus-button="control"
             key={v}
             type="button"
             onClick={() => onChange(v)}
@@ -2656,7 +2656,7 @@ function CardClickLayer({
   return (
     <div className="absolute inset-0 z-10 pointer-events-none">
       {hotspots.map((h) => (
-        <button
+        <button data-opus-button="control"
           key={h.key}
           type="button"
           onClick={() => onEdit(h.panel)}
@@ -2719,7 +2719,7 @@ function TextStyleBar({
         {([0.75, 1, 1.25, 1.5] as const).map((scale) => {
           const label = scale === 0.75 ? 'S' : scale === 1 ? 'M' : scale === 1.25 ? 'L' : 'XL'
           return (
-            <button key={scale} type="button"
+            <button data-opus-button="control" key={scale} type="button"
               onClick={() => onUpdate(sectionKey, { scale })}
               aria-pressed={activeScale === scale}
               className={cn(
@@ -2737,7 +2737,7 @@ function TextStyleBar({
           { value: 'center' as const, icon: <AlignCenter size={10} /> },
           { value: 'right' as const,  icon: <AlignRight  size={10} /> },
         ]).map(({ value, icon }) => (
-          <button key={value} type="button"
+          <button data-opus-button="control" key={value} type="button"
             onClick={() => onUpdate(sectionKey, { align: activeAlign === value ? undefined : value })}
             aria-pressed={activeAlign === value}
             aria-label={`Align ${value}`}
@@ -2751,7 +2751,7 @@ function TextStyleBar({
 
       {/* Row 2: weight / style / case */}
       <div className="flex items-center gap-1 flex-wrap">
-        <button type="button"
+        <button data-opus-button="control" type="button"
           onClick={() => onUpdate(sectionKey, { fontWeight: isBold ? 'normal' : 'bold' })}
           aria-pressed={isBold}
           aria-label={isBold ? 'Remove bold' : 'Bold'}
@@ -2761,7 +2761,7 @@ function TextStyleBar({
           )}
         >B</button>
 
-        <button type="button"
+        <button data-opus-button="control" type="button"
           onClick={() => toggle('italic', true, false)}
           aria-pressed={isItalic}
           aria-label={isItalic ? 'Remove italic' : 'Italic'}
@@ -2771,7 +2771,7 @@ function TextStyleBar({
           )}
         >I</button>
 
-        <button type="button"
+        <button data-opus-button="control" type="button"
           onClick={() => toggle('uppercase', true, false)}
           aria-pressed={isUppercase}
           aria-label={isUppercase ? 'Remove uppercase' : 'Uppercase'}
@@ -2790,7 +2790,7 @@ function TextStyleBar({
           { value: 'wide'   as const, label: 'A·   ·' },
           { value: 'wider'  as const, label: 'A·    ·' },
         ]).map(({ value, label }) => (
-          <button key={value} type="button"
+          <button data-opus-button="control" key={value} type="button"
             onClick={() => onUpdate(sectionKey, { letterSpacing: activeSpacing === value ? undefined : value })}
             aria-pressed={activeSpacing === value}
             aria-label={`Letter spacing: ${value}`}
@@ -2822,7 +2822,7 @@ function TextStyleBar({
             {!activeColor && <span className="m-auto text-[9px] text-gray-400">+</span>}
           </div>
           {activeColor && (
-            <button type="button"
+            <button data-opus-button="control" type="button"
               onClick={() => onUpdate(sectionKey, { color: undefined })}
               aria-label="Clear colour"
               className="text-gray-400 hover:text-gray-700"
@@ -2847,7 +2847,7 @@ function TextStyleBar({
 
       {/* Reset */}
       {hasOverride && (
-        <button type="button"
+        <button data-opus-button="control" type="button"
           onClick={() => onUpdate(sectionKey, {
             scale: undefined, fontWeight: undefined, align: undefined,
             italic: undefined, uppercase: undefined, letterSpacing: undefined,
@@ -2897,7 +2897,7 @@ function ReviewRow({
         {children}
         {value}
         {onEdit && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onEdit}
             aria-label={`Edit ${label}`}

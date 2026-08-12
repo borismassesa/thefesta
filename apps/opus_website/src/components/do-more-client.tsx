@@ -81,7 +81,7 @@ function CardContent({ card, isFront }: { card: WebsiteDemo; isFront: boolean })
         </div>
         <p className="text-[6px] uppercase tracking-widest z-10" style={{ color: colors.heroSub }}>{card.date}</p>
         <p className="text-[5.5px] z-10" style={{ color: colors.heroSub }}>{card.location}</p>
-        <button
+        <button data-opus-button="control"
           className="mt-1 text-[6px] font-semibold px-4 py-1.5 rounded-full tracking-widest uppercase z-10 border"
           style={{ borderColor: colors.heroText + '30', color: colors.heroText }}
         >
@@ -161,7 +161,7 @@ function WebsiteCardStack({ websites }: { websites: WebsiteDemo[] }) {
 
       <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5">
         {websites.map((_, i) => (
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             key={i}
             onClick={() => setActive(i)}
             className={`rounded-full transition-all ${i === active ? 'w-4 h-1.5 bg-[#1A1A1A]' : 'w-1.5 h-1.5 bg-gray-300'}`}
@@ -210,7 +210,7 @@ function GuestListCard({ content }: { content: DoMoreContent }) {
   ]
 
   return (
-    <div className="bg-[#F2F2F0] rounded-[24px] sm:rounded-[40px] p-5 sm:p-8 md:p-10 flex flex-col text-left shadow-sm">
+    <div className="bg-[#F2F2F0] rounded-[var(--opus-radius-large)] sm:rounded-[var(--opus-radius-xlarge)] p-5 sm:p-8 md:p-10 flex flex-col text-left shadow-sm">
       <div className="flex items-start justify-between mb-2">
         <h3 className="text-xl sm:text-2xl font-black text-[#1A1A1A]">{content.guests_title}</h3>
         <span className="shrink-0 bg-[var(--accent)] text-[var(--on-accent)] text-[10px] font-bold px-3 py-1.5 rounded-full ml-4 mt-1">
@@ -223,7 +223,7 @@ function GuestListCard({ content }: { content: DoMoreContent }) {
         {statCards.map((s) => {
           const isActive = filter === s.filter
           return (
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               key={s.label}
               onClick={() => setFilter(s.filter)}
               className={`rounded-2xl p-3 text-center shadow-sm transition-all ${isActive ? 'bg-[#1A1A1A]' : 'bg-white hover:bg-gray-50'}`}
@@ -318,7 +318,7 @@ export default function DoMoreClient({ content }: { content: DoMoreContent }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 text-left">
-        <div className="bg-[#FFFFFF] border border-gray-100 rounded-[24px] sm:rounded-[40px] p-5 sm:p-8 md:p-10 flex flex-col items-center text-center shadow-sm">
+        <div className="bg-[#FFFFFF] border border-gray-100 rounded-[var(--opus-radius-large)] sm:rounded-[var(--opus-radius-xlarge)] p-5 sm:p-8 md:p-10 flex flex-col items-center text-center shadow-sm">
           <h3 className="text-xl sm:text-2xl font-black mb-3 sm:mb-4">{content.websites_title}</h3>
           <p className="text-sm sm:text-base text-gray-600 mb-6 sm:mb-8 font-medium">
             {content.websites_description}

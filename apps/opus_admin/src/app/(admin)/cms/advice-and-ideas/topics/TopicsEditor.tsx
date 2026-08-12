@@ -108,7 +108,7 @@ export default function TopicsEditor({ initial, hasDraft: initialHasDraft }: Pro
     <Card
       title={`Topics (${items.length})`}
       action={
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={add}
           className="flex items-center gap-1.5 rounded-md border border-[#E7D5EE] px-2.5 py-1.5 text-xs font-semibold text-[#7E5896] transition-colors hover:bg-[#F8F0FB] hover:text-[#5c3f72]"
@@ -179,7 +179,7 @@ function TopicRow({
     >
       {/* Compact row — click to expand */}
       <div className="flex items-center gap-3 px-3 py-2.5">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onToggle}
           aria-expanded={open}
@@ -303,7 +303,7 @@ function ExpandedFields({
             </span>
           )}
         </div>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={disabled || uploading}
@@ -382,7 +382,7 @@ function IconBtn({
   children: React.ReactNode
 }) {
   return (
-    <button
+    <button data-opus-button="danger" data-opus-button-size="medium"
       type="button"
       title={title}
       onClick={onClick}

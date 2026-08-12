@@ -179,7 +179,7 @@ export default function ReviewPage() {
             <p className="mt-4 text-base text-gray-600 leading-relaxed max-w-md mx-auto">
               {t('review.done.body')}
             </p>
-            <button
+            <button data-opus-button="primary" data-opus-button-size="large"
               type="button"
               onClick={onContinueToVerify}
               className="group mt-8 inline-flex items-center gap-2 bg-[#1A1A1A] hover:bg-black text-white text-sm font-semibold pl-6 pr-5 py-3 rounded-full transition-all shadow-[0_4px_14px_-4px_rgba(17,24,39,0.35)] hover:shadow-[0_6px_18px_-4px_rgba(17,24,39,0.45)] hover:-translate-y-px"
@@ -217,7 +217,7 @@ export default function ReviewPage() {
         ) : null
       }
       primaryAction={
-        <button
+        <button data-opus-button="primary" data-opus-button-size="large"
           type="button"
           onClick={onSubmit}
           disabled={submitting}

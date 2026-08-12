@@ -131,7 +131,7 @@ export default function OverviewView({
                   const band = ageBand(r.submittedAt ?? r.createdAt, now)
                   return (
                     <li key={r.id}>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => onOpen(r.id)}
                         className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-gray-50"
@@ -181,7 +181,7 @@ export default function OverviewView({
                   Create a request when you need approval for travel, payment, procurement or
                   another service.
                 </p>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => onGoTo('create')}
                   className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-700"
@@ -194,7 +194,7 @@ export default function OverviewView({
               <ul className="divide-y divide-gray-50">
                 {[...myPending, ...myDrafts].slice(0, 5).map((r) => (
                   <li key={r.id}>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => onOpen(r.id)}
                       className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-gray-50"
@@ -226,7 +226,7 @@ export default function OverviewView({
                 <p className="text-xs text-gray-500">
                   Star a request type in the catalog and it pins here.
                 </p>
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => onGoTo('create')}
                   className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#5B2D8E] hover:underline"
@@ -245,7 +245,7 @@ export default function OverviewView({
                   const starred = favourites.includes(key)
                   return (
                     <li key={key}>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => onNew(key)}
                         className="flex w-full items-center gap-3 px-5 py-2.5 text-left hover:bg-gray-50"
@@ -286,7 +286,7 @@ export default function OverviewView({
               <ul className="divide-y divide-gray-50">
                 {feed.map((e) => (
                   <li key={e.id}>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => onOpen(e.requestId)}
                       className="flex w-full items-start gap-2.5 px-5 py-3 text-left hover:bg-gray-50"
@@ -337,7 +337,7 @@ function StatTile({
   onClick: () => void
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       className={cn(
@@ -378,7 +378,7 @@ function Panel({
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
         <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">{title}</h2>
         {action && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={action.onClick}
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-[#5B2D8E] hover:bg-[#F8EDFF]"

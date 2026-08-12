@@ -166,7 +166,7 @@ export function QuestionEditorSlideover({
             {draft.options.map((opt, i) => (
               <div key={i} className="rounded-2xl border border-black/[0.08] bg-black/[0.015] p-4">
                 <div className="flex items-start gap-3">
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => removeOption(i)}
                     aria-label="Remove option"
@@ -193,7 +193,7 @@ export function QuestionEditorSlideover({
                 </div>
               </div>
             ))}
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={addOption}
               className="inline-flex items-center gap-2 text-sm font-semibold text-[#7E5896] hover:text-[#5d3a78]"
@@ -227,7 +227,7 @@ export function QuestionEditorSlideover({
 
 function KindRadio({ label, checked, onClick }: { label: string; checked: boolean; onClick: () => void }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       role="radio"
       aria-checked={checked}

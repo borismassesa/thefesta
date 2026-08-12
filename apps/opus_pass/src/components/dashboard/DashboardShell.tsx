@@ -212,7 +212,7 @@ export default function DashboardShell({
               <Logo className="text-2xl" />
             </Link>
           )}
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             onClick={toggleCollapsed}
             aria-label={collapsed ? t('collapse_expand') : t('collapse_collapse')}
@@ -240,7 +240,7 @@ export default function DashboardShell({
 
       {/* Top bar — mobile */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-black/6 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setOpen(true)}
           aria-label={t('menu_open')}
@@ -262,7 +262,7 @@ export default function DashboardShell({
           <div className="absolute inset-y-0 left-0 flex w-72 flex-col bg-white px-4 py-6 shadow-xl">
             <div className="flex items-center justify-between">
               <Logo className="text-xl" />
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label={t('menu_close')}
@@ -344,7 +344,7 @@ function AccountFooter({
     <div className="relative">
       {/* Click-away backdrop */}
       {open ? (
-        <button
+        <button data-opus-button="control"
           type="button"
           aria-hidden="true"
           tabIndex={-1}
@@ -400,7 +400,7 @@ function AccountFooter({
             // signOut would leave the admin sitting in the couple's dashboard.
             // Dropping the staff cookie is the only exit that works.
             <form action="/api/staff-access/exit" method="post">
-              <button
+              <button data-opus-button="control"
                 type="submit"
                 role="menuitem"
                 className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-amber-800 hover:bg-black/4"
@@ -410,7 +410,7 @@ function AccountFooter({
               </button>
             </form>
           ) : (
-            <button
+            <button data-opus-button="control"
               type="button"
               role="menuitem"
               onClick={() => {
@@ -429,7 +429,7 @@ function AccountFooter({
         </div>
       ) : null}
 
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"

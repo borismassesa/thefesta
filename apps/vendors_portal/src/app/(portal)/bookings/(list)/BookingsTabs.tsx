@@ -41,7 +41,7 @@ export default function BookingsTabs() {
           )
         })}
       </nav>
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         type="button"
         className="ml-auto mb-2 inline-flex items-center gap-1.5 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-gray-800 transition-colors"
       >

@@ -38,7 +38,7 @@ export default function Footer() {
 
           <div className="flex gap-3 mb-10 overflow-x-auto pb-2 hide-scrollbar">
             {CATEGORIES.map((cat) => (
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`px-5 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-colors ${activeCategory === cat ? 'bg-[#1A1A1A] text-white' : 'bg-white text-[#1A1A1A] border border-gray-200 hover:bg-gray-50'}`}

@@ -47,13 +47,14 @@ export function ChatList({
           <div className="relative flex items-center flex-1 min-w-0">
             <Search className="w-4 h-4 text-gray-400 absolute left-3" />
             <input
+              type="search"
               value={query}
               onChange={(e) => onQuery(e.target.value)}
               placeholder="Search conversations"
               className="pl-9 pr-3 py-2 bg-gray-50 border border-transparent rounded-full w-full text-[13px] focus:outline-none focus:bg-white focus:border-gray-200"
             />
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             title="New conversation"
             aria-label="New conversation"
@@ -65,7 +66,7 @@ export function ChatList({
 
         <div className="flex items-center gap-1.5 mt-3">
           {FILTERS.map((f) => (
-            <button
+            <button data-opus-button="secondary" data-opus-button-size="small"
               key={f.key}
               type="button"
               onClick={() => onFilter(f.key)}
@@ -124,7 +125,7 @@ function ChatRow({
     : item.preview
 
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onOpen}
       className={cn(

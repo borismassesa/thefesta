@@ -223,7 +223,7 @@ export default function ServicesEditor({
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     <span className="truncate max-w-[220px]">{label}</span>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => removeCustom(label)}
                       disabled={!canEdit}
@@ -254,7 +254,7 @@ export default function ServicesEditor({
                   disabled={!canEdit}
                 />
               </div>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="submit"
                 disabled={!canEdit || !customDraft.trim()}
                 className="inline-flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
@@ -298,7 +298,7 @@ export default function ServicesEditor({
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={handleSave}
               disabled={saveDisabled}
@@ -308,7 +308,7 @@ export default function ServicesEditor({
               {pending ? t('saving_label') : t('save_button')}
             </button>
             {nextHref ? (
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 onClick={onNext}
                 className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-gray-800 transition-colors"

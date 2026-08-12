@@ -154,7 +154,7 @@ export default function NotificationsBell() {
 
   return (
     <div ref={ref} className="relative">
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={toggle}
         aria-label={unread > 0 ? `Notifications (${unread} unread)` : 'Notifications'}
@@ -175,7 +175,7 @@ export default function NotificationsBell() {
           <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
             <p className="text-sm font-bold text-[#1A1A1A]">Notifications</p>
             {unread > 0 && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={markAll}
                 className="rounded-full border border-[var(--accent)]/45 px-3 py-1 text-xs font-semibold text-[#8e57b3] transition-colors hover:bg-[var(--accent)]/10"
@@ -202,7 +202,7 @@ export default function NotificationsBell() {
                   const { text: bodyText, ref: bodyRef } = splitRef(n.body)
                   return (
                     <li key={n.id}>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => onItem(n)}
                         className={cn(

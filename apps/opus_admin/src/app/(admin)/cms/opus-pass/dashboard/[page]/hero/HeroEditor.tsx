@@ -171,7 +171,7 @@ export default function HeroEditor({
               {(['none', 'image', 'video'] as DashboardHeroMediaType[]).map((kind) => {
                 const isActive = draft.media_type === kind
                 return (
-                  <button
+                  <button data-opus-button="neutral" data-opus-button-size="small"
                     key={kind}
                     type="button"
                     onClick={() =>

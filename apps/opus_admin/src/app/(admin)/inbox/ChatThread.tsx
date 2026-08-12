@@ -108,7 +108,7 @@ export function ChatThread({
           align="right"
         />
 
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onToggleDetails}
           title={detailsOpen ? 'Hide details' : 'Show details'}
@@ -394,7 +394,7 @@ function Composer({
           of ceremony worth keeping: sending an internal note to a customer is
           the expensive mistake on this screen. */}
       <div className="flex items-center gap-1.5 mb-2">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setMode('reply')}
           aria-pressed={!isNote}
@@ -406,7 +406,7 @@ function Composer({
           <MessageSquare className="w-3.5 h-3.5" />
           Reply
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setMode('note')}
           aria-pressed={isNote}
@@ -475,7 +475,7 @@ function Composer({
             className="flex-1 resize-none bg-transparent px-1 py-2 text-[13.5px] max-h-40 placeholder:text-gray-400 focus:outline-none"
           />
 
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={!canSend}
             onClick={fire}

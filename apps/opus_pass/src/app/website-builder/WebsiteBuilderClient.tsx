@@ -125,7 +125,7 @@ export default function WebsiteBuilderClient({
           <span className="text-[14px] text-gray-700">
             opuspass.opusfesta.com/i/<span className="font-semibold text-[#1A1A1A]">{meta.slug || 'our-wedding'}</span>
           </span>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setTab('Settings')}
             className="text-[14px] font-semibold text-[#7A3FB8] underline-offset-2 hover:underline"
@@ -146,14 +146,14 @@ export default function WebsiteBuilderClient({
               </>
             )}
           </span>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             onClick={() => setShowPreview(true)}
             className="flex items-center gap-1.5 rounded-full border border-black/15 px-4 py-1.5 text-[13.5px] font-semibold text-[#1A1A1A] transition-colors hover:bg-black/5"
           >
             <Eye size={15} /> Preview
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             onClick={handlePublish}
             disabled={publishing}
@@ -169,7 +169,7 @@ export default function WebsiteBuilderClient({
         {/* ── Left rail ──────────────────────────────────────────────── */}
         <nav className="flex w-[64px] shrink-0 flex-col gap-1 border-r border-black/8 bg-white py-3 sm:w-[124px] sm:px-2">
           {TABS.map(({ key, icon: Icon }) => (
-            <button
+            <button data-opus-button="control"
               key={key}
               type="button"
               onClick={() => setTab(key)}
@@ -200,7 +200,7 @@ export default function WebsiteBuilderClient({
             <div className="mb-5 flex w-full items-center justify-between">
               <div className="flex items-center gap-2">
                 {accentOptions.map((c) => (
-                  <button
+                  <button data-opus-button="control"
                     key={c}
                     type="button"
                     aria-label={`Use accent ${c}`}
@@ -214,7 +214,7 @@ export default function WebsiteBuilderClient({
                 ))}
               </div>
               <div className="flex items-center gap-2.5">
-                <button
+                <button data-opus-button="danger" data-opus-button-size="medium"
                   type="button"
                   onClick={() =>
                     api.updateMeta({ presetId: designBaseline.presetId, accentOverride: designBaseline.accentOverride })
@@ -223,7 +223,7 @@ export default function WebsiteBuilderClient({
                 >
                   Cancel
                 </button>
-                <button
+                <button data-opus-button="primary" data-opus-button-size="medium"
                   type="button"
                   onClick={() => setDesignBaseline({ presetId: meta.presetId, accentOverride: meta.accentOverride })}
                   className="rounded-full bg-[#1A1A1A] px-5 py-2 text-[13.5px] font-semibold text-white transition-colors hover:bg-black"
@@ -253,7 +253,7 @@ export default function WebsiteBuilderClient({
               { key: 'mobile', icon: Smartphone, label: 'Mobile' },
               { key: 'invite', icon: Mail, label: 'Save the date' },
             ] as { key: Device; icon: LucideIcon; label: string }[]).map(({ key, icon: Icon, label }) => (
-              <button
+              <button data-opus-button="control"
                 key={key}
                 type="button"
                 aria-label={label}
@@ -283,7 +283,7 @@ export default function WebsiteBuilderClient({
       {publishError && (
         <div className="fixed bottom-6 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-3 rounded-xl bg-[#1A1A1A] px-5 py-3 text-[13.5px] font-medium text-white shadow-xl">
           {publishError}
-          <button type="button" onClick={() => setPublishError(null)} className="text-white/70 hover:text-white">
+          <button data-opus-button="control" type="button" onClick={() => setPublishError(null)} className="text-white/70 hover:text-white">
             <X size={16} />
           </button>
         </div>
@@ -306,7 +306,7 @@ function PublishedModal({ url, onClose }: { url: string; onClose: () => void }) 
         <p className="mt-2 text-[14px] text-gray-600">Share this link with your guests — they can view every detail and RSVP.</p>
         <div className="mt-5 flex items-center gap-2 rounded-xl border border-black/10 bg-[#F7F6F2] px-3 py-2.5">
           <span className="flex-1 truncate text-left text-[13.5px] font-medium text-gray-800">{url}</span>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             onClick={() => {
               navigator.clipboard?.writeText(`https://${url}`).catch(() => {})
@@ -326,7 +326,7 @@ function PublishedModal({ url, onClose }: { url: string; onClose: () => void }) 
           >
             Open site →
           </a>
-          <button type="button" onClick={onClose} className="text-[13.5px] font-semibold text-gray-500 hover:text-gray-800">
+          <button data-opus-button="control" type="button" onClick={onClose} className="text-[13.5px] font-semibold text-gray-500 hover:text-gray-800">
             Keep editing
           </button>
         </div>
@@ -554,7 +554,7 @@ function PreviewOverlay({ onClose, children }: { onClose: () => void; children: 
             { key: 'desktop', icon: Monitor },
             { key: 'mobile', icon: Smartphone },
           ] as { key: Device; icon: LucideIcon }[]).map(({ key, icon: Icon }) => (
-            <button
+            <button data-opus-button="control"
               key={key}
               type="button"
               onClick={() => setDevice(key)}
@@ -565,7 +565,7 @@ function PreviewOverlay({ onClose, children }: { onClose: () => void; children: 
             </button>
           ))}
         </div>
-        <button type="button" onClick={onClose} className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[13px] font-semibold text-[#1A1A1A]">
+        <button data-opus-button="control" type="button" onClick={onClose} className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[13px] font-semibold text-[#1A1A1A]">
           <X size={15} /> Close
         </button>
       </div>

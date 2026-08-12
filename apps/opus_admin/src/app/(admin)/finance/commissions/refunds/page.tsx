@@ -232,7 +232,7 @@ export default async function CommissionRefundsPage(props: {
                           placeholder="Reason / what you agreed"
                           className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                         />
-                        <button
+                        <button data-opus-button="primary" data-opus-button-size="medium"
                           type="submit"
                           className="mt-2 w-full rounded-lg bg-[#4A2D5C] px-4 py-2 text-sm font-semibold text-white"
                         >
@@ -263,7 +263,7 @@ export default async function CommissionRefundsPage(props: {
                             Policy exception (outside the tier table)
                           </label>
                         )}
-                        <button
+                        <button data-opus-button="neutral" data-opus-button-size="medium"
                           type="submit"
                           className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700"
                         >
@@ -287,7 +287,7 @@ export default async function CommissionRefundsPage(props: {
                           placeholder="Why (required)"
                           className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                         />
-                        <button
+                        <button data-opus-button="danger" data-opus-button-size="medium"
                           type="submit"
                           className="mt-2 w-full rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700"
                         >
@@ -325,7 +325,7 @@ export default async function CommissionRefundsPage(props: {
                           Approved with note: {row.approver_note}
                         </p>
                       )}
-                      <button
+                      <button data-opus-button="primary" data-opus-button-size="medium"
                         type="submit"
                         className="mt-2 rounded-lg bg-[#4A2D5C] px-4 py-2 text-sm font-semibold text-white"
                       >

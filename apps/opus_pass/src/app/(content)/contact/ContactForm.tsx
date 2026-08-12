@@ -100,7 +100,7 @@ export default function ContactForm() {
         {TOPICS.map((option) => {
           const active = topic === option
           return (
-            <button
+            <button data-opus-button="control"
               key={option}
               type="button"
               onClick={() => setTopic(active ? '' : option)}
@@ -136,7 +136,7 @@ export default function ContactForm() {
         <p className="mt-4 text-[13px] font-medium text-red-600">{error}</p>
       )}
 
-      <button
+      <button data-opus-button="primary" data-opus-button-size="large"
         type="submit"
         disabled={pending}
         className="mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-[#1A1A1A] px-6 py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-gray-800 disabled:opacity-60"

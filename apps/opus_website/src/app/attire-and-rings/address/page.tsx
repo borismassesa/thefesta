@@ -253,7 +253,7 @@ export default function AddressPage() {
                 Save as my default address for future orders
               </label>
 
-              <button
+              <button data-opus-button="primary" data-opus-button-size="large"
                 type="button"
                 onClick={handleContinue}
                 className="mt-7 w-full h-12 bg-gray-900 text-white font-semibold rounded-md hover:bg-gray-800 transition"
@@ -320,7 +320,7 @@ function ModeCard({
   caption: string
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       aria-pressed={active}

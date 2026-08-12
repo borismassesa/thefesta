@@ -386,7 +386,7 @@ export default function FrontPageEditor({ articles, maxSlots }: Props) {
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   {idx > 0 && (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => move(idx, idx - 1)}
                       disabled={pending}
@@ -397,7 +397,7 @@ export default function FrontPageEditor({ articles, maxSlots }: Props) {
                     </button>
                   )}
                   {idx < pinned.length - 1 && (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => move(idx, idx + 1)}
                       disabled={pending}
@@ -407,7 +407,7 @@ export default function FrontPageEditor({ articles, maxSlots }: Props) {
                       ↓
                     </button>
                   )}
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => unpin(article.id)}
                     disabled={pending}
@@ -496,7 +496,7 @@ export default function FrontPageEditor({ articles, maxSlots }: Props) {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <button
+                    <button data-opus-button="warning" data-opus-button-size="small"
                       type="button"
                       onClick={() => pinArticle(article)}
                       disabled={pending || slotsFull}
@@ -521,7 +521,7 @@ export default function FrontPageEditor({ articles, maxSlots }: Props) {
                       {status === 'pool' ? 'Pin to slot' : 'Add to front'}
                     </button>
                     {status === 'pool' && (
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => unfeature(article.id)}
                         disabled={pending}

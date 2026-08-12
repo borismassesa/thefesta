@@ -6,7 +6,6 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import type { LucideIcon } from 'lucide-react'
 import {
-  Search,
   Star,
   Eye,
   MapPin,
@@ -105,7 +104,7 @@ function DropdownCheckbox({
   checked: boolean; label: string; sublabel?: string; icon?: LucideIcon; onClick: () => void
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       onClick={onClick}
       className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[13px] transition-colors ${
         checked ? 'bg-[rgba(201,160,220,0.12)] font-semibold text-[#1A1A1A]' : 'text-gray-600 hover:bg-[rgba(201,160,220,0.06)]'
@@ -135,7 +134,7 @@ function AccordionFilter({
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="border-b border-gray-100 last:border-0">
-      <button
+      <button data-opus-button="control"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between rounded-lg px-2 py-3.5 -mx-2 text-left hover:bg-gray-50 transition-colors"
       >
@@ -204,7 +203,7 @@ function FilterBar({
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
               <span className="text-[15px] font-bold text-[#1A1A1A]">Filters</span>
-              <button onClick={() => setPanelOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1A1A1A] hover:bg-black transition-colors">
+              <button data-opus-button="control" onClick={() => setPanelOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1A1A1A] hover:bg-black transition-colors">
                 <X size={16} className="text-white" />
               </button>
             </div>
@@ -310,14 +309,14 @@ function FilterBar({
 
             {/* Footer */}
             <div className="border-t border-gray-100 px-5 py-4 flex items-center justify-between">
-              <button
+              <button data-opus-button="control"
                 onClick={() => { onClearAll(); setPanelOpen(false) }}
                 disabled={totalActive === 0}
                 className="text-[13px] font-semibold text-gray-400 hover:text-[#1A1A1A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Clear all
               </button>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 onClick={() => setPanelOpen(false)}
                 className="rounded-full bg-[#1A1A1A] px-5 py-2 text-[13px] font-bold text-white hover:bg-[#333] transition-colors"
               >
@@ -330,7 +329,7 @@ function FilterBar({
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="large"
             onClick={() => setPanelOpen(true)}
             className={`flex shrink-0 items-center gap-2 rounded-full border bg-white px-4 py-3 text-[13px] font-semibold transition-all sm:px-5 sm:py-4 ${
               totalActive > 0
@@ -357,7 +356,7 @@ function FilterBar({
                 { value: 'map'  as ViewMode, icon: <Map size={14} />,         label: 'Map',  mobile: false },
               ] as const
             ).map((opt) => (
-              <button
+              <button data-opus-button="primary" data-opus-button-size="large"
                 key={opt.value}
                 onClick={() => onViewChange(opt.value)}
                 title={opt.label}
@@ -377,7 +376,7 @@ function FilterBar({
             {selectedCategories.map((id) => {
               const cat = vendorCategories.find((c) => c.id === id)
               return (
-                <button key={id} onClick={() => onCategoryToggle(id)}
+                <button data-opus-button="control" key={id} onClick={() => onCategoryToggle(id)}
                   className="flex items-center gap-1 rounded-full bg-[rgba(201,160,220,0.15)] px-2.5 py-1 text-[11px] font-semibold text-[#1A1A1A] transition-colors hover:bg-[rgba(201,160,220,0.28)]">
                   {cat?.label} <X size={9} />
                 </button>
@@ -386,14 +385,14 @@ function FilterBar({
             {selectedCities.map((id) => {
               const city = vendorCities.find((c) => c.id === id)
               return (
-                <button key={id} onClick={() => onCityToggle(id)}
+                <button data-opus-button="control" key={id} onClick={() => onCityToggle(id)}
                   className="flex items-center gap-1 rounded-full bg-[rgba(201,160,220,0.15)] px-2.5 py-1 text-[11px] font-semibold text-[#1A1A1A] transition-colors hover:bg-[rgba(201,160,220,0.28)]">
                   {city?.label} <X size={9} />
                 </button>
               )
             })}
             {minRating !== null && (
-              <button onClick={() => onMinRatingChange(null)}
+              <button data-opus-button="control" onClick={() => onMinRatingChange(null)}
                 className="flex items-center gap-1 rounded-full bg-[rgba(201,160,220,0.15)] px-2.5 py-1 text-[11px] font-semibold text-[#1A1A1A] transition-colors hover:bg-[rgba(201,160,220,0.28)]">
                 ★ {minRating}+ <X size={9} />
               </button>
@@ -449,17 +448,17 @@ function BrowseCard({ vendor, hovered, onHover }: {
 
         {images.length > 1 && (
           <>
-            <button onClick={prev} aria-label="Previous image"
+            <button data-opus-button="control" onClick={prev} aria-label="Previous image"
               className="absolute left-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white">
               <ArrowRight size={13} className="rotate-180 text-black" />
             </button>
-            <button onClick={next} aria-label="Next image"
+            <button data-opus-button="control" onClick={next} aria-label="Next image"
               className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white">
               <ArrowRight size={13} className="text-black" />
             </button>
             <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 gap-1">
               {images.map((_, i) => (
-                <button key={i} onClick={(e) => { e.preventDefault(); setIdx(i) }}
+                <button data-opus-button="control" key={i} onClick={(e) => { e.preventDefault(); setIdx(i) }}
                   className={`h-1.5 rounded-full transition-all duration-300 ${i === idx ? 'w-3.5 bg-white' : 'w-1.5 bg-white/60'}`} />
               ))}
             </div>
@@ -471,7 +470,7 @@ function BrowseCard({ vendor, hovered, onHover }: {
             {vendor.badge}
           </span>
         )}
-        <button onClick={(e) => e.preventDefault()} aria-label="Save"
+        <button data-opus-button="control" onClick={(e) => e.preventDefault()} aria-label="Save"
           className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm hover:bg-white">
           <Heart size={11} className="text-gray-400" />
         </button>
@@ -524,7 +523,7 @@ function BrowseCard({ vendor, hovered, onHover }: {
             <p className="text-[10px] text-gray-400">Starting at</p>
             <p className="text-[15px] font-bold text-[#1A1A1A]">{startPrice}</p>
           </div>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             type="button"
             onClick={goToContact}
             className="shrink-0 rounded-full bg-[#C9A0DC] px-4 py-1.5 text-[12px] font-bold text-[#1A1A1A] transition-colors hover:bg-[#b98dcc]"
@@ -561,15 +560,15 @@ function GridCardImageCarousel({ vendor }: { vendor: Vendor }) {
 
       {images.length > 1 && (
         <>
-          <button onClick={prev} aria-label="Previous image" className="absolute left-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white">
+          <button data-opus-button="control" onClick={prev} aria-label="Previous image" className="absolute left-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white">
             <ArrowRight size={13} className="rotate-180 text-black" />
           </button>
-          <button onClick={next} aria-label="Next image" className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white">
+          <button data-opus-button="control" onClick={next} aria-label="Next image" className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white">
             <ArrowRight size={13} className="text-black" />
           </button>
           <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 gap-1">
             {images.map((_, i) => (
-              <button key={i} onClick={(e) => { e.preventDefault(); setIdx(i) }}
+              <button data-opus-button="control" key={i} onClick={(e) => { e.preventDefault(); setIdx(i) }}
                 className={`h-1.5 rounded-full transition-all duration-300 ${i === idx ? 'w-3.5 bg-white' : 'w-1.5 bg-white/60'}`} />
             ))}
           </div>
@@ -585,7 +584,7 @@ function GridCardImageCarousel({ vendor }: { vendor: Vendor }) {
         )}
       </div>
 
-      <button onClick={(e) => e.preventDefault()} aria-label="Save to favourites"
+      <button data-opus-button="control" onClick={(e) => e.preventDefault()} aria-label="Save to favourites"
         className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-white">
         <Heart size={13} className="text-gray-500" />
       </button>
@@ -670,9 +669,9 @@ function GridCard({ vendor }: { vendor: Vendor }) {
             <p className="font-display text-[16px] leading-none text-black">{startingPrice}</p>
           </div>
           {isNew ? (
-            <button type="button" onClick={goToContact} className="rounded-full border border-[#C9A0DC] px-4 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-[rgba(201,160,220,0.15)]">Get a quote</button>
+            <button data-opus-button="neutral" data-opus-button-size="small" type="button" onClick={goToContact} className="rounded-full border border-[#C9A0DC] px-4 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-[rgba(201,160,220,0.15)]">Get a quote</button>
           ) : (
-            <button type="button" onClick={goToContact} className="rounded-full bg-[#C9A0DC] px-4 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-[#b98dcc]">Get a quote</button>
+            <button data-opus-button="primary" data-opus-button-size="small" type="button" onClick={goToContact} className="rounded-full bg-[#C9A0DC] px-4 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-[#b98dcc]">Get a quote</button>
           )}
         </div>
       </div>
@@ -722,15 +721,15 @@ function MapListCard({ vendor, onHover, onClick }: {
 
         {images.length > 1 && (
           <>
-            <button onClick={prev} aria-label="Previous image" className="absolute left-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white">
+            <button data-opus-button="control" onClick={prev} aria-label="Previous image" className="absolute left-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white">
               <ArrowRight size={13} className="rotate-180 text-black" />
             </button>
-            <button onClick={next} aria-label="Next image" className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white">
+            <button data-opus-button="control" onClick={next} aria-label="Next image" className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm opacity-0 transition-opacity group-hover/img:opacity-100 hover:bg-white">
               <ArrowRight size={13} className="text-black" />
             </button>
             <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 gap-1">
               {images.map((_, i) => (
-                <button key={i} onClick={(e) => { e.preventDefault(); setIdx(i) }}
+                <button data-opus-button="control" key={i} onClick={(e) => { e.preventDefault(); setIdx(i) }}
                   className={`h-1.5 rounded-full transition-all duration-300 ${i === idx ? 'w-3.5 bg-white' : 'w-1.5 bg-white/60'}`} />
               ))}
             </div>
@@ -746,7 +745,7 @@ function MapListCard({ vendor, onHover, onClick }: {
           )}
         </div>
 
-        <button onClick={(e) => e.preventDefault()} aria-label="Save to favourites"
+        <button data-opus-button="control" onClick={(e) => e.preventDefault()} aria-label="Save to favourites"
           className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-white">
           <Heart size={13} className="text-gray-500" />
         </button>
@@ -803,9 +802,9 @@ function MapListCard({ vendor, onHover, onClick }: {
             <p className="font-display text-[16px] leading-none text-black">{startingPrice}</p>
           </div>
           {isNew ? (
-            <button type="button" onClick={goToContact} className="rounded-full border border-[#C9A0DC] px-4 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-[rgba(201,160,220,0.15)]">Get a quote</button>
+            <button data-opus-button="neutral" data-opus-button-size="small" type="button" onClick={goToContact} className="rounded-full border border-[#C9A0DC] px-4 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-[rgba(201,160,220,0.15)]">Get a quote</button>
           ) : (
-            <button type="button" onClick={goToContact} className="rounded-full bg-[#C9A0DC] px-4 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-[#b98dcc]">Get a quote</button>
+            <button data-opus-button="primary" data-opus-button-size="small" type="button" onClick={goToContact} className="rounded-full bg-[#C9A0DC] px-4 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-[#b98dcc]">Get a quote</button>
           )}
         </div>
       </div>
@@ -1030,18 +1029,12 @@ viewMode={viewMode}                     onViewChange={setViewMode}
                 <div className="absolute -inset-[2px] rounded-full bg-size-[200%_100%] animate-[shimmer_3s_ease-in-out_infinite] bg-linear-to-r from-[#C9A0DC]/20 via-[#C9A0DC] to-[#C9A0DC]/20 opacity-50 group-focus-within/search:opacity-80 transition-opacity" />
                 <input
                   ref={searchInputRef}
-                  type="text" value={query}
+                  type="search" value={query}
                   onChange={(e) => { setQuery(e.target.value); setPage(1) }}
                   onKeyDown={(e) => { if (e.key === 'Enter') searchInputRef.current?.blur() }}
                   placeholder="Search by name, category, or city…"
                   className="relative w-full rounded-full border-0 bg-white py-4 pl-5 pr-14 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none"
                 />
-                <button
-                  onClick={() => searchInputRef.current?.blur()}
-                  className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-(--accent) transition-colors hover:bg-(--accent-hover)"
-                >
-                  <Search size={18} className="text-(--on-accent)" />
-                </button>
               </div>
             </FilterBar>
           </div>
@@ -1068,7 +1061,7 @@ viewMode={viewMode}                     onViewChange={setViewMode}
                   <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
                     <div className="mb-3 text-4xl">🔍</div>
                     <p className="text-sm font-bold">No vendors found</p>
-                    <button onClick={handleClearAll}
+                    <button data-opus-button="primary" data-opus-button-size="medium" onClick={handleClearAll}
                       className="mt-4 rounded-full bg-[#C9A0DC] px-5 py-2 text-sm font-bold text-[#1A1A1A]">
                       Clear filters
                     </button>
@@ -1115,7 +1108,7 @@ viewMode={viewMode}                     onViewChange={setViewMode}
                 <div className="mb-4 text-5xl">🔍</div>
                 <h3 className="text-lg font-bold">No vendors found</h3>
                 <p className="mt-2 text-[13px] text-gray-500">Try adjusting your filters or search term.</p>
-                <button onClick={handleClearAll}
+                <button data-opus-button="primary" data-opus-button-size="medium" onClick={handleClearAll}
                   className="mt-5 rounded-full bg-[#C9A0DC] px-6 py-2.5 text-sm font-bold text-[#1A1A1A] hover:bg-[#b98dcc]">
                   Clear all filters
                 </button>
@@ -1135,7 +1128,7 @@ viewMode={viewMode}                     onViewChange={setViewMode}
 
             {totalPages > 1 && (
               <div className="mt-10 flex items-center justify-center gap-1">
-                <button
+                <button data-opus-button="control"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                   className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 disabled:opacity-30"
@@ -1157,7 +1150,7 @@ viewMode={viewMode}                     onViewChange={setViewMode}
                     p === '…' ? (
                       <span key={`ellipsis-${i}`} className="flex h-9 w-9 items-center justify-center text-sm text-gray-400">…</span>
                     ) : (
-                      <button
+                      <button data-opus-button="primary" data-opus-button-size="medium"
                         key={p}
                         onClick={() => setPage(p as number)}
                         className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold transition-colors ${
@@ -1170,7 +1163,7 @@ viewMode={viewMode}                     onViewChange={setViewMode}
                   )
                 })()}
 
-                <button
+                <button data-opus-button="control"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                   className="flex h-9 w-9 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 disabled:opacity-30"

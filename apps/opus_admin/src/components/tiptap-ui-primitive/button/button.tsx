@@ -64,7 +64,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     if (!tooltip || !showTooltip) {
       return (
-        <button
+        <button data-opus-button="control"
           data-slot="tiptap-button"
           className={cn("tiptap-button", className)}
           ref={ref}

@@ -66,7 +66,7 @@ function Avatar({ imageUrl, name }: { imageUrl: string | undefined; name: string
           {initials}
         </div>
       )}
-      <button
+      <button data-opus-button="control"
         type="button"
         aria-label={t('aria_change_photo')}
         className="absolute bottom-0 right-0 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 transition-colors"
@@ -180,7 +180,7 @@ function PhoneField({ initial }: { initial: string | null }) {
             autoFocus
             className="flex-1 text-sm font-semibold border-b border-[#C9A0DC] bg-transparent focus:outline-none text-gray-900 pb-0.5"
           />
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={save}
             disabled={saving}
@@ -188,7 +188,7 @@ function PhoneField({ initial }: { initial: string | null }) {
           >
             {saving ? t('phone_saving') : t('phone_save')}
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => { setPhone(initial ?? ''); setEditing(false); setError(null) }}
             className="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors"
@@ -213,7 +213,7 @@ function PhoneField({ initial }: { initial: string | null }) {
         </span>
       }
       action={
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setEditing(true)}
           className={cn(
@@ -259,7 +259,7 @@ export default function SettingsClient({ phone, vendor }: Props) {
           label={t('row_full_name')}
           value={name}
           action={
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => openUserProfile()}
               className="text-xs font-semibold text-[#7E5896] hover:text-[#6b4a80] transition-colors shrink-0"
@@ -273,7 +273,7 @@ export default function SettingsClient({ phone, vendor }: Props) {
           label={t('row_email')}
           value={email}
           action={
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => openUserProfile()}
               className="text-xs font-semibold text-[#7E5896] hover:text-[#6b4a80] transition-colors shrink-0"
@@ -288,7 +288,7 @@ export default function SettingsClient({ phone, vendor }: Props) {
           label={t('row_password_security')}
           value={t('row_password_security_value')}
           action={
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => openUserProfile()}
               className="text-gray-400 hover:text-gray-600 transition-colors shrink-0"
@@ -336,7 +336,7 @@ export default function SettingsClient({ phone, vendor }: Props) {
 
       {/* Sign out */}
       <div className="pt-2">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => signOut({ redirectUrl: '/sign-in' })}
           className="flex items-center gap-2 text-sm font-semibold text-red-500 hover:text-red-600 transition-colors"

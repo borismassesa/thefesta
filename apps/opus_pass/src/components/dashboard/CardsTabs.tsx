@@ -25,7 +25,7 @@ export default function CardsTabs() {
   const t = useT('dashboard-chrome')
   return (
     <div
-      className="mb-6 flex flex-wrap items-center gap-x-6 border-b border-black/[0.06]"
+      className="no-scrollbar -mx-4 mb-6 flex items-center gap-x-6 overflow-x-auto overflow-y-hidden border-b border-black/[0.06] px-4 [&>*]:whitespace-nowrap sm:mx-0 sm:px-0"
       role="tablist"
       aria-label={t('nav_my_orders')}
     >

@@ -92,7 +92,7 @@ export default function ShareRow({
       <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">
         Share
       </span>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={toggleLike}
         aria-pressed={liked}
@@ -107,7 +107,7 @@ export default function ShareRow({
           strokeWidth={liked ? 1.5 : 2}
         />
       </button>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={shareArticle}
         aria-label="Share article"
@@ -127,7 +127,7 @@ export default function ShareRow({
       <a href={emailHref} aria-label="Share by email" className={buttonClass}>
         <Mail size={16} />
       </a>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={copyLink}
         aria-label={copied ? 'Link copied' : 'Copy link'}

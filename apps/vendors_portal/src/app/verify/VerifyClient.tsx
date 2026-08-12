@@ -307,7 +307,7 @@ export default function VerifyClient({
                 isCorrection={isCorrection}
               />
             </div>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setSkippedOptional(true)}
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 transition-colors hover:text-gray-900"
@@ -373,7 +373,7 @@ export default function VerifyClient({
         <div className="flex items-center gap-2 sm:gap-3">
           <LocaleToggle />
           <SignOutButton redirectUrl="/sign-in">
-            <button
+            <button data-opus-button="danger" data-opus-button-size="small"
               type="button"
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 px-3 py-1.5 rounded-md hover:bg-rose-50 transition-colors"
             >
@@ -697,7 +697,7 @@ function DocumentUploadActions({
     <div className="mt-4 space-y-3">
       {slot.altDocType && !current && (
         <div className="inline-flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setShowAltToggle(false)}
             aria-pressed={!showAltToggle}
@@ -710,7 +710,7 @@ function DocumentUploadActions({
           >
             {t('upload_business_license_tab')}
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setShowAltToggle(true)}
             aria-pressed={showAltToggle}
@@ -764,7 +764,7 @@ function DocumentUploadActions({
             e.target.value = ''
           }}
         />
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="medium"
           type="button"
           onClick={onPick}
           disabled={pending}
@@ -968,7 +968,7 @@ function AgreementDocCard({
     >
       {/* Header row — title, code, status. Clicking toggles the body open for
           unsigned docs; signed docs just show the done state. */}
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={signed ? undefined : onToggle}
         aria-expanded={signed ? undefined : open}
@@ -1209,7 +1209,7 @@ function AgreementDocCard({
               </div>
             )}
 
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={onSubmit}
               disabled={pending}

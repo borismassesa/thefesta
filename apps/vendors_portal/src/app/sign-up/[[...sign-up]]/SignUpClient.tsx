@@ -215,7 +215,7 @@ export default function SignUpClient({ redirectUrl }: { redirectUrl?: string }) 
                   <p className="mx-auto mt-2 max-w-xs text-sm text-gray-500">
                     {t('auth_stalled_desc')}
                   </p>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => window.location.reload()}
                     className={`mt-5 ${buttonClass}`}
@@ -264,7 +264,7 @@ export default function SignUpClient({ redirectUrl }: { redirectUrl?: string }) 
 
               {step === 'details' && (
                 <>
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => onOAuth('google')}
                     disabled={Boolean(oauthBusy)}
@@ -354,7 +354,7 @@ export default function SignUpClient({ redirectUrl }: { redirectUrl?: string }) 
                         fail when bot protection is enabled on the instance. */}
                     <div id="clerk-captcha" />
 
-                    <button type="submit" disabled={busy} className={buttonClass}>
+                    <button data-opus-button="primary" data-opus-button-size="medium" type="submit" disabled={busy} className={buttonClass}>
                       {busy ? t('creating_account_label') : t('create_account_button')}
                     </button>
                   </form>
@@ -372,7 +372,7 @@ export default function SignUpClient({ redirectUrl }: { redirectUrl?: string }) 
                       disabled={busy}
                     />
                   </div>
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="submit"
                     disabled={busy || code.replace(/\D/g, '').length < 6}
                     className={buttonClass}
@@ -380,14 +380,14 @@ export default function SignUpClient({ redirectUrl }: { redirectUrl?: string }) 
                     {busy ? t('verifying_label') : t('verify_continue_button')}
                   </button>
                   <div className="flex items-center justify-between text-sm">
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={resetToDetails}
                       className="text-gray-500 hover:text-[#1A1A1A]"
                     >
                       {t('use_different_details_button')}
                     </button>
-                    <button type="button" onClick={resendCode} disabled={busy} className={linkClass}>
+                    <button data-opus-button="control" type="button" onClick={resendCode} disabled={busy} className={linkClass}>
                       {t('resend_code_button')}
                     </button>
                   </div>

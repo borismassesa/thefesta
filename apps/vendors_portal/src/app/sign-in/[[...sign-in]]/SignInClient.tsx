@@ -243,7 +243,7 @@ export default function SignInClient({
               <p className="mx-auto mt-2 max-w-xs text-sm text-gray-500">
                 {t('auth_stalled_desc')}
               </p>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => window.location.reload()}
                 className={`mt-5 ${buttonClass}`}
@@ -279,7 +279,7 @@ export default function SignInClient({
 
           {step === 'password' && (
             <>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => onOAuth('google')}
                 disabled={Boolean(oauthBusy)}
@@ -316,7 +316,7 @@ export default function SignInClient({
                     <label htmlFor="password" className="block text-sm font-medium text-[#1A1A1A]">
                       {t('field_password_label')}
                     </label>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => {
                         setStep('forgot')
@@ -338,7 +338,7 @@ export default function SignInClient({
                     className={inputClass}
                   />
                 </div>
-                <button type="submit" disabled={busy} className={buttonClass}>
+                <button data-opus-button="primary" data-opus-button-size="medium" type="submit" disabled={busy} className={buttonClass}>
                   {busy ? t('signing_in_label') : t('signin_submit_button')}
                 </button>
               </form>
@@ -370,10 +370,10 @@ export default function SignInClient({
                   className={inputClass}
                 />
               </div>
-              <button type="submit" disabled={busy} className={buttonClass}>
+              <button data-opus-button="primary" data-opus-button-size="medium" type="submit" disabled={busy} className={buttonClass}>
                 {busy ? t('sending_label') : t('send_reset_code_button')}
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={backToSignIn}
                 className="block w-full text-center text-sm text-gray-500 hover:text-[#1A1A1A]"
@@ -404,14 +404,14 @@ export default function SignInClient({
                   className={inputClass}
                 />
               </div>
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="submit"
                 disabled={busy || code.replace(/\D/g, '').length < 6}
                 className={buttonClass}
               >
                 {busy ? t('resetting_label') : t('reset_submit_button')}
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={backToSignIn}
                 className="block w-full text-center text-sm text-gray-500 hover:text-[#1A1A1A]"

@@ -23,7 +23,7 @@ export default function ExpandableText({
       {expanded ? (
         <>
           {text}{' '}
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setExpanded(false)}
             className="font-semibold underline underline-offset-2 text-gray-900 hover:text-gray-700"
@@ -34,7 +34,7 @@ export default function ExpandableText({
       ) : (
         <>
           {text.slice(0, limit).trimEnd()}…{' '}
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setExpanded(true)}
             className="font-semibold underline underline-offset-2 text-gray-900 hover:text-gray-700"
