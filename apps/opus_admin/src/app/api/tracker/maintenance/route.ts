@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabase'
 import { logDbError } from '@/lib/log-safe'
+import { isCronAuthorized } from '@/lib/cron-auth'
 
 // Tracker maintenance. Four idempotent jobs, one endpoint.
 //
@@ -27,7 +28,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   const secret = process.env.TRACKER_CRON_SECRET
   const auth = request.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!isCronAuthorized(auth, secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   if (!hasSupabaseAdminConfig()) {
@@ -35,32 +36,46 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createSupabaseAdminClient()
+  const failedJobs: string[] = []
 
   const { data: generated, error: generateError } = await supabase.rpc(
     'tracker_generate_entries',
     { p_date: null },
   )
-  if (generateError) logDbError('tracker.generate', generateError)
+  if (generateError) {
+    logDbError('tracker.generate', generateError)
+    failedJobs.push('generate_entries')
+  }
 
   const { data: carried, error: carryError } = await supabase.rpc('tracker_carry_over', {
     p_from_date: null,
   })
-  if (carryError) logDbError('tracker.carry_over', carryError)
+  if (carryError) {
+    logDbError('tracker.carry_over', carryError)
+    failedJobs.push('carry_over')
+  }
 
   const { data: missed, error: missedError } = await supabase.rpc('tracker_mark_missed', {
     p_now: null,
   })
-  if (missedError) logDbError('tracker.mark_missed', missedError)
+  if (missedError) {
+    logDbError('tracker.mark_missed', missedError)
+    failedJobs.push('mark_missed')
+  }
 
   const rebuilt = await rebuildWeeklySummaries(supabase)
 
-  return NextResponse.json({
-    ok: true,
-    generated: typeof generated === 'number' ? generated : 0,
-    carried: typeof carried === 'number' ? carried : 0,
-    markedMissed: typeof missed === 'number' ? missed : 0,
-    summariesRebuilt: rebuilt,
-  })
+  return NextResponse.json(
+    {
+      ok: failedJobs.length === 0,
+      generated: typeof generated === 'number' ? generated : 0,
+      carried: typeof carried === 'number' ? carried : 0,
+      markedMissed: typeof missed === 'number' ? missed : 0,
+      summariesRebuilt: rebuilt,
+      failedJobs,
+    },
+    { status: failedJobs.length === 0 ? 200 : 500 },
+  )
 }
 
 /**
