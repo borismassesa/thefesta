@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { capabilitiesFor } from '@/lib/workspace/access'
 import { getWorkspaceSession } from '@/lib/workspace/identity'
+import { isManagingDirector } from '@/lib/tracker/queries'
 import AccessNotice from './_components/AccessNotice'
 import WorkspaceNav from './_components/WorkspaceNav'
 
@@ -29,7 +30,7 @@ export default async function WorkspaceLayout({ children }: { children: ReactNod
   }
 
   const shell = (body: ReactNode, nav?: ReactNode) => (
-    <div className="mx-auto max-w-[1400px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8 lg:px-8 lg:pb-10">
+    <div className="mx-auto max-w-350 px-4 pb-6 pt-4 sm:px-6 sm:pb-8 lg:px-8 lg:pb-10">
       {nav}
       {body}
     </div>
@@ -43,8 +44,14 @@ export default async function WorkspaceLayout({ children }: { children: ReactNod
     return shell(<AccessNotice code="access_denied" />)
   }
 
+  const showMdTracker = await isManagingDirector(session.employee)
+
   return shell(
     children,
-    <WorkspaceNav access={session.access} capabilities={capabilitiesFor(session.access)} />,
+    <WorkspaceNav
+      access={session.access}
+      capabilities={capabilitiesFor(session.access)}
+      isManagingDirector={showMdTracker}
+    />,
   )
 }

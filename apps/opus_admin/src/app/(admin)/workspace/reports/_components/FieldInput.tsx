@@ -113,7 +113,7 @@ export default function FieldInput({
               className={cn(
                 'h-9 w-9 rounded-full border text-sm font-semibold transition-colors',
                 value === n
-                  ? 'border-gray-900 bg-gray-900 text-white'
+                  ? 'border-[#7E5896] bg-[#7E5896] text-white'
                   : 'border-gray-200 text-gray-600 hover:bg-gray-50',
                 disabled && 'opacity-50',
               )}
@@ -140,7 +140,7 @@ export default function FieldInput({
               className={cn(
                 'rounded-full border px-4 py-2 text-[13px] font-semibold transition-colors',
                 value === choice.v
-                  ? 'border-gray-900 bg-gray-900 text-white'
+                  ? 'border-[#7E5896] bg-[#7E5896] text-white'
                   : 'border-gray-200 text-gray-600 hover:bg-gray-50',
                 disabled && 'opacity-50',
               )}

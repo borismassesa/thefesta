@@ -52,34 +52,34 @@ export default async function GrowthPeriodsPage() {
           <span className="font-medium text-gray-600">Label</span>
           <input name="label" className="w-full rounded-md border border-gray-200 px-2 py-2" placeholder="Optional; generated when blank" />
         </label>
-        <button data-opus-button="primary" data-opus-button-size="medium" className="self-end rounded-md bg-gray-900 px-3 py-2 font-semibold text-white hover:bg-gray-700">
+        <button data-opus-button="primary" data-opus-button-size="medium" className="self-end rounded-xl bg-[#7E5896] px-4 py-2.5 font-semibold text-white hover:bg-[#6c4884]">
           Create Period
         </button>
       </form>
 
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <table className="opus-table w-full text-left text-[12px]">
-          <thead className="border-b border-gray-100 text-gray-500">
+        <table className="opus-table w-full">
+          <thead>
             <tr>
-              <th className="px-4 py-3 font-medium">Label</th>
-              <th className="px-3 py-3 font-medium">Type</th>
-              <th className="px-3 py-3 font-medium">Start</th>
-              <th className="px-3 py-3 font-medium">Exclusive End</th>
-              <th className="px-3 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
+              <th>Label</th>
+              <th>Type</th>
+              <th>Start</th>
+              <th>Exclusive End</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {periods.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No Growth periods have been created.</td></tr>
+              <tr><td colSpan={6} className="py-8 text-center text-gray-500">No Growth periods have been created.</td></tr>
             ) : periods.map((period) => (
-              <tr key={period.id} className="border-b border-gray-50">
-                <td className="px-4 py-3 font-semibold text-gray-800">{period.label}</td>
-                <td className="px-3 py-3 text-gray-600">{period.periodType}</td>
-                <td className="px-3 py-3 font-mono text-gray-600">{period.startDate}</td>
-                <td className="px-3 py-3 font-mono text-gray-600">{period.endDate}</td>
-                <td className="px-3 py-3 text-gray-600">{period.status}</td>
-                <td className="px-4 py-3">
+              <tr key={period.id}>
+                <th scope="row" className="opus-table-cell--leading">{period.label}</th>
+                <td>{period.periodType}</td>
+                <td className="font-mono">{period.startDate}</td>
+                <td className="font-mono">{period.endDate}</td>
+                <td className="opus-table-cell--status">{period.status}</td>
+                <td>
                   <div className="flex flex-wrap gap-2">
                     <form action={lockPeriodAction}>
                       <input type="hidden" name="id" value={period.id} />

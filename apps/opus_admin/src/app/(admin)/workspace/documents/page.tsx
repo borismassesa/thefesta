@@ -18,8 +18,8 @@ export const dynamic = 'force-dynamic'
 // its own audit line, which is deliberately not smuggled in here.
 
 const STATUS_STYLES: Record<string, string> = {
-  approved: 'bg-[#9FE870] text-gray-900',
-  signed: 'bg-[#9FE870] text-gray-900',
+  approved: 'border border-[#C9A0DC] bg-[#F0DFF6] text-[#5d3a78]',
+  signed: 'border border-[#C9A0DC] bg-[#F0DFF6] text-[#5d3a78]',
   sent: 'bg-blue-50 text-blue-700',
   pending: 'bg-gray-100 text-gray-600',
   rejected: 'bg-rose-100 text-rose-700',

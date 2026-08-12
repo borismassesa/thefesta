@@ -16,6 +16,10 @@ import {
 // - the cart + checkout funnel — a customer must be signed in to open their cart
 //   or pay, so every order is tied to a real account (order history, RSVP/guest
 //   management, and the couple dashboard all key off the signed-in user).
+//
+// Everything else is public — including /entrance-card-scanner/** (door staff).
+// Door attendants authenticate with a door access code via /api/checkin/*,
+// never Clerk. Do not add that path to this matcher.
 const isProtectedRoute = createRouteMatcher([
   '/my(.*)',
   '/digital-cards/cart(.*)',
@@ -69,8 +73,10 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    // Skip Next internals and static assets unless they appear in search params.
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Skip Next internals, static assets, and the door-staff scanner UI.
+    // Scanner auth is the door access code (/api/checkin/*), not Clerk — running
+    // this middleware there only adds latency on venue phones.
+    '/((?!_next|entrance-card-scanner|scanner|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     // Always run for API routes.
     '/(api|trpc)(.*)',
   ],

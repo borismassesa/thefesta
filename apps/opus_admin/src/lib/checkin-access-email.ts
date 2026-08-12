@@ -23,7 +23,7 @@ export interface AccessCodeMessage {
   /** Raw 8-character token. Formatted for display by this module. */
   code: string
   expiresAt: string
-  /** Absolute scanner link, or empty when NEXT_PUBLIC_OPUS_SCANNER_URL is unset. */
+  /** Absolute opus_pass /entrance-card-scanner link, or empty when env is unset. */
   link: string
 }
 

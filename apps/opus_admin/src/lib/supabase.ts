@@ -17,6 +17,26 @@ export function isSupabaseAdminConfigError(error: unknown): error is SupabaseAdm
 }
 
 /**
+ * One retry on transient DNS / connection blips.
+ *
+ * Local `next dev` and brief Wi-Fi hiccups routinely surface as
+ * `TypeError: fetch failed` / `getaddrinfo ENOTFOUND` against Supabase.
+ * Without a retry, the admin dashboard paints every counter as 0 and
+ * looks like a quiet healthy day. HTTP 4xx/5xx responses are NOT
+ * retried — those are real answers.
+ */
+function fetchWithTransientRetry(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return fetch(input, init).catch(async (err: unknown) => {
+    await new Promise((r) => setTimeout(r, 250))
+    return fetch(input, init).catch(() => {
+      // Re-throw the original failure so callers see the first cause,
+      // not a second identical one.
+      throw err
+    })
+  })
+}
+
+/**
  * Server-side admin client (bypasses RLS via service role).
  * Use for trusted admin writes — never expose to the browser.
  */
@@ -28,6 +48,7 @@ export function createSupabaseAdminClient(): SupabaseClient {
   }
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { fetch: fetchWithTransientRetry },
   })
 }
 

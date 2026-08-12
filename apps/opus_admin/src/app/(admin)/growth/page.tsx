@@ -1,18 +1,20 @@
 import Link from 'next/link'
 import { hasAnyPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
+import MonthPager from './_components/MonthPager'
 import SetGrowthHeading from './_components/SetGrowthHeading'
 import StatusPill from './_components/StatusPill'
-import { computeStatus, formatUnit } from './_lib/status'
+import { GtCard, GtSectionHeader, GT } from './_components/ui'
+import { computePercent, computeStatus, formatUnit } from './_lib/status'
 import { getKpiActuals, getKpiTargets, type GrowthCategory } from './_lib/queries'
-import { currentMonthKey, monthBounds } from './_lib/period'
+import { monthBounds, resolveTrackerMonth, TRACKER_START } from './_lib/period'
 
 export const dynamic = 'force-dynamic'
 
 const CATEGORY_LABEL: Record<GrowthCategory, string> = {
   sales_marketing: 'Sales & Marketing (3-person team)',
-  social_media: 'Social Media',
-  studio: 'Studio Performance',
+  social_media: 'Social Media (Mid baseline)',
+  studio: 'Studio (Mid baseline)',
 }
 
 const CATEGORY_HREF: Record<GrowthCategory, string> = {
@@ -21,16 +23,35 @@ const CATEGORY_HREF: Record<GrowthCategory, string> = {
   studio: '/growth/studio',
 }
 
-function monthLabel(monthKey: string): string {
-  const d = new Date(`${monthKey}T00:00:00Z`)
-  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+function firstParam(value: string | string[] | undefined): string | null {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null)
 }
 
-export default async function GrowthDashboardPage() {
+function monthLabel(monthKey: string): string {
+  return new Date(`${monthKey}T00:00:00Z`).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+function pctLabel(actual: number | null, target: number): string {
+  const pct = computePercent(actual, target)
+  if (pct === null) return '—'
+  return `${Math.round(pct * 100)}%`
+}
+
+export default async function GrowthDashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
   const canView = await hasAnyPermission(['growth.write', 'growth.admin'])
   if (!canView) throw new Error("You don't have permission to view the Growth Tracker.")
 
-  const month = currentMonthKey()
+  const params = await searchParams
+  const requested = firstParam(params?.month)
+  const month = resolveTrackerMonth(requested)
   const bounds = monthBounds(month)
   const supabase = createSupabaseAdminClient()
 
@@ -41,7 +62,9 @@ export default async function GrowthDashboardPage() {
   ])
   const allTargetIds = [...marketingTargets, ...socialTargets, ...studioTargets].map((t) => t.id)
   const allActuals = await getKpiActuals(allTargetIds)
-  const actualByTargetId = new Map(allActuals.filter((a) => a.month === month).map((a) => [a.kpiTargetId, a.actual]))
+  const actualByTargetId = new Map(
+    allActuals.filter((a) => a.month === month).map((a) => [a.kpiTargetId, a] as const),
+  )
 
   const [{ data: rosterRows }, { data: logRows }] = await Promise.all([
     supabase
@@ -67,38 +90,49 @@ export default async function GrowthDashboardPage() {
   ).length
   const signedActual = rows.filter((r) => r.outcome === 'Won — Signed Up').length
 
-  function categorySection(category: GrowthCategory, targets: typeof marketingTargets) {
+  function metricTable(
+    items: {
+      key: string
+      label: string
+      target: number
+      actual: number | null
+      unit: string
+      notes: string
+    }[],
+  ) {
     return (
-      <div key={category} className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <div className="text-[12px] font-semibold tracking-wide text-gray-900">{CATEGORY_LABEL[category].toUpperCase()}</div>
-          <Link href={CATEGORY_HREF[category]} className="text-[12px] font-medium text-gray-500 hover:text-gray-800">
-            View tracker →
-          </Link>
-        </div>
-        <table className="opus-table w-full text-[12px]">
+      <div className={GT.tableShell}>
+        <table className={GT.table}>
           <thead>
-            <tr className="border-b border-gray-100 text-left text-gray-500">
-              <th className="px-4 py-2 font-medium">Metric</th>
-              <th className="px-3 py-2 font-medium">Target</th>
-              <th className="px-3 py-2 font-medium">Actual</th>
-              <th className="px-3 py-2 font-medium">% to Target</th>
-              <th className="px-3 py-2 font-medium">Status</th>
+            <tr>
+              <th>Metric</th>
+              <th data-numeric="true">Target</th>
+              <th data-numeric="true">Actual</th>
+              <th data-numeric="true">% to Target</th>
+              <th>Status</th>
+              <th>Notes</th>
             </tr>
           </thead>
           <tbody>
-            {targets.map((t) => {
-              const actual = actualByTargetId.get(t.id) ?? null
-              const status = computeStatus(actual, t.monthlyTarget)
+            {items.map((item) => {
+              const status = computeStatus(item.actual, item.target)
               return (
-                <tr key={t.id} className="border-b border-gray-50">
-                  <td className="px-4 py-2 text-gray-800">{t.label}</td>
-                  <td className="px-3 py-2 text-gray-500">{formatUnit(t.monthlyTarget, t.unit)}</td>
-                  <td className="px-3 py-2 text-gray-800">{actual === null ? '—' : formatUnit(actual, t.unit)}</td>
-                  <td className="px-3 py-2 text-gray-500">
-                    {actual === null || t.monthlyTarget === 0 ? '—' : `${((actual / t.monthlyTarget) * 100).toFixed(0)}%`}
+                <tr key={item.key}>
+                  <th scope="row" className="opus-table-cell--leading">
+                    {item.label}
+                  </th>
+                  <td data-numeric="true">{formatUnit(item.target, item.unit)}</td>
+                  <td data-numeric="true">
+                    {item.actual === null ? '—' : formatUnit(item.actual, item.unit)}
                   </td>
-                  <td className="px-3 py-2"><StatusPill status={status} /></td>
+                  <td data-numeric="true">{pctLabel(item.actual, item.target)}</td>
+                  <td className="opus-table-cell--status">
+                    <StatusPill status={status} />
+                  </td>
+                  <td className="text-gray-500">
+                    {item.notes ||
+                      (status === 'behind' ? 'Needs a comment on the tracker page.' : '—')}
+                  </td>
                 </tr>
               )
             })}
@@ -108,61 +142,115 @@ export default async function GrowthDashboardPage() {
     )
   }
 
+  function categorySection(category: GrowthCategory, targets: typeof marketingTargets) {
+    return (
+      <GtCard key={category}>
+        <GtSectionHeader
+          title={CATEGORY_LABEL[category]}
+          action={
+            <Link href={`${CATEGORY_HREF[category]}?month=${month}`} className={GT.link}>
+              View tracker →
+            </Link>
+          }
+        />
+        {metricTable(
+          targets.map((t) => {
+            const row = actualByTargetId.get(t.id)
+            return {
+              key: t.id,
+              label: t.label,
+              target: t.monthlyTarget,
+              actual: row?.actual ?? null,
+              unit: t.unit,
+              notes: row?.notes ?? '',
+            }
+          }),
+        )}
+      </GtCard>
+    )
+  }
+
   return (
-    <div className="space-y-6 pb-16">
-      <SetGrowthHeading title="Growth Tracker" subtitle={`Roll-up of all trackers · ${monthLabel(month)}`} />
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <div className="text-[12px] font-semibold tracking-wide text-gray-900">
-            VENDOR OUTREACH <span className="font-normal text-gray-400">(all staff)</span>
-          </div>
-          <Link href="/growth/vendor-outreach" className="text-[12px] font-medium text-gray-500 hover:text-gray-800">
-            View tracker →
-          </Link>
+    <div className="space-y-5 pb-10">
+      <SetGrowthHeading
+        title="Monthly Dashboard"
+        subtitle={`Roll-up of all trackers · starts ${monthLabel(TRACKER_START)}`}
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">
+            Reporting period
+          </p>
+          <p className="mt-0.5 text-sm text-gray-600">
+            Fill Actuals on each tracker at month-end. % to Target and Status auto-calculate.
+          </p>
         </div>
-        <table className="opus-table w-full text-[12px]">
-          <thead>
-            <tr className="border-b border-gray-100 text-left text-gray-500">
-              <th className="px-4 py-2 font-medium">Metric</th>
-              <th className="px-3 py-2 font-medium">Target</th>
-              <th className="px-3 py-2 font-medium">Actual</th>
-              <th className="px-3 py-2 font-medium">% to Target</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[
-              ['Total Outreaches', outreachTarget, outreachActual],
-              ['Total Meetings Secured', meetingsTarget, meetingsActual],
-              ['Total Vendors Signed Up', signedTarget, signedActual],
-            ].map(([label, target, actual]) => {
-              const status = computeStatus(actual as number, target as number)
-              return (
-                <tr key={label as string} className="border-b border-gray-50">
-                  <td className="px-4 py-2 text-gray-800">{label}</td>
-                  <td className="px-3 py-2 text-gray-500">{target}</td>
-                  <td className="px-3 py-2 text-gray-800">{actual}</td>
-                  <td className="px-3 py-2 text-gray-500">{target ? `${(((actual as number) / (target as number)) * 100).toFixed(0)}%` : '—'}</td>
-                  <td className="px-3 py-2"><StatusPill status={status} /></td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <MonthPager month={month} hrefForMonth={(m) => `/growth?month=${m}`} />
       </div>
+
+      <GtCard>
+        <GtSectionHeader
+          title={
+            <>
+              Vendor Outreach <span className="font-normal text-[#7E5896]/70">(all staff)</span>
+            </>
+          }
+          action={
+            <Link href={`/growth/vendor-outreach?month=${month}`} className={GT.link}>
+              View tracker →
+            </Link>
+          }
+        />
+        {metricTable([
+          {
+            key: 'outreach',
+            label: 'Total Outreaches (all staff)',
+            target: outreachTarget,
+            actual: outreachActual,
+            unit: 'count',
+            notes: '',
+          },
+          {
+            key: 'meetings',
+            label: 'Total Meetings Secured',
+            target: meetingsTarget,
+            actual: meetingsActual,
+            unit: 'count',
+            notes: '',
+          },
+          {
+            key: 'signed',
+            label: 'Total Vendors Signed Up',
+            target: signedTarget,
+            actual: signedActual,
+            unit: 'count',
+            notes: '',
+          },
+        ])}
+      </GtCard>
 
       {categorySection('sales_marketing', marketingTargets)}
       {categorySection('social_media', socialTargets)}
       {categorySection('studio', studioTargets)}
 
-      <div className="rounded-2xl border border-gray-100 bg-white p-4 text-[12px] text-gray-500 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <div className="mb-2 font-semibold text-gray-700">How to use this dashboard:</div>
-        <ul className="list-disc space-y-1 pl-4">
-          <li>Vendor Outreach actuals come live from the outreach log — no manual re-entry.</li>
-          <li>Marketing / Social / Studio actuals are filled in each month-end on their own tracker page.</li>
-          <li>✓ Met = 100%+, ~ On Track = 60–99%, ✗ Behind = &lt;60%.</li>
+      <GtCard padded>
+        <p className="text-[13px] font-semibold text-gray-900">How to use this dashboard</p>
+        <ul className="mt-2 list-disc space-y-1.5 pl-4 text-[13px] text-gray-600">
+          <li>Trackers start June 2026. Vendor targets are aggressive by design.</li>
+          <li>
+            ✓ Met = 100%+, ~ On Track = 60–99%, ✗ Behind = under 60%. Anything Behind needs a Note.
+          </li>
+          <li>
+            Vendor Outreach actuals come live from the outreach log. Marketing, Social, and Studio
+            actuals are entered on their tracker pages.
+          </li>
+          <li>
+            Social Media and Studio sit at the Mid baseline — steady, not pressured. Vendor
+            acquisition is where the push is.
+          </li>
         </ul>
-      </div>
+      </GtCard>
     </div>
   )
 }

@@ -143,10 +143,49 @@ export type DashboardSnapshot = {
 // is unreachable would look identical to a healthy quiet day — the
 // worst kind of green dashboard. We track failures via the shared
 // SafeCountTracker so getDashboardSnapshot() can surface a banner.
-type CountResult = { count: number | null; error: { message?: string } | null }
+type CountResult = {
+  count: number | null
+  error: { message?: string; code?: string; details?: string } | null
+}
 
 class SafeCountTracker {
   count = 0
+}
+
+/** Collapse a supabase-js error into a short, stable label for logs. */
+function classifyCountError(error: NonNullable<CountResult['error']>): {
+  kind: string
+  cause: string | null
+} {
+  // Network / AbortError paths from supabase-js often arrive with an
+  // empty `message` (literally "") and the real cause stuffed into
+  // `details` ("getaddrinfo ENOTFOUND …"). Read both.
+  const rawMessage = typeof error.message === 'string' ? error.message.trim() : ''
+  const rawDetails = typeof error.details === 'string' ? error.details.trim() : ''
+  const haystack = `${rawMessage}\n${rawDetails}`
+  const code =
+    error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+      ? error.code
+      : null
+
+  const kind =
+    !rawMessage && !rawDetails
+      ? 'network_or_timeout'
+      : /timeout|aborted|fetch failed|fetch|network|econnreset|enotfound|econnrefused/i.test(haystack)
+        ? 'network_or_timeout'
+        : code && /^[0-9A-Z]{5}$/.test(code)
+          ? `sqlstate_${code}`
+          : 'query_failed'
+
+  // Prefer the innermost cause line when present — that's what tells you
+  // "DNS failed" vs "connection reset" without dumping a stack.
+  const causeMatch =
+    /(?:Caused by:\s*)?((?:Error:\s*)?(?:getaddrinfo\s+\w+|connect\s+E\w+|socket hang up|UND_ERR_\w+|timeout|aborted)[^\n]*)/i.exec(
+      haystack,
+    )
+  const cause = causeMatch?.[1]?.trim().slice(0, 120) ?? (rawMessage || null)
+
+  return { kind, cause }
 }
 
 async function safeCount(
@@ -157,7 +196,8 @@ async function safeCount(
   if (error) {
     // Real query failures are operationally meaningful — error, not
     // warn. We still return 0 so one bad query doesn't 500 the page.
-    console.error('[dashboard] count query failed:', error.message ?? '(unknown)')
+    const { kind, cause } = classifyCountError(error)
+    console.error('[dashboard] count query failed:', kind, cause ? `— ${cause}` : '')
     if (tracker) tracker.count += 1
     return 0
   }
@@ -185,7 +225,8 @@ async function getDashboardCaller(): Promise<DashboardCaller> {
     .ilike('email', email)
     .maybeSingle<{ id: string; department: Department; job_title: string; full_name: string }>()
   if (error) {
-    console.warn('[dashboard] caller profile lookup failed:', error.message)
+    const { kind, cause } = classifyCountError(error)
+    console.warn('[dashboard] caller profile lookup failed:', kind, cause ? `— ${cause}` : '')
     return empty
   }
   if (!data) return empty

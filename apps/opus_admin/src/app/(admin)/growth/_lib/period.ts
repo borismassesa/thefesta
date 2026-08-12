@@ -31,3 +31,16 @@ export function monthBounds(monthKey: string): MonthBounds {
 export function dateIsInHalfOpenMonth(dateKey: string, bounds: MonthBounds): boolean {
   return dateKey >= bounds.start && dateKey < bounds.next
 }
+
+/** Growth Tracker reporting starts June 2026 (Excel workbook cutover). */
+export const TRACKER_START = '2026-06-01'
+
+export function resolveTrackerMonth(requested: string | null | undefined, now = new Date()): string {
+  if (requested && isMonthKey(requested) && requested >= TRACKER_START) return requested
+  const current = currentMonthKey(now)
+  return current < TRACKER_START ? TRACKER_START : current
+}
+
+export function yearFromMonthKey(monthKey: string): number {
+  return Number(monthKey.slice(0, 4))
+}

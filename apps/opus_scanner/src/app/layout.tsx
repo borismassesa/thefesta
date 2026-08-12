@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import ServiceWorkerRegister from './ServiceWorkerRegister'
+import Providers from '@/components/Providers'
+import ServiceWorkerCleanup from './ServiceWorkerCleanup'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -30,8 +31,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="min-h-screen bg-white font-sans text-[#1A1A1A] antialiased selection:bg-[#C9A0DC]/25 selection:text-[#1A1A1A]">
-        {children}
-        <ServiceWorkerRegister />
+        <Providers>{children}</Providers>
+        {/* The old offline PWA service worker must go, or returning devices
+            keep serving the stale cached shell instead of this build. */}
+        <ServiceWorkerCleanup />
       </body>
     </html>
   )

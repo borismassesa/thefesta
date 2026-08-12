@@ -184,6 +184,8 @@ export interface FooterStrings {
   link_invitations: string
   link_guests: string
   link_website: string
+  /** Door check-in web app (apps/opus_scanner). */
+  link_door_scanner: string
   // Template links
   link_save_the_dates: string
   link_wedding_invitations: string
@@ -1543,6 +1545,7 @@ export const UI_STRINGS_FALLBACKS: UiStringsByArea = {
     link_invitations: 'Digital Cards',
     link_guests: "Guests & RSVP's",
     link_website: 'Wedding Website',
+    link_door_scanner: 'Entrance Card Scanner',
     link_save_the_dates: 'Save the Dates',
     link_wedding_invitations: 'Wedding Digital Cards',
     link_send_off: 'Send-Off & Kitchen Party',

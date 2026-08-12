@@ -2,6 +2,7 @@ import { hasAnyPermission, hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { logGrowthDbError } from '../_lib/action-utils'
 import { getGrowthEmployeeOptions, getKpiActuals, getKpiTargets } from '../_lib/queries'
+import { resolveTrackerMonth, yearFromMonthKey } from '../_lib/period'
 import StudioClient, { type StudioBooking } from './StudioClient'
 
 export const dynamic = 'force-dynamic'
@@ -21,11 +22,22 @@ type BookingRow = {
   notes: string | null
 }
 
-export default async function StudioPerformancePage() {
+function firstParam(value: string | string[] | undefined): string | null {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null)
+}
+
+export default async function StudioPerformancePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
   const canView = await hasAnyPermission(['growth.write', 'growth.admin'])
   if (!canView) throw new Error("You don't have permission to view the Studio Performance tracker.")
   const canWrite = await hasPermission('growth.write')
   const canAdmin = await hasPermission('growth.admin')
+
+  const params = await searchParams
+  const month = resolveTrackerMonth(firstParam(params?.month))
 
   const targets = await getKpiTargets('studio')
   const actuals = await getKpiActuals(targets.map((t) => t.id))
@@ -72,14 +84,12 @@ export default async function StudioPerformancePage() {
 
   const employeeNames = employeeOptions.map((e) => e.name)
 
-  // eslint-disable-next-line react-hooks/purity -- server component, reflects request time
-  const currentYear = new Date().getFullYear()
-
   return (
     <StudioClient
       targets={targets}
       actuals={actuals}
-      initialYear={currentYear}
+      initialYear={yearFromMonthKey(month)}
+      month={month}
       canWrite={canWrite}
       canAdmin={canAdmin}
       bookings={bookings}

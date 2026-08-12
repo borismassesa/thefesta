@@ -7,7 +7,6 @@ import {
   Clock,
   FileText,
   Home,
-  Inbox,
   ListTodo,
   Plane,
   ShieldCheck,
@@ -17,6 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { WorkspaceAccessState, WorkspaceCapability } from '@/lib/workspace/access'
 import { accessStateLabel } from '@/lib/workspace/access'
+import { WS } from './ui'
 
 // Workspace's own tab strip. Items whose capability the current access state
 // does not grant are dropped.
@@ -31,17 +31,24 @@ type Item = {
   icon: typeof Home
   requires: WorkspaceCapability
   exact?: boolean
+  /** When set, the item is only shown when this flag is true. */
+  when?: 'managing_director'
 }
 
 const ITEMS: Item[] = [
   { label: 'Home', href: '/workspace', icon: Home, requires: 'workspace.read', exact: true },
-  { label: 'Time Clock', href: '/workspace/timeclock', icon: Clock, requires: 'tools.use' },
-  { label: 'Daily Tracker', href: '/workspace/tracker', icon: ClipboardCheck, requires: 'tools.use' },
+  { label: 'My Clock', href: '/workspace/timeclock', icon: Clock, requires: 'tools.use' },
+  {
+    label: 'Daily Tracker',
+    href: '/workspace/tracker',
+    icon: ClipboardCheck,
+    requires: 'tools.use',
+    when: 'managing_director',
+  },
   { label: 'My Work', href: '/workspace/work', icon: ListTodo, requires: 'tools.use' },
   { label: 'My Reports', href: '/workspace/reports', icon: FileText, requires: 'tools.use' },
   { label: 'Goals', href: '/workspace/performance', icon: Target, requires: 'tools.use' },
   { label: 'My Leave', href: '/workspace/leave', icon: Plane, requires: 'tools.use' },
-  { label: 'My Requests', href: '/approvals', icon: Inbox, requires: 'tools.use' },
   { label: 'Referrals', href: '/workspace/referrals', icon: UserPlus, requires: 'workspace.read' },
   {
     label: 'My Documents',
@@ -54,17 +61,23 @@ const ITEMS: Item[] = [
 export default function WorkspaceNav({
   access,
   capabilities,
+  isManagingDirector = false,
 }: {
   access: WorkspaceAccessState
   capabilities: readonly WorkspaceCapability[]
+  isManagingDirector?: boolean
 }) {
   const pathname = usePathname()
-  const visible = ITEMS.filter((item) => capabilities.includes(item.requires))
+  const visible = ITEMS.filter((item) => {
+    if (!capabilities.includes(item.requires)) return false
+    if (item.when === 'managing_director' && !isManagingDirector) return false
+    return true
+  })
   if (visible.length === 0) return null
 
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
-      <nav className="flex flex-wrap items-center gap-1">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100">
+      <nav className="flex flex-wrap items-center gap-1" aria-label="Workspace sections">
         {visible.map((item) => {
           const active = item.exact
             ? pathname === item.href
@@ -74,21 +87,25 @@ export default function WorkspaceNav({
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors',
-                active
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                'inline-flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors',
+                active ? WS.tabActive : WS.tabIdle,
               )}
             >
-              <Icon className="h-4 w-4" strokeWidth={1.75} />
+              <Icon className="h-4 w-4 stroke-[1.75]" />
               {item.label}
             </Link>
           )
         })}
       </nav>
       {access !== 'full' && (
-        <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+        <span
+          className={cn(
+            WS.pill,
+            access === 'documents_only' && 'border-amber-200 bg-amber-50 text-amber-800',
+          )}
+        >
           {accessStateLabel(access)}
         </span>
       )}

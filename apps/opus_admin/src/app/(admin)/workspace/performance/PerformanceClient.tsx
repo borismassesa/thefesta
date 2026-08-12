@@ -52,6 +52,7 @@ import type {
   ReviewSectionRow,
 } from '@/lib/performance/queries'
 import type { ActionResult } from './actions'
+import { WS } from '../_components/ui'
 
 // Goals and performance.
 //
@@ -63,8 +64,6 @@ import type { ActionResult } from './actions'
 // What the UI decides is what to OFFER. A review somebody can read but not
 // write gets no editor, which matches what the server would refuse anyway.
 
-const GREEN_PILL =
-  'inline-flex items-center rounded-full bg-[#9FE870] px-2.5 py-0.5 text-[11px] font-semibold text-gray-900'
 
 const CARD =
   'rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]'
@@ -283,7 +282,7 @@ export default function PerformanceClient({
                 onClick={() => setTab(t.id)}
                 className={cn(
                   'flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors',
-                  tab === t.id ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                  tab === t.id ? 'bg-[#7E5896] text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
                 )}
               >
                 <Icon className="h-4 w-4" strokeWidth={1.75} />
@@ -306,7 +305,7 @@ export default function PerformanceClient({
           <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={() => setShowGoalForm((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884]"
           >
             <Plus className="h-4 w-4" strokeWidth={2} />
             {showGoalForm ? 'Close' : 'Propose a goal'}
@@ -376,7 +375,7 @@ export default function PerformanceClient({
                       <span className="ml-2 text-[12px] text-gray-400">{GOAL_LEVEL_LABELS[g.level]}</span>
                     </span>
                     <span className="flex items-center gap-2">
-                      <span className={GREEN_PILL}>{Math.round(g.progress)}%</span>
+                      <span className={WS.pill}>{Math.round(g.progress)}%</span>
                       <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-semibold', STATUS_TONE[g.status])}>
                         {GOAL_STATUS_LABELS[g.status]}
                       </span>
@@ -472,7 +471,7 @@ function CycleBanner({ cycle }: { cycle: CycleRow }) {
             {formatDay(cycle.startsOn)} to {formatDay(cycle.endsOn)}
           </p>
         </div>
-        <span className={GREEN_PILL}>{CYCLE_STAGE_LABELS[cycle.stage]}</span>
+        <span className={WS.pill}>{CYCLE_STAGE_LABELS[cycle.stage]}</span>
       </div>
 
       <p className="mt-3 text-[13px] text-gray-700">{CYCLE_STAGE_ASKS[cycle.stage]}</p>
@@ -484,7 +483,7 @@ function CycleBanner({ cycle }: { cycle: CycleRow }) {
             title={CYCLE_STAGE_LABELS[stage]}
             className={cn(
               'h-1.5 flex-1 rounded-full',
-              i + 1 < current ? 'bg-[#9FE870]' : i + 1 === current ? 'bg-gray-900' : 'bg-gray-100',
+              i + 1 < current ? 'bg-[#7E5896]' : i + 1 === current ? 'bg-[#5B2D8E]' : 'bg-gray-100',
             )}
           />
         ))}
@@ -507,13 +506,13 @@ function WeightMeter({
         <h2 className="text-[13px] font-semibold uppercase tracking-wide text-gray-500">
           Goal weights
         </h2>
-        <span className={weights.isValid ? GREEN_PILL : 'rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800'}>
+        <span className={weights.isValid ? WS.pill : 'rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800'}>
           {weights.total} of {cycle.weightTotalRequired}
         </span>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
         <div
-          className={cn('h-full rounded-full', weights.isValid ? 'bg-[#9FE870]' : 'bg-amber-400')}
+          className={cn('h-full rounded-full', weights.isValid ? 'bg-[#7E5896]' : 'bg-amber-400')}
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -554,7 +553,7 @@ function GoalCard({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-900">{goal.title}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-gray-500">
-            {goal.weight > 0 && <span className={GREEN_PILL}>Weight {goal.weight}</span>}
+            {goal.weight > 0 && <span className={WS.pill}>Weight {goal.weight}</span>}
             <span>{GOAL_LEVEL_LABELS[goal.level]}</span>
             {goal.parentTitle && <span>Aligned to {goal.parentTitle}</span>}
             <span>Due {formatDay(goal.dueDate)}</span>
@@ -588,7 +587,7 @@ function GoalCard({
           <span>{goal.updateCount} updates</span>
         </div>
         <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-100">
-          <div className="h-full rounded-full bg-[#9FE870]" style={{ width: `${Math.min(100, goal.progress)}%` }} />
+          <div className="h-full rounded-full bg-[#7E5896]" style={{ width: `${Math.min(100, goal.progress)}%` }} />
         </div>
       </div>
 
@@ -607,7 +606,7 @@ function GoalCard({
                   {formatValue(kr, kr.currentValue)}
                   {kr.targetValue !== null && ` of ${formatValue(kr, kr.targetValue)}`}
                 </span>
-                <span className={GREEN_PILL}>{Math.round(attainment(kr))}%</span>
+                <span className={WS.pill}>{Math.round(attainment(kr))}%</span>
               </span>
             </li>
           ))}
@@ -645,7 +644,7 @@ function GoalCard({
                   return result
                 }, 'Progress recorded.')
               }
-              className="rounded-full bg-gray-900 px-4 py-1.5 text-[13px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40"
+              className="rounded-xl bg-[#7E5896] px-4 py-1.5 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-40"
             >
               Save
             </button>
@@ -670,7 +669,7 @@ function GoalCard({
               type="button"
               disabled={pending}
               onClick={() => onRun(() => actions.submitGoalForApproval(goal.id), 'Sent to your manager.')}
-              className="rounded-full bg-[#9FE870] px-4 py-1.5 text-[13px] font-semibold text-gray-900 hover:brightness-95 disabled:opacity-40"
+              className="rounded-xl bg-[#7E5896] px-4 py-1.5 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-40"
             >
               Send for approval
             </button>
@@ -736,7 +735,7 @@ function ApprovalCard({
           type="button"
           disabled={pending}
           onClick={() => onRun(() => actions.decideGoalApproval(goal.id, 'approve', note || undefined))}
-          className="rounded-full bg-[#9FE870] px-4 py-2 text-[13px] font-semibold text-gray-900 hover:brightness-95 disabled:opacity-40"
+          className="rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-40"
         >
           Approve
         </button>
@@ -887,7 +886,7 @@ function GoalForm({
       <button data-opus-button="primary" data-opus-button-size="medium"
         type="submit"
         disabled={pending || busy || !title.trim()}
-        className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+        className="rounded-xl bg-[#7E5896] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
       >
         Save draft
       </button>
@@ -1003,7 +1002,7 @@ function ReviewCard({
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {review.overallRating !== null && (
-            <span className={GREEN_PILL}>
+            <span className={WS.pill}>
               {review.overallRating}
               {review.overallRatingLabel ? ` ${review.overallRatingLabel}` : ''}
             </span>
@@ -1047,7 +1046,7 @@ function ReviewCard({
                     {r.competencyName ?? r.goalTitle ?? 'Rating'}
                   </span>
                   <span className="flex items-center gap-2">
-                    <span className={GREEN_PILL}>
+                    <span className={WS.pill}>
                       {r.rating} of {r.scaleMax}
                       {r.ratingLabel ? ` · ${r.ratingLabel}` : ''}
                     </span>
@@ -1148,7 +1147,7 @@ function ReviewCard({
                 'Acknowledged. Your note is on the record.',
               )
             }
-            className="rounded-full bg-[#9FE870] px-4 py-2 text-[13px] font-semibold text-gray-900 hover:brightness-95 disabled:opacity-40"
+            className="rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-40"
           >
             Acknowledge
           </button>
@@ -1351,7 +1350,7 @@ function RatingForm({
             return result
           }, isChange ? 'Rating changed. Both versions are on the record.' : 'Rating saved.')
         }
-        className="rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40"
+        className="rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-40"
       >
         {isChange ? 'Change the rating' : 'Save rating'}
       </button>
@@ -1422,7 +1421,7 @@ function FinaliseForm({
             'Finalised. It is with the employee to acknowledge.',
           )
         }
-        className="rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40"
+        className="rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-40"
       >
         Finalise review
       </button>
@@ -1487,7 +1486,7 @@ function Feedback({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[13px] font-medium text-gray-900">{f.respondentLabel}</span>
                   <span className="flex items-center gap-2">
-                    {f.overallScore !== null && <span className={GREEN_PILL}>{f.overallScore}</span>}
+                    {f.overallScore !== null && <span className={WS.pill}>{f.overallScore}</span>}
                     <span className="text-[12px] text-gray-400">{f.status}</span>
                   </span>
                 </div>
@@ -1562,7 +1561,7 @@ function FeedbackAnswerForm({
             'Sent. Thank you.',
           )
         }
-        className="mt-2 rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40"
+        className="mt-2 rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-40"
       >
         Send feedback
       </button>
@@ -1657,7 +1656,7 @@ function Development({
                 return result
               }, 'Added.')
             }
-            className="rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40"
+            className="rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-40"
           >
             Add
           </button>
@@ -1678,7 +1677,7 @@ function Development({
                   <p className="text-sm font-semibold text-gray-900">{a.title}</p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-gray-500">
                     <span>{a.actionType.replace(/_/g, ' ')}</span>
-                    {a.competencyName && <span className={GREEN_PILL}>{a.competencyName}</span>}
+                    {a.competencyName && <span className={WS.pill}>{a.competencyName}</span>}
                     {a.targetDate && <span>By {formatDay(a.targetDate)}</span>}
                   </p>
                 </div>
@@ -1736,7 +1735,7 @@ function CheckIns({ checkIns }: { checkIns: CheckInRow[] }) {
               {c.managerName && <span className="ml-2 font-normal text-gray-500">with {c.managerName}</span>}
             </span>
             <span className="flex items-center gap-2">
-              {c.employeeSentiment && <span className={GREEN_PILL}>{c.employeeSentiment}</span>}
+              {c.employeeSentiment && <span className={WS.pill}>{c.employeeSentiment}</span>}
               <span className="text-[12px] text-gray-400">{formatDay(c.scheduledFor)}</span>
             </span>
           </div>
@@ -1751,7 +1750,7 @@ function CheckIns({ checkIns }: { checkIns: CheckInRow[] }) {
             </p>
           )}
           {c.agreedActions && (
-            <p className="mt-1 rounded-lg bg-[#9FE870]/20 px-3 py-2 text-[13px] text-gray-800">
+            <p className="mt-1 rounded-lg bg-[#F0DFF6] px-3 py-2 text-[13px] text-gray-800">
               Agreed: {c.agreedActions}
             </p>
           )}
@@ -1784,7 +1783,7 @@ function Evidence({ evidence }: { evidence: EvidenceRow[] }) {
             <h2 className="text-[13px] font-semibold uppercase tracking-wide text-gray-500">
               {source.replace(/_/g, ' ')}
             </h2>
-            <span className={GREEN_PILL}>{rows.length}</span>
+            <span className={WS.pill}>{rows.length}</span>
           </div>
           <ul className="mt-3 divide-y divide-gray-100">
             {rows.slice(0, 25).map((row, i) => (

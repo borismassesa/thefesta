@@ -278,7 +278,12 @@ export default function Navbar() {
               <UserButton appearance={{ elements: { avatarBox: 'h-8 w-8' } }} />
             </>
           ) : null}
-          <button data-opus-button="neutral" data-opus-button-size="medium"
+          {/* data-opus-button="control" — not "neutral". The product button
+              CSS forces display:inline-flex on non-control variants, which
+              beats Tailwind's lg:hidden and leaves this visible on desktop. */}
+          <button
+            data-opus-button="control"
+            type="button"
             ref={hamburgerRef}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-100 lg:hidden sm:h-10 sm:w-10 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             aria-label={mobileOpen ? t('mobile_close') : t('mobile_open')}

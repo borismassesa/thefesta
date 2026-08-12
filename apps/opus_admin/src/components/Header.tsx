@@ -1,6 +1,7 @@
 'use client'
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, LogOut, MessagesSquare, Search, Settings, X } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
@@ -10,6 +11,7 @@ import { usePageHeading } from "./PageHeading";
 import { usePageSearch } from "./PageSearch";
 import { useInboxUnread } from "./InboxUnread";
 import type { CallerProfile } from "@/lib/admin-auth";
+import { isImmersiveWorkspace } from "@/lib/admin-immersive";
 
 // Two empty placeholders sit in the header for pages that need to inject
 // their own page-specific content. The vendor review page, for example,
@@ -19,7 +21,15 @@ import type { CallerProfile } from "@/lib/admin-auth";
 const BADGE_SLOT_ID = 'page-header-badge'
 const ACTIONS_SLOT_ID = 'page-header-actions'
 
-export function Header({ profile }: { profile: CallerProfile }) {
+export function Header({
+  profile,
+  clerkEnabled = true,
+}: {
+  profile: CallerProfile
+  /** False under DISABLE_ADMIN_AUTH — skip useClerk so the shell does not 500. */
+  clerkEnabled?: boolean
+}) {
+  const pathname = usePathname()
   // Heading and search are both driven by each page via context — the page
   // is the only thing that knows what it's actually showing and what a
   // search query should match against.
@@ -27,6 +37,8 @@ export function Header({ profile }: { profile: CallerProfile }) {
   const search = usePageSearch()
   // Seeded by the layout, then republished by /inbox as threads are read.
   const inboxUnread = useInboxUnread()
+
+  if (isImmersiveWorkspace(pathname)) return null
 
   return (
     <header className="flex items-center justify-between gap-6 pt-4 pb-3 px-8 bg-gray-50/50 relative z-10 w-full shrink-0 print:hidden">
@@ -145,7 +157,7 @@ export function Header({ profile }: { profile: CallerProfile }) {
 
         <div className="w-px h-6 bg-gray-200" aria-hidden />
 
-        <HeaderAccount profile={profile} />
+        <HeaderAccount profile={profile} clerkEnabled={clerkEnabled} />
       </div>
     </header>
   );
@@ -155,8 +167,13 @@ export function Header({ profile }: { profile: CallerProfile }) {
 // drops a small menu (Manage account / Log out). Mirrors the sidebar account
 // footer's Clerk wiring so both entry points behave identically — signOut goes
 // through Clerk's client so the apex-cookie clearing stays in one place.
-function HeaderAccount({ profile }: { profile: CallerProfile }) {
-  const { openUserProfile, signOut } = useClerk()
+function HeaderAccount({
+  profile,
+  clerkEnabled,
+}: {
+  profile: CallerProfile
+  clerkEnabled: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -216,35 +233,75 @@ function HeaderAccount({ profile }: { profile: CallerProfile }) {
               <p className="truncate text-xs text-gray-400">{profile.email}</p>
             )}
           </div>
+          {clerkEnabled && (
+            <>
+              <div className="my-1 border-t border-gray-100" />
+              <HeaderManageAccount onDone={() => setOpen(false)} />
+            </>
+          )}
           <div className="my-1 border-t border-gray-100" />
-          <button data-opus-button="control"
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false)
-              openUserProfile()
-            }}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <Settings className="h-4 w-4 stroke-[1.5] text-gray-400" />
-            Manage account
-          </button>
-          <div className="my-1 border-t border-gray-100" />
-          <button data-opus-button="control"
-            type="button"
-            role="menuitem"
-            disabled={pending}
-            onClick={() => {
-              setPending(true)
-              void signOut()
-            }}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-          >
-            <LogOut className="h-4 w-4 stroke-[1.5]" />
-            {pending ? 'Logging out…' : 'Log out'}
-          </button>
+          {clerkEnabled ? (
+            <HeaderSignOut pending={pending} setPending={setPending} />
+          ) : (
+            <button data-opus-button="control"
+              type="button"
+              role="menuitem"
+              disabled={pending}
+              onClick={() => {
+                setPending(true)
+                window.location.href = '/sign-in'
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+            >
+              <LogOut className="h-4 w-4 stroke-[1.5]" />
+              {pending ? 'Logging out…' : 'Log out'}
+            </button>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+function HeaderManageAccount({ onDone }: { onDone: () => void }) {
+  const { openUserProfile } = useClerk()
+  return (
+    <button data-opus-button="control"
+      type="button"
+      role="menuitem"
+      onClick={() => {
+        onDone()
+        openUserProfile()
+      }}
+      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+    >
+      <Settings className="h-4 w-4 stroke-[1.5] text-gray-400" />
+      Manage account
+    </button>
+  )
+}
+
+function HeaderSignOut({
+  pending,
+  setPending,
+}: {
+  pending: boolean
+  setPending: (v: boolean) => void
+}) {
+  const { signOut } = useClerk()
+  return (
+    <button data-opus-button="control"
+      type="button"
+      role="menuitem"
+      disabled={pending}
+      onClick={() => {
+        setPending(true)
+        void signOut()
+      }}
+      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+    >
+      <LogOut className="h-4 w-4 stroke-[1.5]" />
+      {pending ? 'Logging out…' : 'Log out'}
+    </button>
+  )
 }

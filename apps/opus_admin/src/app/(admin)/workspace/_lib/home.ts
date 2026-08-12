@@ -13,6 +13,7 @@ import {
   type ReportDueState,
   type TaskUrgency,
 } from './home-schedule'
+import { humanizeShiftType } from './labels'
 
 // Workspace Home — everything the signed-in employee needs to see about their
 // own day, and nothing about anybody else's.
@@ -179,7 +180,7 @@ export async function getWorkspaceHome(
     ])
 
   const tasksDueToday = tasks.filter((t) => t.urgency === 'today' || t.urgency === 'overdue')
-  const agenda = buildAgenda({ today, tasks, upcomingLeave: leave.upcoming, shift, reportsDue })
+  const agenda = buildAgenda({ today, tasks, upcomingLeave: leave.upcoming })
   const attention = buildAttention({ tasks, reportsDue, clock, shift, today })
 
   return {
@@ -621,34 +622,20 @@ async function fetchAnnouncements(employeeId: string): Promise<Announcement[]> {
 // ---------------------------------------------------------------------------
 
 /**
- * A 14-day agenda assembled from the records Workspace already holds: booked
- * leave, task and report deadlines, and today's rostered shift.
+ * A 14-day agenda of dated commitments: booked leave and upcoming task
+ * deadlines. Today's shift and overdue reports already have their own Home
+ * surfaces — repeating them here as "today" clutter made the card look broken.
  *
- * OpusFesta has no calendar table. Rather than render an empty card or stub one
- * against a source that does not exist, Home shows the dated commitments it can
- * actually prove. When a real calendar arrives, its events merge into this list.
+ * OpusFesta has no calendar table. When a real calendar arrives, its events
+ * merge into this list.
  */
 function buildAgenda(input: {
   today: string
   tasks: HomeTask[]
   upcomingLeave: UpcomingLeave[]
-  shift: ScheduledShift | null
-  reportsDue: HomeReport[]
 }): AgendaEvent[] {
   const horizon = addDays(input.today, AGENDA_HORIZON_DAYS)
   const events: AgendaEvent[] = []
-
-  if (input.shift && input.shift.type !== 'Off') {
-    events.push({
-      date: input.today,
-      kind: 'shift',
-      label: input.shift.type,
-      detail:
-        input.shift.startTime && input.shift.endTime
-          ? `${input.shift.startTime.slice(0, 5)} – ${input.shift.endTime.slice(0, 5)}`
-          : input.shift.note,
-    })
-  }
 
   for (const leave of input.upcomingLeave) {
     if (leave.startDate > horizon) continue
@@ -664,21 +651,13 @@ function buildAgenda(input: {
   }
 
   for (const task of input.tasks) {
-    if (!task.dueDate || task.dueDate > horizon) continue
+    // Skip overdue / due-today tasks — they already appear under Tasks due today.
+    if (!task.dueDate || task.dueDate <= input.today || task.dueDate > horizon) continue
     events.push({
       date: task.dueDate,
       kind: 'task',
       label: task.title,
       detail: task.category,
-    })
-  }
-
-  for (const report of input.reportsDue) {
-    events.push({
-      date: input.today,
-      kind: 'report',
-      label: report.name,
-      detail: report.state === 'overdue' ? 'Overdue' : 'Due',
     })
   }
 
@@ -742,7 +721,7 @@ function buildAttention(input: {
       items.push({
         id: 'clock-in',
         label: "You haven't clocked in today",
-        detail: `Rostered ${input.shift.type.toLowerCase()} today.`,
+        detail: `You're rostered for ${humanizeShiftType(input.shift.type)} today.`,
         href: '/workspace/timeclock',
         severity: 'warning',
       })

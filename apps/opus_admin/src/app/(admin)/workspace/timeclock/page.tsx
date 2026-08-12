@@ -8,7 +8,7 @@ import { clockIn, clockOut, endBreak, requestCorrection, startBreak, submitTimes
 
 export const dynamic = 'force-dynamic'
 
-// The time clock.
+// My Clock — the employee's own punch face and day record.
 //
 // Every number on this page was computed server-side against the database
 // clock. The client re-renders a counter from `serverNow`, and that is the only
@@ -20,7 +20,7 @@ export default async function TimeclockPage() {
   } catch (error) {
     return (
       <>
-        <WorkspaceHeading title="Time clock" />
+        <WorkspaceHeading title="My Clock" />
         <AccessNotice code={workspaceErrorCode(error)} />
       </>
     )
@@ -34,8 +34,8 @@ export default async function TimeclockPage() {
   return (
     <>
       <WorkspaceHeading
-        title="Time clock"
-        subtitle="Clock in and out, take breaks, and check your hours."
+        title="My Clock"
+        subtitle="Are you on the clock, and how does today look against your 9–5?"
       />
       <TimeclockClient
         employeeName={context.employee.name}

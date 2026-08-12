@@ -1,11 +1,11 @@
-import ScannerShell from '@/components/ScannerShell'
+import type { Metadata } from 'next'
 import ScanClient from './ScanClient'
+
+export const metadata: Metadata = {
+  title: 'Scan — OpusPass Door Scanner',
+}
 
 export default async function ScanPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params
-  return (
-    <ScannerShell eventId={eventId}>
-      <ScanClient eventId={eventId} />
-    </ScannerShell>
-  )
+  return <ScanClient eventId={eventId} />
 }

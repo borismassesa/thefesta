@@ -1,13 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import { ClerkProvider } from '@clerk/nextjs'
 import { Yellowtail, Playfair_Display, Cormorant_Garamond, Dancing_Script, Montserrat, EB_Garamond, Plus_Jakarta_Sans } from 'next/font/google'
-import SmoothScrollProvider from '@/components/providers/SmoothScrollProvider'
-import ToastProvider from '@/components/providers/ToastProvider'
-import { CartProvider } from '@/components/providers/CartProvider'
-import { FavoritesProvider } from '@/components/providers/FavoritesProvider'
-import ClerkLoadFallback from '@/components/ClerkLoadFallback'
-import JsonLd from '@/components/JsonLd'
 import './globals.css'
 
 // opus_pass is indexed on its own standalone subdomain, served at the root.
@@ -58,6 +51,13 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
+/**
+ * Root shell is intentionally lean: fonts + HTML only.
+ *
+ * Marketing / dashboard / shop live under `(site)` and pull in Clerk, cart,
+ * Lenis, etc. The Entrance Card Scanner is a sibling route so door staff do
+ * not download or initialise that stack on a shared phone at the door.
+ */
 export default function RootLayout({ children }: { children: ReactNode }) {
   const fontVars = [
     yellowtail.variable,
@@ -69,28 +69,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     jakarta.variable,
   ].join(' ')
 
-  const organizationSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'OpusPass',
-    url: BASE,
-    description: 'Digital cards, RSVP tracking, and wedding websites for couples in Tanzania.',
-  }
-
   return (
     <html lang="en" className={`bg-white ${fontVars}`}>
-      <body className="bg-white">
-        <ClerkProvider>
-          <ClerkLoadFallback />
-          <JsonLd data={organizationSchema} />
-          <CartProvider>
-            <FavoritesProvider>
-              <SmoothScrollProvider>{children}</SmoothScrollProvider>
-            </FavoritesProvider>
-          </CartProvider>
-          <ToastProvider />
-        </ClerkProvider>
-      </body>
+      <body className="bg-white">{children}</body>
     </html>
   )
 }

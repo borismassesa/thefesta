@@ -23,9 +23,8 @@ import type {
   ReportTemplateSummary,
 } from '@/lib/reports/queries'
 import type { ActionResult } from './actions'
+import { WS } from '../_components/ui'
 
-const GREEN_PILL =
-  'inline-flex items-center rounded-full bg-[#9FE870] px-2.5 py-0.5 text-[11px] font-semibold text-gray-900'
 
 const STATE_TONE: Record<ReportState, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -135,7 +134,7 @@ export default function ReportsClient({
               className={cn(
                 'flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors',
                 tab === t.id
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-[#7E5896] text-white'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
               )}
             >
@@ -175,7 +174,7 @@ export default function ReportsClient({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={GREEN_PILL}>{cadenceLabel(o.cadence)}</span>
+                  <span className={WS.pill}>{cadenceLabel(o.cadence)}</span>
                   {o.status === 'overdue' && (
                     <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700">
                       Overdue
@@ -189,7 +188,7 @@ export default function ReportsClient({
                   {o.submissionId ? (
                     <Link
                       href={`/workspace/reports/${o.submissionId}`}
-                      className="rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800"
+                      className="rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884]"
                     >
                       Continue
                     </Link>
@@ -198,7 +197,7 @@ export default function ReportsClient({
                       type="button"
                       disabled={pending}
                       onClick={() => open(o.id)}
-                      className="rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+                      className="rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
                     >
                       Start
                     </button>
@@ -245,9 +244,9 @@ export default function ReportsClient({
                   <p className="mt-1 text-[13px] text-gray-500">{t.description}</p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  <span className={GREEN_PILL}>{cadenceLabel(t.cadence)}</span>
-                  <span className={GREEN_PILL}>{t.scope}</span>
-                  {t.requiresReview && <span className={GREEN_PILL}>Reviewed</span>}
+                  <span className={WS.pill}>{cadenceLabel(t.cadence)}</span>
+                  <span className={WS.pill}>{t.scope}</span>
+                  {t.requiresReview && <span className={WS.pill}>Reviewed</span>}
                 </div>
                 <p className="mt-3 text-[12px] text-gray-400">
                   Due {t.dueOffsetDays} {t.dueOffsetDays === 1 ? 'day' : 'days'} after each period

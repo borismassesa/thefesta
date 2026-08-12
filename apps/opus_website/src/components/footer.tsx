@@ -66,6 +66,12 @@ export default function Footer() {
               <li><a href="#" className="hover:text-[#1A1A1A] transition-colors">Wedding Website</a></li>
               <li><a href="#" className="hover:text-[#1A1A1A] transition-colors">Registry</a></li>
               <li><a href="#" className="hover:text-[#1A1A1A] transition-colors">Guest List</a></li>
+              {/* Crosses into opus_pass via /opuspass/* → subdomain redirect; plain <a>. */}
+              <li>
+                <a href="/opuspass/entrance-card-scanner" className="hover:text-[#1A1A1A] transition-colors">
+                  Entrance Card Scanner
+                </a>
+              </li>
               <li><a href="#" className="hover:text-[#1A1A1A] transition-colors">Checklist</a></li>
               <li><a href="#" className="hover:text-[#1A1A1A] transition-colors">Budget Planner</a></li>
               <li><a href="#" className="hover:text-[#1A1A1A] transition-colors">Vendor Manager</a></li>

@@ -39,7 +39,7 @@ export default function Tabs({
             className={cn(
               'rounded-t-lg px-3.5 py-2 text-[13px] font-medium transition-colors',
               tab.key === activeTab?.key
-                ? 'border-b-2 border-[#7E5896] text-gray-900'
+                ? 'border-b-2 border-[#7E5896] text-[#7E5896]'
                 : 'border-b-2 border-transparent text-gray-500 hover:text-gray-800',
             )}
           >

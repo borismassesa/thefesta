@@ -34,6 +34,7 @@ import type {
   TaskRow,
 } from '@/lib/work/queries'
 import type { ActionResult, CreateTaskInput } from './actions'
+import { WS } from '../_components/ui'
 
 // My Work.
 //
@@ -43,8 +44,6 @@ import type { ActionResult, CreateTaskInput } from './actions'
 // what to OFFER: a task you can see but not own gets no status control, which
 // matches what task_set_status() would refuse anyway.
 
-const GREEN_PILL =
-  'inline-flex items-center rounded-full bg-[#9FE870] px-2.5 py-0.5 text-[11px] font-semibold text-gray-900'
 
 const STATUS_TONE: Record<TaskStatus, string> = {
   backlog: 'bg-gray-100 text-gray-600',
@@ -192,7 +191,7 @@ export default function WorkClient({
                 className={cn(
                   'flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors',
                   tab === t.id
-                    ? 'bg-gray-900 text-white'
+                    ? 'bg-[#7E5896] text-white'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
                 )}
               >
@@ -215,7 +214,7 @@ export default function WorkClient({
         <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           onClick={() => setShowForm((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884]"
         >
           <Plus className="h-4 w-4" strokeWidth={2} />
           {showForm ? 'Close' : 'New task'}
@@ -267,7 +266,7 @@ export default function WorkClient({
                 className={cn(
                   'rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
                   scope === s.id
-                    ? 'border-gray-900 bg-gray-900 text-white'
+                    ? 'border-[#7E5896] bg-[#7E5896] text-white'
                     : 'border-gray-200 text-gray-600 hover:bg-gray-50',
                 )}
               >
@@ -413,7 +412,7 @@ function TaskCard({
           <p className="text-sm font-semibold text-gray-900">{task.title}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-gray-500">
             {task.reference && <span className="font-mono text-[12px]">{task.reference}</span>}
-            {task.projectName && <span className={GREEN_PILL}>{task.projectName}</span>}
+            {task.projectName && <span className={WS.pill}>{task.projectName}</span>}
             <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', PRIORITY_TONE[task.priority])}>
               {task.priority}
             </span>
@@ -483,7 +482,7 @@ function TaskCard({
                 disabled={pending || task.blockingCount > 0}
                 onClick={() => change('completed')}
                 title={task.blockingCount > 0 ? 'Something this depends on is still open.' : undefined}
-                className="rounded-full bg-[#9FE870] px-4 py-1.5 text-[13px] font-semibold text-gray-900 hover:brightness-95 disabled:opacity-40"
+                className="rounded-xl bg-[#7E5896] px-4 py-1.5 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-40"
               >
                 Mark done
               </button>
@@ -708,7 +707,7 @@ function TaskForm({
       <button data-opus-button="primary" data-opus-button-size="medium"
         type="submit"
         disabled={pending || busy || !title.trim()}
-        className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+        className="rounded-xl bg-[#7E5896] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
       >
         Add task
       </button>
@@ -772,7 +771,7 @@ function Projects({
             {p.description && <p className="mt-2 line-clamp-2 text-[13px] text-gray-600">{p.description}</p>}
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-gray-500">
-              <span className={GREEN_PILL}>{p.openTaskCount} open</span>
+              <span className={WS.pill}>{p.openTaskCount} open</span>
               <span>
                 {p.memberCount} {p.memberCount === 1 ? 'person' : 'people'}
               </span>
@@ -843,7 +842,7 @@ function Calendar({
               key={day.date}
               className={cn(
                 'flex flex-wrap gap-x-4 gap-y-2 px-5 py-3',
-                day.date === today && 'bg-[#9FE870]/10',
+                day.date === today && 'bg-[#F0DFF6]/60',
                 (day.isHoliday || day.isOnLeave) && 'bg-gray-50',
               )}
             >
@@ -933,7 +932,7 @@ function Meetings({ meetings, timeZone }: { meetings: MeetingRow[]; timeZone: st
                   })}{' '}
                   at {localTime(m.heldAt, timeZone)}
                 </span>
-                {m.projectName && <span className={GREEN_PILL}>{m.projectName}</span>}
+                {m.projectName && <span className={WS.pill}>{m.projectName}</span>}
                 <span>
                   {m.attendeeCount} {m.attendeeCount === 1 ? 'attendee' : 'attendees'}
                 </span>
@@ -942,7 +941,7 @@ function Meetings({ meetings, timeZone }: { meetings: MeetingRow[]; timeZone: st
           </div>
 
           {m.decisions && (
-            <p className="mt-2 rounded-lg bg-[#9FE870]/20 px-3 py-2 text-[13px] text-gray-800">
+            <p className="mt-2 rounded-lg bg-[#F0DFF6] px-3 py-2 text-[13px] text-gray-800">
               Decided: {m.decisions}
             </p>
           )}
@@ -1017,13 +1016,13 @@ function Checklists({ tasks }: { tasks: TaskRow[] }) {
               <h2 className="text-sm font-semibold capitalize text-gray-900">
                 {group.tag.replace(/[-_]/g, ' ')}
               </h2>
-              <span className={GREEN_PILL}>
+              <span className={WS.pill}>
                 {group.done} of {group.tasks.length} done
               </span>
             </div>
 
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
-              <div className="h-full rounded-full bg-[#9FE870]" style={{ width: `${percent}%` }} />
+              <div className="h-full rounded-full bg-[#7E5896]" style={{ width: `${percent}%` }} />
             </div>
 
             <ul className="mt-3 divide-y divide-gray-100">

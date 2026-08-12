@@ -358,6 +358,23 @@ svg {
   display: none;
 }
 
+/* Door-scanner sheets (pageSheet stand-in). Scoped keyframes so the
+   immersive /scanner routes can slide overlays up without a separate app. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-sheet-up {
+  animation: sheet-up 0.25s ease-out;
+}
+
 /* Printing a card is a save route like any other: the browser's "Print → Save
    as PDF" produces a vector-quality file. Blank the artwork on paper and leave
    a line explaining why, so a guest who genuinely wanted a keepsake is told

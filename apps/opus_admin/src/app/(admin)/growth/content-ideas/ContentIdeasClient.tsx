@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import SetGrowthHeading from '../_components/SetGrowthHeading'
+import { GtCard, GtSectionHeader, GT } from '../_components/ui'
 import { addContentIdea, deleteContentIdea, updateContentIdea } from './actions'
 
 export type ContentIdeaKind = 'tiktok_challenge' | 'office_challenge' | 'content_series' | 'hashtag'
@@ -130,7 +131,6 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
       <SetGrowthHeading
         title="Content Ideas"
         subtitle="Reference library — TikTok challenges, office challenges, content series, hashtags."
-        back={{ href: '/growth', label: 'Growth Tracker' }}
       />
 
       <div className="flex flex-wrap gap-2">
@@ -140,8 +140,10 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
             type="button"
             onClick={() => switchTab(tab.kind)}
             className={cn(
-              'rounded-full px-3 py-1.5 text-[12px] font-medium',
-              activeKind === tab.kind ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+              'rounded-full border px-3.5 py-1.5 text-[12px] font-semibold transition-colors',
+              activeKind === tab.kind
+                ? 'border-[#7E5896] bg-[#7E5896] text-white'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-[#C9A0DC] hover:bg-[#F0DFF6]/40',
             )}
           >
             {tab.label}
@@ -149,19 +151,22 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
         ))}
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <div className="text-[12px] font-semibold tracking-wide text-gray-900">{activeTab.label.toUpperCase()}</div>
-          {canAdmin && (
-            <button data-opus-button="control"
-              type="button"
-              onClick={() => setAdding((v) => !v)}
-              className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-50"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add
-            </button>
-          )}
-        </div>
+      <GtCard>
+        <GtSectionHeader
+          title={activeTab.label}
+          action={
+            canAdmin ? (
+              <button
+                data-opus-button="control"
+                type="button"
+                onClick={() => setAdding((v) => !v)}
+                className={adding ? GT.btnSecondary : GT.btnPrimary}
+              >
+                <Plus className="h-4 w-4" /> {adding ? 'Cancel' : 'Add idea'}
+              </button>
+            ) : undefined
+          }
+        />
 
         {error && !adding && (
           <div className="border-b border-gray-100 px-4 py-2 text-[11px] text-red-600">{error}</div>
@@ -177,7 +182,7 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
             />
             {activeKind !== 'hashtag' && (
               <textarea
-                className="min-h-[60px] w-full rounded-lg border border-gray-200 p-2 text-[13px]"
+                className="min-h-15 w-full rounded-lg border border-gray-200 p-2 text-[13px]"
                 placeholder="Description"
                 value={draft.description}
                 onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
@@ -199,7 +204,7 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
               type="button"
               onClick={submitAdd}
               disabled={isPending}
-              className="rounded-lg bg-gray-900 px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
+              className="rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
             >
               Save
             </button>
@@ -207,21 +212,21 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
         )}
 
         <div className="overflow-x-auto">
-          <table className="opus-table w-full text-[12px]">
+          <table className={`${GT.table} min-w-160`}>
             <thead>
-              <tr className="border-b border-gray-100 text-left text-gray-500">
-                <th className="px-4 py-2 font-medium">Title</th>
-                {activeKind !== 'hashtag' && <th className="px-3 py-2 font-medium">Description</th>}
+              <tr>
+                <th>Title</th>
+                {activeKind !== 'hashtag' && <th>Description</th>}
                 {activeTab.fields.map((f) => (
-                  <th key={f.key} className="px-3 py-2 font-medium">{f.label}</th>
+                  <th key={f.key}>{f.label}</th>
                 ))}
-                {canAdmin && <th className="px-3 py-2 font-medium" />}
+                {canAdmin && <th />}
               </tr>
             </thead>
             <tbody>
               {rows.map((idea) => (
-                <tr key={idea.id} className="border-b border-gray-50">
-                  <td className="px-4 py-2 font-medium text-gray-800">
+                <tr key={idea.id}>
+                  <th scope="row" className="opus-table-cell--leading">
                     {canAdmin ? (
                       <input
                         className="w-full rounded-md border border-transparent p-1 text-[12px] hover:border-gray-200 focus:border-gray-200"
@@ -231,9 +236,9 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
                     ) : (
                       idea.title
                     )}
-                  </td>
+                  </th>
                   {activeKind !== 'hashtag' && (
-                    <td className="px-3 py-2 text-gray-600">
+                    <td>
                       {canAdmin ? (
                         <input
                           className="w-full rounded-md border border-transparent p-1 text-[12px] hover:border-gray-200 focus:border-gray-200"
@@ -246,7 +251,7 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
                     </td>
                   )}
                   {activeTab.fields.map((f) => (
-                    <td key={f.key} className="px-3 py-2 text-gray-600">
+                    <td key={f.key}>
                       {canAdmin ? (
                         <input
                           className="w-full rounded-md border border-transparent p-1 text-[12px] hover:border-gray-200 focus:border-gray-200"
@@ -262,7 +267,7 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
                     </td>
                   ))}
                   {canAdmin && (
-                    <td className="px-3 py-2">
+                    <td>
                       <button data-opus-button="control"
                         type="button"
                         onClick={() => remove(idea.id)}
@@ -278,7 +283,7 @@ export default function ContentIdeasClient({ ideas, canAdmin }: { ideas: Content
             </tbody>
           </table>
         </div>
-      </div>
+      </GtCard>
     </div>
   )
 }

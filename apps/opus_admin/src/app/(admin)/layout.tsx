@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { after } from 'next/server'
 import { Sidebar } from '@/components/Sidebar'
 import { Header } from '@/components/Header'
+import { AdminMain } from '@/components/AdminMain'
 import { DesktopOnlyNotice } from '@/components/DesktopOnlyNotice'
 import { PageHeadingProvider } from '@/components/PageHeading'
 import { PageSearchProvider } from '@/components/PageSearch'
@@ -13,6 +14,7 @@ import {
   getAdminAccessRole,
   getCallerPermissions,
   getCallerProfile,
+  isAdminAuthDisabled,
   isAdminDashboardRole,
   recordDashboardLogin,
 } from '@/lib/admin-auth'
@@ -87,16 +89,19 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                 below the lg breakpoint rather than serving a broken one. */}
             <DesktopOnlyNotice />
             <div className="flex h-screen bg-[#FDFDFD] font-sans antialiased text-gray-900 print:block print:h-auto print:bg-white">
-              <Sidebar permissions={permissions} profile={profile} workspace={workspace} />
+              <Sidebar
+                permissions={permissions}
+                profile={profile}
+                workspace={workspace}
+                clerkEnabled={!isAdminAuthDisabled()}
+              />
               {/* Full-height secondary-sidebar column. Empty (0-width) on pages
                   without a secondary nav; pages portal their sidebar in via
                   SecondarySidebarSlot so the Header stays only above the content. */}
               <div id="secondary-sidebar" className="shrink-0 print:hidden" />
               <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0 print:block print:h-auto print:overflow-visible">
-                <Header profile={profile} />
-                <main className="flex-1 overflow-y-auto overflow-x-hidden print:overflow-visible">
-                  {children}
-                </main>
+                <Header profile={profile} clerkEnabled={!isAdminAuthDisabled()} />
+                <AdminMain>{children}</AdminMain>
               </div>
             </div>
           </SidebarFocusProvider>

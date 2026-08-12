@@ -212,7 +212,7 @@ export default function DashboardShell({
               <Logo className="text-2xl" />
             </Link>
           )}
-          <button data-opus-button="primary" data-opus-button-size="small"
+          <button data-opus-button="control"
             type="button"
             onClick={toggleCollapsed}
             aria-label={collapsed ? t('collapse_expand') : t('collapse_collapse')}
@@ -220,9 +220,9 @@ export default function DashboardShell({
             className="flex h-8 w-8 items-center justify-center rounded-lg text-[#1A1A1A]/45 transition-colors hover:bg-black/5 hover:text-[#1A1A1A]"
           >
             {collapsed ? (
-              <PanelLeftOpen className="h-[18px] w-[18px]" />
+              <PanelLeftOpen className="h-5 w-5" />
             ) : (
-              <PanelLeftClose className="h-[18px] w-[18px]" />
+              <PanelLeftClose className="h-5 w-5" />
             )}
           </button>
         </div>

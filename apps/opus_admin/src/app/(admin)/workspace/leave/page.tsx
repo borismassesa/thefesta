@@ -14,7 +14,7 @@ import { addDays } from '@/lib/leave/days'
 import AccessNotice from '../_components/AccessNotice'
 import WorkspaceHeading from '../_components/WorkspaceHeading'
 import LeaveClient from './LeaveClient'
-import { cancelRequest, createRequest, decideRequest, submitRequest } from './actions'
+import { cancelRequest, createRequest, decideRequest, submitRequest, uploadLeaveDocument } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,7 +66,7 @@ export default async function LeavePage() {
         availability={availability}
         approvalQueue={queue}
         isHr={isHr}
-        actions={{ createRequest, submitRequest, decideRequest, cancelRequest }}
+        actions={{ createRequest, submitRequest, uploadLeaveDocument, decideRequest, cancelRequest }}
       />
     </>
   )

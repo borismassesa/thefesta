@@ -45,6 +45,23 @@ body {
   }
 }
 
+/* Sheets and bottom pickers slide up like the native pageSheet modals they
+ * replace. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-sheet-up {
+  animation: sheet-up 0.25s ease-out;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }

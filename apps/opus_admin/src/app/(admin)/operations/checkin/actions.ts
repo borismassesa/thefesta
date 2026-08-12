@@ -193,16 +193,20 @@ export async function assignAttendant(
   const callerEmail = await getCallerEmail()
   console.warn('[opuspass-checkin] admin assigned attendant', { eventId, attendantName: name, by: callerEmail })
 
-  // A relative fallback here silently produces a link that only resolves
-  // inside opus_admin's own origin — pasted into WhatsApp/SMS or opened
-  // directly it becomes a broken file:// URL. Fail loudly instead: the
-  // token is already minted and valid, so we still return it (the admin
-  // can build the link by hand from the code), but surface the missing
-  // config clearly rather than a link that silently doesn't work.
-  const scannerOrigin = (process.env.NEXT_PUBLIC_OPUS_SCANNER_URL || '').replace(/\/$/, '')
+  // Absolute share links must land on opus_pass's /entrance-card-scanner UI
+  // (not this admin origin). Prefer NEXT_PUBLIC_OPUS_SCANNER_URL (includes that
+  // path prefix); fall back to NEXT_PUBLIC_OPUS_PASS_URL + /entrance-card-scanner.
+  // Relative fallbacks are forbidden — they break when pasted into WhatsApp/SMS.
+  const passOrigin = (process.env.NEXT_PUBLIC_OPUS_PASS_URL || '').replace(/\/$/, '')
+  const scannerOrigin = (
+    process.env.NEXT_PUBLIC_OPUS_SCANNER_URL ||
+    (passOrigin ? `${passOrigin}/entrance-card-scanner` : '')
+  ).replace(/\/$/, '')
   const link = scannerOrigin ? `${scannerOrigin}/event/${eventId}?token=${encodeURIComponent(rawToken)}` : ''
   if (!scannerOrigin) {
-    console.error('[opuspass-checkin] NEXT_PUBLIC_OPUS_SCANNER_URL is not set — cannot build an absolute scanner link')
+    console.error(
+      '[opuspass-checkin] NEXT_PUBLIC_OPUS_SCANNER_URL (or NEXT_PUBLIC_OPUS_PASS_URL) is not set — cannot build an absolute scanner link',
+    )
   }
 
   // Delivery failure never fails the assignment: the code is already minted
@@ -231,7 +235,7 @@ export async function assignAttendant(
       ? {}
       : {
           linkWarning:
-            'NEXT_PUBLIC_OPUS_SCANNER_URL is not configured — share the code manually, or set that env var and reassign.',
+            'Scanner URL is not configured — set NEXT_PUBLIC_OPUS_SCANNER_URL or NEXT_PUBLIC_OPUS_PASS_URL, then reassign.',
         }),
   }
 }

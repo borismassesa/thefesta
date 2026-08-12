@@ -17,6 +17,8 @@ function buildColumns(s: FooterStrings): FooterColumn[] {
         { label: s.link_invitations, href: '/digital-cards' },
         { label: s.link_guests, href: '/guests-and-rsvp' },
         { label: s.link_website, href: '/websites' },
+        // Same-origin door check-in UI (see src/app/scanner).
+        { label: s.link_door_scanner, href: '/entrance-card-scanner' },
       ],
     },
     {

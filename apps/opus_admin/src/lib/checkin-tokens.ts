@@ -88,11 +88,11 @@ export function verifyEntryPassToken(token: string): EntryPassPayload | null {
   }
 }
 
-/** Same rendering options as apps/opus_pass/src/lib/checkin/qr.ts so a
- * ticket looks identical regardless of which app generated it: deep purple
- * on white — on-brand for the purple ticket artwork while keeping the
- * dark-on-light contrast scanners require (never invert it). */
+/** Admin-side tooling helper. Live guest tickets are rendered by
+ * apps/opus_pass/src/lib/checkin/qr-render.ts (matrix → ECC H → protected
+ * logo region → 4-module quiet zone). Keep ECC H + dark purple on white so
+ * any admin preview stays in the same contrast band. */
 export async function generateEntryPassQrDataUrl(guestContactId: string, invitationId: string): Promise<string> {
   const token = signEntryPassToken({ invitationId, guestContactId })
-  return QRCode.toDataURL(token, { margin: 1, width: 512, errorCorrectionLevel: 'M', color: { dark: '#4A2472', light: '#FFFFFF' } })
+  return QRCode.toDataURL(token, { margin: 4, width: 512, errorCorrectionLevel: 'H', color: { dark: '#4A2472', light: '#FFFFFF' } })
 }

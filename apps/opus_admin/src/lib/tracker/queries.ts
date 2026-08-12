@@ -196,10 +196,56 @@ function mapItem(row: ItemRow): TrackerItem {
 }
 
 /**
- * The units this employee is assigned to, with the role they hold.
+ * True when this employee is a Managing Director (or acting MD) for a brand.
+ */
+export async function isManagingDirector(employee: WorkspaceEmployee): Promise<boolean> {
+  if (!hasSupabaseAdminConfig()) return false
+  try {
+    const supabase = createSupabaseAdminClient()
+    const { data, error } = await supabase.rpc('tracker_is_managing_director', {
+      p_employee_id: employee.id,
+    })
+    if (error) {
+      logDbError('tracker.is_md', error, { employeeId: employee.id })
+      return false
+    }
+    return Boolean(data)
+  } catch (error) {
+    logDbError('tracker.is_md', error, { employeeId: employee.id })
+    return false
+  }
+}
+
+/**
+ * Ensures brand owner assignments + today's MD entry exist. No-op for non-MDs.
+ */
+export async function ensureMyTrackerUnit(employee: WorkspaceEmployee): Promise<void> {
+  if (!hasSupabaseAdminConfig()) return
+  try {
+    const supabase = createSupabaseAdminClient()
+    const { error: unitError } = await supabase.rpc('tracker_ensure_employee_unit', {
+      p_employee_id: employee.id,
+    })
+    if (unitError) {
+      logDbError('tracker.ensure_unit', unitError, { employeeId: employee.id })
+      return
+    }
+    const { error: entryError } = await supabase.rpc('tracker_ensure_today_entry', {
+      p_employee_id: employee.id,
+    })
+    if (entryError) {
+      logDbError('tracker.ensure_today', entryError, { employeeId: employee.id })
+    }
+  } catch (error) {
+    logDbError('tracker.ensure_unit', error, { employeeId: employee.id })
+  }
+}
+
+/**
+ * The units this Managing Director is assigned to, with the role they hold.
  *
- * The root of all tracker authorization. Everything else starts from the ids
- * this returns.
+ * Daily Tracker is MD-scoped: brand units they own, plus any reviewer units.
+ * Prefill pulls department / assigned-task work onto those brand days.
  */
 export async function getMyUnits(employee: WorkspaceEmployee): Promise<TrackingUnit[]> {
   if (!hasSupabaseAdminConfig()) return []
