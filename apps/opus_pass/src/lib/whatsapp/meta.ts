@@ -9,6 +9,7 @@ import {
   type ThankYouSend,
   type WhatsAppProvider,
 } from './types'
+import { entrancePassComponents } from './entrance-pass-template'
 
 // Meta WhatsApp Cloud API provider. Sends business-initiated template messages
 // with an image header + dynamic body + quick-reply buttons whose payloads
@@ -64,6 +65,18 @@ function readEntrancePassTemplateConfig(): { templateName: string; language: str
   return {
     templateName,
     language: process.env.WHATSAPP_TEMPLATE_LANG_ENTRANCE_PASS || 'sw',
+  }
+}
+
+/** Wallet-button variant of the entrance-pass template. It is deliberately a
+ * separate Meta template so rollout never changes the component shape of the
+ * existing image-only send. */
+function readEntrancePassWalletTemplateConfig(): { templateName: string; language: string } | null {
+  const templateName = process.env.WHATSAPP_TEMPLATE_NAME_ENTRANCE_PASS_WALLET
+  if (!templateName) return null
+  return {
+    templateName,
+    language: process.env.WHATSAPP_TEMPLATE_LANG_ENTRANCE_PASS_WALLET || 'sw',
   }
 }
 
@@ -146,7 +159,8 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
   }
 
   async sendEntrancePass(send: EntrancePassSend): Promise<SendResult> {
-    const cfg = readEntrancePassTemplateConfig()
+    const walletCfg = send.walletToken ? readEntrancePassWalletTemplateConfig() : null
+    const cfg = walletCfg ?? readEntrancePassTemplateConfig()
     if (!cfg) return { ok: false, error: 'WhatsApp entrance-pass template is not configured' }
     return this.post({
       messaging_product: 'whatsapp',
@@ -155,21 +169,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       template: {
         name: cfg.templateName,
         language: { code: send.languageCode || cfg.language },
-        components: [
-          { type: 'header', parameters: [{ type: 'image', image: { link: send.headerImageUrl } }] },
-          {
-            type: 'body',
-            parameters: [
-              { type: 'text', text: send.guestName }, // {{1}}
-              { type: 'text', text: send.eventCategory }, // {{2}}
-              { type: 'text', text: send.coupleName }, // {{3}}
-              { type: 'text', text: send.dateLabel }, // {{4}}
-              { type: 'text', text: send.timeLabel }, // {{5}}
-              { type: 'text', text: send.venue }, // {{6}}
-            ],
-          },
-          // No buttons — see ENTRANCE_PASS_TEMPLATE.
-        ],
+        components: entrancePassComponents(send, Boolean(walletCfg)),
       },
     })
   }

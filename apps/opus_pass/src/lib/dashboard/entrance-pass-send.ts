@@ -7,10 +7,15 @@ import {
   getWhatsAppEntitlement,
   releaseSendCredit,
 } from './queries'
-import { normalizePhone, publicOrigin, templateParam } from './share'
+import { publicOrigin, templateParam } from './share'
 import { assessRosterDelivery } from './guest-delivery'
 import { loadRosterIdentities } from './queries'
 import { getWhatsAppProvider } from '@/lib/whatsapp'
+import {
+  ensureWalletManagementToken,
+  walletTokensConfigured,
+} from '@/lib/checkin/wallet-tokens'
+import { walletIssuanceReady } from '@/lib/wallet/providers'
 import type { WhatsAppSendSummary } from './actions'
 import type { EventType } from './types'
 
@@ -114,11 +119,14 @@ export async function deliverEntrancePasses(args: {
 
   const { data: invitations } = await supabase
     .from('guest_invitations')
-    .select('guest_contact_id')
+    .select('id, guest_contact_id')
     .eq('user_id', user.id)
     .eq('event_id', eventId)
     .eq('rsvp_status', 'attending')
-  const attendingIds = new Set((invitations ?? []).map((i) => i.guest_contact_id as string))
+  const invitationByGuest = new Map(
+    (invitations ?? []).map((i) => [i.guest_contact_id as string, i.id as string])
+  )
+  const attendingIds = new Set(invitationByGuest.keys())
   if (!attendingIds.size) return summary
 
   const targetIds = guestIds && guestIds.length ? guestIds.filter((id) => attendingIds.has(id)) : [...attendingIds]
@@ -132,6 +140,7 @@ export async function deliverEntrancePasses(args: {
   if (error) throw new Error(error.message)
 
   const origin = publicOrigin()
+  const canOfferWallet = walletIssuanceReady() && walletTokensConfigured()
   let remaining = ent.entrancePassRemaining // informational only — consumeSendCredit is the actual gate
 
   // Entrance passes carry an admission identity. Sending one to a number that
@@ -174,6 +183,26 @@ export async function deliverEntrancePasses(args: {
     const isResend = verdict === 'resend'
     if (!isResend) remaining -= 1
 
+    let walletToken: string | undefined
+    const invitationId = invitationByGuest.get(g.id)
+    if (canOfferWallet && invitationId) {
+      try {
+        const token = await ensureWalletManagementToken(
+          invitationId,
+          'entrance_pass_delivery',
+          supabase
+        )
+        walletToken = token?.rawToken
+      } catch (err) {
+        // The scannable image remains the primary pass. A wallet setup fault
+        // must not prevent that ticket from reaching the guest.
+        console.error('[wallet] entrance-pass handoff could not be prepared', {
+          invitationId,
+          kind: (err as Error)?.name,
+        })
+      }
+    }
+
     const result = await provider.sendEntrancePass({
       to,
       // The stored name verbatim, honorific included: getEntrancePassData
@@ -194,6 +223,7 @@ export async function deliverEntrancePasses(args: {
       // cached image forever (the URL is stable per guest+event). A per-send
       // timestamp forces a fresh fetch every time. The route ignores `v`.
       headerImageUrl: `${origin}/entrance-pass/${g.public_token}?event=${eventId}&v=${Date.now()}`,
+      walletToken,
     })
 
     // Delivery-status log only now — credit_consumptions (written by

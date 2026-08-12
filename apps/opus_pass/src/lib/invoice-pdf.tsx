@@ -14,7 +14,8 @@ import {
   Stop,
   StyleSheet,
 } from '@react-pdf/renderer'
-import { QUOTE_VALID_DAYS, type StoredOrder } from '@/lib/cart-storage'
+import type { StoredOrder } from '@/lib/cart-storage'
+import { QUOTE_VALID_DAYS } from '@/lib/quote-terms'
 import { MPESA_LIPA_NAMBA, MPESA_SEND_MONEY } from '@/lib/payments/lipa-namba'
 import { INVOICE_LOGO_PNG_BASE64 } from '@/lib/invoice-logo'
 
@@ -31,7 +32,12 @@ function formatDate(iso: string, offsetDays = 0): string {
     ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
     : new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  if (offsetDays) d.setDate(d.getDate() + offsetDays)
+  // The offset is validated and the result re-checked, because setDate() with
+  // anything non-finite yields an Invalid Date and toLocaleDateString then
+  // prints those two words onto a customer's document. Returning '' instead
+  // lets the caller drop the line rather than publish nonsense.
+  if (Number.isFinite(offsetDays) && offsetDays !== 0) d.setDate(d.getDate() + offsetDays)
+  if (Number.isNaN(d.getTime())) return ''
   return d.toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'long',
@@ -534,14 +540,20 @@ function HowToPay() {
  */
 export function InvoicePdf({ order }: { order: StoredOrder }) {
   const quotation = order.documentKind === 'quotation'
-  const paidDate = formatDate(order.paidAt)
+  // A quotation states an expiry or it is an open-ended promise on prices the
+  // CMS can change tomorrow, so the date it derives that expiry from is never
+  // allowed to be missing: an unusable one falls back to render time. An
+  // invoice keeps whatever it was given, because a payment date we can't parse
+  // must not be replaced with a plausible-looking one.
+  const issuedAt = quotation && !formatDate(order.paidAt) ? new Date().toISOString() : order.paidAt
+  const paidDate = formatDate(issuedAt)
   const eventDate = order.eventDate ? formatDate(order.eventDate) : ''
   const verifying = order.paymentStatus === 'verifying'
   const topup = order.orderKind === 'topup'
   // Derived here, not passed: the validity window is a rule, and computing it
   // from the issue date in the document means the printed date can never
   // disagree with the rule the cart applied.
-  const validUntil = quotation ? formatDate(order.paidAt, QUOTE_VALID_DAYS) : ''
+  const validUntil = quotation ? formatDate(issuedAt, QUOTE_VALID_DAYS) : ''
   return (
     <Document title={`OpusFesta-${quotation ? 'Quotation' : 'Invoice'}-${order.ref}`}>
       <Page size="A4" style={s.page}>
@@ -555,7 +567,7 @@ export function InvoicePdf({ order }: { order: StoredOrder }) {
               // document is worth and until when, which is the one thing a
               // quotation has to carry that an invoice does not.
               <Text style={[s.paid, { backgroundColor: '#f5f0fa', borderColor: '#d9c7ec', color: BRAND }]}>
-                {validUntil ? `VALID UNTIL ${validUntil.toUpperCase()}` : 'QUOTATION'}
+                VALID UNTIL {validUntil.toUpperCase()}
               </Text>
             ) : (
               <Text
@@ -587,12 +599,13 @@ export function InvoicePdf({ order }: { order: StoredOrder }) {
               </View>
             ) : null}
             {quotation ? (
-              validUntil ? (
-                <View style={s.mi}>
-                  <Text style={s.label}>Valid until</Text>
-                  <Text style={s.val}>{validUntil}</Text>
-                </View>
-              ) : null
+              // Unguarded, unlike the rest of this grid: `issuedAt` is
+              // normalised above precisely so a quotation always carries the
+              // date its prices stop holding.
+              <View style={s.mi}>
+                <Text style={s.label}>Valid until</Text>
+                <Text style={s.val}>{validUntil}</Text>
+              </View>
             ) : topup ? (
               order.parentRef ? (
                 <View style={s.mi}>
@@ -603,7 +616,7 @@ export function InvoicePdf({ order }: { order: StoredOrder }) {
             ) : paidDate ? (
               <View style={s.mi}>
                 <Text style={s.label}>Delivery window</Text>
-                <Text>{formatDate(order.paidAt, 2)} - {formatDate(order.paidAt, 3)}</Text>
+                <Text>{formatDate(issuedAt, 2)} - {formatDate(issuedAt, 3)}</Text>
               </View>
             ) : null}
             {eventDate ? (
@@ -685,7 +698,7 @@ export function InvoicePdf({ order }: { order: StoredOrder }) {
                 <Text style={s.quoteTermsText}>
                   This is a quotation, not a bill. The prices above are held until{' '}
                   <Text style={{ fontFamily: 'Helvetica-Bold', color: '#1a1a1a' }}>
-                    {validUntil || 'the date shown'}
+                    {validUntil}
                   </Text>
                   . Nothing is reserved and no card enters design until payment is received.
                 </Text>

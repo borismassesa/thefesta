@@ -217,12 +217,6 @@ export function getPendingTemplateIds(type: TemplateCardType, eventId?: string |
   return ids
 }
 
-/** How long a quotation holds its prices. Tier prices are CMS-editable, so a
- *  quote with no expiry is an open-ended promise the catalogue can't keep.
- *  Change this and the PDF follows, but the cart's `quote_hint` CMS string
- *  spells the number out in words — update that too. */
-export const QUOTE_VALID_DAYS = 3
-
 const QUOTE_KEY = 'of_quote_ref'
 
 /**
