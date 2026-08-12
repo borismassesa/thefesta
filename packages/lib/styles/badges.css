@@ -1,0 +1,108 @@
+/*
+ * Opus product badge system
+ * Geometry follows the approved reference; semantic colours use the Opus
+ * lavender, rose, green, amber and neutral palette.
+ */
+:root {
+  --opus-badge-error-bg: #fce4ec;
+  --opus-badge-error-fg: #9b1d4c;
+  --opus-badge-info-bg: #f0dff6;
+  --opus-badge-info-fg: #5b2d8e;
+  --opus-badge-success-bg: #e6f1e6;
+  --opus-badge-success-fg: #166534;
+  --opus-badge-warning-bg: #fef3db;
+  --opus-badge-warning-fg: #8a5a09;
+  --opus-badge-neutral-bg: #f3f4f6;
+  --opus-badge-neutral-fg: #4b5563;
+}
+
+.opus-badge,
+[data-opus-badge] {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: var(--opus-radius-small, 0.5rem);
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.0125em;
+  line-height: 1.375rem;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.opus-badge--medium,
+[data-opus-badge-size='medium'] {
+  min-height: 1.875rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Compact is reserved for dense tables; medium remains the default. */
+.opus-badge--small,
+[data-opus-badge-size='small'] {
+  min-height: 1.5rem;
+  padding: 0.125rem 0.5rem;
+  gap: 0.375rem;
+  border-radius: var(--opus-radius-small, 0.5rem);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+
+.opus-badge > svg,
+.opus-badge__icon,
+[data-opus-badge] > svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  pointer-events: none;
+}
+
+.opus-badge--small > svg,
+.opus-badge--small > .opus-badge__icon,
+[data-opus-badge-size='small'] > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-basis: 0.875rem;
+}
+
+.opus-badge__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.opus-badge--error,
+[data-opus-badge='error'] {
+  background: var(--opus-badge-error-bg);
+  color: var(--opus-badge-error-fg);
+}
+
+.opus-badge--info,
+[data-opus-badge='info'] {
+  background: var(--opus-badge-info-bg);
+  color: var(--opus-badge-info-fg);
+}
+
+.opus-badge--success,
+[data-opus-badge='success'] {
+  background: var(--opus-badge-success-bg);
+  color: var(--opus-badge-success-fg);
+}
+
+.opus-badge--warning,
+[data-opus-badge='warning'] {
+  background: var(--opus-badge-warning-bg);
+  color: var(--opus-badge-warning-fg);
+}
+
+.opus-badge--neutral,
+[data-opus-badge='neutral'] {
+  background: var(--opus-badge-neutral-bg);
+  color: var(--opus-badge-neutral-fg);
+}

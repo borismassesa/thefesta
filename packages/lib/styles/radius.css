@@ -1,0 +1,51 @@
+/*
+ * OpusFesta product radius system
+ *
+ * Approved scale: 8px, 16px, 24px, and 32px. `round` is reserved for true
+ * circles and pills. Tailwind's named radius utilities are mapped onto this
+ * scale so existing product UI inherits the contract automatically.
+ */
+:root {
+  --opus-radius-small: 0.5rem;
+  --opus-radius-medium: 1rem;
+  --opus-radius-large: 1.5rem;
+  --opus-radius-xlarge: 2rem;
+  --opus-radius-round: 9999px;
+
+  /* Tailwind v4 radius theme compatibility. */
+  --radius: var(--opus-radius-small);
+  --radius-xs: var(--opus-radius-small);
+  --radius-sm: var(--opus-radius-small);
+  --radius-md: var(--opus-radius-small);
+  --radius-lg: var(--opus-radius-small);
+  --radius-xl: var(--opus-radius-medium);
+  --radius-2xl: var(--opus-radius-medium);
+  --radius-3xl: var(--opus-radius-large);
+  --radius-4xl: var(--opus-radius-xlarge);
+}
+
+/* Tailwind's bare `rounded` utility has a fixed value rather than a theme
+ * token, so it needs one explicit bridge into the shared scale. */
+.rounded {
+  border-radius: var(--opus-radius-small);
+}
+
+.opus-radius--small {
+  border-radius: var(--opus-radius-small) !important;
+}
+
+.opus-radius--medium {
+  border-radius: var(--opus-radius-medium) !important;
+}
+
+.opus-radius--large {
+  border-radius: var(--opus-radius-large) !important;
+}
+
+.opus-radius--xlarge {
+  border-radius: var(--opus-radius-xlarge) !important;
+}
+
+.opus-radius--round {
+  border-radius: var(--opus-radius-round) !important;
+}
