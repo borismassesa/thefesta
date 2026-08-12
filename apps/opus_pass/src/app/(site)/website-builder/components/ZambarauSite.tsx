@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils'
 import { FONT_STACKS, type BuilderMeta, type Theme } from '@/lib/builder/types'
 import type { GiftRegistryItemWithClaims, PublicGiftRegistryPage, PublicGuestbookPage } from '@/lib/dashboard/queries'
 import type { GuestbookEntry } from '@/lib/dashboard/types'
-import GiftRegistryPublicClient from '@/app/gift-registry/[slug]/GiftRegistryPublicClient'
-import GuestbookPublicClient from '@/app/guestbook/[slug]/GuestbookPublicClient'
+import GiftRegistryPublicClient from '@/app/(site)/gift-registry/[slug]/GiftRegistryPublicClient'
+import GuestbookPublicClient from '@/app/(site)/guestbook/[slug]/GuestbookPublicClient'
 import { RsvpForm, Gallery } from './SiteRenderer'
 
 // ─────────────────────────────────────────────────────────────────────────────
