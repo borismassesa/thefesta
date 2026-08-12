@@ -256,7 +256,9 @@ export default function ManualCheckinClient({ eventId }: { eventId: string }) {
                   <span className="text-sm font-bold text-white">{result.table}</span>
                 </span>
               ) : null}
-              {result.status === 'success' && result.checkedInPartySize ? (
+              {result.status === 'success' &&
+              result.checkedInPartySize &&
+              result.partySize != null ? (
                 <p className="mt-3 text-center text-base text-white/90">
                   {t('admitted_of', {
                     a: result.checkedInPartySize,
