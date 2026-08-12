@@ -213,7 +213,7 @@ export default function HomeView({
           )}
         </Card>
 
-        <Card title="Leave balance" icon={Plane} action={{ label: 'Leave', href: '/workforce/leave' }}>
+        <Card title="Leave balance" icon={Plane} action={{ label: 'Leave', href: '/workspace/leave' }}>
           {home.leaveBalance ? (
             <div>
               <p className="text-2xl font-semibold tracking-tight text-gray-900">

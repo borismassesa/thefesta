@@ -4,6 +4,7 @@ import type { Treatment } from '@/components/guests/InvitationVisual'
 import type { InvitationPalette } from '@/components/guests/invitation-templates/_types'
 import { isProductBadge, type CatalogProduct } from '@/data/digital-cards-products'
 import { DEFAULT_LOCALE, type Locale } from './localized'
+import { artworkUrl, parseStorageUrl, type ArtworkSlot } from '@/lib/cards/protected-art'
 
 type ProductRow = {
   id: string
@@ -66,8 +67,36 @@ export function translateProductCategory(category: string, locale: Locale): stri
   return locale === 'sw' ? CATEGORY_SW[category] ?? category : category
 }
 
+/**
+ * Rewrites a stored artwork URL into one the browser may have.
+ *
+ * THE POINT OF THIS FUNCTION. `image_url`, `designs` and `gallery` hold PUBLIC
+ * Supabase storage URLs, and the bucket accepts SVG — so shipping them to the
+ * page handed every visitor the complete vector source of every design, with no
+ * session and nothing this app could refuse. Rewriting here, at the single
+ * mapper every catalogue read already goes through, protects the storefront,
+ * the product page, the carousel, the cart and the customise editor at once,
+ * rather than asking nine components to remember.
+ *
+ * Non-storage values (local `/assets/...` files) pass through untouched: they
+ * are shipped with the app and are not anyone's artwork to steal.
+ */
+function protectArtwork(
+  productId: string,
+  stored: string | null | undefined,
+  slot: ArtworkSlot,
+): string | undefined {
+  if (!stored) return undefined
+  if (!parseStorageUrl(stored)) return stored
+  // null means the artwork cannot be signed, so it is not served at all. The
+  // tile falls back to its built-in <InvitationVisual> treatment: visibly wrong,
+  // which gets the missing configuration noticed, and never the leak that
+  // handing back the raw storage URL would be.
+  return artworkUrl(productId, slot) ?? undefined
+}
+
 function rowToProduct(row: ProductRow, locale: Locale): CatalogProduct {
-  const imageUrl = row.image_url || undefined
+  const imageUrl = protectArtwork(row.id, row.image_url, 'hero')
   // Swahili falls back to English when blank/absent.
   const name = locale === 'sw' ? row.name_sw || row.name : row.name
   const description =
@@ -89,8 +118,15 @@ function rowToProduct(row: ProductRow, locale: Locale): CatalogProduct {
     treatment:        row.treatment as Treatment,
     imageUrl,
     designImage:      imageUrl,
-    gallery:          Array.isArray(row.gallery) ? row.gallery.filter(Boolean) : [],
-    designs:          Array.isArray(row.designs) ? row.designs.filter(Boolean) : [],
+    // Index against the RAW array, not the filtered one: the slot the browser
+    // sends back is resolved by index server-side, so filtering first would
+    // shift every position after a blank entry and serve the wrong view.
+    gallery:          (row.gallery ?? [])
+                        .map((url, i) => protectArtwork(row.id, url, `g${i}`))
+                        .filter((url): url is string => Boolean(url)),
+    designs:          (row.designs ?? [])
+                        .map((url, i) => protectArtwork(row.id, url, `d${i}`))
+                        .filter((url): url is string => Boolean(url)),
     badge:            isProductBadge(row.badge) ? row.badge : undefined,
     createdAt:        row.created_at ?? undefined,
   }

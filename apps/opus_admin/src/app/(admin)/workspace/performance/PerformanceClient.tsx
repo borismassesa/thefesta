@@ -277,7 +277,7 @@ export default function PerformanceClient({
           {TABS.map((t) => {
             const Icon = t.icon
             return (
-              <button
+              <button data-opus-button="control"
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
@@ -303,7 +303,7 @@ export default function PerformanceClient({
           })}
         </div>
         {tab === 'goals' && (
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={() => setShowGoalForm((v) => !v)}
             className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800"
@@ -635,7 +635,7 @@ function GoalCard({
               placeholder="What moved, and what is the evidence?"
               className="min-w-[220px] flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-[13px]"
             />
-            <button
+            <button data-opus-button="primary" data-opus-button-size="small"
               type="button"
               disabled={pending}
               onClick={() =>
@@ -649,7 +649,7 @@ function GoalCard({
             >
               Save
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={pending || !note.trim()}
               onClick={() =>
@@ -666,7 +666,7 @@ function GoalCard({
           </div>
 
           {(goal.approvalStatus === 'draft' || goal.approvalStatus === 'changes_requested') && (
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={pending}
               onClick={() => onRun(() => actions.submitGoalForApproval(goal.id), 'Sent to your manager.')}
@@ -716,7 +716,7 @@ function ApprovalCard({
         className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
       />
       <div className="mt-3 flex flex-wrap gap-2">
-        <button
+        <button data-opus-button="danger" data-opus-button-size="medium"
           type="button"
           disabled={pending || !note.trim()}
           onClick={() => onRun(() => actions.decideGoalApproval(goal.id, 'reject', note))}
@@ -724,7 +724,7 @@ function ApprovalCard({
         >
           Reject
         </button>
-        <button
+        <button data-opus-button="warning" data-opus-button-size="medium"
           type="button"
           disabled={pending || !note.trim()}
           onClick={() => onRun(() => actions.decideGoalApproval(goal.id, 'request_changes', note))}
@@ -732,7 +732,7 @@ function ApprovalCard({
         >
           Ask for changes
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           disabled={pending}
           onClick={() => onRun(() => actions.decideGoalApproval(goal.id, 'approve', note || undefined))}
@@ -884,7 +884,7 @@ function GoalForm({
       </p>
       {error && <p className="text-sm text-rose-700">{error}</p>}
 
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         type="submit"
         disabled={pending || busy || !title.trim()}
         className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
@@ -1101,7 +1101,7 @@ function ReviewCard({
       )}
 
       {writable && (review.state === 'not_started' || review.state === 'in_progress') && (
-        <button
+        <button data-opus-button="control"
           type="button"
           disabled={pending}
           onClick={() => onRun(() => actions.submitReview(review.id), 'Review submitted.')}
@@ -1139,7 +1139,7 @@ function ReviewCard({
             />
             I do not agree with this review
           </label>
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={pending || (disagrees && !ackNote.trim())}
             onClick={() =>
@@ -1210,7 +1210,7 @@ function ReviewSection({
             className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
           />
           {dirty && (
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={pending}
               onClick={() => onSave(body)}
@@ -1330,7 +1330,7 @@ function RatingForm({
         />
       )}
 
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         type="button"
         disabled={pending || !subject || !rationale.trim() || (isChange && !changeReason.trim())}
         onClick={() =>
@@ -1413,7 +1413,7 @@ function FinaliseForm({
         placeholder="The summary the employee will read."
         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
       />
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         type="button"
         disabled={pending || !summary.trim()}
         onClick={() =>
@@ -1553,7 +1553,7 @@ function FeedbackAnswerForm({
         placeholder="What would help them most to change?"
         className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
       />
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         type="button"
         disabled={pending || (!strengths.trim() && !improvements.trim())}
         onClick={() =>
@@ -1642,7 +1642,7 @@ function Development({
             onChange={(e) => setTargetDate(e.target.value)}
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
           />
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             disabled={pending || !title.trim()}
             onClick={() =>

@@ -132,7 +132,7 @@ export default function AdminTeamSection({
           </div>
         </div>
         {canManageAccess && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setGranting(true)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
@@ -162,7 +162,7 @@ export default function AdminTeamSection({
       </div>
 
       <div className="overflow-x-auto no-scrollbar rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-        <div
+        <div data-opus-table-header
           role="row"
           className={cn(
             ROW_GRID,
@@ -258,7 +258,7 @@ function MemberRowView({
   const lastLogin = formatRelativeDay(row.employee.lastDashboardLogin)
 
   return (
-    <div
+    <div data-opus-table-row
       role="row"
       className={cn(
         ROW_GRID,
@@ -337,7 +337,7 @@ function MemberRowView({
       </div>
 
       <div className="flex items-center justify-end gap-1">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={canRevoke ? onRequestRevoke : undefined}
           disabled={!canRevoke}
@@ -429,7 +429,7 @@ function ConfirmRoleChangeDialog({
       {error && <p className="mt-3 text-sm font-medium text-rose-700">{error}</p>}
 
       <div className="mt-5 flex justify-end gap-2">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           disabled={pending}
@@ -437,7 +437,7 @@ function ConfirmRoleChangeDialog({
         >
           Cancel
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={confirm}
           disabled={pending}
@@ -494,7 +494,7 @@ function ConfirmRevokeDialog({
       {error && <p className="mt-3 text-sm font-medium text-rose-700">{error}</p>}
 
       <div className="mt-5 flex justify-end gap-2">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           disabled={pending}
@@ -502,7 +502,7 @@ function ConfirmRevokeDialog({
         >
           Cancel
         </button>
-        <button
+        <button data-opus-button="danger" data-opus-button-size="medium"
           type="button"
           onClick={confirm}
           disabled={pending}
@@ -589,7 +589,7 @@ function GrantAccessDialog({
             invitation email; access only turns on after they accept.
           </p>
         </div>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           aria-label="Close"
@@ -625,7 +625,7 @@ function GrantAccessDialog({
                 const active = e.id === selectedEmployeeId
                 return (
                   <li key={e.id}>
-                    <button
+                    <button data-opus-button="secondary" data-opus-button-size="medium"
                       type="button"
                       onClick={() => setSelectedEmployeeId(e.id)}
                       className={cn(
@@ -688,7 +688,7 @@ function GrantAccessDialog({
       )}
 
       <div className="mt-5 flex justify-end gap-2">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           disabled={pending}
@@ -696,7 +696,7 @@ function GrantAccessDialog({
         >
           {success ? 'Done' : 'Cancel'}
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={submit}
           disabled={pending || !selectedEmployeeId}

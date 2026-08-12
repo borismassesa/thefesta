@@ -1,5 +1,12 @@
+import { NextResponse } from 'next/server'
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { STAFF_SESSION_COOKIE } from '@/lib/dashboard/staff-session-cookie'
+import {
+  VISITOR_COOKIE,
+  VISITOR_COOKIE_MAX_AGE,
+  isVisitorId,
+  newVisitorId,
+} from '@/lib/cards/visitor-cookie'
 
 // Routes that require a signed-in user. Clerk middleware bounces unauthenticated
 // visitors to /sign-in with the original URL preserved as redirect_url, so the
@@ -38,6 +45,25 @@ export default clerkMiddleware(async (auth, req) => {
     await auth.protect({
       unauthenticatedUrl: new URL('/sign-in', req.url).toString(),
     })
+  }
+
+  // Give every browser a meaningless id, so card artwork served to an anonymous
+  // visitor still carries a trace stamp that distinguishes them from everyone
+  // else (see lib/cards/visitor-cookie.ts). Minted here rather than in a page
+  // because a Server Component cannot set a cookie during a render.
+  //
+  // Only ever ADDS a cookie. It never redirects, rewrites, or blocks, so it
+  // cannot change the outcome of the auth branch above.
+  if (!isVisitorId(req.cookies.get(VISITOR_COOKIE)?.value)) {
+    const response = NextResponse.next()
+    response.cookies.set(VISITOR_COOKIE, newVisitorId(), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: VISITOR_COOKIE_MAX_AGE,
+      path: '/',
+    })
+    return response
   }
 })
 

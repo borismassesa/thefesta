@@ -348,7 +348,7 @@ function MembersCard({
           </div>
         </div>
         {onAssign && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onAssign}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
@@ -360,7 +360,7 @@ function MembersCard({
       </div>
 
       {members.length === 0 ? (
-        <button
+        <button data-opus-button="neutral" data-opus-button-size="medium"
           type="button"
           onClick={onAssign}
           disabled={!onAssign}
@@ -443,7 +443,7 @@ function PermissionMatrix({
             </p>
           </div>
         </div>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={toggleAll}
           className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
@@ -463,7 +463,7 @@ function PermissionMatrix({
           const open = openGroups.has(groupName)
           return (
             <li key={groupName}>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => toggleGroup(groupName)}
                 aria-expanded={open}
@@ -617,7 +617,7 @@ function RoleRail({
             All roles
           </h3>
           {onNewRole && (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onNewRole}
               className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
@@ -686,7 +686,7 @@ function FilterChip({
   children: React.ReactNode
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       className={cn(
@@ -724,7 +724,7 @@ function RoleListCard({
 
   return (
     <li>
-      <button
+      <button data-opus-button="control"
         type="button"
         onClick={onSelect}
         aria-pressed={active}
@@ -877,7 +877,7 @@ function RoleHeroCard({
 
           <div className="flex flex-wrap gap-2">
             {!role.isSystem && onDelete && (
-              <button
+              <button data-opus-button="danger" data-opus-button-size="medium"
                 type="button"
                 onClick={onDelete}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
@@ -887,7 +887,7 @@ function RoleHeroCard({
               </button>
             )}
             {onDuplicate && (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="medium"
               type="button"
               onClick={onDuplicate}
               disabled={duplicating}
@@ -899,7 +899,7 @@ function RoleHeroCard({
             </button>
             )}
             {onAssign && (
-              <button
+              <button data-opus-button="neutral" data-opus-button-size="medium"
                 type="button"
                 onClick={onAssign}
                 title="Add or remove extra members on top of their primary role"
@@ -910,7 +910,7 @@ function RoleHeroCard({
               </button>
             )}
             {onEdit && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={onEdit}
                 disabled={role.isSystem}
@@ -1077,7 +1077,7 @@ function RoleFormDialog(props: RoleFormProps) {
               {granted.size} of {groups.reduce((s, [, items]) => s + items.length, 0)} permissions selected.
             </p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             aria-label="Close"
@@ -1120,7 +1120,7 @@ function RoleFormDialog(props: RoleFormProps) {
                 <div key={groupName} className="rounded-2xl border border-gray-100 bg-gray-50/30 p-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">{groupName}</h3>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => toggleGroup(items)}
                       className="text-xs font-semibold text-[#7E5896] hover:underline"
@@ -1132,7 +1132,7 @@ function RoleFormDialog(props: RoleFormProps) {
                     {items.map((p) => {
                       const allowed = granted.has(p.key)
                       return (
-                        <button
+                        <button data-opus-button="control"
                           key={p.key}
                           type="button"
                           onClick={() => toggle(p.key)}
@@ -1170,7 +1170,7 @@ function RoleFormDialog(props: RoleFormProps) {
         )}
 
         <div className="flex justify-end gap-2 border-t border-gray-100 px-6 py-4">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={pending}
@@ -1178,7 +1178,7 @@ function RoleFormDialog(props: RoleFormProps) {
           >
             Cancel
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={submit}
             disabled={pending || (!isEdit && !name) || granted.size === 0}
@@ -1247,7 +1247,7 @@ function DeleteRoleDialog({
         {error && <p className="mt-3 text-sm font-medium text-rose-700">{error}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             disabled={pending}
@@ -1255,7 +1255,7 @@ function DeleteRoleDialog({
           >
             Cancel
           </button>
-          <button
+          <button data-opus-button="danger" data-opus-button-size="medium"
             type="button"
             onClick={confirm}
             disabled={pending}
@@ -1348,7 +1348,7 @@ function AssignMembersDialog({
               Tick everyone who should hold this role. Changes save when you click Update.
             </p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             aria-label="Close"
@@ -1383,7 +1383,7 @@ function AssignMembersDialog({
                 const checked = selected.has(e.id)
                 return (
                   <li key={e.id}>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => toggle(e.id)}
                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
@@ -1434,7 +1434,7 @@ function AssignMembersDialog({
             )}
           </span>
           <div className="flex gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onClose}
               disabled={pending}
@@ -1442,7 +1442,7 @@ function AssignMembersDialog({
             >
               Cancel
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={submit}
               disabled={pending || delta === 0}
@@ -1472,7 +1472,7 @@ function TabButton({
 }) {
   const active = current === value
   return (
-    <button
+    <button data-opus-button="secondary" data-opus-button-size="medium"
       type="button"
       onClick={() => onSelect(value)}
       className={cn(

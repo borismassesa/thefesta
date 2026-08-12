@@ -88,7 +88,7 @@ function DialogShell({
             <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
             {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             aria-label="Close"
@@ -129,7 +129,7 @@ function PrimaryButton({
   children: ReactNode
 }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       disabled={pending || disabled}
@@ -142,7 +142,7 @@ function PrimaryButton({
 
 function CancelButton({ onClick, pending }: { onClick: () => void; pending: boolean }) {
   return (
-    <button
+    <button data-opus-button="control"
       type="button"
       onClick={onClick}
       disabled={pending}
@@ -420,7 +420,7 @@ export function SkillDialog({
       <Field label="Level">
         <div className="flex gap-1.5">
           {SKILL_LEVELS.map((l) => (
-            <button
+            <button data-opus-button="neutral" data-opus-button-size="small"
               key={l}
               type="button"
               onClick={() => handleLevel(l)}
@@ -913,7 +913,7 @@ export function DocumentRejectDialog({
       footer={
         <>
           <CancelButton onClick={onClose} pending={pending} />
-          <button
+          <button data-opus-button="danger" data-opus-button-size="medium"
             type="button"
             onClick={submit}
             disabled={pending || !reason.trim()}
@@ -1017,7 +1017,7 @@ export function ConfirmDeleteRecordDialog({
       footer={
         <>
           <CancelButton onClick={onClose} pending={pending} />
-          <button
+          <button data-opus-button="danger" data-opus-button-size="medium"
             type="button"
             onClick={confirm}
             disabled={pending}

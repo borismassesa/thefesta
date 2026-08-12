@@ -1,9 +1,11 @@
-import { requirePermission } from '@/lib/admin-auth'
-import CollectionPage from '../_components/CollectionPage'
-import { getRequisitionRows } from '../_lib/collections'
+import { permanentRedirect } from 'next/navigation'
 
-export default async function MyRequisitionsPage() {
-  await requirePermission('workforce.requisitions.read')
-  const rows = await getRequisitionRows(true)
-  return <CollectionPage title="My requisitions" subtitle="Requisitions where you are a hiring manager, recruiter, approver or scoped team member." rows={rows} emptyMessage="No requisitions are assigned to you." />
+/**
+ * Kept as a redirect rather than deleted. "Mine" is a scope on Requisitions
+ * now, not a section, but this URL has been in the nav and may be bookmarked or
+ * linked from a notification, and a 404 is a worse answer than the list they
+ * were asking for.
+ */
+export default function MyRequisitionsPage(): never {
+  permanentRedirect('/workforce/recruitment/requisitions?mine=1')
 }

@@ -171,7 +171,7 @@ export default async function EmployeePerformancePage({
             {days.length === 0 ? (
               <p className="px-5 py-6 text-center text-xs text-gray-400">No clock-ins in this window.</p>
             ) : (
-              <table className="w-full text-sm">
+              <table className="opus-table w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">
                     <th className="px-5 py-2.5">Day</th>

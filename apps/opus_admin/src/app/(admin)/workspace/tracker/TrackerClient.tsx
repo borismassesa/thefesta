@@ -149,7 +149,7 @@ export default function TrackerClient({
       {units.length > 1 && (
         <div className="flex flex-wrap gap-1.5">
           {units.map((unit) => (
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               key={unit.id}
               type="button"
               onClick={() => setActiveUnit(unit.id)}
@@ -177,7 +177,7 @@ export default function TrackerClient({
           const Icon = t.icon
           if (t.id === 'queue' && reviewQueue.length === 0 && !isAdmin) return null
           return (
-            <button
+            <button data-opus-button="control"
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
@@ -371,7 +371,7 @@ function TodayPanel({
 
       {editable && (
         <div className="flex flex-wrap justify-end gap-2">
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={pending}
             onClick={() => run(() => actions.saveEntry(entry.id, patch))}
@@ -379,7 +379,7 @@ function TodayPanel({
           >
             Save
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             disabled={pending}
             onClick={() =>
@@ -520,7 +520,7 @@ function ItemsSection({
                         </span>
                       )}
                       {editable && !item.carriedFromItemId && (
-                        <button
+                        <button data-opus-button="control"
                           type="button"
                           disabled={pending}
                           onClick={() => run(() => actions.removeItem(item.id))}
@@ -563,7 +563,7 @@ function ItemsSection({
             placeholder="What is it?"
             className="min-w-[220px] flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
           />
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             disabled={pending || newItem.trim().length === 0}
             onClick={() =>
@@ -617,7 +617,7 @@ function WeekPanel({
       </p>
 
       <section className="overflow-x-auto rounded-2xl border border-gray-100 bg-white p-5">
-        <table className="w-full min-w-[560px] text-left text-sm">
+        <table className="opus-table w-full min-w-[560px] text-left text-sm">
           <thead className="text-[12px] uppercase tracking-wide text-gray-400">
             <tr>
               <th className="pb-2 font-semibold">Day</th>
@@ -791,7 +791,7 @@ function WeeklyPanel({
 
       {editable && (
         <div className="flex flex-wrap justify-end gap-2">
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={pending}
             onClick={() => run(() => actions.saveWeeklySummary(current.id, patch))}
@@ -799,7 +799,7 @@ function WeeklyPanel({
           >
             Save
           </button>
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             disabled={pending}
             onClick={() =>
@@ -881,7 +881,7 @@ function ReviewQueuePanel({
             className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
           />
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
+            <button data-opus-button="warning" data-opus-button-size="medium"
               type="button"
               disabled={pending}
               onClick={() => run(() => actions.reviewEntry(entry.id, 'return', notes[entry.id]))}
@@ -889,7 +889,7 @@ function ReviewQueuePanel({
             >
               Return
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={pending}
               onClick={() => run(() => actions.reviewEntry(entry.id, 'accept', notes[entry.id]))}

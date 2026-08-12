@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { opusButtonClass } from '@opusfesta/lib'
 import {
   ArrowRight,
   Briefcase,
@@ -56,7 +57,7 @@ const STAGE_DOT: Record<JobStage, string> = {
   Applied: 'bg-gray-300',
   Screening: 'bg-sky-400',
   Interview: 'bg-amber-400',
-  Offer: 'bg-[#7E5896]',
+  Offer: 'bg-[#C9A0DC]',
   Hired: 'bg-emerald-500',
   Rejected: 'bg-rose-400',
 }
@@ -124,7 +125,7 @@ export default function RecruitmentClient({ jobs }: { jobs: Job[] }) {
       <HeaderActionsSlot>
         <Link
           href="/workforce/recruitment/requisitions/new"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+          className={opusButtonClass()}
         >
           <Plus className="h-4 w-4" />
           New requisition
@@ -182,7 +183,7 @@ function JobCard({
 }) {
   const hot = job.candidates.filter((c) => c.stage === 'Offer' || c.stage === 'Interview').length
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="medium"
       type="button"
       onClick={onSelect}
       className={cn(
@@ -283,7 +284,7 @@ function JobDetail({
             <button
               type="button"
               onClick={onAddCandidate}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              className={opusButtonClass()}
             >
               <Mail className="h-4 w-4" />
               Add candidate
@@ -381,7 +382,7 @@ function CandidateCard({ candidate }: { candidate: Candidate }) {
           {Array.from({ length: 5 }).map((_, i) => {
             const star = (i + 1) as 1 | 2 | 3 | 4 | 5
             return (
-              <button
+              <button data-opus-button="control"
                 key={i}
                 type="button"
                 onClick={() => setRating(star)}
@@ -403,7 +404,7 @@ function CandidateCard({ candidate }: { candidate: Candidate }) {
       <p className="mt-1 text-[10px] text-gray-400">applied {formatDate(candidate.appliedAt)}</p>
       {nextStage && (
         <div className="mt-2 flex items-center justify-between gap-1.5 border-t border-gray-100 pt-2">
-          <button
+          <button data-opus-button="secondary" data-opus-button-size="small"
             type="button"
             onClick={() => moveTo(nextStage)}
             disabled={pending}
@@ -412,7 +413,7 @@ function CandidateCard({ candidate }: { candidate: Candidate }) {
             <ArrowRight className="h-3 w-3" />
             {nextStage}
           </button>
-          <button
+          <button data-opus-button="danger" data-opus-button-size="small"
             type="button"
             onClick={() => moveTo('Rejected')}
             disabled={pending}
@@ -516,7 +517,7 @@ function NewJobDialog({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-50 hover:text-gray-700"
+          className={opusButtonClass({ variant: 'tertiary', size: 'icon-small' })}
           >
             <X className="h-4 w-4" />
           </button>
@@ -664,7 +665,7 @@ function NewJobDialog({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={onClose}
             disabled={pending}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className={opusButtonClass({ variant: 'neutral' })}
           >
             Cancel
           </button>
@@ -672,7 +673,7 @@ function NewJobDialog({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={submit}
             disabled={pending || !title || !hiringManager || !minSalary || !maxSalary}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            className={opusButtonClass()}
           >
             {pending ? 'Creating…' : 'Create job'}
           </button>
@@ -745,7 +746,7 @@ function AddCandidateDialog({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-50 hover:text-gray-700"
+          className={opusButtonClass({ variant: 'tertiary', size: 'icon-small' })}
           >
             <X className="h-4 w-4" />
           </button>
@@ -790,7 +791,7 @@ function AddCandidateDialog({
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Rating</span>
               <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2">
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <button
+                  <button data-opus-button="control"
                     key={n}
                     type="button"
                     onClick={() => setRating(n)}
@@ -817,7 +818,7 @@ function AddCandidateDialog({
             type="button"
             onClick={onClose}
             disabled={pending}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className={opusButtonClass({ variant: 'neutral' })}
           >
             Cancel
           </button>
@@ -825,7 +826,7 @@ function AddCandidateDialog({
             type="button"
             onClick={submit}
             disabled={pending || !name || !email}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            className={opusButtonClass()}
           >
             {pending ? 'Adding…' : 'Add candidate'}
           </button>

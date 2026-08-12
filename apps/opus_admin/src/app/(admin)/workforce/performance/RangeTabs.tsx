@@ -17,7 +17,7 @@ export default function RangeTabs({ active }: { active: string }) {
       {PERF_PERIODS.map((r) => {
         const isActive = r.value === active
         return (
-          <button
+          <button data-opus-button="primary" data-opus-button-size="small"
             key={r.value}
             type="button"
             disabled={pending}

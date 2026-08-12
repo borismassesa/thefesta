@@ -97,7 +97,7 @@ function SectionBody({
       const rows = readMetrics(content, section)
       if (rows.length === 0) return <p className="text-sm italic text-gray-400">—</p>
       return (
-        <table className="w-full border-collapse text-sm">
+        <table className="opus-table w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-[10px] uppercase tracking-wider text-gray-400">
               <th className="py-1.5 pr-3 font-semibold">Metric</th>
@@ -233,14 +233,14 @@ export function ReportViewerModal({
       }`}</style>
       <div className="mx-auto max-w-[820px]">
         <div className="report-print-hide mb-3 flex items-center justify-end gap-2">
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             onClick={() => window.print()}
             className="inline-flex items-center gap-1.5 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
           >
             <Printer className="h-4 w-4" /> Print / Save as PDF
           </button>
-          <button
+          <button data-opus-button="neutral" data-opus-button-size="medium"
             type="button"
             onClick={onClose}
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/40 bg-white/90 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-white"

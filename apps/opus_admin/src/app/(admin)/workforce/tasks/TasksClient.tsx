@@ -78,7 +78,7 @@ export default function TasksClient({
               onClose={() => setShowForm(false)}
             />
           ) : (
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               onClick={() => setShowForm(true)}
               className="inline-flex items-center gap-1.5 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
@@ -260,7 +260,7 @@ function AssignmentForm({
         {notice && <p role="status" className="text-xs font-medium text-amber-600">{notice}</p>}
 
         <div className="flex items-center gap-3">
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             disabled={pending || title.trim().length === 0 || notice !== null}
             onClick={submit}
@@ -268,7 +268,7 @@ function AssignmentForm({
           >
             Assign task
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
@@ -293,7 +293,7 @@ function TargetToggle({
   label: string
 }) {
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="small"
       type="button"
       onClick={onClick}
       className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-semibold ${
@@ -375,7 +375,7 @@ function AssignmentCard({
 
       {canAssign && (
         <div className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3">
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={pending}
             onClick={() => run(() => actions.setActive(a.id, !a.isActive))}
@@ -383,7 +383,7 @@ function AssignmentCard({
           >
             {a.isActive ? 'Pause' : 'Resume'}
           </button>
-          <button
+          <button data-opus-button="danger" data-opus-button-size="small"
             type="button"
             disabled={pending}
             onClick={() => {

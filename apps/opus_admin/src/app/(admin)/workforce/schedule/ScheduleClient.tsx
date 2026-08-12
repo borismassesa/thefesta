@@ -108,7 +108,7 @@ export default function ScheduleClient({
       <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex items-center rounded-lg border border-gray-200 bg-white">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setOffset((o) => o - 1)}
               className="border-r border-gray-200 p-2 text-gray-500 hover:text-gray-900"
@@ -119,7 +119,7 @@ export default function ScheduleClient({
             <span className="px-4 py-1.5 text-sm font-semibold text-gray-900 tabular-nums">
               {formatRange(start)}
             </span>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setOffset((o) => o + 1)}
               className="border-l border-gray-200 p-2 text-gray-500 hover:text-gray-900"
@@ -129,7 +129,7 @@ export default function ScheduleClient({
             </button>
           </div>
           {offset !== 0 && (
-            <button
+            <button data-opus-button="secondary" data-opus-button-size="small"
               type="button"
               onClick={() => setOffset(0)}
               className="rounded-full px-2.5 py-1 text-xs font-semibold text-[#5B2D8E] hover:bg-[#F0DFF6]"
@@ -232,7 +232,7 @@ function RosterRow({
         const shift = days?.get(wd)
         if (!shift) {
           return (
-            <button
+            <button data-opus-button="control"
               key={wd}
               type="button"
               onClick={() => onSelect(wd, undefined)}
@@ -245,7 +245,7 @@ function RosterRow({
         }
         const style = SHIFT_STYLES[shift.type]
         return (
-          <button
+          <button data-opus-button="control"
             key={wd}
             type="button"
             onClick={() => onSelect(wd, shift)}
@@ -347,7 +347,7 @@ function ShiftEditor({
               {target.employee.name} · {DAY_LABELS[target.weekday - 1]}
             </p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             aria-label="Close"
@@ -366,7 +366,7 @@ function ShiftEditor({
               {SHIFT_TYPES.map((t) => {
                 const active = type === t
                 return (
-                  <button
+                  <button data-opus-button="control"
                     key={t}
                     type="button"
                     onClick={() => setType(t)}
@@ -429,7 +429,7 @@ function ShiftEditor({
 
         <div className="mt-5 flex items-center justify-between gap-2">
           {target.existing ? (
-            <button
+            <button data-opus-button="danger" data-opus-button-size="medium"
               type="button"
               onClick={remove}
               disabled={pending}
@@ -441,7 +441,7 @@ function ShiftEditor({
             <span />
           )}
           <div className="flex gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={onClose}
               disabled={pending}
@@ -449,7 +449,7 @@ function ShiftEditor({
             >
               Cancel
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={submit}
               disabled={pending}

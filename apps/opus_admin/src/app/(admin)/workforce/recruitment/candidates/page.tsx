@@ -1,12 +1,34 @@
 import Link from 'next/link'
+import { Search } from 'lucide-react'
 import WorkforceHeading from '../../_components/PageHeading'
 import { getCallerPermissions, requirePermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { getRecruitmentScope } from '../_lib/queries'
-import { mergeCandidates, reviewDuplicateMatch } from './actions'
+import { EmptyState, PANEL, StatusPill, TABLE_HEADER } from '../_components/ui'
+import { reviewDuplicateMatch } from './actions'
+import CandidateMergeForm from './CandidateMergeForm'
 
 const NONE = ['00000000-0000-0000-0000-000000000000']
 function param(value: string | string[] | undefined) { return Array.isArray(value) ? value[0] ?? '' : value ?? '' }
+
+const FIELD =
+  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#F0DFF6]'
+/** The secondary filters: same control, quieter, so the search field leads. */
+const NARROW =
+  'w-full rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-1.5 text-[13px] text-gray-700 outline-none focus:border-[#C9A0DC] focus:bg-white focus:ring-2 focus:ring-[#F0DFF6]'
+
+const STAGES = ['submitted', 'screening', 'assessment', 'interview', 'final_interview', 'reference_check', 'offer', 'hired', 'rejected', 'withdrawn']
+
+/** Deliberately not the shared Chip: that one capitalises and strips
+ *  underscores, which is right for statuses and wrong for skills. Skills carry
+ *  casing that means something, and Chip would render "iOS" as "IOS". */
+function SkillChip({ label }: { label: string }) {
+  return (
+    <span className="inline-flex w-fit items-center rounded-full bg-[#F0DFF6] px-2 py-0.5 text-[11px] font-semibold text-[#5B2D8E]">
+      {label}
+    </span>
+  )
+}
 
 export default async function CandidatesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requirePermission('workforce.candidates.read'); const [scope, permissions, params] = await Promise.all([getRecruitmentScope(), getCallerPermissions(), searchParams]); const db = createSupabaseAdminClient()
@@ -23,9 +45,226 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
   const q = param(params.q).toLowerCase(); const skill = param(params.skill).toLowerCase(); const location = param(params.location).toLowerCase(); const status = param(params.status); const source = param(params.source).toLowerCase(); const stage = param(params.stage)
   const filtered = (candidates.data ?? []).filter((candidate) => { const apps = (applications.data ?? []).filter((app) => app.candidate_id === candidate.id); const candidateSkills = (skills.data ?? []).filter((item) => item.candidate_id === candidate.id).map((item) => item.skill); const candidateTags = (tags.data ?? []).filter((item) => item.candidate_id === candidate.id).map((item) => { const tag = Array.isArray(item.recruitment_tags) ? item.recruitment_tags[0] : item.recruitment_tags; return tag?.name ?? '' }); const pools = (memberships.data ?? []).filter((item) => item.candidate_id === candidate.id).map((item) => { const pool = Array.isArray(item.recruitment_talent_pools) ? item.recruitment_talent_pools[0] : item.recruitment_talent_pools; return pool?.name ?? '' }); const haystack = [candidate.full_name, candidate.primary_email, candidate.phone, candidate.current_position, candidate.current_organization, candidate.city, candidate.country, candidate.linkedin_url, ...candidateSkills, ...candidateTags, ...pools, ...apps.map((app) => app.application_reference), ...apps.map((app) => { const job = Array.isArray(app.workforce_jobs) ? app.workforce_jobs[0] : app.workforce_jobs; return job?.title ?? '' })].join(' ').toLowerCase(); return (!q || haystack.includes(q)) && (!skill || candidateSkills.some((value) => value.toLowerCase().includes(skill))) && (!location || `${candidate.city} ${candidate.country}`.toLowerCase().includes(location)) && (!status || candidate.status === status) && (!source || apps.some((app) => app.source.toLowerCase().includes(source))) && (!stage || apps.some((app) => app.status === stage)) })
   const compareRaw = params.compare; const compareIds = (Array.isArray(compareRaw) ? compareRaw : typeof compareRaw === 'string' ? compareRaw.split(',') : []).slice(0, 4); const compared = filtered.filter((candidate) => compareIds.includes(candidate.id)); const nameMap = new Map((candidates.data ?? []).map((candidate) => [candidate.id, candidate.full_name]))
-  return <><WorkforceHeading title="Candidate search" subtitle="Search name, contacts, skills, employer, role, reference, job, location, tags, pools, source and stage within your hiring scope." /><form className="grid gap-2 rounded-2xl border bg-white p-4 md:grid-cols-3 xl:grid-cols-6"><input name="q" defaultValue={q} placeholder="Search everything" className="rounded-lg border px-3 py-2 text-sm" /><input name="skill" defaultValue={skill} placeholder="Skill" className="rounded-lg border px-3 py-2 text-sm" /><input name="location" defaultValue={location} placeholder="Location" className="rounded-lg border px-3 py-2 text-sm" /><select name="status" defaultValue={status} className="rounded-lg border px-3 py-2 text-sm"><option value="">All statuses</option><option value="active">Active</option><option value="talent_pool">Talent pool</option><option value="hired">Hired</option><option value="do_not_contact">Do not contact</option></select><input name="source" defaultValue={source} placeholder="Source" className="rounded-lg border px-3 py-2 text-sm" /><select name="stage" defaultValue={stage} className="rounded-lg border px-3 py-2 text-sm"><option value="">All stages</option>{['submitted', 'screening', 'assessment', 'interview', 'final_interview', 'reference_check', 'offer', 'hired', 'rejected', 'withdrawn'].map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select><button className="rounded-lg bg-[#5B2D8E] px-4 py-2 text-xs font-semibold text-white xl:col-span-6">Search candidates</button></form>
-    <form className="mt-5"><div className="flex items-center justify-between"><p className="text-sm text-gray-500">{filtered.length} candidates · select up to four to compare</p><button className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold">Compare selected</button></div><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{filtered.map((candidate) => { const candidateSkills = (skills.data ?? []).filter((item) => item.candidate_id === candidate.id); const apps = (applications.data ?? []).filter((app) => app.candidate_id === candidate.id); return <article key={candidate.id} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"><div className="flex justify-between gap-3"><div><Link href={`/workforce/recruitment/candidates/${candidate.id}`} className="font-semibold hover:underline">{candidate.full_name}</Link><p className="mt-1 text-xs text-gray-500">{candidate.primary_email}{candidate.city ? ` · ${candidate.city}` : ''}</p></div><input type="checkbox" name="compare" value={candidate.id} defaultChecked={compareIds.includes(candidate.id)} aria-label={`Compare ${candidate.full_name}`} /></div><p className="mt-3 text-sm">{[candidate.current_position, candidate.current_organization].filter(Boolean).join(' at ') || 'Profile details pending'}</p><div className="mt-3 flex flex-wrap gap-1">{candidateSkills.slice(0, 6).map((item) => <span key={item.skill} className="rounded-full bg-[#F8EDFF] px-2 py-1 text-xs text-[#5B2D8E]">{item.skill}</span>)}</div><p className="mt-3 text-xs capitalize text-gray-400">{candidate.status.replaceAll('_', ' ')} · {apps.length} application{apps.length === 1 ? '' : 's'}</p></article> })}</div></form>
-    {compared.length > 1 && <section className="mt-5 overflow-x-auto rounded-2xl border bg-white p-5"><h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Candidate comparison</h2><table className="mt-3 w-full min-w-[700px] text-left text-sm"><thead><tr><th className="p-2">Field</th>{compared.map((candidate) => <th key={candidate.id} className="p-2"><Link href={`/workforce/recruitment/candidates/${candidate.id}`} className="underline">{candidate.full_name}</Link></th>)}</tr></thead><tbody>{([['Current role', (id: string) => { const candidate = compared.find((item) => item.id === id)!; return [candidate.current_position, candidate.current_organization].filter(Boolean).join(' at ') || '—' }], ['Location', (id: string) => { const candidate = compared.find((item) => item.id === id)!; return [candidate.city, candidate.country].filter(Boolean).join(', ') || '—' }], ['Skills', (id: string) => (skills.data ?? []).filter((item) => item.candidate_id === id).map((item) => item.skill).join(', ') || '—'], ['Applications', (id: string) => (applications.data ?? []).filter((item) => item.candidate_id === id).map((item) => item.status.replaceAll('_', ' ')).join(', ') || '—']] as const).map(([label, getter]) => <tr key={label} className="border-t"><th className="p-2 text-xs text-gray-500">{label}</th>{compared.map((candidate) => <td key={candidate.id} className="p-2">{getter(candidate.id)}</td>)}</tr>)}</tbody></table></section>}
-    {permissions.has('workforce.candidates.merge') && <section className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 p-5"><h2 className="font-semibold text-amber-950">Duplicate review—never automatic</h2><div className="mt-3 space-y-2">{(duplicates.data ?? []).map((match) => <div key={match.id} className="rounded-xl bg-white p-3"><p className="text-sm font-semibold">{nameMap.get(match.candidate_id)} ↔ {nameMap.get(match.possible_duplicate_id)}</p><p className="text-xs text-gray-500">Matched: {match.matched_fields.join(', ')} · confidence {match.confidence == null ? '—' : `${Math.round(Number(match.confidence) * 100)}%`}</p><div className="mt-2 flex gap-2"><form action={reviewDuplicateMatch.bind(null, match.id, 'confirmed_duplicate')}><button className="rounded-lg border px-2 py-1 text-xs">Confirm for merge review</button></form><form action={reviewDuplicateMatch.bind(null, match.id, 'not_duplicate')}><button className="rounded-lg border px-2 py-1 text-xs">Not a duplicate</button></form></div></div>)}</div><form action={mergeCandidates} className="mt-4 grid gap-2 md:grid-cols-4"><select name="surviving_candidate_id" required className="rounded-lg border px-3 py-2 text-sm"><option value="">Surviving profile</option>{filtered.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.full_name} · {candidate.primary_email}</option>)}</select><select name="merged_candidate_id" required className="rounded-lg border px-3 py-2 text-sm"><option value="">Profile to merge</option>{filtered.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.full_name} · {candidate.primary_email}</option>)}</select><input name="reason" required minLength={5} placeholder="Reviewed merge reason" className="rounded-lg border px-3 py-2 text-sm" /><button className="rounded-lg bg-amber-900 px-3 py-2 text-xs font-semibold text-white">Merge atomically</button></form></section>}
-  </>
+
+  // Carried into the compare form as hidden fields. Both forms are GET on the
+  // same URL, so without these, comparing after a search threw the search away
+  // and compared against the unfiltered list.
+  const activeFilters = { q, skill, location, status, source, stage }
+  const hasSearch = Object.values(activeFilters).some(Boolean)
+
+  return (
+    <>
+      <WorkforceHeading title="Candidate search" subtitle="Search name, contacts, skills, employer, role, reference, job, location, tags, pools, source and stage within your hiring scope." />
+
+      {/*
+        One search, five narrowers.
+
+        The previous version gave all six equal weight in a six-column grid with
+        two of them spanning two columns, so the last field wrapped alone and
+        left half a row empty, under six shouty uppercase labels. A filter bar
+        is not a data-entry form: the labels are screen-reader only here because
+        each control already says what it is, in its placeholder or its first
+        option. (Contrast the workforce plan form, where the fields carry
+        default VALUES and genuinely cannot be read without a label.)
+      */}
+      <form className={`${PANEL} p-4`}>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+            <label htmlFor="candidate-q" className="sr-only">Search everything</label>
+            <input
+              type="search"
+              id="candidate-q"
+              name="q"
+              defaultValue={q}
+              placeholder="Search name, email, phone, employer, job, tag or reference"
+              className={`${FIELD} pl-9`}
+            />
+          </div>
+          <button data-opus-button="control" className="opus-button opus-button--primary opus-button--medium">
+            Search
+          </button>
+        </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-5">
+          <label className="block"><span className="sr-only">Skill</span>
+            <input name="skill" defaultValue={skill} placeholder="Skill" className={NARROW} /></label>
+          <label className="block"><span className="sr-only">Location</span>
+            <input name="location" defaultValue={location} placeholder="Location" className={NARROW} /></label>
+          <label className="block"><span className="sr-only">Status</span>
+            <select name="status" defaultValue={status} className={NARROW}>
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="talent_pool">Talent pool</option>
+              <option value="hired">Hired</option>
+              <option value="do_not_contact">Do not contact</option>
+            </select>
+          </label>
+          <label className="block"><span className="sr-only">Source</span>
+            <input name="source" defaultValue={source} placeholder="Source" className={NARROW} /></label>
+          <label className="block"><span className="sr-only">Stage</span>
+            <select name="stage" defaultValue={stage} className={NARROW}>
+              <option value="">All stages</option>
+              {STAGES.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}
+            </select>
+          </label>
+        </div>
+      </form>
+
+      <form className="mt-5">
+        {/* Keeps the current search when the compare submit reloads the page. */}
+        {Object.entries(activeFilters).map(([key, value]) => value ? <input key={key} type="hidden" name={key} value={value} /> : null)}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">
+            {filtered.length} {filtered.length === 1 ? 'candidate' : 'candidates'}
+            {hasSearch && ' matching'}
+            {filtered.length > 0 && ' · select up to four to compare'}
+          </p>
+          <div className="flex items-center gap-2">
+            {/* Next to the result count, which is the thing it changes. */}
+            {hasSearch && (
+              <Link href="/workforce/recruitment/candidates" className="rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-50 hover:text-gray-800">
+                Clear filters
+              </Link>
+            )}
+            {filtered.length > 0 && (
+            <button data-opus-button="control" className="opus-button opus-button--neutral opus-button--small">
+                Compare selected
+              </button>
+            )}
+          </div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState
+              title={hasSearch ? 'No candidates match those filters' : 'No candidates yet'}
+              hint={hasSearch ? 'Try a broader search, or clear the filters to see everyone in your hiring scope.' : 'Candidates appear here once people apply, are referred, or are added to a talent pool.'}
+            />
+          </div>
+        ) : (
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((candidate) => {
+              const candidateSkills = (skills.data ?? []).filter((item) => item.candidate_id === candidate.id)
+              const apps = (applications.data ?? []).filter((app) => app.candidate_id === candidate.id)
+              return (
+                <article key={candidate.id} className={`${PANEL} p-5`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link href={`/workforce/recruitment/candidates/${candidate.id}`} className="text-sm font-semibold text-gray-900 hover:text-[#5B2D8E]">
+                        {candidate.full_name}
+                      </Link>
+                      <p className="mt-1 truncate text-xs text-gray-500">
+                        {candidate.primary_email}{candidate.city ? ` · ${candidate.city}` : ''}
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      name="compare"
+                      value={candidate.id}
+                      defaultChecked={compareIds.includes(candidate.id)}
+                      aria-label={`Compare ${candidate.full_name}`}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[#5B2D8E]"
+                    />
+                  </div>
+                  <p className="mt-3 text-sm text-gray-700">
+                    {[candidate.current_position, candidate.current_organization].filter(Boolean).join(' at ') || 'Profile details pending'}
+                  </p>
+                  {candidateSkills.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {candidateSkills.slice(0, 6).map((item) => <SkillChip key={item.skill} label={item.skill} />)}
+                    </div>
+                  )}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <StatusPill status={candidate.status} />
+                    <span className="text-xs text-gray-500">{apps.length} application{apps.length === 1 ? '' : 's'}</span>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </form>
+
+      {compared.length > 1 && (
+        <section className={`${PANEL} mt-5`}>
+          <div className={TABLE_HEADER}>Candidate comparison</div>
+          <div className="no-scrollbar overflow-x-auto p-5">
+            <table className="opus-table w-full min-w-[700px] text-left text-sm">
+              <thead>
+                <tr>
+                  <th className="p-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Field</th>
+                  {compared.map((candidate) => (
+                    <th key={candidate.id} className="p-2">
+                      <Link href={`/workforce/recruitment/candidates/${candidate.id}`} className="font-semibold text-[#5B2D8E] hover:underline">{candidate.full_name}</Link>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {([
+                  ['Current role', (id: string) => { const candidate = compared.find((item) => item.id === id)!; return [candidate.current_position, candidate.current_organization].filter(Boolean).join(' at ') || '—' }],
+                  ['Location', (id: string) => { const candidate = compared.find((item) => item.id === id)!; return [candidate.city, candidate.country].filter(Boolean).join(', ') || '—' }],
+                  ['Skills', (id: string) => (skills.data ?? []).filter((item) => item.candidate_id === id).map((item) => item.skill).join(', ') || '—'],
+                  ['Applications', (id: string) => (applications.data ?? []).filter((item) => item.candidate_id === id).map((item) => item.status.replaceAll('_', ' ')).join(', ') || '—'],
+                ] as const).map(([label, getter]) => (
+                  <tr key={label} className="border-t border-gray-100">
+                    <th className="p-2 align-top text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</th>
+                    {compared.map((candidate) => <td key={candidate.id} className="p-2 text-gray-700">{getter(candidate.id)}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {permissions.has('workforce.candidates.merge') && (
+        // A white panel with rose only on the heading and the button, rather
+        // than a full pink wash. This tool is idle most of the time, and on an
+        // empty page the wash made the most destructive thing here also the
+        // loudest. Collapsed unless there is something waiting.
+        <details open={(duplicates.data ?? []).length > 0} className={`${PANEL} mt-5 group`}>
+          <summary data-summary-icon className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+            <span>
+              <span className="text-sm font-bold text-[#A84F66]">Duplicate review</span>
+              <span className="mt-0.5 block text-xs text-gray-500">
+                Merges are never automatic. Every one is reviewed by a person and recorded with a reason.
+              </span>
+            </span>
+            <span className="shrink-0 rounded-full bg-[#F5DCE2] px-2 py-0.5 text-[11px] font-semibold text-[#A84F66]">
+              {(duplicates.data ?? []).length} waiting
+            </span>
+          </summary>
+
+          <div className="border-t border-gray-100 p-5">
+          {(duplicates.data ?? []).length > 0 && (
+            <div className="space-y-2">
+              {(duplicates.data ?? []).map((match) => (
+                <div key={match.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {nameMap.get(match.candidate_id)} ↔ {nameMap.get(match.possible_duplicate_id)}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Matched on {match.matched_fields.join(', ')} · confidence {match.confidence == null ? 'not scored' : `${Math.round(Number(match.confidence) * 100)}%`}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <form action={reviewDuplicateMatch.bind(null, match.id, 'confirmed_duplicate')}>
+                      <button data-opus-button="control" className="opus-button opus-button--neutral opus-button--small">Confirm for merge review</button>
+                    </form>
+                    <form action={reviewDuplicateMatch.bind(null, match.id, 'not_duplicate')}>
+                      <button data-opus-button="control" className="opus-button opus-button--neutral opus-button--small">Not a duplicate</button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+            <CandidateMergeForm candidates={filtered.map(({ id, full_name, primary_email }) => ({ id, full_name, primary_email }))} />
+          </div>
+        </details>
+      )}
+    </>
+  )
 }

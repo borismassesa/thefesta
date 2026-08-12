@@ -6,7 +6,7 @@ import { createRequisition, type RequisitionFormState } from '../actions'
 type EmployeeOption = { id: string; name: string; jobTitle: string; department: string }
 
 const initialState: RequisitionFormState = { error: null }
-const input = 'mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-950 outline-none transition focus:border-[#7E5896] focus:ring-2 focus:ring-[#E8D4F1]'
+const input = 'mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-950 outline-none transition focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#E8D4F1]'
 const label = 'text-sm font-semibold text-gray-700'
 
 export default function RequisitionForm({ employees }: { employees: EmployeeOption[] }) {
@@ -38,7 +38,7 @@ export default function RequisitionForm({ employees }: { employees: EmployeeOpti
           <label className={label}>Target fill date<input className={input} name="target_fill_date" type="date" /></label>
           <label className={label}>Target start date<input className={input} name="target_start_date" type="date" /></label>
         </div>
-        <label className="mt-5 flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700"><input type="checkbox" name="budget_confirmed" className="h-4 w-4 rounded border-gray-300 text-[#5B2D8E] focus:ring-[#7E5896]" />Budget is confirmed for this request</label>
+        <label className="mt-5 flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700"><input type="checkbox" name="budget_confirmed" className="h-4 w-4 rounded border-gray-300 text-[#5B2D8E] focus:ring-[#C9A0DC]" />Budget is confirmed for this request</label>
       </section>
 
       <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
@@ -52,7 +52,7 @@ export default function RequisitionForm({ employees }: { employees: EmployeeOpti
       </section>
 
       <div className="flex justify-end">
-        <button disabled={pending} className="rounded-xl bg-[#5B2D8E] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#492270] disabled:cursor-wait disabled:opacity-60">{pending ? 'Creating…' : 'Create draft requisition'}</button>
+        <button data-opus-button="control" disabled={pending} className="opus-button opus-button--primary opus-button--large">{pending ? 'Creating…' : 'Create draft requisition'}</button>
       </div>
     </form>
   )

@@ -17,7 +17,7 @@ export default function CandidateDocumentButton({
   const [error, setError] = useState<string | null>(null)
   return (
     <div className="text-right">
-      <button
+      <button data-opus-button="control"
         type="button"
         disabled={disabled || pending}
         onClick={() => {

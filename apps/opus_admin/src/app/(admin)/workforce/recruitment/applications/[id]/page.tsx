@@ -333,7 +333,7 @@ export default async function ApplicationDetailPage({
                   <option value="working_session">Practical session</option>
                   <option value="other">Other</option>
                 </select>
-                <button className="rounded-lg bg-[#5B2D8E] px-4 py-2 text-xs font-semibold text-white">
+                <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small">
                   Create draft
                 </button>
               </form>
@@ -437,7 +437,7 @@ export default async function ApplicationDetailPage({
                   placeholder="Instructions and submission expectations"
                   className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm sm:col-span-2"
                 />
-                <button className="rounded-lg bg-sky-700 px-4 py-2 text-xs font-semibold text-white sm:col-span-2">
+                <button data-opus-button="control" className="opus-button opus-button--secondary opus-button--small sm:col-span-2">
                   Send assessment task
                 </button>
               </form>
@@ -494,7 +494,7 @@ export default async function ApplicationDetailPage({
                   I have evidence that the candidate consented to OpusFesta
                   contacting this referee.
                 </label>
-                <button className="rounded-lg bg-[#5B2D8E] px-4 py-2 text-xs font-semibold text-white sm:col-span-2">
+                <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small sm:col-span-2">
                   Send secure reference request
                 </button>
               </form>
@@ -534,7 +534,7 @@ export default async function ApplicationDetailPage({
                       action={reviewReferenceCheck.bind(null, id, reference.id)}
                       className="mt-3"
                     >
-                      <button className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white">
+                      <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small">
                         Mark reviewed
                       </button>
                     </form>
@@ -558,7 +558,7 @@ export default async function ApplicationDetailPage({
                   placeholder="Provider (optional)"
                   className="rounded-lg border px-3 py-2 text-sm"
                 />
-                <button className="rounded-lg bg-amber-900 px-4 py-2 text-xs font-semibold text-white sm:col-span-3">
+                <button data-opus-button="control" className="opus-button opus-button--warning opus-button--small sm:col-span-3">
                   Request candidate consent
                 </button>
               </form>
@@ -612,7 +612,7 @@ export default async function ApplicationDetailPage({
                           placeholder="Non-sensitive result summary"
                           className="rounded-lg border px-3 py-2 text-xs"
                         />
-                        <button className="rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white">
+                        <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small">
                           Update
                         </button>
                       </form>
@@ -630,7 +630,7 @@ export default async function ApplicationDetailPage({
                   name="body"
                   required
                   rows={3}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#E8D4F1]"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#E8D4F1]"
                   placeholder="Evidence, context or follow-up…"
                 />
                 <div className="flex justify-between gap-3">
@@ -642,7 +642,7 @@ export default async function ApplicationDetailPage({
                     <option value="hiring_team">Hiring team</option>
                     <option value="private">Private</option>
                   </select>
-                  <button className="rounded-lg bg-black px-4 py-2 text-xs font-semibold text-white">
+                  <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small">
                     Add note
                   </button>
                 </div>
@@ -721,7 +721,7 @@ export default async function ApplicationDetailPage({
                   <input type="checkbox" name="approval_required" /> Require
                   another reviewer before sending
                 </label>
-                <button className="rounded-lg bg-[#5B2D8E] px-4 py-2 text-xs font-semibold text-white sm:col-span-2">
+                <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small sm:col-span-2">
                   Queue or log message
                 </button>
               </form>
@@ -762,7 +762,7 @@ export default async function ApplicationDetailPage({
                             'approved'
                           )}
                         >
-                          <button className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white">
+                          <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small">
                             Approve
                           </button>
                         </form>
@@ -774,7 +774,7 @@ export default async function ApplicationDetailPage({
                             'rejected'
                           )}
                         >
-                          <button className="rounded-lg bg-rose-100 px-3 py-1.5 text-xs font-semibold text-rose-900">
+                          <button data-opus-button="control" className="opus-button opus-button--danger opus-button--small">
                             Reject
                           </button>
                         </form>
@@ -807,7 +807,7 @@ export default async function ApplicationDetailPage({
                   placeholder="Transition note (optional)"
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
                 />
-                <button className="w-full rounded-xl bg-[#5B2D8E] px-4 py-2.5 text-sm font-semibold text-white">
+                <button data-opus-button="control" className="w-full opus-button opus-button--primary opus-button--medium">
                   Save stage
                 </button>
               </form>
@@ -855,7 +855,7 @@ export default async function ApplicationDetailPage({
                   placeholder="Internal decision evidence"
                   className="w-full rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm"
                 />
-                <button className="w-full rounded-xl bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white">
+                <button data-opus-button="control" className="w-full opus-button opus-button--danger opus-button--medium">
                   Reject and queue outcome
                 </button>
               </form>
@@ -962,7 +962,7 @@ export default async function ApplicationDetailPage({
                   />
                 </label>
                 <input type="hidden" name="pay_frequency" value="monthly" />
-                <button className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-xs font-semibold text-white">
+                <button data-opus-button="control" className="w-full opus-button opus-button--primary opus-button--small">
                   Create governed draft
                 </button>
               </form>

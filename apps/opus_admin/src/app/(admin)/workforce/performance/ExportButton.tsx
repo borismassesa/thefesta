@@ -41,7 +41,7 @@ export default function ExportButton({
   }
 
   return (
-    <button
+    <button data-opus-button="neutral" data-opus-button-size="small"
       type="button"
       onClick={download}
       className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"

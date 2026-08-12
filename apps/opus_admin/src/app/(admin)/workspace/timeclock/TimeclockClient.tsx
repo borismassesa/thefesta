@@ -213,7 +213,7 @@ export default function TimeclockClient({
 
           <div className="flex flex-wrap items-center gap-2">
             {allowed.includes('clock_in') && (
-              <button
+              <button data-opus-button="primary" data-opus-button-size="medium"
                 type="button"
                 disabled={pending}
                 onClick={() => run(async () => actions.clockIn(await readPosition()))}
@@ -224,7 +224,7 @@ export default function TimeclockClient({
               </button>
             )}
             {allowed.includes('start_break') && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={pending}
                 onClick={() => run(() => actions.startBreak('rest'))}
@@ -235,7 +235,7 @@ export default function TimeclockClient({
               </button>
             )}
             {allowed.includes('end_break') && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={pending}
                 onClick={() => run(() => actions.endBreak())}
@@ -246,7 +246,7 @@ export default function TimeclockClient({
               </button>
             )}
             {allowed.includes('clock_out') && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={pending}
                 onClick={() => run(async () => actions.clockOut(await readPosition()))}
@@ -286,7 +286,7 @@ export default function TimeclockClient({
             You did not clock out, so the session was closed at its scheduled end. Raise a
             correction if the hours are wrong. Your original punches are kept either way.
           </p>
-          <button
+          <button data-opus-button="danger" data-opus-button-size="medium"
             type="button"
             onClick={() => setShowCorrection(true)}
             className="mt-3 rounded-full bg-rose-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-rose-800"
@@ -375,7 +375,7 @@ export default function TimeclockClient({
               {overview.shift?.requiresTimesheetSubmission &&
                 (overview.timesheet.status === 'open' ||
                   overview.timesheet.status === 'rejected') && (
-                  <button
+                  <button data-opus-button="primary" data-opus-button-size="medium"
                     type="button"
                     disabled={pending}
                     onClick={() => {
@@ -452,7 +452,7 @@ export default function TimeclockClient({
       <Card title="This week's sessions" icon={CalendarClock}>
         {overview.weekSessions.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="opus-table w-full min-w-[640px] text-left text-sm">
               <thead className="text-[12px] uppercase tracking-wide text-gray-400">
                 <tr>
                   <th className="pb-2 font-semibold">Day</th>
@@ -509,7 +509,7 @@ export default function TimeclockClient({
         title="Corrections"
         icon={AlertTriangle}
         action={
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setShowCorrection((v) => !v)}
             className="text-[12px] font-semibold text-gray-500 hover:text-gray-900"
@@ -780,7 +780,7 @@ function CorrectionForm({
         />
       </label>
       {error && <p className="text-sm text-rose-700">{error}</p>}
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         type="submit"
         disabled={pending}
         className="rounded-full bg-gray-900 px-5 py-2 text-[13px] font-semibold text-white hover:bg-gray-800 disabled:opacity-50"

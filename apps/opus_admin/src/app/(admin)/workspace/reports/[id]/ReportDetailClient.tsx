@@ -233,7 +233,7 @@ export default function ReportDetailClient({
             </h2>
             <p className="mt-1 text-sm text-amber-900/90">{message}</p>
           </div>
-          <button
+          <button data-opus-button="warning" data-opus-button-size="medium"
             type="button"
             onClick={() => router.refresh()}
             className="shrink-0 rounded-full bg-amber-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-amber-800"
@@ -320,7 +320,7 @@ export default function ReportDetailClient({
                 Email a copy to the recipients
               </label>
             )}
-            <button
+            <button data-opus-button="primary" data-opus-button-size="medium"
               type="button"
               disabled={pending || saveState === 'conflict'}
               onClick={submit}
@@ -348,7 +348,7 @@ export default function ReportDetailClient({
           />
           <div className="mt-3 flex flex-wrap gap-2">
             {detail.submission.state === 'submitted' && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={pending}
                 onClick={() => runReview('start_review')}
@@ -357,7 +357,7 @@ export default function ReportDetailClient({
                 Start review
               </button>
             )}
-            <button
+            <button data-opus-button="warning" data-opus-button-size="medium"
               type="button"
               disabled={pending}
               onClick={() => runReview('return_for_correction')}
@@ -365,7 +365,7 @@ export default function ReportDetailClient({
             >
               Return for correction
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={pending}
               onClick={() => runReview('accept')}
@@ -411,7 +411,7 @@ export default function ReportDetailClient({
             placeholder="Add a comment"
             className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
           />
-          <button
+          <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
             disabled={pending || comment.trim().length === 0}
             onClick={() => {
@@ -432,7 +432,7 @@ export default function ReportDetailClient({
 
       {/* ---- History ---- */}
       <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setShowHistory((v) => !v)}
           className="flex w-full items-center justify-between gap-2"

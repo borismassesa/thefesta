@@ -66,7 +66,7 @@ export default function TemplatesClient({
   return (
     <div className="space-y-4">
       {canEdit && (
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           onClick={() => setEditing('new')}
           className="inline-flex items-center gap-1.5 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
@@ -109,7 +109,7 @@ export default function TemplatesClient({
                   </p>
                 </div>
                 {canEdit && (
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => setEditing(t)}
                     className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
@@ -219,7 +219,7 @@ function TemplateEditor({
         <h2 className="text-sm font-bold text-gray-900">
           {template ? 'Edit template' : 'New template'}
         </h2>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={onClose}
           className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -254,7 +254,7 @@ function TemplateEditor({
             {departments.map((d) => {
               const on = depts.has(d)
               return (
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="small"
                   key={d}
                   type="button"
                   onClick={() =>
@@ -292,7 +292,7 @@ function TemplateEditor({
             onRemove={() => setSections((prev) => prev.filter((_, idx) => idx !== i))}
           />
         ))}
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setSections((prev) => [...prev, blankSection()])}
           className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
@@ -304,7 +304,7 @@ function TemplateEditor({
       {error && <p role="alert" className="text-xs font-medium text-rose-600">{error}</p>}
 
       <div className="flex items-center gap-3">
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           disabled={pending || name.trim().length === 0}
           onClick={save}
@@ -313,7 +313,7 @@ function TemplateEditor({
           {template ? 'Save changes' : 'Create template'}
         </button>
         {template && (
-          <button
+          <button data-opus-button="danger" data-opus-button-size="medium"
             type="button"
             disabled={pending}
             onClick={remove}
@@ -400,7 +400,7 @@ function SectionEditor({
                       placeholder="Group label (e.g. Positive Response)"
                       className={`${inputCls} bg-white`}
                     />
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => onChange({ groups: groups.filter((_, idx) => idx !== gi) })}
                       className="shrink-0 rounded-lg border border-gray-200 p-1.5 text-gray-400 hover:bg-white hover:text-rose-600"
@@ -409,7 +409,7 @@ function SectionEditor({
                     </button>
                   </div>
                 ))}
-                <button
+                <button data-opus-button="neutral" data-opus-button-size="small"
                   type="button"
                   onClick={() =>
                     onChange({ groups: [...groups, { id: makeId('g'), label: '' }] })
@@ -423,13 +423,13 @@ function SectionEditor({
           )}
         </div>
         <div className="flex shrink-0 flex-col items-center gap-1">
-          <button type="button" disabled={index === 0} onClick={() => onMove(-1)} className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-30">
+          <button data-opus-button="control" type="button" disabled={index === 0} onClick={() => onMove(-1)} className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-30">
             <ChevronUp className="h-4 w-4" />
           </button>
-          <button type="button" disabled={index === total - 1} onClick={() => onMove(1)} className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-30">
+          <button data-opus-button="control" type="button" disabled={index === total - 1} onClick={() => onMove(1)} className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-30">
             <ChevronDown className="h-4 w-4" />
           </button>
-          <button type="button" onClick={onRemove} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-rose-600">
+          <button data-opus-button="control" type="button" onClick={onRemove} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-rose-600">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>

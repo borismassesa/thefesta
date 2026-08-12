@@ -2,8 +2,12 @@ import WorkforceHeading from '../../_components/PageHeading'
 import { getCallerPermissions, requirePermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { getRecruitmentScope } from '../_lib/queries'
+import { PANEL, StatTile, TILE_TONES } from '../_components/ui'
 
 const NONE = ['00000000-0000-0000-0000-000000000000']
+const FIELD =
+  'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#F0DFF6]'
+const LABEL = 'mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500'
 function median(values: number[]) { if (!values.length) return null; const sorted = [...values].sort((a, b) => a - b); const mid = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2 }
 function days(value: number | null) { return value == null ? '—' : `${value.toFixed(1)} days` }
 
@@ -35,8 +39,92 @@ export default async function RecruitmentReportsPage({ searchParams }: { searchP
   const departments = [...new Set((applications.data ?? []).map((app) => { const job = Array.isArray(app.workforce_jobs) ? app.workforce_jobs[0] : app.workforce_jobs; return job?.department }).filter(Boolean))] as string[]; const sources = [...new Set((applications.data ?? []).map((app) => app.source))]
   const metrics = [['Applications', total], ['Qualified / active', filtered.filter((app) => !['draft', 'rejected', 'withdrawn', 'duplicate', 'disqualified', 'archived'].includes(app.status)).length], ['Interviews', interviewCount], ['Offers issued', issuedOffers], ['Hires', hires], ['Offer acceptance', issuedOffers ? `${Math.round(acceptedOffers / issuedOffers * 100)}%` : '—'], ['Withdrawal rate', total ? `${Math.round(withdrawals / total * 100)}%` : '—'], ['Interview no-show', interviewCount ? `${Math.round(noShows / interviewCount * 100)}%` : '—']]
   const queryString = new URLSearchParams({ from, to, ...(department ? { department } : {}), ...(source ? { source } : {}) }).toString()
-  return <><WorkforceHeading title="Recruitment reports" subtitle="Scoped funnel, speed, source quality, candidate experience, workforce planning and post-hire outcomes." /><form className="grid gap-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] md:grid-cols-5"><label className="text-xs font-semibold">From<input className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" name="from" type="date" defaultValue={from} /></label><label className="text-xs font-semibold">To<input className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" name="to" type="date" defaultValue={to} /></label><label className="text-xs font-semibold">Department<select className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" name="department" defaultValue={department}><option value="">All in scope</option>{departments.map((value) => <option key={value}>{value}</option>)}</select></label><label className="text-xs font-semibold">Source<select className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" name="source" defaultValue={source}><option value="">All sources</option>{sources.map((value) => <option key={value}>{value}</option>)}</select></label><div className="flex items-end gap-2"><button className="rounded-lg bg-[#5B2D8E] px-4 py-2 text-xs font-semibold text-white">Apply</button><a href={`/api/recruitment/reports/export?${queryString}`} className="rounded-lg border px-4 py-2 text-xs font-semibold">CSV</a></div></form>
-    <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{metrics.map(([label, value]) => <div key={label} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"><p className="text-xs font-semibold uppercase tracking-wider text-gray-500">{label}</p><p className="mt-2 text-3xl font-semibold text-gray-950">{value}</p></div>)}</div>
-    <div className="mt-5 grid gap-5 xl:grid-cols-2"><section className="rounded-2xl border bg-white p-5"><h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Speed</h2><dl className="mt-4 grid gap-3 sm:grid-cols-3"><div><dt className="text-xs text-gray-400">Median approval</dt><dd className="font-semibold">{days(median(timeToApprove))}</dd></div><div><dt className="text-xs text-gray-400">Median publish</dt><dd className="font-semibold">{days(median(timeToPublish))}</dd></div><div><dt className="text-xs text-gray-400">Median hire</dt><dd className="font-semibold">{days(median(timeToHire))}</dd></div></dl><h3 className="mt-5 text-sm font-semibold">Current funnel</h3>{[...stageCounts.entries()].sort((a, b) => b[1] - a[1]).map(([stage, count]) => <div key={stage} className="mt-2 flex justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"><span className="capitalize">{stage.replaceAll('_', ' ')}</span><b>{count}</b></div>)}</section><section className="rounded-2xl border bg-white p-5"><h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Source quality</h2><table className="mt-3 w-full text-left text-sm"><thead><tr className="text-xs text-gray-500"><th className="py-2">Source</th><th>Applications</th><th>Hires</th><th>Conversion</th></tr></thead><tbody>{[...sourceCounts.entries()].map(([name, values]) => <tr key={name} className="border-t"><td className="py-2">{name}</td><td>{values.applications}</td><td>{values.hires}</td><td>{values.applications ? Math.round(values.hires / values.applications * 100) : 0}%</td></tr>)}</tbody></table></section><section className="rounded-2xl border bg-white p-5"><h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Workforce plan</h2><p className="mt-3 text-3xl font-semibold">{reqRows.reduce((sum, row) => sum + row.openings_filled, 0)} <span className="text-base text-gray-400">hires against {reqRows.reduce((sum, row) => sum + row.headcount, 0)} approved openings</span></p>{(workforcePlans.data ?? []).filter((plan) => !department || plan.department === department).map((plan, index) => <p key={`${plan.department}-${index}`} className="mt-2 rounded-lg bg-gray-50 p-2 text-xs">{plan.department ?? 'Company'}: {plan.approved_headcount}/{plan.planned_headcount} headcount · TZS {Number(plan.planned_budget_tzs).toLocaleString()}</p>)}</section><section className="rounded-2xl border bg-white p-5"><h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Post-hire quality</h2><p className="mt-3 text-sm text-gray-500">Hiring-manager satisfaction: {(() => { const values = (postHire.data ?? []).map((review) => Number(review.hiring_manager_satisfaction)).filter(Number.isFinite); return values.length ? `${(values.reduce((a, b) => a + b, 0) / values.length).toFixed(1)}/5` : 'Awaiting reviews' })()}</p><p className="mt-2 text-sm text-gray-500">Retention outcomes captured: {(postHire.data ?? []).filter((review) => review.retention_status).length}</p>{permissions.has('recruitment.candidate.sensitive') ? <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Restricted diversity reporting is available only as aggregated cohorts; candidate-level demographics are never shown here.</p> : <p className="mt-4 text-xs text-gray-400">Restricted diversity reporting requires the sensitive analytics permission.</p>}</section></div>
-  </>
+  // Cycled so adjacent tiles differ; the tones are the Approvals set the
+  // Recruitment overview already uses, which is what makes this page look like
+  // the rest of the module instead of a spreadsheet.
+  const TONES = [TILE_TONES.violet, TILE_TONES.blue, TILE_TONES.green, TILE_TONES.amber]
+  const funnel = [...stageCounts.entries()].sort((a, b) => b[1] - a[1])
+  const sourceRows = [...sourceCounts.entries()]
+  const planRows = (workforcePlans.data ?? []).filter((plan) => !department || plan.department === department)
+  const openings = reqRows.reduce((sum, row) => sum + row.headcount, 0)
+  const filledOpenings = reqRows.reduce((sum, row) => sum + row.openings_filled, 0)
+
+  return (
+    <>
+      <WorkforceHeading title="Recruitment reports" subtitle="Scoped funnel, speed, source quality, candidate experience, workforce planning and post-hire outcomes." />
+
+      <form className={`${PANEL} p-4`}>
+        <div className="grid gap-3 md:grid-cols-5">
+          <label className="block"><span className={LABEL}>From</span><input className={FIELD} name="from" type="date" defaultValue={from} /></label>
+          <label className="block"><span className={LABEL}>To</span><input className={FIELD} name="to" type="date" defaultValue={to} /></label>
+          <label className="block"><span className={LABEL}>Department</span>
+            <select className={FIELD} name="department" defaultValue={department}><option value="">All in scope</option>{departments.map((value) => <option key={value}>{value}</option>)}</select>
+          </label>
+          <label className="block"><span className={LABEL}>Source</span>
+            <select className={FIELD} name="source" defaultValue={source}><option value="">All sources</option>{sources.map((value) => <option key={value}>{value}</option>)}</select>
+          </label>
+          <div className="flex items-end gap-2">
+            <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small">Apply</button>
+            <a href={`/api/recruitment/reports/export?${queryString}`} className="opus-button opus-button--neutral opus-button--small">CSV</a>
+          </div>
+        </div>
+      </form>
+
+      <section aria-label="Recruitment metrics" className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {metrics.map(([label, value], index) => {
+          const tone = TONES[index % TONES.length]
+          return <StatTile key={String(label)} label={String(label)} value={value} accent={tone.accent} tint={tone.tint} />
+        })}
+      </section>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <section className={`${PANEL} p-5`}>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Speed</h2>
+          <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div><dt className="text-xs text-gray-400">Median approval</dt><dd className="mt-0.5 font-semibold text-gray-900">{days(median(timeToApprove))}</dd></div>
+            <div><dt className="text-xs text-gray-400">Median publish</dt><dd className="mt-0.5 font-semibold text-gray-900">{days(median(timeToPublish))}</dd></div>
+            <div><dt className="text-xs text-gray-400">Median hire</dt><dd className="mt-0.5 font-semibold text-gray-900">{days(median(timeToHire))}</dd></div>
+          </dl>
+          <h3 className="mt-5 text-sm font-semibold text-gray-900">Current funnel</h3>
+          {funnel.length === 0
+            ? <p className="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-500">No applications in this window, so there is no funnel to show.</p>
+            : funnel.map(([stage, count]) => <div key={stage} className="mt-2 flex justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"><span className="capitalize text-gray-700">{stage.replaceAll('_', ' ')}</span><b className="text-gray-900">{count}</b></div>)}
+        </section>
+
+        <section className={`${PANEL} p-5`}>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Source quality</h2>
+          {sourceRows.length === 0 ? (
+            <p className="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-500">No applications in this window. Source conversion appears once candidates start arriving.</p>
+          ) : (
+            <div className="no-scrollbar mt-3 overflow-x-auto">
+              <table className="opus-table w-full min-w-[380px] text-left text-sm">
+                <thead><tr className="text-[11px] font-semibold uppercase tracking-wide text-gray-400"><th className="py-2">Source</th><th>Applications</th><th>Hires</th><th>Conversion</th></tr></thead>
+                <tbody>{sourceRows.map(([name, values]) => <tr key={name} className="border-t border-gray-100"><td className="py-2 text-gray-700">{name}</td><td className="text-gray-700">{values.applications}</td><td className="text-gray-700">{values.hires}</td><td className="text-gray-700">{values.applications ? Math.round(values.hires / values.applications * 100) : 0}%</td></tr>)}</tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className={`${PANEL} p-5`}>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Workforce plan</h2>
+          {/* "1 approved openings" read as a typo on every singular count. */}
+          <p className="mt-3 text-3xl font-semibold text-gray-900">{filledOpenings} <span className="text-base font-normal text-gray-500">{filledOpenings === 1 ? 'hire' : 'hires'} against {openings} approved {openings === 1 ? 'opening' : 'openings'}</span></p>
+          {planRows.length === 0
+            ? <p className="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-500">No workforce plan covers this selection. Approve one to set headcount and budget for the year.</p>
+            : planRows.map((plan, index) => <p key={`${plan.department}-${index}`} className="mt-2 rounded-lg bg-gray-50 p-2 text-xs text-gray-600">{plan.department ?? 'Company'}: {plan.approved_headcount}/{plan.planned_headcount} headcount · TZS {Number(plan.planned_budget_tzs).toLocaleString()}</p>)}
+        </section>
+
+        <section className={`${PANEL} p-5`}>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Post-hire quality</h2>
+          <p className="mt-3 text-sm text-gray-600">Hiring-manager satisfaction: {(() => { const values = (postHire.data ?? []).map((review) => Number(review.hiring_manager_satisfaction)).filter(Number.isFinite); return values.length ? `${(values.reduce((a, b) => a + b, 0) / values.length).toFixed(1)}/5` : 'Awaiting reviews' })()}</p>
+          <p className="mt-2 text-sm text-gray-600">Retention outcomes captured: {(postHire.data ?? []).filter((review) => review.retention_status).length}</p>
+          {/* Lavender, not amber. This is a standing note about how the data
+              works, not a warning that something is wrong. */}
+          {permissions.has('recruitment.candidate.sensitive')
+            ? <p className="mt-4 rounded-xl border border-[#F0DFF6] bg-[#FCF7FF] p-3 text-xs text-[#5B2D8E]">Restricted diversity reporting is available only as aggregated cohorts. Candidate-level demographics are never shown here.</p>
+            : <p className="mt-4 text-xs text-gray-400">Restricted diversity reporting requires the sensitive analytics permission.</p>}
+        </section>
+      </div>
+    </>
+  )
 }

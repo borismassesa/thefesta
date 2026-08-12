@@ -236,7 +236,7 @@ export default function TimesheetsClient({
             This week
           </Link>
         </div>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={handleExport}
           disabled={exporting}
@@ -254,7 +254,7 @@ export default function TimesheetsClient({
 
       {/* Grid */}
       <section className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
-        <table className="w-full min-w-[860px] text-sm">
+        <table className="opus-table w-full min-w-[860px] text-sm">
           <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-left font-semibold">
@@ -310,7 +310,7 @@ export default function TimesheetsClient({
                       return (
                         <td key={k} className="px-3 py-2.5 text-center">
                           {canEdit ? (
-                            <button
+                            <button data-opus-button="warning" data-opus-button-size="small"
                               type="button"
                               onClick={() => setEditor({ employee: e, day: k })}
                               className={
@@ -479,7 +479,7 @@ function DayPunchEditor({
               })}
             </p>
           </div>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onClose}
             className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
@@ -543,14 +543,14 @@ function DayPunchEditor({
                 />
               </div>
               <div className="mt-2 flex justify-end gap-2">
-                <button
+                <button data-opus-button="control"
                   type="button"
                   onClick={() => setAdding(false)}
                   className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
                 >
                   Cancel
                 </button>
-                <button
+                <button data-opus-button="primary" data-opus-button-size="small"
                   type="submit"
                   disabled={busyId === 'new'}
                   className="rounded-lg bg-[#7E5896] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6c4a83] disabled:opacity-60"
@@ -560,7 +560,7 @@ function DayPunchEditor({
               </div>
             </form>
           ) : (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setAdding(true)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
@@ -621,7 +621,7 @@ function PunchRow({
           )}
         </div>
         <div className="flex items-center gap-1">
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => setEditing(true)}
             className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
@@ -629,7 +629,7 @@ function PunchRow({
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={onDelete}
             disabled={busy}
@@ -670,14 +670,14 @@ function PunchRow({
         />
       </div>
       <div className="mt-2 flex justify-end gap-2">
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setEditing(false)}
           className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
         >
           Cancel
         </button>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => {
             onSave(hhmm, type, note)

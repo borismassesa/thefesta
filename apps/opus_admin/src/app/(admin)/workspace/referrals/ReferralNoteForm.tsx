@@ -20,7 +20,7 @@ export default function ReferralNoteForm({ referralId }: { referralId: string })
           placeholder="Add context for the recruitment team"
           className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#7E5896] focus:ring-2 focus:ring-[#E8D4F1]"
         />
-        <button disabled={pending} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+        <button data-opus-button="control" disabled={pending} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
           {pending ? 'Adding…' : 'Add note'}
         </button>
       </div>

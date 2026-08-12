@@ -301,7 +301,7 @@ export default async function OfferDetailPage({
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                   />
                 </label>
-                <button className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700">
+                <button data-opus-button="control" className="opus-button opus-button--neutral opus-button--small">
                   Save draft terms
                 </button>
               </form>
@@ -380,7 +380,7 @@ export default async function OfferDetailPage({
                   placeholder="Details"
                   className="rounded-lg border border-gray-200 px-3 py-2 text-sm sm:col-span-2"
                 />
-                <button className="rounded-lg bg-gray-900 px-4 py-2 text-xs font-semibold text-white sm:col-span-2">
+                <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small sm:col-span-2">
                   Add component
                 </button>
               </form>
@@ -434,7 +434,7 @@ export default async function OfferDetailPage({
                 action={submitOfferForApproval.bind(null, id)}
                 className="mt-4"
               >
-                <button className="w-full rounded-xl bg-[#5B2D8E] px-4 py-2.5 text-sm font-semibold text-white">
+                <button data-opus-button="control" className="w-full opus-button opus-button--primary opus-button--medium">
                   Generate and submit version{' '}
                   {offer.status === 'changes_requested'
                     ? Number(offer.version) + 1
@@ -498,22 +498,22 @@ export default async function OfferDetailPage({
                   className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm"
                 />
                 <div className="mt-2 grid grid-cols-3 gap-2">
-                  <button className="rounded-lg bg-emerald-700 px-2 py-2 text-xs font-semibold text-white">
+                  <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small">
                     Approve
                   </button>
-                  <button
+                  <button data-opus-button="control"
                     formAction={decideOfferStep.bind(
                       null,
                       id,
                       'changes_requested'
                     )}
-                    className="rounded-lg bg-amber-200 px-2 py-2 text-xs font-semibold text-amber-950"
+                    className="opus-button opus-button--warning opus-button--small"
                   >
                     Changes
                   </button>
-                  <button
+                  <button data-opus-button="control"
                     formAction={decideOfferStep.bind(null, id, 'rejected')}
-                    className="rounded-lg bg-rose-200 px-2 py-2 text-xs font-semibold text-rose-950"
+                    className="opus-button opus-button--danger opus-button--small"
                   >
                     Reject
                   </button>
@@ -531,7 +531,7 @@ export default async function OfferDetailPage({
                 notification.
               </p>
               <form action={sendApprovedOffer.bind(null, id)} className="mt-4">
-                <button className="w-full rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">
+                <button data-opus-button="control" className="w-full opus-button opus-button--primary opus-button--medium">
                   Send to candidate
                 </button>
               </form>
@@ -573,7 +573,7 @@ export default async function OfferDetailPage({
                       placeholder="Evidence or waiver reason"
                       className="mt-2 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs"
                     />
-                    <button className="mt-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold">
+                    <button data-opus-button="control" className="mt-2 opus-button opus-button--neutral opus-button--small">
                       Save check
                     </button>
                   </form>
@@ -584,7 +584,7 @@ export default async function OfferDetailPage({
                   action={convertCandidateToEmployee.bind(null, id)}
                   className="mt-4"
                 >
-                  <button className="w-full rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white">
+                  <button data-opus-button="control" className="w-full opus-button opus-button--secondary opus-button--medium">
                     Create employee from approved terms
                   </button>
                 </form>
@@ -604,7 +604,7 @@ export default async function OfferDetailPage({
               <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">Post-hire review</h2>
               <p className="mt-1 text-sm text-[#5B2D8E]">Restricted outcome data improves source and process quality reporting.</p>
               <div className="mt-3 space-y-2">{(postHireReviews ?? []).map((review) => <p key={review.id} className="rounded-lg bg-white p-2 text-xs"><b>{review.review_period.replaceAll('_', ' ')}</b> · satisfaction {review.hiring_manager_satisfaction ?? '—'}/5 · {review.performance_outcome ?? 'No outcome'} · {review.retention_status ?? 'No retention status'}</p>)}</div>
-              <form action={savePostHireReview.bind(null, id)} className="mt-4 space-y-2"><select name="review_period" className="w-full rounded-lg border px-3 py-2 text-sm"><option value="30_days">30 days</option><option value="90_days">90 days</option><option value="probation">Probation completion</option><option value="six_months">Six months</option></select><input name="hiring_manager_satisfaction" type="number" min="0" max="5" step="0.5" placeholder="Manager satisfaction / 5" className="w-full rounded-lg border px-3 py-2 text-sm" /><input name="performance_outcome" placeholder="Performance outcome" className="w-full rounded-lg border px-3 py-2 text-sm" /><input name="retention_status" placeholder="Retention status" className="w-full rounded-lg border px-3 py-2 text-sm" /><textarea name="source_quality_note" placeholder="Source/process quality note" className="w-full rounded-lg border px-3 py-2 text-sm" /><textarea name="restricted_notes" placeholder="Restricted notes" className="w-full rounded-lg border px-3 py-2 text-sm" /><button className="w-full rounded-lg bg-[#5B2D8E] px-3 py-2 text-xs font-semibold text-white">Save governed review</button></form>
+              <form action={savePostHireReview.bind(null, id)} className="mt-4 space-y-2"><select name="review_period" className="w-full rounded-lg border px-3 py-2 text-sm"><option value="30_days">30 days</option><option value="90_days">90 days</option><option value="probation">Probation completion</option><option value="six_months">Six months</option></select><input name="hiring_manager_satisfaction" type="number" min="0" max="5" step="0.5" placeholder="Manager satisfaction / 5" className="w-full rounded-lg border px-3 py-2 text-sm" /><input name="performance_outcome" placeholder="Performance outcome" className="w-full rounded-lg border px-3 py-2 text-sm" /><input name="retention_status" placeholder="Retention status" className="w-full rounded-lg border px-3 py-2 text-sm" /><textarea name="source_quality_note" placeholder="Source/process quality note" className="w-full rounded-lg border px-3 py-2 text-sm" /><textarea name="restricted_notes" placeholder="Restricted notes" className="w-full rounded-lg border px-3 py-2 text-sm" /><button data-opus-button="control" className="w-full opus-button opus-button--primary opus-button--small">Save governed review</button></form>
             </section>
           )}
           <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">

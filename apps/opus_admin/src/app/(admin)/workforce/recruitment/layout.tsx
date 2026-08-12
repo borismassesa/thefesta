@@ -11,7 +11,7 @@ export default async function RecruitmentLayout({ children }: { children: ReactN
     getCallerPermissions(),
   ])
   return (
-    <div className="space-y-5">
+    <div className="recruitment-ui space-y-5">
       <RecruitmentNav permissions={[...permissions]} />
       {children}
     </div>

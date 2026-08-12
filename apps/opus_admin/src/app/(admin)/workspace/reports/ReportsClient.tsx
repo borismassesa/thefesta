@@ -128,7 +128,7 @@ export default function ReportsClient({
         {TABS.map((t) => {
           const Icon = t.icon
           return (
-            <button
+            <button data-opus-button="control"
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
@@ -194,7 +194,7 @@ export default function ReportsClient({
                       Continue
                     </Link>
                   ) : (
-                    <button
+                    <button data-opus-button="primary" data-opus-button-size="medium"
                       type="button"
                       disabled={pending}
                       onClick={() => open(o.id)}

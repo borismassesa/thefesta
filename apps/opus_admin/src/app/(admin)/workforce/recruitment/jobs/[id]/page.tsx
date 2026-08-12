@@ -164,7 +164,7 @@ export default async function JobPostingDetailPage({
               </div>
               {canWrite &&
                 ['draft', 'in_review', 'approved'].includes(posting.status) && (
-                  <button className="rounded-lg bg-black px-4 py-2 text-xs font-semibold text-white">
+                  <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small">
                     Save content
                   </button>
                 )}
@@ -211,7 +211,7 @@ export default async function JobPostingDetailPage({
                                 target
                               )}
                             >
-                              <button className="rounded border bg-white px-2 py-1 text-xs font-semibold capitalize">
+                              <button data-opus-button="control" className="opus-button opus-button--neutral opus-button--small capitalize">
                                 {target}
                               </button>
                             </form>
@@ -268,7 +268,7 @@ export default async function JobPostingDetailPage({
                   name="seo_description"
                   placeholder="SEO description"
                 />
-                <button className="rounded-lg bg-[#5B2D8E] px-4 py-2 text-xs font-semibold text-white sm:col-span-2">
+                <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small sm:col-span-2">
                   Save translation draft
                 </button>
               </form>
@@ -356,7 +356,7 @@ export default async function JobPostingDetailPage({
                   name="expected_answer"
                   placeholder="Expected answer for review flag"
                 />
-                <button className="rounded-lg bg-black px-4 py-2 text-xs font-semibold text-white sm:col-span-3">
+                <button data-opus-button="control" className="opus-button opus-button--primary opus-button--small sm:col-span-3">
                   Add question
                 </button>
               </form>
@@ -384,7 +384,7 @@ export default async function JobPostingDetailPage({
                     key={target}
                     action={transitionJobPosting.bind(null, id, target)}
                   >
-                    <button className="w-full rounded-lg bg-white px-3 py-2 text-xs font-semibold capitalize">
+                    <button data-opus-button="control" className="w-full opus-button opus-button--neutral opus-button--small capitalize">
                       {target === 'draft' && posting.status === 'paused'
                         ? 'Create draft revision'
                         : target.replaceAll('_', ' ')}
@@ -408,7 +408,7 @@ export default async function JobPostingDetailPage({
                     type="datetime-local"
                     className={`${input} mt-2`}
                   />
-                  <button className="mt-2 w-full rounded-lg bg-[#5B2D8E] px-3 py-2 text-xs font-semibold text-white">
+                  <button data-opus-button="control" className="mt-2 w-full opus-button opus-button--primary opus-button--small">
                     Schedule publication
                   </button>
                 </form>
@@ -456,7 +456,7 @@ export default async function JobPostingDetailPage({
                   type="url"
                   placeholder="Published URL"
                 />
-                <button className="w-full rounded-lg border px-3 py-2 text-xs font-semibold">
+                <button data-opus-button="control" className="w-full opus-button opus-button--neutral opus-button--small">
                   Queue or record channel
                 </button>
               </form>

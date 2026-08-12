@@ -60,7 +60,7 @@ export default async function RecruitmentPage() {
                 <li key={queue.label}>
                   <Link
                     href={queue.href}
-                    className="flex min-h-14 w-full items-center justify-between gap-4 border-b border-gray-100 px-5 py-3 text-sm transition-colors last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#7E5896]"
+                    className="flex min-h-14 w-full items-center justify-between gap-4 border-b border-gray-100 px-5 py-3 text-sm transition-colors last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C9A0DC]"
                   >
                     <span className="font-medium text-gray-700">{queue.label}</span>
                     <span className="min-w-8 rounded-full bg-gray-100 px-2 py-1 text-center text-xs font-bold text-gray-800">

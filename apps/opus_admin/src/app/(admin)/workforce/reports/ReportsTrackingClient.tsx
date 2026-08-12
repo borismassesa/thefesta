@@ -120,7 +120,7 @@ export default function ReportsTrackingClient({
           />
         </label>
         {hasFilters && (
-          <button
+          <button data-opus-button="control"
             type="button"
             onClick={() => applyFilters({ template: null, employee: null, date: null })}
             className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -176,7 +176,7 @@ export default function ReportsTrackingClient({
                           {r.recipientName && <> · To {r.recipientName}</>}
                         </p>
                       </div>
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => setViewing(r)}
                         className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"

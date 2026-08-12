@@ -182,7 +182,7 @@ function TaskRow({ task, actions }: { task: MyTask; actions: Actions }) {
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         {!done && task.status === 'Todo' && (
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={pending}
             onClick={() => run(actions.start)}
@@ -192,7 +192,7 @@ function TaskRow({ task, actions }: { task: MyTask; actions: Actions }) {
           </button>
         )}
         {!done && (
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={pending}
             onClick={() => run(actions.complete)}
@@ -202,7 +202,7 @@ function TaskRow({ task, actions }: { task: MyTask; actions: Actions }) {
           </button>
         )}
         {done && (
-          <button
+          <button data-opus-button="control"
             type="button"
             disabled={pending}
             onClick={() => run(actions.reopen)}

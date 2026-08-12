@@ -584,7 +584,7 @@ export default function DailyTrackerClient({
       <div className="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => goToWeek(addDays(weekStart, -7))}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -596,7 +596,7 @@ export default function DailyTrackerClient({
               <div className="text-[13px] font-semibold text-gray-900">{formatWeekLabel(weekStart)}</div>
               <div className="text-[11px] text-gray-400">Week of {weekStart}</div>
             </div>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => goToWeek(addDays(weekStart, 7))}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -604,7 +604,7 @@ export default function DailyTrackerClient({
             >
               <ChevronRight className="h-4 w-4" />
             </button>
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => goToWeek(getWeekDates(weekStart)[0])}
               className="ml-2 text-[12px] font-medium text-gray-500 hover:text-gray-800"
@@ -654,7 +654,7 @@ export default function DailyTrackerClient({
                   <div className="text-[13px] font-semibold text-gray-900">{engine.name}</div>
                 </div>
                 {canReview && !assigning && !unassigned && (
-                  <button
+                  <button data-opus-button="control"
                     type="button"
                     onClick={() => openAssignPanel(engine)}
                     className="text-[11px] font-medium text-gray-400 hover:text-gray-700"
@@ -680,7 +680,7 @@ export default function DailyTrackerClient({
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       disabled={isPending}
                       onClick={() => saveMdAssignment(engine.id)}
@@ -688,7 +688,7 @@ export default function DailyTrackerClient({
                     >
                       Save
                     </button>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => setAssigningEngineId(null)}
                       className="text-[11px] font-medium text-gray-500 hover:text-gray-800"
@@ -701,7 +701,7 @@ export default function DailyTrackerClient({
                 <>
                   <div className="mt-1 text-[12px] font-medium text-amber-800">No MD assigned</div>
                   {canReview && (
-                    <button
+                    <button data-opus-button="warning" data-opus-button-size="small"
                       type="button"
                       onClick={() => openAssignPanel(engine)}
                       className="mt-2 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
@@ -735,7 +735,7 @@ export default function DailyTrackerClient({
                         </option>
                       ))}
                     </select>
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       onClick={() => setAssigningActingId(null)}
                       className="text-[11px] font-medium text-gray-400 hover:text-gray-700"
@@ -747,7 +747,7 @@ export default function DailyTrackerClient({
                   <div className="flex items-center justify-between text-[11px] text-gray-500">
                     <span>Acting MD: {engine.actingMdName ?? 'none'}</span>
                     {canReview && (
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => setAssigningActingId(engine.id)}
                         className="font-medium text-gray-400 hover:text-gray-700"
@@ -783,7 +783,7 @@ export default function DailyTrackerClient({
                 )}
                 {canReview &&
                   (review?.reviewedByName ? (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       disabled={isPending}
                       onClick={() => toggleEngineReviewed(engine.id, true)}
@@ -792,7 +792,7 @@ export default function DailyTrackerClient({
                       <Undo2 className="h-3 w-3" /> Undo
                     </button>
                   ) : (
-                    <button
+                    <button data-opus-button="control"
                       type="button"
                       disabled={isPending}
                       onClick={() => toggleEngineReviewed(engine.id, false)}
@@ -845,7 +845,7 @@ export default function DailyTrackerClient({
 
       {/* Week-at-a-glance matrix — click a day to jump + expand it */}
       <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-        <table className="w-full min-w-[520px] border-collapse text-left">
+        <table className="opus-table w-full min-w-[520px] border-collapse text-left">
           <thead>
             <tr>
               <th className="sticky left-0 z-10 w-28 bg-white pb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
@@ -857,7 +857,7 @@ export default function DailyTrackerClient({
                 ).length
                 return (
                   <th key={date} className="pb-2 text-center">
-                    <button
+                    <button data-opus-button="danger" data-opus-button-size="small"
                       type="button"
                       onClick={() => toggleDay(date, true)}
                       className={cn(
@@ -898,7 +898,7 @@ export default function DailyTrackerClient({
                   const { tone, missed } = dotToneFor(draft, date, today, isCommitted(engine.id, date))
                   return (
                     <td key={date} className="py-1.5 text-center">
-                      <button
+                      <button data-opus-button="control"
                         type="button"
                         onClick={() => toggleDay(date, true)}
                         aria-label={`${engine.name} · ${date} · ${missed ? 'Missed' : draft.status || 'Not started'}`}
@@ -944,7 +944,7 @@ export default function DailyTrackerClient({
               isToday ? 'border-[#C9A0DC]' : missedEngines.length > 0 ? 'border-rose-200' : 'border-gray-100',
             )}
           >
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => toggleDay(date)}
               className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"

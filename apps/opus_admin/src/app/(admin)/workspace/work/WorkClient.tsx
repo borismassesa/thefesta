@@ -185,7 +185,7 @@ export default function WorkClient({
           {TABS.map((t) => {
             const Icon = t.icon
             return (
-              <button
+              <button data-opus-button="control"
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
@@ -212,7 +212,7 @@ export default function WorkClient({
             )
           })}
         </div>
-        <button
+        <button data-opus-button="primary" data-opus-button-size="medium"
           type="button"
           onClick={() => setShowForm((v) => !v)}
           className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800"
@@ -260,7 +260,7 @@ export default function WorkClient({
                 { id: 'all' as const, label: 'Everything I can see' },
               ]
             ).map((s) => (
-              <button
+              <button data-opus-button="primary" data-opus-button-size="small"
                 key={s.id}
                 type="button"
                 onClick={() => setScope(s.id)}
@@ -478,7 +478,7 @@ function TaskCard({
               ))}
             </select>
             {!isClosed(task.status) && (
-              <button
+              <button data-opus-button="control"
                 type="button"
                 disabled={pending || task.blockingCount > 0}
                 onClick={() => change('completed')}
@@ -498,7 +498,7 @@ function TaskCard({
               placeholder="Progress note, or the reason it is blocked"
               className="min-w-[240px] flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
             />
-            <button
+            <button data-opus-button="control"
               type="button"
               disabled={pending || !note.trim()}
               onClick={() =>
@@ -513,7 +513,7 @@ function TaskCard({
               Add note
             </button>
             {task.status !== 'blocked' && (
-              <button
+              <button data-opus-button="danger" data-opus-button-size="medium"
                 type="button"
                 disabled={pending || !note.trim()}
                 onClick={() => {
@@ -536,7 +536,7 @@ function TaskCard({
                 placeholder="Why are you removing it?"
                 className="min-w-[240px] flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />
-              <button
+              <button data-opus-button="danger" data-opus-button-size="medium"
                 type="button"
                 disabled={pending || !reason.trim()}
                 onClick={() => onRun(() => actions.deleteTask(task.id, reason), 'Task removed from your board.')}
@@ -544,7 +544,7 @@ function TaskCard({
               >
                 Remove it
               </button>
-              <button
+              <button data-opus-button="control"
                 type="button"
                 onClick={() => setConfirmDelete(false)}
                 className="rounded-full px-3 py-2 text-[13px] text-gray-500 hover:text-gray-800"
@@ -557,7 +557,7 @@ function TaskCard({
               </p>
             </div>
           ) : (
-            <button
+            <button data-opus-button="control"
               type="button"
               onClick={() => setConfirmDelete(true)}
               className="text-[12px] font-medium text-gray-400 hover:text-rose-700"
@@ -705,7 +705,7 @@ function TaskForm({
       </p>
       {error && <p className="text-sm text-rose-700">{error}</p>}
 
-      <button
+      <button data-opus-button="primary" data-opus-button-size="medium"
         type="submit"
         disabled={pending || busy || !title.trim()}
         className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
@@ -827,7 +827,7 @@ function Calendar({
         <p className="text-[13px] text-gray-500">
           {busy} of the next {days.length} days have something on them. Times are {timeZone.replace('_', ' ')}.
         </p>
-        <button
+        <button data-opus-button="control"
           type="button"
           onClick={() => setShowPast((v) => !v)}
           className="rounded-full border border-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:bg-gray-50"
