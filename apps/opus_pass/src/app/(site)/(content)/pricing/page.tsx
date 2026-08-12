@@ -20,7 +20,7 @@ import {
   Package,
 } from 'lucide-react'
 import { loadPackagesContent, type PackageAddon, type PackageTier } from '@/lib/cms/packages'
-import { FAQItem } from '@/app/digital-cards/FAQAccordion'
+import { FAQItem } from '@/app/(site)/digital-cards/FAQAccordion'
 import { getLocale } from '@/lib/cms/locale'
 import { loadUiStrings } from '@/lib/cms/ui-strings'
 

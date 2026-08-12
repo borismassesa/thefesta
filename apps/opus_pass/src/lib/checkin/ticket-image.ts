@@ -7,7 +7,7 @@ import {
   TICKET_HEIGHT,
   TICKET_WIDTH,
   type TicketInput,
-} from '@/app/entrance-pass/[token]/ticket'
+} from '@/app/(site)/entrance-pass/[token]/ticket'
 
 /**
  * Shared renderer for the entrance-pass ticket PNG.

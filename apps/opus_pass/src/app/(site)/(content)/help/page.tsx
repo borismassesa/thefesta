@@ -10,7 +10,7 @@ import {
   ArrowRight,
   MessageCircle,
 } from 'lucide-react'
-import { FAQItem } from '@/app/digital-cards/FAQAccordion'
+import { FAQItem } from '@/app/(site)/digital-cards/FAQAccordion'
 import { getLocale } from '@/lib/cms/locale'
 import { loadUiStrings, type HelpStrings } from '@/lib/cms/ui-strings'
 
