@@ -1396,7 +1396,7 @@ export function StudioCanvas({
                                 ? 'pointer'
                                 : 'move'
                               : undefined,
-                            pointerEvents: isHand || tool === 'hand' ? 'none' : undefined,
+                            pointerEvents: isHand ? 'none' : undefined,
                           }}
                           onPointerDown={(ev) => {
                             if (!canDirectSelect) return
