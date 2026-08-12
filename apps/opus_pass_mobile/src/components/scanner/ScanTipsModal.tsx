@@ -60,7 +60,7 @@ const TIPS: {
   },
   {
     icon: 'create-outline',
-    text: "If the QR won't scan, type the 6-character ticket code or find the guest by name",
+    text: "If the QR won't scan, type the 8-character ticket code or find the guest by name",
   },
 ];
 

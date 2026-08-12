@@ -1,0 +1,23 @@
+{
+  "name": "@opusfesta/design-engine",
+  "version": "0.1.0",
+  "description": "Opus Design Engine — Design Document schema, compile, validate, personalize",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "../../node_modules/.bin/tsc",
+    "dev": "../../node_modules/.bin/tsc --watch",
+    "test": "../../node_modules/.bin/tsx --test src/*.test.ts",
+    "type-check": "../../node_modules/.bin/tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

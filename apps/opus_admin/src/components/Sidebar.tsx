@@ -64,6 +64,7 @@ import Logo from "./ui/Logo";
 import { adminSignOut } from "./sidebar-actions";
 import { useSetSidebarFocus, useSidebarFocus } from "./SidebarFocus";
 import type { CallerProfile } from "@/lib/admin-auth";
+import { isImmersiveWorkspace } from "@/lib/admin-immersive";
 
 type NavItem = {
   icon: LucideIcon;
@@ -179,15 +180,15 @@ const sections: NavSection[] = [
         icon: Mail,
         label: "Digital Cards",
         href: "/opus-pass/digital-cards",
-        // Custom Card Studio is a tab INSIDE Digital Cards but still lives at
-        // /opus-pass/commissions, so the rail has to be told that those paths
+        // Custom Card Studio and Design Studio are tabs INSIDE Digital Cards
+        // but live at sibling routes, so the rail has to be told those paths
         // belong to this entry.
-        activePaths: ["/opus-pass/commissions"],
+        activePaths: ["/opus-pass/commissions", "/opus-pass/design-studio"],
         // Two fulfilment paths, two permissions. A catalogue admin holds
         // cms.read; a studio operator holds commissions.read. Either one is a
         // reason to see this entry, and the root route sends each of them to
         // the tab they can actually open.
-        requiredAnyPermission: ["cms.read", "commissions.read"],
+        requiredAnyPermission: ["cms.read", "commissions.read", "digitalcards.read"],
       },
       { icon: Users, label: "Couple Accounts", href: "/opus-pass/couples", requiredPermission: "opuspass.couples.read" },
       // Route still lives under /operations. Check-in closes the OpusPass guest
@@ -377,24 +378,18 @@ export type WorkspaceNavEntry = {
   live: boolean
 }
 
-const WORKSPACE_ICONS: Record<string, LucideIcon> = {
-  'time-clock': Clock,
-  leave: Plane,
-  tasks: ListTodo,
-  reports: FileText,
-  tracker: ClipboardCheck,
-  calendar: CalendarCheck,
-  documents: FileText,
-}
-
 export function Sidebar({
   permissions,
   profile,
   workspace,
+  clerkEnabled = true,
 }: {
   permissions: string[]
   profile: CallerProfile
+  /** Non-empty when the caller has Workspace access — sidebar shows a single entry. */
   workspace: WorkspaceNavEntry[]
+  /** False under DISABLE_ADMIN_AUTH — skip useClerk so the shell does not 500. */
+  clerkEnabled?: boolean
 }) {
   const pathname = usePathname();
   // Filter sections + items by permission. An item without a
@@ -433,12 +428,6 @@ export function Sidebar({
   // to sit first in the list.
   const initialSection = visibleSections.find((s) => isSectionActive(pathname, s))?.id ?? "";
   const [openSection, setOpenSection] = useState<string>(initialSection);
-  // Workspace sits outside the `sections` array (it is server-built), so it
-  // owns its own open state. Auto-opens when the active route is one of its
-  // entries.
-  const [workspaceOpen, setWorkspaceOpen] = useState<boolean>(() =>
-    workspace.some((w) => pathname === w.href || pathname.startsWith(w.href + '/')),
-  );
   // The CMS parent group auto-opens when the active route lives inside it.
   const [openGroup, setOpenGroup] = useState<boolean>(
     cmsGroupSections.some((s) => isSectionActive(pathname, s))
@@ -453,6 +442,10 @@ export function Sidebar({
     items: section.items.filter((i) => matchesQuery(i.label)),
   });
   const filteredTopItems = query ? topItems.filter((i) => matchesQuery(i.label)) : topItems;
+  // Workspace sits outside the `sections` array (it is server-built). Sub-pages
+  // live in the in-page WorkspaceNav top bar — the sidebar only exposes a
+  // single entry point to /workspace.
+  const showWorkspace = workspace.length > 0;
   // When the query matches the CMS group's own label (e.g. "System Management"),
   // surface the whole group rather than filtering it out for having no matching
   // child item/label.
@@ -465,13 +458,8 @@ export function Sidebar({
   const otherRender = query
     ? otherSections.map(filterSectionItems).filter((s) => s.items.length > 0 || matchesQuery(s.label))
     : otherSections;
-  const workspaceMatches = query
-    ? workspace.filter((w) => matchesQuery(w.label))
-    : workspace;
-  // The section label itself, and its Home entry, are searchable too.
   const workspaceVisible =
-    workspaceMatches.length > 0 ||
-    (query !== '' && (matchesQuery('Workspace') || matchesQuery('Home')));
+    showWorkspace && (query === '' || matchesQuery('Workspace'));
   const noMatches =
     query !== '' &&
     filteredTopItems.length === 0 &&
@@ -657,94 +645,38 @@ export function Sidebar({
     )
   }
 
-  const workspaceActive = workspace.some(
-    (w) => pathname === w.href || pathname.startsWith(w.href + '/'),
+  // Active when on /workspace or any workspace sub-route. Sub-nav itself lives
+  // in WorkspaceNav (top bar) — sidebar is only the entry point.
+  const workspaceActive =
+    pathname === '/workspace' || pathname.startsWith('/workspace/');
+
+  const renderWorkspace = () => (
+    <Link
+      href="/workspace"
+      className={cn(
+        'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors',
+        workspaceActive
+          ? 'bg-[#F0DFF6] text-[#7E5896]'
+          : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50',
+      )}
+    >
+      <Briefcase className="w-5 h-5 stroke-[1.5] shrink-0" />
+      <span className="truncate">Workspace</span>
+    </Link>
   );
-  const workspaceHomeActive = pathname === '/workspace';
 
-  const renderWorkspace = () => {
-    const isOpen = query !== '' || workspaceOpen;
-    return (
-      <div>
-        <button
-          onClick={() => setWorkspaceOpen((o) => !o)}
-          className={cn(
-            'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors',
-            isOpen ? 'text-gray-900' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-          )}
-        >
-          <div className="flex items-center gap-3">
-            <Briefcase className="w-5 h-5 stroke-[1.5]" />
-            Workspace
-          </div>
-          {isOpen ? (
-            <ChevronDown className="w-4 h-4 text-gray-400" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-gray-400" />
-          )}
-        </button>
-
-        {isOpen && (
-          <nav className="mt-1 mb-2 space-y-0.5 pl-2 border-l border-gray-100 ml-5">
-            <Link
-              href="/workspace"
-              className={cn(
-                'w-full flex items-center gap-3 pl-3 pr-3 py-2 rounded-lg text-sm font-medium transition-colors text-left',
-                workspaceHomeActive
-                  ? 'bg-[#F0DFF6] text-[#7E5896]'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-              )}
-            >
-              <Home className="w-4 h-4 stroke-[1.5] shrink-0" />
-              <span className="truncate">Home</span>
-            </Link>
-            {workspaceMatches.map((w) => {
-              const Icon = WORKSPACE_ICONS[w.item] ?? FileText;
-              const active = pathname === w.href || pathname.startsWith(w.href + '/');
-              // Not-yet-built surfaces render as a disabled row. Showing a
-              // link that 404s is worse than showing the destination exists.
-              if (!w.live) {
-                return (
-                  <span
-                    key={w.item}
-                    title="Coming soon"
-                    className="w-full flex items-center gap-3 pl-3 pr-3 py-2 rounded-lg text-sm font-medium text-gray-300 cursor-default"
-                  >
-                    <Icon className="w-4 h-4 stroke-[1.5] shrink-0" />
-                    <span className="truncate">{w.label}</span>
-                  </span>
-                );
-              }
-              return (
-                <Link
-                  key={w.item}
-                  href={w.href}
-                  className={cn(
-                    'w-full flex items-center gap-3 pl-3 pr-3 py-2 rounded-lg text-sm font-medium transition-colors text-left',
-                    active
-                      ? 'bg-[#F0DFF6] text-[#7E5896]'
-                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-                  )}
-                >
-                  <Icon className="w-4 h-4 stroke-[1.5] shrink-0" />
-                  <span className="truncate">{w.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        )}
-      </div>
-    );
-  };
+  // Design Studio (and other immersive workspaces) own the full viewport —
+  // hide the admin rail entirely so it does not compete with the editor chrome.
+  if (isImmersiveWorkspace(pathname)) return null
 
   return (
     <aside
       ref={asideRef}
       style={collapsed ? undefined : { width }}
       className={cn(
-        'relative bg-white border-r border-gray-100 flex flex-col h-full h-screen sticky top-0 py-6 ease-out print:hidden',
+        'sticky top-0 flex h-screen flex-col border-r border-gray-100 bg-white py-6 ease-out print:hidden',
         !resizing && 'transition-[width] duration-200',
-        collapsed ? 'w-[72px] px-2' : 'px-4'
+        collapsed ? 'w-18 px-2' : 'px-4'
       )}
     >
       {/* Header: logo + toggle */}
@@ -841,7 +773,7 @@ export function Sidebar({
                       {item.label}
                     </div>
                     {item.badge && (
-                      <span className="bg-[#C9A0DC] text-white text-[10px] font-bold min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center tabular-nums">
+                      <span className="bg-[#C9A0DC] text-white text-[10px] font-bold min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center tabular-nums">
                         {item.badge}
                       </span>
                     )}
@@ -856,23 +788,19 @@ export function Sidebar({
         {collapsed ? (
           <>
             {workspace.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  expand()
-                  setWorkspaceOpen(true)
-                }}
+              <Link
+                href="/workspace"
                 aria-label="Workspace"
                 title="Workspace"
                 className={cn(
                   'flex items-center justify-center w-12 h-12 mx-auto rounded-xl transition-colors',
-                  workspaceActive || workspaceHomeActive
+                  workspaceActive
                     ? 'text-[#7E5896] bg-[#F0DFF6]'
                     : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                 )}
               >
                 <Briefcase className="w-5 h-5 stroke-[1.5]" />
-              </button>
+              </Link>
             )}
             {cmsGroupSections.length > 0 && (
               <button
@@ -937,7 +865,7 @@ export function Sidebar({
 
       {/* Footer — account profile with a Log out menu. */}
       <div className="mt-auto border-t border-gray-100 pt-3">
-        <SidebarProfile profile={profile} collapsed={collapsed} />
+        <SidebarProfile profile={profile} collapsed={collapsed} clerkEnabled={clerkEnabled} />
       </div>
 
       {/* Drag-to-resize handle on the right edge (expanded rail only).
@@ -967,21 +895,15 @@ export function Sidebar({
 function SidebarProfile({
   profile,
   collapsed,
+  clerkEnabled,
 }: {
   profile: CallerProfile
   collapsed: boolean
+  clerkEnabled: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
-  // ClerkProvider wraps the whole app (root layout), so the client-side hook is
-  // safe here — it drives Clerk's hosted "Manage account" modal.
-  const { openUserProfile } = useClerk()
-
-  const handleManageAccount = () => {
-    setOpen(false)
-    openUserProfile()
-  }
 
   // Close on outside click / Esc.
   useEffect(() => {
@@ -1038,16 +960,8 @@ function SidebarProfile({
           role="menu"
           className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg"
         >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleManageAccount}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <Settings className="h-4 w-4 stroke-[1.5] text-gray-400" />
-            Manage account
-          </button>
-          <div className="my-1 border-t border-gray-100" />
+          {clerkEnabled && <SidebarManageAccount onDone={() => setOpen(false)} />}
+          {clerkEnabled && <div className="my-1 border-t border-gray-100" />}
           <button
             type="button"
             role="menuitem"
@@ -1093,5 +1007,24 @@ function SidebarProfile({
         )}
       </button>
     </div>
+  )
+}
+
+/** Isolated so useClerk is never called under DISABLE_ADMIN_AUTH. */
+function SidebarManageAccount({ onDone }: { onDone: () => void }) {
+  const { openUserProfile } = useClerk()
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={() => {
+        onDone()
+        openUserProfile()
+      }}
+      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+    >
+      <Settings className="h-4 w-4 stroke-[1.5] text-gray-400" />
+      Manage account
+    </button>
   )
 }

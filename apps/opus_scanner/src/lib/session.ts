@@ -1,41 +1,60 @@
-export interface ScannerSession {
-  eventId: string
-  accessToken: string
-  doorLabel: string
-  eventName: string
-  /** Who's actually holding this device — set once per shift via the
-   * attendant-name step in EventLogin, separate from the door-level access
-   * token so swapping staff mid-event doesn't require a fresh QR/link. */
-  attendantName: string
-  /** True when attendantName came from an admin-assigned code, not a
-   * self-typed name — the "who's scanning?" step and "switch attendant"
-   * option are both skipped/hidden in that case; the code IS the identity. */
-  attendantAssigned?: boolean
+import type { ScannerSession } from '@/types/checkin'
+
+const SESSION_KEY = 'opuspass.scanner.session'
+
+/** True once the shift's window has closed. Sessions without an expiry (saved
+ *  before auto-end shipped) never count as over here — the server still turns
+ *  away any late scan. */
+export function isShiftOver(session: Pick<ScannerSession, 'expiresAt'>): boolean {
+  if (!session.expiresAt) return false
+  const endsAt = new Date(session.expiresAt).getTime()
+  return !Number.isNaN(endsAt) && Date.now() >= endsAt
 }
 
-function key(eventId: string) {
-  return `opus-scanner:session:${eventId}`
-}
-
-export function readSession(eventId: string): ScannerSession | null {
+/**
+ * The one running door shift, persisted so a mid-shift restart doesn't force
+ * re-login.
+ *
+ * Single global slot — not per event — mirroring the mobile app
+ * (opuspass.scanner.session in SecureStore): a device runs ONE shift at a
+ * time, and starting a shift for another event replaces it. localStorage
+ * rather than anything fancier because the token is not trusted on its own:
+ * every scan re-verifies it server-side, so a revoked or expired code fails
+ * at the door even though it's still cached here.
+ */
+export function readSession(): ScannerSession | null {
   if (typeof window === 'undefined') return null
   try {
-    const raw = window.localStorage.getItem(key(eventId))
-    return raw ? (JSON.parse(raw) as ScannerSession) : null
+    const raw = window.localStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as ScannerSession
+    // The event may have ended while the tab was closed — a forgotten shift
+    // must not resume days later. Drop it instead of restoring.
+    if (isShiftOver(parsed)) {
+      window.localStorage.removeItem(SESSION_KEY)
+      return null
+    }
+    return parsed
   } catch {
+    // Corrupt or unreadable entry — treat as signed out rather than crashing.
     return null
   }
 }
 
 export function writeSession(session: ScannerSession): void {
   if (typeof window === 'undefined') return
-  window.localStorage.setItem(key(session.eventId), JSON.stringify(session))
+  try {
+    window.localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  } catch {
+    // Non-fatal: the shift continues in memory, it just won't survive a restart.
+  }
 }
 
-/** Clear just the attendant identity (e.g. shift change) — keeps the
- * device's door-level access token so they don't need the QR link again. */
-export function clearAttendant(eventId: string): void {
-  const session = readSession(eventId)
-  if (!session) return
-  writeSession({ ...session, attendantName: '' })
+export function clearSession(): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(SESSION_KEY)
+  } catch {
+    // Already gone.
+  }
 }

@@ -1,637 +1,759 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Clock, FlashlightOff, Flashlight, RotateCw, Users, XCircle } from 'lucide-react'
-import { readSession, type ScannerSession } from '@/lib/session'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import jsQR from 'jsqr'
 import {
-  enqueuePendingScan,
-  listPendingScans,
-  listRoster,
-  lookupRoster,
-  markRosterCheckedInLocally,
-  removePendingScan,
-  type RosterEntry,
-} from '@/lib/db'
-import { checkinChannelName, createRealtimeClient, type CheckinBroadcastPayload } from '@/lib/realtimeClient'
-import { playScanFeedback } from './feedback'
-import { SCAN_STRINGS, readLocale, onLocaleChange, type Locale } from '@/lib/locale'
+  AlertCircle,
+  ArrowLeft,
+  Camera,
+  CircleCheck,
+  CloudOff,
+  DoorOpen,
+  Loader2,
+  PenLine,
+  QrCode,
+  User,
+  Users,
+  UtensilsCrossed,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react'
+import { CountSegments } from '@/components/scanner/CountSegments'
+import { ManualCheckinSheet } from '@/components/scanner/ManualCheckinSheet'
+import { PartySizeSheet } from '@/components/scanner/PartySizeSheet'
+import { ScanTipsBanner, ScanTipsModal } from '@/components/scanner/ScanTipsModal'
+import { SessionGate } from '@/components/scanner/SessionGate'
+import { amendPartySize, lookupAdmission, submitScan, validateScannerSession } from '@/lib/api/checkin'
+import { getErrorMessage } from '@/lib/errors'
+import { vibrateForResult } from '@/lib/haptics'
+import { shouldPromptForParty } from '@/lib/partyPrompt'
+import { arrivedHeads, clampArrived } from '@/lib/scannerRoster'
+import { useScannerSession } from '@/hooks/useScannerSession'
+import { useScannerTips } from '@/hooks/useScannerTips'
+import type { CheckinScanResult, ManualLookupResult, RosterEntry } from '@/types/checkin'
 
-interface CheckinResult {
-  status: 'success' | 'duplicate' | 'invalid' | 'error' | 'queued'
-  message?: string
-  guestName?: string
-  partySize?: number
-  isVip?: boolean
-  /** The couple's real guest-list grouping (e.g. "Bride's Family") — not a
-   * fabricated VIP/General tier. */
-  groupTag?: string | null
-}
+/** Ignore repeat decodes of the same code for this long — a QR held in frame
+ *  fires continuously, and without this every guest triggers a burst of
+ *  identical requests that all resolve as "duplicate". */
+const RESCAN_COOLDOWN_MS = 2500
 
-type RosterRow = RosterEntry & { key: string; eventId: string }
+/** Side of the square scan target the corner brackets frame. */
+const RETICLE_SIZE = 256
 
-// Native decoder where available (most current Android/Chrome); jsQR is the
-// fallback for browsers without BarcodeDetector (notably iOS Safari).
-type BarcodeDetectorLike = { detect(source: CanvasImageSource): Promise<{ rawValue: string }[]> }
+/** A Pass ID is eight characters; a legacy entry code is six. */
+const PASS_ID_LENGTH = 8
 
-const RESCAN_COOLDOWN_MS = 3000
+/** Decode cadence. Native CameraView scans every frame; jsQR on a
+ *  downscaled frame is fast enough that ~7 looks a second feels the same. */
+const DECODE_INTERVAL_MS = 140
 
-function initials(name: string) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join('')
-}
-
-/** Small rotating radar sweep — replaces a plain "active" dot with something
- * that actually reads as "scanning" over the dark camera viewport. */
-function RadarSweep() {
-  return (
-    <div className="relative h-4 w-4">
-      <div className="absolute inset-0 rounded-full border border-[#C9A0DC]/40" />
-      <div
-        className="absolute inset-0 overflow-hidden rounded-full"
-        style={{ animation: 'radar-sweep 2s linear infinite' }}
-      >
-        <div
-          className="absolute inset-0"
-          style={{ background: 'conic-gradient(from 0deg, transparent 0deg, transparent 260deg, #C9A0DC 360deg)' }}
-        />
-      </div>
-      <div className="absolute inset-0 m-auto h-1 w-1 rounded-full bg-[#C9A0DC]" />
-    </div>
-  )
+const RESULT_STYLES: Record<
+  CheckinScanResult['status'],
+  { bg: string; icon: LucideIcon; title: string }
+> = {
+  success: { bg: '#1B7F4C', icon: CircleCheck, title: 'Checked in' },
+  duplicate: { bg: '#B4751A', icon: AlertCircle, title: 'Already scanned' },
+  invalid: { bg: '#B3261E', icon: XCircle, title: 'Not valid' },
+  error: { bg: '#5A5A5A', icon: CloudOff, title: "Couldn't check in" },
 }
 
 export default function ScanClient({ eventId }: { eventId: string }) {
   const router = useRouter()
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const rafRef = useRef<number | null>(null)
+  const { session } = useScannerSession()
+  const tips = useScannerTips()
+  const queryClient = useQueryClient()
+
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const lastScanRef = useRef<{ value: string; at: number } | null>(null)
-  const sessionRef = useRef<ScannerSession | null>(null)
-  const inFlightRef = useRef(false)
 
-  // Language is toggled from the shared navbar (ScannerShell), not here —
-  // pick up the initial value on mount, then stay in sync live.
-  const [locale, setLocale] = useState<Locale>('en')
-  useEffect(() => {
-    setLocale(readLocale())
-    return onLocaleChange(setLocale)
-  }, [])
-  const t = SCAN_STRINGS[locale]
+  const [cameraState, setCameraState] = useState<'starting' | 'live' | 'denied' | 'error'>('starting')
+  const [result, setResult] = useState<CheckinScanResult | null>(null)
+  const [pending, setPending] = useState(false)
+  /** Party-size prompt, shown only when the guest RSVP'd for more than one.
+   *  Identified by QR token after a camera scan, or by invitation id after a
+   *  typed-code admission — the amend endpoint accepts either. */
+  const [partyPrompt, setPartyPrompt] = useState<{
+    qrToken?: string
+    invitationId?: string
+    guestName: string
+    partySize: number
+    groupTag: string | null
+  } | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
+  /** Which way the manual sheet opens: typing the printed code (the usual
+   *  case, reached from "QR not working") or searching a name. */
+  const [manualMode, setManualMode] = useState<'code' | 'name'>('code')
 
-  const [result, setResult] = useState<CheckinResult | null>(null)
-  const [cameraError, setCameraError] = useState('')
-  const [pendingCount, setPendingCount] = useState(0)
-  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
-  const [torchOn, setTorchOn] = useState(false)
-  const [torchSupported, setTorchSupported] = useState(false)
+  // Refs, not state: the decode loop fires many times a second and must read
+  // the latest value without re-subscribing or re-rendering.
+  const lastScanRef = useRef<{ token: string; at: number; requestId: string } | null>(null)
+  /** The scan whose party size has already been asked about, so one scan asks
+   *  once however many times the result re-renders. */
+  const promptedForScanRef = useRef<string | null>(null)
+  const busyRef = useRef(false)
+  /** Outcome of the last attempt, so the decode loop can tell a retry of a
+   *  failed scan from a deliberate second admission. */
+  const lastResultRef = useRef<CheckinScanResult['status'] | null>(null)
 
-  const refreshPendingCount = useCallback(() => {
-    listPendingScans(eventId).then((rows) => setPendingCount(rows.length))
-  }, [eventId])
+  const sessionReady = session !== null && session.eventId === eventId
 
-  /** Resolve a scan against the cached roster when we have no network. */
-  const checkInOffline = useCallback(async (qrToken: string, manualReason?: string): Promise<CheckinResult> => {
-    const session = sessionRef.current
-    if (!session) return { status: 'error', message: 'No active session' }
-
-    const entry = await lookupRoster(eventId, qrToken)
-    if (!entry) return { status: 'invalid', message: 'Not a valid entry pass (offline — will not sync)' }
-    if (entry.checkedInAt) {
-      return { status: 'duplicate', guestName: entry.fullName, partySize: entry.partySize, isVip: entry.isVip, groupTag: entry.groupTag }
-    }
-
-    const now = new Date().toISOString()
-    await markRosterCheckedInLocally(eventId, qrToken, now)
-    await enqueuePendingScan({
-      eventId,
-      qrToken,
-      doorLabel: session.doorLabel,
-      attendantName: session.attendantName,
-      scannedAt: now,
-      manualReason,
-    })
-    refreshPendingCount()
-    return { status: 'queued', guestName: entry.fullName, partySize: entry.partySize, isVip: entry.isVip, groupTag: entry.groupTag }
-  }, [eventId, refreshPendingCount])
-
-  const submitScan = useCallback(async (qrToken: string, manualReason?: string) => {
-    const session = sessionRef.current
-    if (!session || inFlightRef.current) return
-    inFlightRef.current = true
-    let data: CheckinResult
-    try {
-      if (!navigator.onLine) {
-        data = await checkInOffline(qrToken, manualReason)
-      } else {
-        try {
-          const res = await fetch('/api/checkin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              eventId,
-              accessToken: session.accessToken,
-              doorLabel: session.doorLabel,
-              attendantName: session.attendantName,
-              qrToken,
-              manualReason,
-            }),
-          })
-          data = (await res.json()) as CheckinResult
-          // Keep the local roster cache (used by this device's own Guests/Stats
-          // tabs, and by offline lookups) in sync with the server's
-          // authoritative write — without this, a successful online scan
-          // never shows up in the Guest Ledger until the next full login.
-          if (data.status === 'success' || data.status === 'duplicate') {
-            await markRosterCheckedInLocally(eventId, qrToken, new Date().toISOString())
-          }
-        } catch {
-          // fetch threw — treat as offline rather than a hard error.
-          data = await checkInOffline(qrToken, manualReason)
-        }
-      }
-      setResult(data)
-      playScanFeedback(
-        data.status === 'success' || data.status === 'queued'
-          ? 'success'
-          : data.status === 'duplicate'
-            ? 'duplicate'
-            : 'fail',
-      )
-    } finally {
-      inFlightRef.current = false
-    }
-    setTimeout(() => setResult(null), 2200)
-  }, [eventId, checkInOffline])
-
-  /** Flush queued offline scans once we're back online. The server's atomic
-   * RPC is authoritative — a scan queued twice, or that lost a race to
-   * another door, still resolves correctly (just reports as a duplicate). */
-  const flushQueue = useCallback(async () => {
-    const session = sessionRef.current
-    if (!session) return
-    const pending = await listPendingScans(eventId)
-    for (const scan of pending) {
-      try {
-        const res = await fetch('/api/checkin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            eventId,
-            accessToken: session.accessToken,
-            doorLabel: scan.doorLabel,
-            attendantName: scan.attendantName,
-            qrToken: scan.qrToken,
-            manualReason: scan.manualReason,
-          }),
-        })
-        if (res.ok && scan.id !== undefined) await removePendingScan(scan.id)
-      } catch {
-        break // still offline — stop and retry on the next 'online' event
-      }
-    }
-    refreshPendingCount()
-  }, [eventId, refreshPendingCount])
-
-  useEffect(() => {
-    refreshPendingCount()
-    window.addEventListener('online', flushQueue)
-    if (navigator.onLine) flushQueue()
-    return () => window.removeEventListener('online', flushQueue)
-  }, [flushQueue, refreshPendingCount])
-
-  // Live "recent activity" across all doors for this event. Seeded from the
-  // roster's own checked-in guests on load (a Realtime Broadcast channel has
-  // no history — a device that wasn't subscribed when a scan happened would
-  // otherwise show "no arrivals yet" while the stats row above it already
-  // counts that guest as admitted, which is a real contradiction, not just
-  // a cosmetic gap). Live broadcasts prepend on top of that seed.
-  const [activity, setActivity] = useState<CheckinBroadcastPayload[]>([])
-  const activitySeededRef = useRef(false)
-  useEffect(() => {
-    let client: ReturnType<typeof createRealtimeClient>
-    try {
-      client = createRealtimeClient()
-    } catch {
-      return // NEXT_PUBLIC_SUPABASE_ANON_KEY not configured — feed just stays empty
-    }
-    const channel = client
-      .channel(checkinChannelName(eventId))
-      .on('broadcast', { event: 'scan' }, ({ payload }) => {
-        setActivity((prev) => [payload as CheckinBroadcastPayload, ...prev].slice(0, 6))
-      })
-      .subscribe()
-    return () => {
-      client.removeChannel(channel)
-    }
-  }, [eventId])
-
-  const handleDecoded = useCallback(
-    (value: string) => {
-      const last = lastScanRef.current
-      if (last && last.value === value && Date.now() - last.at < RESCAN_COOLDOWN_MS) return
-      lastScanRef.current = { value, at: Date.now() }
-      submitScan(value)
+  /**
+   * Arrival progress for the header. Shares a cache key with the guest-list
+   * screen, so moving between the two doesn't refetch, and one invalidation
+   * after a scan updates both.
+   */
+  const rosterQuery = useQuery({
+    queryKey: ['scanner', 'roster', eventId],
+    enabled: sessionReady,
+    queryFn: async () => {
+      const validated = await validateScannerSession(session!.eventId, session!.accessToken)
+      if (!validated.ok) throw new Error(validated.error)
+      return validated.roster
     },
-    [submitScan],
+  })
+
+  const roster = rosterQuery.data ?? []
+  const totalGuests = roster.length
+  const arrivedGuests = roster.filter((g) => g.checkedInAt).length
+  const headsIn = arrivedHeads(roster)
+
+  // ── Camera ──────────────────────────────────────────────────────────────
+
+  const startCamera = useCallback(() => {
+    setCameraState('starting')
+    navigator.mediaDevices
+      .getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false,
+      })
+      .then((stream) => {
+        // A newer start (or unmount) already owns the camera — don't let a
+        // late answer from an abandoned call replace it.
+        if (streamRef.current) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+        streamRef.current = stream
+        const video = videoRef.current
+        if (video) {
+          video.srcObject = stream
+          video.play().catch(() => {})
+        }
+        setCameraState('live')
+      })
+      .catch((err) => {
+        setCameraState(err instanceof DOMException && err.name === 'NotAllowedError' ? 'denied' : 'error')
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!sessionReady) return
+    startCamera()
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+  }, [sessionReady, startCamera])
+
+  // ── Scan submission ─────────────────────────────────────────────────────
+
+  const runScan = useCallback(
+    async (args: { qrToken: string; checkedInPartySize?: number; requestId: string }) => {
+      if (!session) return
+      busyRef.current = true
+      setPending(true)
+      try {
+        const scanResult = await submitScan({
+          eventId: session.eventId,
+          accessToken: session.accessToken,
+          qrToken: args.qrToken,
+          checkedInPartySize: args.checkedInPartySize,
+          requestId: args.requestId,
+          doorLabel: session.doorLabel,
+          attendantName: session.attendantName ?? undefined,
+        })
+        setResult(scanResult)
+        lastResultRef.current = scanResult.status
+        if (scanResult.status === 'success') {
+          // Keep the header count honest without blocking the next scan.
+          void queryClient.invalidateQueries({ queryKey: ['scanner', 'roster', eventId] })
+          // A successful scan is proof the coaching worked: retire the tips
+          // banner on its own rather than leaving it to fight the reticle
+          // for attention all night.
+          if (tips.bannerVisible) tips.dismissBanner()
+        }
+        // Haptics matter here: attendants work in the dark, often not looking
+        // at the screen between guests.
+        vibrateForResult(scanResult.status)
+      } catch (err) {
+        setResult({ status: 'error', message: getErrorMessage(err, 'Network error') })
+        // The request may still have landed. Marking the attempt as failed is
+        // what lets the next scan of this pass reuse its id and be replayed
+        // rather than admitting the party twice.
+        lastResultRef.current = 'error'
+        vibrateForResult('error')
+      } finally {
+        setPending(false)
+        busyRef.current = false
+      }
+    },
+    [session, queryClient, eventId, tips],
   )
 
-  const [session, setSession] = useState<ScannerSession | null>(null)
-  useEffect(() => {
-    const loaded = readSession(eventId)
-    if (!loaded || !loaded.attendantName) {
-      router.replace(`/event/${eventId}`)
-      return
-    }
-    sessionRef.current = loaded
-    setSession(loaded)
-  }, [eventId, router])
-
-  // Roster summary for the stats row — real counts from the cached roster,
-  // refreshed whenever a check-in (camera or concierge) lands.
-  const [roster, setRoster] = useState<RosterRow[]>([])
-  const refreshRoster = useCallback(() => {
-    listRoster(eventId).then(setRoster)
-  }, [eventId])
-  useEffect(() => {
-    refreshRoster()
-  }, [refreshRoster, result])
-
-  // One-time seed of Recent Arrivals from whatever's already checked in —
-  // see the comment above the `activity` state for why this matters.
-  useEffect(() => {
-    if (activitySeededRef.current || roster.length === 0) return
-    const already = roster
-      .filter((r) => r.checkedInAt)
-      .sort((a, b) => (b.checkedInAt! > a.checkedInAt! ? 1 : -1))
-      .slice(0, 6)
-      .map((r) => ({
-        status: 'success' as const,
-        guestName: r.fullName,
-        partySize: r.partySize,
-        doorLabel: session?.doorLabel ?? '',
-        at: r.checkedInAt!,
-      }))
-    if (already.length > 0) {
-      activitySeededRef.current = true
-      setActivity((prev) => (prev.length > 0 ? prev : already))
-    }
-  }, [roster, session])
-
-  const admitted = roster.filter((r) => r.checkedInAt).length
-  const capacityPct = roster.length > 0 ? Math.round((admitted / roster.length) * 100) : 0
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function start() {
+  /**
+   * Correct the headcount after the pass is already scanned in.
+   *
+   * Uses the amend endpoint rather than re-scanning: a re-scan admits MORE of
+   * the party (or reports the pass exhausted) and can never lower a headcount.
+   * Only the amend path is allowed to reduce it, and only with a reason.
+   */
+  const correctPartySize = useCallback(
+    async (target: { qrToken?: string; invitationId?: string }, arrived: number) => {
+      if (!session) return
+      setPartyPrompt(null)
+      setPending(true)
       try {
-        // Explicit resolution hint — without it some laptop webcams default
-        // to a tight, near-square crop that looks unintentionally zoomed in.
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
+        const amended = await amendPartySize({
+          eventId: session.eventId,
+          accessToken: session.accessToken,
+          qrToken: target.qrToken,
+          invitationId: target.invitationId,
+          checkedInPartySize: arrived,
+          reason: 'Attendant confirmed how many of the party actually arrived',
+          requestId: crypto.randomUUID(),
+          doorLabel: session.doorLabel,
         })
-        if (cancelled || !videoRef.current) return
-        streamRef.current = stream
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-        const track = stream.getVideoTracks()[0]
-        const caps = track?.getCapabilities?.() as (MediaTrackCapabilities & { torch?: boolean }) | undefined
-        setTorchSupported(Boolean(caps?.torch))
-        loop(0)
-      } catch {
-        setCameraError('Could not access the camera. Check permissions and reload.')
+        setResult(amended)
+        lastResultRef.current = amended.status
+      } catch (err) {
+        setResult({ status: 'error', message: getErrorMessage(err, 'Network error') })
+        // Same reasoning as runScan, and it matters more here: the amend may
+        // well have landed and freed headroom. Without this, the next re-scan
+        // of the pass mints a fresh id and re-admits the heads this correction
+        // just released — silently undoing it, and reporting success.
+        lastResultRef.current = 'error'
+        // The headcount question has to come back with it. The line above
+        // points the retry rule at the ORIGINAL scan's request id, so
+        // re-scanning this pass replays the original success: the party size
+        // from BEFORE the correction. Left set, that replay counts as a scan
+        // already asked about, the sheet stays shut, and the correction the
+        // attendant just made vanishes with nothing on screen to say so.
+        promptedForScanRef.current = null
+      } finally {
+        setPending(false)
       }
-    }
+    },
+    [session],
+  )
 
-    // Built once, not per-frame — cheap devices choke if this gets
-    // re-constructed 60x/sec. Same for the dynamic jsQR import.
-    const detector: BarcodeDetectorLike | null =
-      'BarcodeDetector' in window
-        ? new (window as unknown as { BarcodeDetector: new (opts: { formats: string[] }) => BarcodeDetectorLike }).BarcodeDetector({ formats: ['qr_code'] })
-        : null
-    const jsQRPromise = detector ? null : import('jsqr').then((m) => m.default)
+  /**
+   * Admit a guest picked from the manual sheet. Sends `invitationId` rather
+   * than a QR token, plus the reason that marks it scan-less in the audit
+   * trail. Returns the result so the sheet can hand it back and the standard
+   * result overlay reports it exactly like a scan.
+   */
+  const admitManually = useCallback(
+    async (guest: RosterEntry, arrived: number): Promise<CheckinScanResult> => {
+      if (!session) return { status: 'error', message: 'Session expired' }
+      // Same 1..party_size range the server enforces. Left undefined when the
+      // full party arrived so the server's authoritative party_size fills the
+      // default — the roster copy here could be stale.
+      const confirmed = clampArrived(arrived, guest.partySize)
+      try {
+        const manualResult = await submitScan({
+          eventId: session.eventId,
+          accessToken: session.accessToken,
+          invitationId: guest.invitationId,
+          manualReason: 'QR could not be scanned',
+          // A fresh id per tap: a manual admission is always a deliberate
+          // action, so it should never be replayed. It still gives the
+          // admission its own row in the server-side audit trail.
+          requestId: crypto.randomUUID(),
+          checkedInPartySize: confirmed === guest.partySize ? undefined : confirmed,
+          doorLabel: session.doorLabel,
+          attendantName: session.attendantName ?? undefined,
+        })
+        if (manualResult.status === 'success') {
+          void queryClient.invalidateQueries({ queryKey: ['scanner', 'roster', eventId] })
+        }
+        return manualResult
+      } catch (err) {
+        return { status: 'error', message: getErrorMessage(err, 'Network error') }
+      }
+    },
+    [session, queryClient, eventId],
+  )
 
-    // Decoding every animation frame (~60fps) burns battery/CPU for no
-    // benefit on low-end Android — a QR code doesn't move that fast.
-    // ~6-7 attempts/sec is plenty responsive and much lighter.
-    const DECODE_INTERVAL_MS = 150
-    let lastDecodeAt = 0
+  /**
+   * Find a guest by Pass ID WITHOUT admitting them.
+   *
+   * A guest reads their Pass ID out precisely because something already went
+   * wrong — dead battery, cracked screen, a QR that will not scan. The
+   * attendant needs to see who they are looking at before anyone is admitted,
+   * so this resolves and returns; the confirm card then makes admission a
+   * deliberate second tap.
+   */
+  const lookupIdentifier = useCallback(
+    async (identifier: string): Promise<ManualLookupResult> => {
+      if (!session) return { status: 'error', message: 'Session expired' }
+      try {
+        const found = await lookupAdmission({
+          eventId: session.eventId,
+          accessToken: session.accessToken,
+          // Sent under the right name for its shape. The sheet uses this for
+          // typed identifiers AND for a guest picked off the roster, whose
+          // resolvable identifier may be either kind.
+          ...(identifier.length === PASS_ID_LENGTH ? { passId: identifier } : { entryCode: identifier }),
+        })
+        // The server distinguishes "no such guest" from "I could not answer",
+        // and so must the door: reporting a reachability failure as an unknown
+        // Pass ID sends a guest with a valid ticket away.
+        if (found.status === 'error') return { status: 'error', message: found.message }
+        if (found.status !== 'found') return { status: 'not_found' }
+        const guest: RosterEntry = {
+          invitationId: found.invitationId,
+          fullName: found.guestName,
+          entryCode: found.entryCode,
+          passId: found.passId,
+          partySize: found.rsvpdPartySize,
+          checkedInAt: found.firstCheckedInAt,
+          checkedInPartySize: found.alreadyAdmitted || null,
+          checkedInDoor: null,
+          checkedInBy: null,
+          groupTag: found.groupTag,
+          isVip: found.isVip,
+          phone: found.guestPhone,
+          table: found.tableName,
+        }
+        return { status: 'found', guest }
+      } catch (err) {
+        return { status: 'error', message: getErrorMessage(err, 'Network error') }
+      }
+    },
+    [session],
+  )
 
-    async function loop(now: number) {
-      const video = videoRef.current
-      const canvas = canvasRef.current
-      if (!video || !canvas || cancelled) return
-
-      if (now - lastDecodeAt >= DECODE_INTERVAL_MS && video.readyState === video.HAVE_ENOUGH_DATA) {
-        lastDecodeAt = now
-
-        if (detector) {
-          try {
-            const codes = await detector.detect(video)
-            if (codes[0]) handleDecoded(codes[0].rawValue)
-          } catch {
-            // transient decode failure — just try again next tick
-          }
-        } else if (jsQRPromise) {
-          canvas.width = video.videoWidth
-          canvas.height = video.videoHeight
-          const ctx = canvas.getContext('2d')
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-            const jsQR = await jsQRPromise
-            const code = jsQR(imageData.data, imageData.width, imageData.height)
-            if (code) handleDecoded(code.data)
+  /** Admit by the short code printed on the ticket. Resolved server-side, so
+   *  this works even when the roster failed to load on this device. */
+  const admitByCode = useCallback(
+    async (entryCode: string): Promise<CheckinScanResult> => {
+      if (!session) return { status: 'error', message: 'Session expired' }
+      try {
+        const codeResult = await submitScan({
+          eventId: session.eventId,
+          accessToken: session.accessToken,
+          entryCode,
+          manualReason: 'Checked in with ticket code',
+          requestId: crypto.randomUUID(),
+          doorLabel: session.doorLabel,
+          attendantName: session.attendantName ?? undefined,
+        })
+        if (codeResult.status === 'success') {
+          void queryClient.invalidateQueries({ queryKey: ['scanner', 'roster', eventId] })
+          // Unlike a roster pick there is no confirm card on this path, so a
+          // multi-person party gets the same after-the-fact headcount prompt a
+          // scan does, amending by invitation id. The id has to come from the
+          // local roster (the scan response doesn't carry it) — when the
+          // roster failed to load, the admission simply stands at full party.
+          if ((codeResult.partySize ?? 1) > 1) {
+            const entry = (rosterQuery.data ?? []).find((g) => g.entryCode === entryCode)
+            if (entry) {
+              setPartyPrompt({
+                invitationId: entry.invitationId,
+                guestName: codeResult.guestName ?? 'Guest',
+                partySize: codeResult.partySize ?? 1,
+                groupTag: codeResult.groupTag ?? null,
+              })
+            }
           }
         }
+        return codeResult
+      } catch (err) {
+        return { status: 'error', message: getErrorMessage(err, 'Network error') }
       }
+    },
+    [session, queryClient, eventId, rosterQuery.data],
+  )
 
-      rafRef.current = requestAnimationFrame(loop)
+  /** Show the manual admission through the same overlay a scan produces. */
+  const handleManualAdmitted = useCallback((manualResult: CheckinScanResult) => {
+    // Cleared so the party-size prompt doesn't fire off a stale QR token from
+    // an earlier camera scan.
+    lastScanRef.current = null
+    lastResultRef.current = manualResult.status
+    setResult(manualResult)
+    vibrateForResult(manualResult.status)
+  }, [])
+
+  // ── Decode loop ─────────────────────────────────────────────────────────
+
+  /** Anything covering the camera also has to stop it decoding: the feed keeps
+   *  running behind a sheet, and a code drifting through frame while the
+   *  attendant is reading a result would fire a scan they never asked for. */
+  const cameraBlocked = Boolean(result || partyPrompt || manualOpen || tips.showTips)
+  const cameraBlockedRef = useRef(cameraBlocked)
+  cameraBlockedRef.current = cameraBlocked
+
+  useEffect(() => {
+    if (cameraState !== 'live') return
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return
+
+    const handleDecoded = (data: string) => {
+      if (!data || busyRef.current || cameraBlockedRef.current) return
+
+      const now = Date.now()
+      const last = lastScanRef.current
+      if (last && last.token === data && now - last.at < RESCAN_COOLDOWN_MS) return
+
+      // Reuse the previous attempt's id when re-scanning the same pass after
+      // an ERROR. That attempt may well have admitted the party before the
+      // response was lost, and admission is a counter now: a fresh id would
+      // let a family of four walk in twice on one pass. Any other re-scan is a
+      // deliberate new admission (the rest of the party arriving) and gets a
+      // new id.
+      const retrying = last?.token === data && lastResultRef.current === 'error'
+      const requestId = retrying && last ? last.requestId : crypto.randomUUID()
+      lastScanRef.current = { token: data, at: now, requestId }
+
+      // We can't know the party size until the server resolves the token, so
+      // scan first and let the result drive whether we need to ask.
+      void runScan({ qrToken: data, requestId })
     }
 
-    start()
-    return () => {
-      cancelled = true
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-    }
-  }, [handleDecoded, facingMode])
+    const timer = window.setInterval(() => {
+      const video = videoRef.current
+      if (!video || video.readyState < 2 || video.videoWidth === 0) return
+      if (busyRef.current || cameraBlockedRef.current) return
 
-  async function toggleTorch() {
-    const track = streamRef.current?.getVideoTracks()[0]
-    if (!track) return
-    const next = !torchOn
-    try {
-      await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] })
-      setTorchOn(next)
-    } catch {
-      // device claims torch support but rejected the constraint — ignore
+      // Decode at a capped width: full 1080p frames make jsQR the bottleneck,
+      // and a QR at arm's length survives the downscale easily.
+      const scale = Math.min(1, 640 / video.videoWidth)
+      canvas.width = Math.round(video.videoWidth * scale)
+      canvas.height = Math.round(video.videoHeight * scale)
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      try {
+        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const code = jsQR(frame.data, frame.width, frame.height, { inversionAttempts: 'dontInvert' })
+        if (code?.data) handleDecoded(code.data)
+      } catch {
+        // A partial frame during camera warmup — ignore this tick.
+      }
+    }, DECODE_INTERVAL_MS)
+
+    return () => window.clearInterval(timer)
+  }, [cameraState, runScan])
+
+  // Once a successful scan comes back for a multi-person party, offer the
+  // correction step rather than assuming everyone arrived together.
+  //
+  // Keyed on the scan, never on whether the sheet is open. Answering the
+  // question closes the sheet without changing the result that prompted it,
+  // so a rule phrased as "success, party > 1, and no sheet showing" is true
+  // again the moment the sheet closes: the sheet reopened on every Done and
+  // every close, and a Double could not be admitted by scan at all.
+  useEffect(() => {
+    const scan = lastScanRef.current
+    if (
+      !shouldPromptForParty({
+        status: result?.status ?? null,
+        partySize: result?.partySize ?? null,
+        scanRequestId: scan?.requestId ?? null,
+        promptedRequestId: promptedForScanRef.current,
+      })
+    ) {
+      return
     }
+    promptedForScanRef.current = scan!.requestId
+    setPartyPrompt({
+      qrToken: scan!.token,
+      guestName: result?.guestName ?? 'Guest',
+      partySize: result?.partySize ?? 1,
+      groupTag: result?.groupTag ?? null,
+    })
+  }, [result])
+
+  const dismiss = () => {
+    setResult(null)
+    setPartyPrompt(null)
   }
 
-  // Inline "Concierge Entry" — search the cached roster for guests who can't
-  // present a QR (lost phone, etc). Only matches real invited guests; never
-  // fabricates a walk-up guest. Routes through submitScan so every check-in
-  // (camera or concierge) shares one code path and one audit trail.
-  const [query, setQuery] = useState('')
-  const [reason, setReason] = useState('Lost phone')
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return []
-    return roster.filter((r) => r.fullName.toLowerCase().includes(q)).slice(0, 5)
-  }, [query, roster])
-
-  const toneByStatus = {
-    success: 'text-[#3f8b5c]',
-    queued: 'text-[#3f8b5c]',
-    duplicate: 'text-[#b07f2c]',
-    invalid: 'text-[#a84f66]',
-    error: 'text-[#a84f66]',
-  } as const
+  const resultStyle = result ? RESULT_STYLES[result.status] : null
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pt-10 pb-8 sm:px-8">
-      <div className="text-center">
-        <p className="text-[10px] tracking-wide text-[#8e57b3] uppercase">{session?.eventName}</p>
-        <h2 className="mt-1 text-xl font-bold tracking-tight text-[#1A1A1A]">{session?.doorLabel}</h2>
-      </div>
+    <SessionGate eventId={eventId}>
+      {(gateSession) => (
+        <main className="relative h-dvh w-full overflow-hidden bg-black">
+          {/* Live camera feed. Never unmounted while this screen is up — a
+              sheet over it must not tear the camera down. */}
+          <video ref={videoRef} playsInline muted autoPlay className="absolute inset-0 h-full w-full object-cover" />
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
-        {/* Scanner column */}
-        <section className="flex flex-col gap-6 lg:col-span-7">
-          <div className="group relative aspect-video overflow-hidden rounded-2xl border border-black/[0.06] bg-[#1A1A1A] shadow-md">
-            <video
-              ref={videoRef}
-              playsInline
-              muted
-              className={`absolute inset-0 h-full w-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''}`}
-            />
-            <canvas ref={canvasRef} className="hidden" />
-
-            {cameraError ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-[#1A1A1A] p-6 text-center text-sm text-white/60">
-                {cameraError}
-              </div>
-            ) : null}
-
-            {/* Scanning reticle — sized and labeled for a QR code, not a
-                face; this app only ever does QR decoding. Stays up always,
-                including once everyone expected has arrived — the scanner
-                keeps running for walk-ins/plus-ones regardless. */}
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-              <div className="relative h-40 w-40 sm:h-48 sm:w-48" style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }}>
-                <div className="absolute top-0 left-0 h-7 w-7 border-t-2 border-l-2 border-[#C9A0DC]" />
-                <div className="absolute top-0 right-0 h-7 w-7 border-t-2 border-r-2 border-[#C9A0DC]" />
-                <div className="absolute bottom-0 left-0 h-7 w-7 border-b-2 border-l-2 border-[#C9A0DC]" />
-                <div className="absolute right-0 bottom-0 h-7 w-7 border-r-2 border-b-2 border-[#C9A0DC]" />
-                <div
-                  className="absolute right-0 left-0 h-px bg-[#C9A0DC] shadow-[0_0_15px_rgba(201,160,220,0.6)]"
-                  style={{ animation: 'scan-vertical 3s ease-in-out infinite' }}
-                />
-              </div>
-            </div>
-
-            <div className="absolute top-6 right-0 left-0 z-20 flex justify-center px-6">
-              <p className="text-center text-[11px] font-medium tracking-wide text-white/90 uppercase drop-shadow-sm">
-                {t.alignQr}
-              </p>
-            </div>
-
-            {/* Result flash */}
-            {result ? (
-              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-white/95 text-center backdrop-blur-sm">
-                {result.status === 'success' || result.status === 'queued' ? (
-                  <CheckCircle2 className="h-12 w-12 text-[#3f8b5c]" strokeWidth={1.5} />
-                ) : (
-                  <XCircle className="h-12 w-12 text-[#a84f66]" strokeWidth={1.5} />
-                )}
-                <div>
-                  <p className={`text-xl font-bold text-[#1A1A1A] ${result.isVip ? 'inline-flex items-center gap-2' : ''}`}>
-                    {result.guestName ?? (result.status === 'invalid' ? 'Not valid' : 'Error')}
-                    {result.isVip ? (
-                      <span className="rounded-full bg-[#FCE9C2] px-2 py-0.5 align-middle text-[9px] font-bold tracking-wide text-[#B07F2C] uppercase">
-                        VIP
-                      </span>
-                    ) : null}
+          {cameraState !== 'live' ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white px-10 text-center">
+              {cameraState === 'starting' ? (
+                <Loader2 className="h-6 w-6 animate-spin text-[#8e57b3]" />
+              ) : (
+                <>
+                  <Camera size={32} className="text-[#1A1A1A]/40" />
+                  <p className="mt-3 text-sm text-[#1A1A1A]/60">
+                    {cameraState === 'denied'
+                      ? 'Camera access is blocked. Allow it for this site in your browser settings, then try again.'
+                      : 'OpusPass needs your camera to scan guest entry passes.'}
                   </p>
-                  {result.groupTag ? (
-                    <p className="mt-0.5 text-xs text-[#1A1A1A]/50">{result.groupTag}</p>
-                  ) : null}
-                  <p className={`mt-1 text-xs tracking-wide uppercase ${toneByStatus[result.status]}`}>
-                    {result.status === 'success' && t.accessGranted(result.partySize)}
-                    {result.status === 'queued' && t.accessGrantedOffline}
-                    {result.status === 'duplicate' && t.alreadyCheckedIn}
-                    {result.status === 'invalid' && (result.message || t.notValidPass)}
-                    {result.status === 'error' && (result.message || t.somethingWrong)}
-                  </p>
-                </div>
-              </div>
-            ) : null}
-
-            {/* Camera controls */}
-            <div className="absolute right-6 bottom-6 left-6 z-40 flex items-end justify-between">
-              <div className="flex items-center gap-2.5">
-                <RadarSweep />
-                <span className="text-[10px] font-medium tracking-wide text-white/90 uppercase">{t.scannerActive}</span>
-              </div>
-              <div className="flex gap-3">
-                {torchSupported ? (
                   <button
                     type="button"
-                    onClick={toggleTorch}
-                    title={t.flashlight}
-                    aria-label={t.flashlight}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur-md transition-colors hover:bg-white/20"
+                    onClick={startCamera}
+                    className="mt-5 rounded-full bg-[#1A1A1A] px-6 py-3 text-xs font-bold tracking-[1px] text-white uppercase"
                   >
-                    {torchOn ? <Flashlight className="h-4 w-4" /> : <FlashlightOff className="h-4 w-4" />}
+                    Allow camera
                   </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => setFacingMode((m) => (m === 'environment' ? 'user' : 'environment'))}
-                  title={t.flipCamera}
-                  aria-label={t.flipCamera}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur-md transition-colors hover:bg-white/20"
-                >
-                  <RotateCw className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {pendingCount > 0 ? (
-            <p className="rounded-lg border border-[#FCE9C2] bg-[#FCE9C2]/40 px-4 py-2 text-center text-xs font-medium tracking-wide text-[#B07F2C] uppercase">
-              {t.pendingSync(pendingCount)}
-            </p>
-          ) : null}
-
-          {/* Stats row */}
-          <div className="grid grid-cols-3 divide-x divide-black/[0.06] overflow-hidden rounded-xl border border-black/[0.06] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <div className="flex flex-col items-center justify-center bg-white p-5">
-              <span className="text-2xl font-bold text-[#1A1A1A]">{admitted}</span>
-              <span className="mt-1 text-[9px] tracking-wide text-[#1A1A1A] uppercase">{t.admitted}</span>
-            </div>
-            <div className="flex flex-col items-center justify-center bg-white p-5">
-              <span className="text-2xl font-bold text-[#1A1A1A]">{roster.length}</span>
-              <span className="mt-1 text-[9px] tracking-wide text-[#1A1A1A] uppercase">{t.expected}</span>
-            </div>
-            <div className="flex flex-col items-center justify-center bg-white p-5">
-              <span className="text-2xl font-bold text-[#1A1A1A]">{capacityPct}%</span>
-              <span className="mt-1 text-[9px] tracking-wide text-[#1A1A1A] uppercase">{t.checkedIn}</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Sidebar */}
-        <section className="flex flex-col gap-6 lg:col-span-5">
-          <div>
-            <div className="flex items-center justify-between border-b border-black/[0.06] pb-4">
-              <h3 className="text-base font-bold text-[#1A1A1A]">{t.recentArrivals}</h3>
-              <span className="animate-pulse rounded-full bg-[#3f8b5c] px-2.5 py-1 text-[10px] font-semibold tracking-wide text-white uppercase">
-                {t.live}
-              </span>
-            </div>
-            <div className="custom-scrollbar mt-4 flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
-              {activity.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-8 text-center">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F0DFF6] text-[#8e57b3]">
-                    <Users className="h-5 w-5" />
-                  </span>
-                  <p className="text-xs text-[#1A1A1A]/60">{t.noArrivals}</p>
-                </div>
-              ) : (
-                activity.map((a, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 rounded-xl border border-black/[0.06] bg-white p-3 transition-colors hover:border-black/[0.12]"
-                  >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F0DFF6] text-[#8e57b3]">
-                      <span className="text-xs font-semibold">{initials(a.guestName)}</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[#1A1A1A]">{a.guestName}</p>
-                      <p className="text-[10px] tracking-wide text-[#1A1A1A] uppercase">{a.doorLabel}</p>
-                    </div>
-                    {a.status === 'duplicate' ? (
-                      <Clock className="h-4 w-4 shrink-0 text-[#B07F2C]" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-[#3f8b5c]" />
-                    )}
-                  </div>
-                ))
+                </>
               )}
             </div>
-          </div>
+          ) : null}
 
-          {/* Concierge entry */}
-          <div className="mt-auto border-t border-black/[0.06] pt-6">
-            <label className="mb-2 block text-[10px] tracking-wide text-[#1A1A1A] uppercase">{t.conciergeEntry}</label>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t.guestNamePlaceholder}
-              className="w-full rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-sm text-[#1A1A1A] outline-none transition-colors placeholder:text-gray-500 focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#C9A0DC]/30"
-            />
+          {/* Header. A scrim, not per-button pills: white text over a live
+              camera feed is unreadable the moment someone walks past in a
+              light shirt, and a gradient keeps it legible without boxing in
+              every element. */}
+          <div className="pointer-events-none absolute top-0 right-0 left-0 bg-linear-to-b from-black/80 via-black/45 to-transparent">
+            <div className="pointer-events-auto px-4 pt-[max(env(safe-area-inset-top),0.5rem)] pb-6">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  aria-label="Go back"
+                  onClick={() => router.back()}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/16 text-white transition-colors hover:bg-white/25"
+                >
+                  <ArrowLeft size={20} />
+                </button>
 
-            {!query.trim() ? <p className="mt-2 text-[11px] text-[#1A1A1A]/50">{t.startTyping}</p> : null}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-center text-sm font-bold text-white">
+                    {gateSession.eventName ?? 'Check-in'}
+                  </p>
+                  {/* Icon-led facts rather than a dot-joined string, matching
+                      the shift card on the entry screen. */}
+                  <div className="mt-1 flex items-center justify-center gap-3">
+                    <span className="flex items-center gap-1">
+                      <DoorOpen size={12} className="text-white/65" />
+                      <span className="max-w-32 truncate text-[11px] text-white/65">{gateSession.doorLabel}</span>
+                    </span>
+                    {gateSession.attendantName ? (
+                      <span className="flex items-center gap-1">
+                        <User size={11} className="text-white/65" />
+                        <span className="max-w-32 truncate text-[11px] text-white/65">{gateSession.attendantName}</span>
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
 
-            {query.trim() ? (
-              <div className="mt-3 space-y-2">
-                <input
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder={t.reasonPlaceholder}
-                  className="w-full rounded-lg border border-black/[0.12] bg-black/[0.02] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-[#C9A0DC]"
-                />
-                {matches.length === 0 ? (
-                  <p className="py-3 text-center text-xs text-[#1A1A1A]">{t.noMatch(query)}</p>
-                ) : (
-                  matches.map((entry) => (
-                    <div
-                      key={entry.key}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-black/[0.08] bg-white p-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-1.5 truncate text-sm font-medium text-[#1A1A1A]">
-                          {entry.fullName}
-                          {entry.isVip ? (
-                            <span className="rounded bg-[#FCE9C2] px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-[#B07F2C] uppercase">
-                              VIP
-                            </span>
-                          ) : null}
-                        </p>
-                        <p className="text-[10px] tracking-wide text-[#1A1A1A] uppercase">
-                          {entry.groupTag ? `${entry.groupTag} · ` : ''}
-                          {t.partyOf(entry.partySize)}
-                          {entry.checkedInAt ? t.checkedInSuffix : ''}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={Boolean(entry.checkedInAt)}
-                        onClick={() => {
-                          submitScan(entry.qrToken, reason.trim() || 'Manual')
-                          setQuery('')
-                        }}
-                        className="shrink-0 rounded-full border border-black/[0.12] px-4 py-1.5 text-[10px] font-medium tracking-wide text-[#1A1A1A] uppercase transition-colors hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {entry.checkedInAt ? t.admittedPill : t.admit}
-                      </button>
-                    </div>
-                  ))
-                )}
+                <button
+                  type="button"
+                  aria-label="Open the guest list"
+                  onClick={() => router.push(`/event/${eventId}/guests`)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/16 text-white transition-colors hover:bg-white/25"
+                >
+                  {/* Not a magnifier: over a camera that reads as zoom. */}
+                  <Users size={20} />
+                </button>
               </div>
-            ) : null}
+
+              {/* The state of the door in three numbers. Every one is a way
+                  in to the matching list, so the counts an attendant is asked
+                  for all night double as the navigation to answer follow-ups. */}
+              {totalGuests > 0 ? (
+                <div className="-mt-1 px-0 pb-2">
+                  <CountSegments
+                    tone="camera"
+                    segments={[
+                      {
+                        key: 'pending',
+                        icon: 'time',
+                        label: 'Still to arrive',
+                        caption: 'waiting',
+                        count: totalGuests - arrivedGuests,
+                      },
+                      { key: 'arrived', icon: 'check', label: 'Checked in', caption: 'in', count: arrivedGuests },
+                      { key: 'all', icon: 'people', label: 'On the list', caption: 'invited', count: totalGuests },
+                    ]}
+                    onSelect={(key) => {
+                      if (key === 'arrived') router.push(`/event/${eventId}/arrivals`)
+                      else router.push(`/event/${eventId}/guests?filter=${key}`)
+                    }}
+                  />
+                  {/* Headcount only once there is one: at zero it's a third
+                      row of chrome saying nothing the bar doesn't. */}
+                  {headsIn > 0 ? (
+                    <p className="mt-1.5 text-center text-[11px] text-white/65">
+                      {headsIn} {headsIn === 1 ? 'person' : 'people'} through the door
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {tips.ready && tips.bannerVisible ? (
+                <div className="pt-1 pb-2">
+                  <ScanTipsBanner onOpen={tips.openTips} onDismiss={tips.dismissBanner} />
+                </div>
+              ) : null}
+            </div>
           </div>
-        </section>
-      </div>
-    </div>
+
+          {/* Reticle. Dimming everything outside it both aims the attendant
+              at the right spot and stops a busy venue background reading as
+              part of the UI. */}
+          {!cameraBlocked && cameraState === 'live' ? (
+            <>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <div className="relative" style={{ width: RETICLE_SIZE, height: RETICLE_SIZE }}>
+                  {/* Corner brackets rather than a full box: they frame the
+                      target without drawing a hard edge across the ticket. */}
+                  <span className="absolute top-0 left-0 h-11 w-11 rounded-tl-[20px] border-t-[3px] border-l-[3px] border-white" />
+                  <span className="absolute top-0 right-0 h-11 w-11 rounded-tr-[20px] border-t-[3px] border-r-[3px] border-white" />
+                  <span className="absolute bottom-0 left-0 h-11 w-11 rounded-bl-[20px] border-b-[3px] border-l-[3px] border-white" />
+                  <span className="absolute right-0 bottom-0 h-11 w-11 rounded-br-[20px] border-b-[3px] border-r-[3px] border-white" />
+                </div>
+                <p className="mt-7 text-sm text-white/85">Point at the QR code on the guest&apos;s ticket</p>
+              </div>
+
+              {/* Manual fallback, always visible rather than hidden behind
+                  the header icon: a QR that won't scan is exactly when the
+                  attendant is under pressure and shouldn't hunt for it. */}
+              <div className="absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/85 to-transparent">
+                <div className="px-5 pt-10 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManualMode('code')
+                      setManualOpen(true)
+                    }}
+                    className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-white/16 text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/25"
+                  >
+                    <PenLine size={17} />
+                    QR not working? Check in manually
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {pending ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <Loader2 className="h-9 w-9 animate-spin text-white" />
+            </div>
+          ) : null}
+
+          {/* Party-size correction */}
+          <PartySizeSheet
+            visible={Boolean(partyPrompt)}
+            guestName={partyPrompt?.guestName ?? ''}
+            partySize={partyPrompt?.partySize ?? 1}
+            groupTag={partyPrompt?.groupTag}
+            busy={pending}
+            // Closing without a number keeps the full party the scan already
+            // recorded, which is the common case — a family walking in together.
+            onCancel={() => setPartyPrompt(null)}
+            onSubmit={(arrived) => {
+              if (!partyPrompt) return
+              // An unchanged count is already what the server stored; sending
+              // it back would be a round trip that changes nothing, so drop
+              // straight to the result overlay instead.
+              if (arrived === partyPrompt.partySize) setPartyPrompt(null)
+              else void correctPartySize({ qrToken: partyPrompt.qrToken, invitationId: partyPrompt.invitationId }, arrived)
+            }}
+          />
+
+          {/* Scan result — a full-screen colour the whole door can read from
+              metres away, up until the attendant moves to the next guest. */}
+          {result && resultStyle && !partyPrompt ? (
+            <div
+              role="alert"
+              onClick={dismiss}
+              className="absolute inset-0 z-40 flex flex-col items-center justify-center px-8"
+              style={{ backgroundColor: resultStyle.bg }}
+            >
+              <resultStyle.icon size={72} color="#FFFFFF" />
+              <p className="mt-4 text-center text-3xl font-bold text-white">{resultStyle.title}</p>
+              {result.guestName ? (
+                <p className="mt-2 text-center text-xl font-bold text-white">{result.guestName}</p>
+              ) : null}
+              {result.isVip ? (
+                <span className="mt-3 rounded-full bg-white/25 px-3 py-1 text-[11px] font-bold tracking-[1px] text-white uppercase">
+                  {result.groupTag || 'VIP'}
+                </span>
+              ) : null}
+              {/* Where this guest sits — so the attendant can point them
+                  straight to their table on arrival. */}
+              {result.table ? (
+                <span className="mt-3 flex items-center gap-1.5 rounded-full bg-white/25 px-3.5 py-1.5">
+                  <UtensilsCrossed size={14} color="#FFFFFF" />
+                  <span className="text-sm font-bold text-white">{result.table}</span>
+                </span>
+              ) : null}
+              {result.status === 'success' && result.checkedInPartySize ? (
+                <p className="mt-3 text-center text-base text-white/90">
+                  {result.checkedInPartySize} of {result.partySize} admitted
+                </p>
+              ) : null}
+              {result.message ? <p className="mt-3 text-center text-sm text-white/90">{result.message}</p> : null}
+
+              {/* An explicit control, not just tap-anywhere: at a busy door
+                  the attendant needs an obvious, thumb-sized target to move
+                  to the next guest. */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  dismiss()
+                }}
+                className="mt-9 flex h-14 w-full max-w-80 items-center justify-center gap-2 rounded-full bg-white"
+              >
+                <QrCode size={17} color={resultStyle.bg} />
+                <span className="text-sm font-bold tracking-[1px] uppercase" style={{ color: resultStyle.bg }}>
+                  Scan next guest
+                </span>
+              </button>
+
+              {/* The manual path stays reachable without going back to the
+                  camera first — a guest whose pass just failed is still
+                  standing there. */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  dismiss()
+                  setManualMode('name')
+                  setManualOpen(true)
+                }}
+                className="mt-3 flex items-center gap-1.5 py-2 text-sm font-medium text-white/85"
+              >
+                <Users size={15} />
+                Find guest by name
+              </button>
+            </div>
+          ) : null}
+
+          <ManualCheckinSheet
+            visible={manualOpen}
+            initialMode={manualMode}
+            onClose={() => setManualOpen(false)}
+            roster={rosterQuery.data ?? []}
+            isLoading={rosterQuery.isPending}
+            isError={rosterQuery.isError}
+            onRetry={() => void rosterQuery.refetch()}
+            onAdmit={admitManually}
+            onAdmitByCode={admitByCode}
+            onLookup={lookupIdentifier}
+            onAdmitted={handleManualAdmitted}
+          />
+
+          <ScanTipsModal visible={tips.showTips} onClose={tips.closeTips} />
+        </main>
+      )}
+    </SessionGate>
   )
 }

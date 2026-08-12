@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useRef, useState, useTransition } from 'react'
 import {
   CalendarDays,
   Check,
@@ -11,6 +11,7 @@ import {
   Sun,
   Users,
   Wallet,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LEAVE_STATE_LABELS, type LeaveState } from '@/lib/leave/states'
@@ -23,9 +24,8 @@ import type {
   LeaveTypeSummary,
 } from '@/lib/leave/queries'
 import type { ActionResult, CreateRequestInput } from './actions'
+import { WS } from '../_components/ui'
 
-const GREEN_PILL =
-  'inline-flex items-center rounded-full bg-[#9FE870] px-2.5 py-0.5 text-[11px] font-semibold text-gray-900'
 
 const STATE_TONE: Record<LeaveState, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -50,6 +50,7 @@ const AVAILABILITY_TONE: Record<string, string> = {
 type Actions = {
   createRequest: (input: CreateRequestInput) => Promise<ActionResult<{ requestId: string; totalDays: number }>>
   submitRequest: (id: string) => Promise<ActionResult<{ totalDays: number }>>
+  uploadLeaveDocument: (formData: FormData) => Promise<ActionResult>
   decideRequest: (
     id: string,
     decision: 'approve' | 'reject' | 'return',
@@ -132,7 +133,7 @@ export default function LeaveClient({
                 className={cn(
                   'flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors',
                   tab === t.id
-                    ? 'bg-gray-900 text-white'
+                    ? 'bg-[#7E5896] text-white'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
                 )}
               >
@@ -152,12 +153,19 @@ export default function LeaveClient({
             )
           })}
         </div>
-        <button data-opus-button="primary" data-opus-button-size="medium"
+        <button
+          data-opus-button="control"
+          data-opus-button-size="medium"
           type="button"
           onClick={() => setShowForm((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800"
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold',
+            showForm
+              ? 'border border-rose-300 bg-transparent text-rose-700 hover:bg-rose-50'
+              : 'bg-[#7E5896] text-white hover:bg-[#6c4884]',
+          )}
         >
-          <Plus className="h-4 w-4" strokeWidth={2} />
+          {showForm ? <X className="h-4 w-4" strokeWidth={2} /> : <Plus className="h-4 w-4" strokeWidth={2} />}
           {showForm ? 'Close' : 'Request leave'}
         </button>
       </nav>
@@ -179,15 +187,46 @@ export default function LeaveClient({
           types={types}
           balances={balances}
           pending={pending}
-          onCreate={async (input) => {
+          onCreate={async (input, file) => {
             const created = await actions.createRequest(input)
             if (!created.ok) return created
+
+            if (file) {
+              const fd = new FormData()
+              fd.set('requestId', created.requestId)
+              fd.set('file', file)
+              const typeMeta = types.find((t) => t.id === input.leaveTypeId)
+              if (typeMeta?.code.toLowerCase().includes('sick')) {
+                fd.set('documentType', 'medical_certificate')
+              }
+              const attached = await actions.uploadLeaveDocument(fd)
+              if (!attached.ok) {
+                setShowForm(false)
+                setTab('requests')
+                setMessage({
+                  tone: 'error',
+                  text: `${attached.error} Your draft is under My requests — attach a document there, then submit.`,
+                })
+                router.refresh()
+                return attached
+              }
+            }
+
             const submitted = await actions.submitRequest(created.requestId)
             if (submitted.ok) {
               setShowForm(false)
+              setTab('requests')
               setMessage({
                 tone: 'ok',
                 text: `Requested ${formatDays(created.totalDays)}. It is with your manager now.`,
+              })
+              router.refresh()
+            } else {
+              setShowForm(false)
+              setTab('requests')
+              setMessage({
+                tone: 'error',
+                text: `${submitted.error} Your draft is under My requests.`,
               })
               router.refresh()
             }
@@ -248,7 +287,7 @@ export default function LeaveClient({
                         {formatDay(r.startDate)} to {formatDay(r.endDate)}
                       </span>
                     </span>
-                    <span className={GREEN_PILL}>{formatDays(r.totalDays)}</span>
+                    <span className={WS.pill}>{formatDays(r.totalDays)}</span>
                   </li>
                 ))}
               </ul>
@@ -260,9 +299,25 @@ export default function LeaveClient({
       {tab === 'requests' && (
         <RequestList
           requests={requests}
+          types={types}
           emptyText="You have not requested any leave yet."
           pending={pending}
           onCancel={(id, reason) => run(() => actions.cancelRequest(id, reason))}
+          onSubmit={(id) => run(() => actions.submitRequest(id))}
+          onAttach={async (id, file) => {
+            const fd = new FormData()
+            fd.set('requestId', id)
+            fd.set('file', file)
+            const req = requests.find((r) => r.id === id)
+            const typeMeta = types.find((t) => t.id === req?.leaveTypeId)
+            if (typeMeta?.code.toLowerCase().includes('sick')) {
+              fd.set('documentType', 'medical_certificate')
+            }
+            const result = await actions.uploadLeaveDocument(fd)
+            if (result.ok) router.refresh()
+            else setMessage({ tone: 'error', text: result.error })
+            return result
+          }}
         />
       )}
 
@@ -288,7 +343,7 @@ export default function LeaveClient({
                 <li key={`${h.date}-${h.name}`} className="flex items-center justify-between py-2.5">
                   <span className="text-sm text-gray-900">{h.name}</span>
                   <span className="flex items-center gap-2 text-[13px] text-gray-500">
-                    {!h.isPaid && <span className={GREEN_PILL}>Unpaid</span>}
+                    {!h.isPaid && <span className={WS.pill}>Unpaid</span>}
                     {formatDay(h.date)}
                   </span>
                 </li>
@@ -333,7 +388,7 @@ function RequestForm({
   types: LeaveTypeSummary[]
   balances: LeaveBalanceRow[]
   pending: boolean
-  onCreate: (input: CreateRequestInput) => Promise<ActionResult>
+  onCreate: (input: CreateRequestInput, file: File | null) => Promise<ActionResult>
 }) {
   const [leaveTypeId, setLeaveTypeId] = useState(types[0]?.id ?? '')
   const [startDate, setStartDate] = useState(today)
@@ -341,11 +396,18 @@ function RequestForm({
   const [portion, setPortion] = useState<LeavePortion>('full')
   const [hours, setHours] = useState(2)
   const [reason, setReason] = useState('')
+  const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const type = types.find((t) => t.id === leaveTypeId)
   const balance = balances.find((b) => b.leaveTypeId === leaveTypeId)
+
+  const clearFile = () => {
+    setFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   // A multi-day range with a half-day portion would mean half of every day,
   // which is almost never what someone means, so partial portions pin the end
@@ -358,15 +420,22 @@ function RequestForm({
       onSubmit={async (e) => {
         e.preventDefault()
         setError(null)
+        if (type?.requiresDocument && !file) {
+          setError('This leave type needs a supporting document. Attach one before submitting.')
+          return
+        }
         setBusy(true)
-        const result = await onCreate({
-          leaveTypeId,
-          startDate,
-          endDate: isPartial ? startDate : endDate,
-          portion,
-          hours: portion === 'hours' ? hours : null,
-          reason,
-        })
+        const result = await onCreate(
+          {
+            leaveTypeId,
+            startDate,
+            endDate: isPartial ? startDate : endDate,
+            portion,
+            hours: portion === 'hours' ? hours : null,
+            reason,
+          },
+          file,
+        )
         setBusy(false)
         if (!result.ok) setError(result.error)
       }}
@@ -379,6 +448,7 @@ function RequestForm({
             onChange={(e) => {
               setLeaveTypeId(e.target.value)
               setPortion('full')
+              clearFile()
             }}
             className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal"
           >
@@ -461,24 +531,55 @@ function RequestForm({
         />
       </label>
 
+      {type?.requiresDocument && (
+        <div className="space-y-1.5">
+          <label className="block text-[13px] font-semibold text-gray-700">
+            Supporting document
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="mt-1 block w-full text-sm font-normal text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#F0DFF6] file:px-3 file:py-2 file:text-[13px] file:font-semibold file:text-[#5d3a78]"
+            />
+          </label>
+          {!file && (
+            <p className="text-[13px] text-amber-700">
+              This leave type needs a supporting document (PDF or image, up to 10MB). Attach it
+              before submitting.
+            </p>
+          )}
+          {file && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+              <span className="min-w-0 truncate text-[13px] text-gray-700">{file.name}</span>
+              <button
+                type="button"
+                data-opus-button="danger"
+                onClick={clearFile}
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-[12px] font-semibold text-rose-700 hover:bg-rose-50"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2} />
+                Remove
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {balance && (
         <p className="text-[13px] text-gray-500">
           {balance.availableDays} days available
           {balance.pendingDays > 0 && `, ${balance.pendingDays} already awaiting a decision`}.
         </p>
       )}
-      {type?.requiresDocument && (
-        <p className="text-[13px] text-amber-700">
-          This leave type needs a supporting document. You can attach one after creating the
-          request.
-        </p>
-      )}
       {error && <p className="text-sm text-rose-700">{error}</p>}
 
-      <button data-opus-button="primary" data-opus-button-size="medium"
+      <button
+        data-opus-button="primary"
+        data-opus-button-size="medium"
         type="submit"
         disabled={pending || busy}
-        className="rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+        className="rounded-xl bg-[#7E5896] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
       >
         Submit request
       </button>
@@ -488,26 +589,39 @@ function RequestForm({
 
 function RequestList({
   requests,
+  types = [],
   emptyText,
   showEmployee,
   pending,
   onDecide,
   onCancel,
+  onSubmit,
+  onAttach,
 }: {
   requests: LeaveRequestSummary[]
+  types?: LeaveTypeSummary[]
   emptyText: string
   showEmployee?: boolean
   pending: boolean
   onDecide?: (id: string, decision: 'approve' | 'reject' | 'return', note?: string) => void
   onCancel?: (id: string, reason: string) => void
+  onSubmit?: (id: string) => void
+  onAttach?: (id: string, file: File) => Promise<ActionResult>
 }) {
   const [notes, setNotes] = useState<Record<string, string>>({})
+  const [attachBusy, setAttachBusy] = useState<string | null>(null)
 
   if (requests.length === 0) return <Empty>{emptyText}</Empty>
 
   return (
     <ul className="space-y-3">
-      {requests.map((r) => (
+      {requests.map((r) => {
+        const typeMeta = types.find((t) => t.id === r.leaveTypeId)
+        const needsDoc = Boolean(typeMeta?.requiresDocument)
+        const canFinishDraft =
+          (r.state === 'draft' || r.state === 'returned') && Boolean(onSubmit || onAttach)
+
+        return (
         <li
           key={r.id}
           className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"
@@ -536,6 +650,51 @@ function RequestList({
               {LEAVE_STATE_LABELS[r.state]}
             </span>
           </div>
+
+          {canFinishDraft && (
+            <div className="mt-3 space-y-2 rounded-xl bg-gray-50 p-3">
+              {needsDoc && r.documentCount === 0 && (
+                <p className="text-[13px] text-amber-700">
+                  Attach a supporting document before you can submit this request.
+                </p>
+              )}
+              {onAttach && (
+                <label className="block text-[13px] font-semibold text-gray-700">
+                  {r.documentCount > 0 ? 'Add another document' : 'Supporting document'}
+                  <input
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp"
+                    disabled={pending || attachBusy === r.id}
+                    onChange={async (e) => {
+                      const selected = e.target.files?.[0]
+                      e.target.value = ''
+                      if (!selected) return
+                      setAttachBusy(r.id)
+                      await onAttach(r.id, selected)
+                      setAttachBusy(null)
+                    }}
+                    className="mt-1 block w-full text-sm font-normal text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#F0DFF6] file:px-3 file:py-2 file:text-[13px] file:font-semibold file:text-[#5d3a78]"
+                  />
+                </label>
+              )}
+              {onSubmit && (
+                <button
+                  data-opus-button="primary"
+                  data-opus-button-size="medium"
+                  type="button"
+                  disabled={
+                    pending ||
+                    attachBusy === r.id ||
+                    (needsDoc && r.documentCount === 0)
+                  }
+                  onClick={() => onSubmit(r.id)}
+                  className="rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
+                >
+                  Submit request
+                </button>
+              )}
+            </div>
+          )}
 
           {onDecide && (r.state === 'submitted' || r.state === 'under_review') && (
             <>
@@ -567,7 +726,7 @@ function RequestList({
                   type="button"
                   disabled={pending}
                   onClick={() => onDecide(r.id, 'approve', notes[r.id])}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#9FE870] px-4 py-2 text-[13px] font-semibold text-gray-900 hover:brightness-95 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
                 >
                   <Check className="h-4 w-4" strokeWidth={2} />
                   Approve
@@ -576,7 +735,11 @@ function RequestList({
             </>
           )}
 
-          {onCancel && (r.state === 'approved' || r.state === 'submitted' || r.state === 'draft') && (
+          {onCancel &&
+            (r.state === 'approved' ||
+              r.state === 'submitted' ||
+              r.state === 'draft' ||
+              r.state === 'returned') && (
             <>
               <input
                 type="text"
@@ -602,7 +765,8 @@ function RequestList({
             </>
           )}
         </li>
-      ))}
+        )
+      })}
     </ul>
   )
 }
@@ -639,7 +803,7 @@ function TeamCalendar({
 
   return (
     <section className="overflow-x-auto rounded-2xl border border-gray-100 bg-white p-5">
-      <table className="opus-table w-full min-w-[720px] text-left text-sm">
+      <table className="opus-table w-full min-w-180 text-left text-sm">
         <thead>
           <tr>
             <th className="pb-2 text-[12px] font-semibold uppercase tracking-wide text-gray-400">

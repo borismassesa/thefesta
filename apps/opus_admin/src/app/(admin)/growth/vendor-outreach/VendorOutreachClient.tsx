@@ -1,12 +1,13 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import StatusPill from '../_components/StatusPill'
 import SetGrowthHeading from '../_components/SetGrowthHeading'
+import MonthPager from '../_components/MonthPager'
 import Tabs from '../_components/Tabs'
+import { GtCard, GtSectionHeader, GT } from '../_components/ui'
 import { computeStatus } from '../_lib/status'
 import {
   addOutreachLogEntry,
@@ -98,26 +99,13 @@ function formatDate(value: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 }
 
-function monthLabel(monthKey: string): string {
-  const d = new Date(`${monthKey}T00:00:00Z`)
-  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-}
-
-function shiftMonth(monthKey: string, delta: number): string {
-  const [year, month] = monthKey.split('-').map(Number)
-  const zeroBased = month - 1 + delta
-  const newYear = year + Math.floor(zeroBased / 12)
-  const newMonth = ((zeroBased % 12) + 12) % 12
-  return `${newYear}-${String(newMonth + 1).padStart(2, '0')}-01`
-}
-
 const TAB_HEADINGS: Record<string, { title: string; subtitle: string }> = {
   log: {
-    title: 'Outreach Log',
-    subtitle: "Every vendor touch point, even if it didn't convert.",
+    title: 'Vendor Outreach',
+    subtitle: 'Every contact, every employee — from first touch to signed up.',
   },
   roster: {
-    title: 'Roster Targets',
+    title: 'Vendor Outreach',
     subtitle:
       'Every employee owns a vendor target. Marketing carries the heaviest load; every other department brings 5 signed vendors/month.',
   },
@@ -153,7 +141,6 @@ export default function VendorOutreachClient({
       <SetGrowthHeading
         title={heading.title}
         subtitle={heading.subtitle}
-        back={{ href: '/growth', label: 'Growth Tracker' }}
       />
       <Tabs
         defaultKey="log"
@@ -197,65 +184,60 @@ function RosterTable({ roster, canAdmin, month }: { roster: RosterRow[]; canAdmi
   const totalStatus = computeStatus(totals.doneSigned, totals.targetSigned)
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-        <div className="text-[12px] text-gray-500">Progress against each person&apos;s target for the selected month</div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/growth/vendor-outreach?month=${shiftMonth(month, -1)}`}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
-            aria-label="Previous month"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Link>
-          <span className="min-w-[110px] text-center text-[12px] font-semibold text-gray-900">{monthLabel(month)}</span>
-          <Link
-            href={`/growth/vendor-outreach?month=${shiftMonth(month, 1)}`}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
-            aria-label="Next month"
-          >
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+    <GtCard>
+      <GtSectionHeader
+        title="Staff targets"
+        action={
+          <MonthPager
+            month={month}
+            hrefForMonth={(m) => `/growth/vendor-outreach?month=${m}`}
+          />
+        }
+      />
+      <div className={GT.tableShell}>
+        <table className={`${GT.table} min-w-225`}>
+          <thead>
+            <tr>
+              <th>Staff</th>
+              <th>Department</th>
+              <th data-numeric="true">Target Outreach</th>
+              <th data-numeric="true">Target Meetings</th>
+              <th data-numeric="true">Target Signed</th>
+              <th data-numeric="true">Done Outreach</th>
+              <th data-numeric="true">Done Meetings</th>
+              <th data-numeric="true">Done Signed</th>
+              <th data-numeric="true">% to Target</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {roster.map((r) => (
+              <RosterRowItem key={r.id} row={r} canAdmin={canAdmin} />
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-gray-200 bg-gray-50/60 font-semibold text-gray-900">
+              <th scope="row" className="opus-table-cell--leading">Total</th>
+              <td />
+              <td data-numeric="true">{totals.targetOutreach}</td>
+              <td data-numeric="true">{totals.targetMeetings}</td>
+              <td data-numeric="true">{totals.targetSigned}</td>
+              <td data-numeric="true">{totals.doneOutreach}</td>
+              <td data-numeric="true">{totals.doneMeetings}</td>
+              <td data-numeric="true">{totals.doneSigned}</td>
+              <td data-numeric="true">
+                {totals.targetSigned
+                  ? `${((totals.doneSigned / totals.targetSigned) * 100).toFixed(0)}%`
+                  : '—'}
+              </td>
+              <td className="opus-table-cell--status">
+                <StatusPill status={totalStatus} />
+              </td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
-      <table className="opus-table w-full min-w-[900px] text-[12px]">
-        <thead>
-          <tr className="border-b border-gray-100 text-left text-gray-500">
-            <th className="px-4 py-2 font-medium">Staff</th>
-            <th className="px-3 py-2 font-medium">Department</th>
-            <th className="px-3 py-2 font-medium">Target Outreach</th>
-            <th className="px-3 py-2 font-medium">Target Meetings</th>
-            <th className="px-3 py-2 font-medium">Target Signed</th>
-            <th className="px-3 py-2 font-medium">Done Outreach</th>
-            <th className="px-3 py-2 font-medium">Done Meetings</th>
-            <th className="px-3 py-2 font-medium">Done Signed</th>
-            <th className="px-3 py-2 font-medium">% to Target</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {roster.map((r) => (
-            <RosterRowItem key={r.id} row={r} canAdmin={canAdmin} />
-          ))}
-          <tr className="border-t-2 border-gray-200 bg-gray-50/60 font-semibold text-gray-900">
-            <td className="px-4 py-2">Total</td>
-            <td className="px-3 py-2" />
-            <td className="px-3 py-2">{totals.targetOutreach}</td>
-            <td className="px-3 py-2">{totals.targetMeetings}</td>
-            <td className="px-3 py-2">{totals.targetSigned}</td>
-            <td className="px-3 py-2">{totals.doneOutreach}</td>
-            <td className="px-3 py-2">{totals.doneMeetings}</td>
-            <td className="px-3 py-2">{totals.doneSigned}</td>
-            <td className="px-3 py-2">
-              {totals.targetSigned ? `${((totals.doneSigned / totals.targetSigned) * 100).toFixed(0)}%` : '—'}
-            </td>
-            <td className="px-3 py-2">
-              <StatusPill status={totalStatus} />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    </GtCard>
   )
 }
 
@@ -279,10 +261,10 @@ function RosterRowItem({ row, canAdmin }: { row: RosterRow; canAdmin: boolean })
   }
 
   return (
-    <tr className={cn('border-b border-gray-50', isPending && 'opacity-60')}>
-      <td className="px-4 py-2 font-semibold text-gray-900">{row.staffName}</td>
-      <td className="px-3 py-2 text-gray-600">{row.department}</td>
-      <td className="px-3 py-2">
+    <tr className={cn(isPending && 'opacity-60')}>
+      <th scope="row" className="opus-table-cell--leading">{row.staffName}</th>
+      <td>{row.department}</td>
+      <td data-numeric="true">
         <input
           type="number"
           min={0}
@@ -290,10 +272,10 @@ function RosterRowItem({ row, canAdmin }: { row: RosterRow; canAdmin: boolean })
           disabled={!canAdmin}
           onChange={(e) => setDraft((d) => ({ ...d, targetOutreach: Number(e.target.value) }))}
           onBlur={commit}
-          className="w-16 rounded-md border border-gray-200 px-1.5 py-1 text-[12px] tabular-nums disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+          className="w-16 rounded-lg border border-gray-200 px-1.5 py-1 text-[13px] tabular-nums outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#F0DFF6] disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
         />
       </td>
-      <td className="px-3 py-2">
+      <td data-numeric="true">
         <input
           type="number"
           min={0}
@@ -301,10 +283,10 @@ function RosterRowItem({ row, canAdmin }: { row: RosterRow; canAdmin: boolean })
           disabled={!canAdmin}
           onChange={(e) => setDraft((d) => ({ ...d, targetMeetings: Number(e.target.value) }))}
           onBlur={commit}
-          className="w-16 rounded-md border border-gray-200 px-1.5 py-1 text-[12px] tabular-nums disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+          className="w-16 rounded-lg border border-gray-200 px-1.5 py-1 text-[13px] tabular-nums outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#F0DFF6] disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
         />
       </td>
-      <td className="px-3 py-2">
+      <td data-numeric="true">
         <input
           type="number"
           min={0}
@@ -312,14 +294,14 @@ function RosterRowItem({ row, canAdmin }: { row: RosterRow; canAdmin: boolean })
           disabled={!canAdmin}
           onChange={(e) => setDraft((d) => ({ ...d, targetSigned: Number(e.target.value) }))}
           onBlur={commit}
-          className="w-16 rounded-md border border-gray-200 px-1.5 py-1 text-[12px] tabular-nums disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+          className="w-16 rounded-lg border border-gray-200 px-1.5 py-1 text-[13px] tabular-nums outline-none focus:border-[#C9A0DC] focus:ring-2 focus:ring-[#F0DFF6] disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
         />
       </td>
-      <td className="px-3 py-2 text-gray-700">{row.doneOutreach}</td>
-      <td className="px-3 py-2 text-gray-700">{row.doneMeetings}</td>
-      <td className="px-3 py-2 text-gray-700">{row.doneSigned}</td>
-      <td className="px-3 py-2 text-gray-600">{pct}</td>
-      <td className="px-3 py-2">
+      <td data-numeric="true">{row.doneOutreach}</td>
+      <td data-numeric="true">{row.doneMeetings}</td>
+      <td data-numeric="true">{row.doneSigned}</td>
+      <td data-numeric="true">{pct}</td>
+      <td className="opus-table-cell--status">
         <StatusPill status={status} />
         {error && <div className="mt-1 text-[10px] text-red-600">{error}</div>}
       </td>
@@ -343,52 +325,57 @@ function OutreachLog({
   const [showAdd, setShowAdd] = useState(false)
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
-        <div className="text-[12px] text-gray-500">Every vendor touch point, even if it didn&apos;t convert.</div>
-        {canWrite && (
-          <button data-opus-button="control"
-            type="button"
-            onClick={() => setShowAdd(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-2 text-sm font-semibold text-white hover:bg-[#6c4884]"
-          >
-            <Plus className="h-4 w-4" />
-            Add contact
-          </button>
-        )}
+    <GtCard>
+      <GtSectionHeader
+        title="Outreach log"
+        action={
+          canWrite ? (
+            <button
+              data-opus-button="control"
+              type="button"
+              onClick={() => setShowAdd(true)}
+              className={GT.btnPrimary}
+            >
+              <Plus className="h-4 w-4" />
+              Add contact
+            </button>
+          ) : undefined
+        }
+      />
+
+      <div className={GT.tableShell}>
+        <table className={`${GT.table} min-w-275`}>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Staff</th>
+              <th>Vendor</th>
+              <th>Category</th>
+              <th>Contact</th>
+              <th>Stage</th>
+              <th>Outcome</th>
+              <th data-numeric="true">Travel Cost</th>
+              <th>Notes</th>
+              {canWrite && <th />}
+            </tr>
+          </thead>
+          <tbody>
+            {log.length === 0 && (
+              <tr>
+                <td colSpan={canWrite ? 10 : 9} className="py-8 text-center text-gray-400">
+                  No outreach logged yet.
+                </td>
+              </tr>
+            )}
+            {log.map((entry) => (
+              <LogRowItem key={entry.id} entry={entry} staffOptions={staffOptions} canWrite={canWrite} />
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <table className="opus-table w-full min-w-[1100px] text-[12px]">
-        <thead>
-          <tr className="border-b border-gray-100 text-left text-gray-500">
-            <th className="px-4 py-2 font-medium">Date</th>
-            <th className="px-3 py-2 font-medium">Staff</th>
-            <th className="px-3 py-2 font-medium">Vendor</th>
-            <th className="px-3 py-2 font-medium">Category</th>
-            <th className="px-3 py-2 font-medium">Contact</th>
-            <th className="px-3 py-2 font-medium">Stage</th>
-            <th className="px-3 py-2 font-medium">Outcome</th>
-            <th className="px-3 py-2 font-medium">Travel Cost</th>
-            <th className="px-3 py-2 font-medium">Notes</th>
-            {canWrite && <th className="px-3 py-2 font-medium" />}
-          </tr>
-        </thead>
-        <tbody>
-          {log.length === 0 && (
-            <tr>
-              <td colSpan={canWrite ? 10 : 9} className="px-4 py-8 text-center text-gray-400">
-                No outreach logged yet.
-              </td>
-            </tr>
-          )}
-          {log.map((entry) => (
-            <LogRowItem key={entry.id} entry={entry} staffOptions={staffOptions} canWrite={canWrite} />
-          ))}
-        </tbody>
-      </table>
-
       {showAdd && <AddContactDrawer staffOptions={staffOptions} onClose={() => setShowAdd(false)} />}
-    </div>
+    </GtCard>
   )
 }
 
@@ -431,13 +418,13 @@ function LogRowItem({
   }
 
   return (
-    <tr className={cn('border-b border-gray-50 align-top', isPending && 'opacity-60')}>
-      <td className="whitespace-nowrap px-4 py-2 text-gray-600">{formatDate(entry.logDate)}</td>
-      <td className="px-3 py-2 text-gray-800">{entry.staffName}</td>
-      <td className="px-3 py-2 font-medium text-gray-900">{entry.vendorName}</td>
-      <td className="px-3 py-2 text-gray-600">{entry.category}</td>
-      <td className="px-3 py-2 text-gray-600">{entry.contactMethod}</td>
-      <td className="px-3 py-2">
+    <tr className={cn('align-top', isPending && 'opacity-60')}>
+      <td className="whitespace-nowrap">{formatDate(entry.logDate)}</td>
+      <td>{entry.staffName}</td>
+      <th scope="row" className="opus-table-cell--leading">{entry.vendorName}</th>
+      <td>{entry.category}</td>
+      <td>{entry.contactMethod}</td>
+      <td>
         {editing ? (
           <select
             value={draft.stage}
@@ -451,10 +438,10 @@ function LogRowItem({
             ))}
           </select>
         ) : (
-          <span className="text-gray-700">{entry.stage}</span>
+          entry.stage
         )}
       </td>
-      <td className="px-3 py-2">
+      <td>
         {editing ? (
           <select
             value={draft.outcome}
@@ -468,11 +455,11 @@ function LogRowItem({
             ))}
           </select>
         ) : (
-          <span className="text-gray-700">{entry.outcome}</span>
+          entry.outcome
         )}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-gray-600">{formatTzs(entry.travelCostTzs)}</td>
-      <td className="min-w-[160px] max-w-[260px] px-3 py-2">
+      <td data-numeric="true" className="whitespace-nowrap">{formatTzs(entry.travelCostTzs)}</td>
+      <td className="min-w-40 max-w-65">
         {editing ? (
           <textarea
             value={draft.notes}
@@ -486,7 +473,7 @@ function LogRowItem({
         {error && <div className="mt-1 text-[10px] text-red-600">{error}</div>}
       </td>
       {canWrite && (
-      <td className="whitespace-nowrap px-3 py-2 text-right">
+      <td className="whitespace-nowrap text-right">
         {editing ? (
           <div className="flex justify-end gap-2">
             <button data-opus-button="control"

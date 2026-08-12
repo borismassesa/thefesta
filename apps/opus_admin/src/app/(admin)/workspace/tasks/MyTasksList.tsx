@@ -144,7 +144,7 @@ function TaskRow({ task, actions }: { task: MyTask; actions: Actions }) {
   return (
     <li className="flex items-start gap-3 px-5 py-3.5">
       <span
-        className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${done ? 'text-emerald-600' : 'text-gray-300'}`}
+        className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${done ? 'text-[#7E5896]' : 'text-gray-300'}`}
       >
         {done ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
       </span>
@@ -196,7 +196,7 @@ function TaskRow({ task, actions }: { task: MyTask; actions: Actions }) {
             type="button"
             disabled={pending}
             onClick={() => run(actions.complete)}
-            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-xl bg-[#7E5896] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#6c4884] disabled:opacity-50"
           >
             <CheckCircle2 className="h-3 w-3" /> Done
           </button>

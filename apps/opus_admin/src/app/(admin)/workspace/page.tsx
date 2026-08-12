@@ -34,10 +34,20 @@ export default async function WorkspaceHomePage() {
   return (
     <>
       <WorkspaceHeading
-        title="Workspace"
-        subtitle={`Your day at OpusFesta, ${context.employee.name.split(' ')[0]}.`}
+        title="Your day"
+        subtitle={`${formatDayHeading(home.today)} · ${context.employee.name.split(' ')[0]}`}
       />
       <HomeView home={home} onboarding={context.onboarding} />
     </>
   )
+}
+
+function formatDayHeading(date: string): string {
+  const [y, m, d] = date.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  })
 }

@@ -1,4 +1,4 @@
-/** Product-wide Opus table contract shared by every application. */
+/** Product-wide Opus table contract — compact admin tables. */
 export function opusTableClass(): string {
   return 'opus-table'
 }

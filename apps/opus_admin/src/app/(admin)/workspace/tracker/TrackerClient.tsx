@@ -30,9 +30,8 @@ import type {
   WeeklySummary,
 } from '@/lib/tracker/queries'
 import type { ActionResult, EntryPatch, ItemInput, WeeklyPatch } from './actions'
+import { WS } from '../_components/ui'
 
-const GREEN_PILL =
-  'inline-flex items-center rounded-full bg-[#9FE870] px-2.5 py-0.5 text-[11px] font-semibold text-gray-900'
 
 const STATUS_TONE: Record<TrackerStatus, string> = {
   not_started: 'bg-gray-100 text-gray-700',
@@ -126,9 +125,11 @@ export default function TrackerClient({
     return (
       <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center">
         <CalendarDays className="mx-auto h-8 w-8 text-gray-300" strokeWidth={1.5} />
-        <p className="mt-3 text-sm text-gray-500">
-          Nothing is assigned to you to track yet. Ask People Ops to set up a tracking unit for
-          your work.
+        <p className="mt-3 text-sm font-medium text-gray-900">Managing Directors only</p>
+        <p className="mt-1.5 text-sm text-gray-500">
+          Daily tracker is for Managing Directors. It follows your brand, your department, and the
+          tasks assigned to you and your people. Ask People Ops if you should be listed as an MD on
+          a brand engine.
         </p>
       </div>
     )
@@ -156,7 +157,7 @@ export default function TrackerClient({
               className={cn(
                 'rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors',
                 activeUnit === unit.id
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-[#7E5896] text-white'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
               )}
             >
@@ -184,7 +185,7 @@ export default function TrackerClient({
               className={cn(
                 'flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors',
                 tab === t.id
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-[#7E5896] text-white'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
               )}
             >
@@ -291,14 +292,14 @@ function TodayPanel({
             >
               {TRACKER_STATUS_LABELS[entry.status]}
             </span>
-            <span className={GREEN_PILL}>{reviewStatusLabel(entry.reviewStatus)}</span>
+            <span className={WS.pill}>{reviewStatusLabel(entry.reviewStatus)}</span>
             {entry.isLate && (
               <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
                 Late
               </span>
             )}
             {entry.loggedMinutes > 0 && (
-              <span className={GREEN_PILL}>{formatMinutes(entry.loggedMinutes)} logged</span>
+              <span className={WS.pill}>{formatMinutes(entry.loggedMinutes)} logged</span>
             )}
           </div>
           {entry.deadlineAt && (
@@ -389,7 +390,7 @@ function TodayPanel({
                 return actions.submitEntry(entry.id)
               })
             }
-            className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#7E5896] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
           >
             <Send className="h-4 w-4" strokeWidth={2} />
             Submit
@@ -561,7 +562,7 @@ function ItemsSection({
             value={newItem}
             onChange={(e) => setNewItem(e.target.value)}
             placeholder="What is it?"
-            className="min-w-[220px] flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            className="min-w-55 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
           />
           <button data-opus-button="primary" data-opus-button-size="medium"
             type="button"
@@ -573,7 +574,7 @@ function ItemsSection({
                 return result
               })
             }
-            className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2} />
             Add
@@ -617,7 +618,7 @@ function WeekPanel({
       </p>
 
       <section className="overflow-x-auto rounded-2xl border border-gray-100 bg-white p-5">
-        <table className="opus-table w-full min-w-[560px] text-left text-sm">
+        <table className="opus-table w-full min-w-140 text-left text-sm">
           <thead className="text-[12px] uppercase tracking-wide text-gray-400">
             <tr>
               <th className="pb-2 font-semibold">Day</th>
@@ -700,7 +701,7 @@ function WeeklyPanel({
             </h2>
             <p className="mt-0.5 text-[13px] text-gray-500">{current.unitName}</p>
           </div>
-          <span className={GREEN_PILL}>{current.status}</span>
+          <span className={WS.pill}>{current.status}</span>
         </div>
 
         {current.aggregate && (
@@ -809,7 +810,7 @@ function WeeklyPanel({
                 return actions.submitWeeklySummary(current.id)
               })
             }
-            className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#7E5896] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
           >
             <Send className="h-4 w-4" strokeWidth={2} />
             Submit review
@@ -893,7 +894,7 @@ function ReviewQueuePanel({
               type="button"
               disabled={pending}
               onClick={() => run(() => actions.reviewEntry(entry.id, 'accept', notes[entry.id]))}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#9FE870] px-4 py-2 text-[13px] font-semibold text-gray-900 hover:brightness-95 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
             >
               <Check className="h-4 w-4" strokeWidth={2} />
               Accept

@@ -179,6 +179,7 @@ export const UI_STRINGS_FALLBACK: Record<UiArea, UiStringsContent> = {
     link_invitations: 'Digital Cards',
     link_guests: "Guests & RSVP's",
     link_website: 'Wedding Website',
+    link_door_scanner: 'Entrance Card Scanner',
     link_save_the_dates: 'Save the Dates',
     link_wedding_invitations: 'Wedding Invitations',
     link_send_off: 'Send-Off & Kitchen Party',
@@ -1276,6 +1277,7 @@ export const UI_STRINGS_SCHEMA: Record<UiArea, CopyFieldGroup[]> = {
         { key: 'link_invitations', label: 'Digital Cards', kind: 'text', max: 40 },
         { key: 'link_guests', label: "Guests & RSVP's", kind: 'text', max: 40 },
         { key: 'link_website', label: 'Wedding Website', kind: 'text', max: 40 },
+        { key: 'link_door_scanner', label: 'Entrance Card Scanner', kind: 'text', max: 40 },
       ],
     },
     {

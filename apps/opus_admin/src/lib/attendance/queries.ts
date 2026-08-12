@@ -15,6 +15,29 @@ import { sessionMinutes, sumTotals, type WeekTotals } from './hours'
 
 const DEFAULT_TZ = 'Africa/Dar_es_Salaam'
 
+/** Company default wall-clock window (OF-ENG-RPT-006). Used when a schedule
+ *  resolves without a shift template so My Clock never shows "No fixed hours"
+ *  on a normal working day. */
+export const COMPANY_WORKING_DAY_START = '09:00'
+export const COMPANY_WORKING_DAY_END = '17:00'
+/** Entitled unpaid break within the 8-hour day. */
+export const COMPANY_BREAK_MINUTES = 30
+
+/**
+ * Effective punch geolocation given schedule policy + work arrangement.
+ * Mirrors attendance_effective_geolocation() in SQL.
+ */
+export function effectiveGeolocationMode(
+  scheduleMode: 'off' | 'optional' | 'required',
+  workMode: string | null | undefined,
+): 'off' | 'optional' | 'required' {
+  const mode = (workMode ?? 'office').trim().toLowerCase()
+  if (mode === 'remote') return 'off'
+  if (mode === 'hybrid') return scheduleMode === 'off' ? 'off' : 'optional'
+  if (mode === 'field') return scheduleMode === 'required' ? 'optional' : scheduleMode
+  return scheduleMode
+}
+
 export type AttendanceBreak = {
   id: string
   startedAt: string
@@ -72,7 +95,11 @@ export type ScheduledShift = {
   isHoliday: boolean
   holidayName: string | null
   standardDailyMinutes: number
+  /** Expected unpaid break within the day (minutes). Punches still decide actuals. */
+  unpaidBreakMinutes: number
   geolocationMode: 'off' | 'optional' | 'required'
+  geofenceRadiusM: number
+  hasGeofenceAnchor: boolean
   requiresTimesheetSubmission: boolean
 }
 
@@ -415,7 +442,7 @@ export async function getScheduledShift(
       supabase
         .from('work_schedules')
         .select(
-          'name, timezone, working_weekdays, standard_daily_minutes, geolocation_mode, requires_timesheet_submission',
+          'name, timezone, working_weekdays, standard_daily_minutes, geolocation_mode, geofence_radius_m, requires_timesheet_submission',
         )
         .eq('id', row.schedule_id)
         .maybeSingle<{
@@ -424,12 +451,15 @@ export async function getScheduledShift(
           working_weekdays: number[]
           standard_daily_minutes: number
           geolocation_mode: 'off' | 'optional' | 'required'
+          geofence_radius_m: number
           requires_timesheet_submission: boolean
         }>(),
       row.shift_template_id
         ? supabase
             .from('shift_templates')
-            .select('name, start_time, end_time, crosses_midnight, work_mode, location_label')
+            .select(
+              'name, start_time, end_time, crosses_midnight, work_mode, location_label, unpaid_break_minutes, latitude, longitude, geofence_radius_m',
+            )
             .eq('id', row.shift_template_id)
             .maybeSingle<{
               name: string
@@ -438,6 +468,10 @@ export async function getScheduledShift(
               crosses_midnight: boolean
               work_mode: string
               location_label: string | null
+              unpaid_break_minutes: number
+              latitude: number | null
+              longitude: number | null
+              geofence_radius_m: number | null
             }>()
         : Promise.resolve({ data: null, error: null }),
       supabase
@@ -453,21 +487,31 @@ export async function getScheduledShift(
     if (!schedule) return null
     const template = templateResult.data
     const holiday = (holidayResult.data ?? [])[0] ?? null
+    const isWorkingDay = (schedule.working_weekdays ?? []).includes(isoWeekday(date))
+    const isHoliday = Boolean(holiday)
+
+    // Working days without an assigned template still have a company day:
+    // 09:00–17:00. Rest days and holidays stay without fixed punch windows.
+    const useCompanyHours = isWorkingDay && !isHoliday && !template?.start_time
 
     return {
       scheduleName: schedule.name,
       timezone: schedule.timezone,
-      templateName: template?.name ?? null,
-      startTime: template?.start_time ?? null,
-      endTime: template?.end_time ?? null,
+      templateName: template?.name ?? (useCompanyHours ? 'Standard day' : null),
+      startTime: template?.start_time ?? (useCompanyHours ? COMPANY_WORKING_DAY_START : null),
+      endTime: template?.end_time ?? (useCompanyHours ? COMPANY_WORKING_DAY_END : null),
       crossesMidnight: Boolean(template?.crosses_midnight),
       workMode: row.work_mode,
       locationLabel: template?.location_label ?? null,
-      isWorkingDay: (schedule.working_weekdays ?? []).includes(isoWeekday(date)),
-      isHoliday: Boolean(holiday),
+      isWorkingDay,
+      isHoliday,
       holidayName: holiday?.name ?? null,
       standardDailyMinutes: schedule.standard_daily_minutes,
-      geolocationMode: schedule.geolocation_mode,
+      unpaidBreakMinutes:
+        template?.unpaid_break_minutes ?? (useCompanyHours ? COMPANY_BREAK_MINUTES : 0),
+      geolocationMode: effectiveGeolocationMode(schedule.geolocation_mode, row.work_mode),
+      geofenceRadiusM: template?.geofence_radius_m ?? schedule.geofence_radius_m,
+      hasGeofenceAnchor: template?.latitude != null && template?.longitude != null,
       requiresTimesheetSubmission: schedule.requires_timesheet_submission,
     }
   } catch (error) {

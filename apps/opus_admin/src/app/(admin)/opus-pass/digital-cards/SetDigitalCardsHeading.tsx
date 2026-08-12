@@ -15,7 +15,8 @@ import { useSetPageHeading } from '@/components/PageHeading'
 export default function SetDigitalCardsHeading() {
   useSetPageHeading({
     title: 'Digital Cards',
-    subtitle: 'The cards we sell, the cards we personalise, and the ones we make from scratch.',
+    subtitle:
+      'The cards we sell, the cards we personalise, the ones we design in Studio, and the ones we make from scratch.',
   })
   return null
 }

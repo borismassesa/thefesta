@@ -141,6 +141,17 @@ const nextConfig: NextConfig = {
         destination: '/digital-cards/:path*',
         permanent: true,
       },
+      // Door scanner path renamed for product clarity.
+      {
+        source: '/scanner',
+        destination: '/entrance-card-scanner',
+        permanent: true,
+      },
+      {
+        source: '/scanner/:path*',
+        destination: '/entrance-card-scanner/:path*',
+        permanent: true,
+      },
     ]
   },
 }

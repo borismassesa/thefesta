@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import SetGrowthHeading from '../_components/SetGrowthHeading'
+import MonthPager from '../_components/MonthPager'
 import KpiMonthlyGrid from '../_components/KpiMonthlyGrid'
 import StatsStrip from '../_components/StatsStrip'
 import Tabs from '../_components/Tabs'
 import type { KpiActual, KpiTarget } from '../_lib/queries'
+import { dateIsInHalfOpenMonth, monthBounds } from '../_lib/period'
 import {
   addChallenge,
   addContentPost,
@@ -98,6 +100,7 @@ export default function SocialClient({
   targets,
   actuals,
   initialYear,
+  month,
   canWrite,
   canAdmin,
   contentLog,
@@ -107,30 +110,42 @@ export default function SocialClient({
   targets: KpiTarget[]
   actuals: KpiActual[]
   initialYear: number
+  month: string
   canWrite: boolean
   canAdmin: boolean
   contentLog: ContentLogEntry[]
   challenges: ChallengeRow[]
   employeeNames: string[]
 }) {
+  const bounds = useMemo(() => monthBounds(month), [month])
+  const monthContent = useMemo(
+    () => contentLog.filter((c) => dateIsInHalfOpenMonth(c.postDate, bounds)),
+    [contentLog, bounds],
+  )
+  const monthChallenges = useMemo(
+    () => challenges.filter((c) => dateIsInHalfOpenMonth(c.launchDate, bounds)),
+    [challenges, bounds],
+  )
+
   const contentStats = useMemo(() => {
-    const reach = contentLog.reduce((s, c) => s + c.reach, 0)
-    const engagements = contentLog.reduce((s, c) => s + c.likes + c.comments + c.shares, 0)
-    const newFollowers = contentLog.reduce((s, c) => s + c.newFollowers, 0)
+    const reach = monthContent.reduce((s, c) => s + c.reach, 0)
+    const engagements = monthContent.reduce((s, c) => s + c.likes + c.comments + c.shares, 0)
+    const newFollowers = monthContent.reduce((s, c) => s + c.newFollowers, 0)
     const engagementRate = reach > 0 ? engagements / reach : null
     return { reach, engagements, newFollowers, engagementRate }
-  }, [contentLog])
+  }, [monthContent])
 
   const [activeTab, setActiveTab] = useState<'content' | 'challenges' | 'kpis'>('content')
   const heading = TAB_HEADINGS[activeTab]
 
   return (
     <div className="space-y-6 pb-16">
-      <SetGrowthHeading
-        title={heading.title}
-        subtitle={heading.subtitle}
-        back={{ href: '/growth', label: 'Growth Tracker' }}
-      />
+      <SetGrowthHeading title={heading.title} subtitle={heading.subtitle} />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[12px] text-gray-500">Stats and logs for the selected month.</p>
+        <MonthPager month={month} hrefForMonth={(m) => `/growth/social?month=${m}`} />
+      </div>
 
       <StatsStrip
         items={[
@@ -150,15 +165,15 @@ export default function SocialClient({
         tabs={[
           {
             key: 'content',
-            label: `Content log (${contentLog.length})`,
-            content: <ContentLogSection contentLog={contentLog} employeeNames={employeeNames} canWrite={canWrite} />,
+            label: `Content log (${monthContent.length})`,
+            content: <ContentLogSection contentLog={monthContent} employeeNames={employeeNames} canWrite={canWrite} />,
           },
           {
             key: 'challenges',
-            label: `Challenge schedule (${challenges.length})`,
+            label: `Challenge schedule (${monthChallenges.length})`,
             content: (
               <ChallengeScheduleSection
-                challenges={challenges}
+                challenges={monthChallenges}
                 employeeNames={employeeNames}
                 canWrite={canWrite}
                 canAdmin={canAdmin}
@@ -169,7 +184,14 @@ export default function SocialClient({
             key: 'kpis',
             label: 'Monthly targets',
             content: (
-              <KpiMonthlyGrid targets={targets} actuals={actuals} initialYear={initialYear} canEdit={canWrite} canEditTargets={canAdmin} />
+              <KpiMonthlyGrid
+                targets={targets}
+                actuals={actuals}
+                initialYear={initialYear}
+                canEdit={canWrite}
+                canEditTargets={canAdmin}
+                title="Social Media KPIs — Monthly Target vs Actual"
+              />
             ),
           },
         ]}
@@ -194,44 +216,44 @@ function ContentLogSection({
   const [showAdd, setShowAdd] = useState(false)
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-        <p className="text-[12px] text-gray-500">Every piece of published content and its results.</p>
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+      <div className="flex items-center justify-between border-b border-gray-100 bg-[#F0DFF6]/40 px-4 py-3">
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-[#5d3a78]">Content log</p>
         {canWrite && (
           <button data-opus-button="control"
             type="button"
             onClick={() => setShowAdd(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#6c4884]"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6c4884]"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             Add post
           </button>
         )}
       </div>
 
       <div className="overflow-x-auto">
-        <table className="opus-table w-full min-w-[1100px] text-[12px]">
+        <table className="opus-table w-full min-w-275">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-gray-500">
-              <th className="px-4 py-2 font-medium">Date</th>
-              <th className="px-2 py-2 font-medium">Channel</th>
-              <th className="px-2 py-2 font-medium">Type</th>
-              <th className="px-2 py-2 font-medium">Topic</th>
-              <th className="px-2 py-2 font-medium">Posted by</th>
-              <th className="px-2 py-2 text-right font-medium">Likes</th>
-              <th className="px-2 py-2 text-right font-medium">Comments</th>
-              <th className="px-2 py-2 text-right font-medium">Shares</th>
-              <th className="px-2 py-2 text-right font-medium">Saves</th>
-              <th className="px-2 py-2 text-right font-medium">Reach</th>
-              <th className="px-2 py-2 text-right font-medium">+Followers</th>
-              <th className="px-2 py-2 font-medium">Notes</th>
-              {canWrite && <th className="px-2 py-2" />}
+            <tr>
+              <th>Date</th>
+              <th>Channel</th>
+              <th>Type</th>
+              <th>Topic</th>
+              <th>Posted by</th>
+              <th data-numeric="true">Likes</th>
+              <th data-numeric="true">Comments</th>
+              <th data-numeric="true">Shares</th>
+              <th data-numeric="true">Saves</th>
+              <th data-numeric="true">Reach</th>
+              <th data-numeric="true">+Followers</th>
+              <th>Notes</th>
+              {canWrite && <th />}
             </tr>
           </thead>
           <tbody>
             {contentLog.length === 0 && (
               <tr>
-                <td colSpan={canWrite ? 13 : 12} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={canWrite ? 13 : 12} className="py-10 text-center text-gray-400">
                   No posts logged yet.
                 </td>
               </tr>
@@ -302,21 +324,21 @@ function ContentLogRow({
 
   if (!canWrite || !editing) {
     return (
-      <tr className={cn('border-b border-gray-50', isPending && 'opacity-60')}>
-        <td className="px-4 py-2 text-gray-600">{formatDate(entry.postDate)}</td>
-        <td className="px-2 py-2 text-gray-800">{entry.channel}</td>
-        <td className="px-2 py-2 text-gray-700">{entry.contentType}</td>
-        <td className="max-w-[220px] truncate px-2 py-2 text-gray-900">{entry.topic}</td>
-        <td className="px-2 py-2 text-gray-600">{entry.postedByName || '—'}</td>
-        <td className="px-2 py-2 text-right tabular-nums text-gray-700">{entry.likes.toLocaleString()}</td>
-        <td className="px-2 py-2 text-right tabular-nums text-gray-700">{entry.comments.toLocaleString()}</td>
-        <td className="px-2 py-2 text-right tabular-nums text-gray-700">{entry.shares.toLocaleString()}</td>
-        <td className="px-2 py-2 text-right tabular-nums text-gray-700">{entry.saves.toLocaleString()}</td>
-        <td className="px-2 py-2 text-right tabular-nums text-gray-700">{entry.reach.toLocaleString()}</td>
-        <td className="px-2 py-2 text-right tabular-nums text-gray-700">{entry.newFollowers.toLocaleString()}</td>
-        <td className="max-w-[180px] truncate px-2 py-2 text-gray-500">{entry.notes || '—'}</td>
+      <tr className={cn(isPending && 'opacity-60')}>
+        <td>{formatDate(entry.postDate)}</td>
+        <td>{entry.channel}</td>
+        <td>{entry.contentType}</td>
+        <th scope="row" className="opus-table-cell--leading max-w-55 truncate">{entry.topic}</th>
+        <td>{entry.postedByName || '—'}</td>
+        <td data-numeric="true">{entry.likes.toLocaleString()}</td>
+        <td data-numeric="true">{entry.comments.toLocaleString()}</td>
+        <td data-numeric="true">{entry.shares.toLocaleString()}</td>
+        <td data-numeric="true">{entry.saves.toLocaleString()}</td>
+        <td data-numeric="true">{entry.reach.toLocaleString()}</td>
+        <td data-numeric="true">{entry.newFollowers.toLocaleString()}</td>
+        <td className="max-w-45 truncate text-gray-500">{entry.notes || '—'}</td>
         {canWrite && (
-          <td className="px-2 py-2">
+          <td>
             <div className="flex items-center justify-end gap-1">
               <button data-opus-button="control"
                 type="button"
@@ -342,8 +364,8 @@ function ContentLogRow({
   }
 
   return (
-    <tr className={cn('border-b border-gray-50 bg-gray-50/40', isPending && 'opacity-60')}>
-      <td className="px-4 py-1.5">
+    <tr className={cn('bg-gray-50/40', isPending && 'opacity-60')}>
+      <td>
         <input
           type="date"
           value={fieldValue('postDate')}
@@ -351,7 +373,7 @@ function ContentLogRow({
           className="w-32 rounded-md border border-gray-200 px-1.5 py-1 text-[12px]"
         />
       </td>
-      <td className="px-2 py-1.5">
+      <td>
         <select
           value={fieldValue('channel')}
           onChange={(e) => setField('channel', e.target.value)}
@@ -362,7 +384,7 @@ function ContentLogRow({
           ))}
         </select>
       </td>
-      <td className="px-2 py-1.5">
+      <td>
         <select
           value={fieldValue('contentType')}
           onChange={(e) => setField('contentType', e.target.value)}
@@ -373,14 +395,14 @@ function ContentLogRow({
           ))}
         </select>
       </td>
-      <td className="px-2 py-1.5">
+      <td>
         <input
           value={fieldValue('topic')}
           onChange={(e) => setField('topic', e.target.value)}
           className="w-40 rounded-md border border-gray-200 px-1.5 py-1 text-[12px]"
         />
       </td>
-      <td className="px-2 py-1.5">
+      <td>
         <input
           list="social-employee-names"
           value={fieldValue('postedByName')}
@@ -389,7 +411,7 @@ function ContentLogRow({
         />
       </td>
       {(['likes', 'comments', 'shares', 'saves', 'reach', 'newFollowers'] as const).map((key) => (
-        <td key={key} className="px-2 py-1.5">
+        <td key={key} data-numeric="true">
           <input
             type="number"
             min={0}
@@ -399,14 +421,14 @@ function ContentLogRow({
           />
         </td>
       ))}
-      <td className="px-2 py-1.5">
+      <td>
         <input
           value={fieldValue('notes')}
           onChange={(e) => setField('notes', e.target.value)}
           className="w-36 rounded-md border border-gray-200 px-1.5 py-1 text-[12px]"
         />
       </td>
-      <td className="px-2 py-1.5">
+      <td>
         <div className="flex items-center justify-end gap-1">
           <button data-opus-button="control"
             type="button"
@@ -631,13 +653,15 @@ function ChallengeScheduleSection({
   const [showAdd, setShowAdd] = useState(false)
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-        <p className="text-[12px] text-gray-500">Bi-weekly challenges — fill in results after each one runs.</p>
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+      <div className="flex items-center justify-between border-b border-gray-100 bg-[#F0DFF6]/40 px-4 py-3">
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-[#5d3a78]">
+          Challenge schedule
+        </p>
         <div className="flex items-center gap-3">
           <Link
             href="/growth/content-ideas"
-            className="text-[12px] font-medium text-gray-500 hover:text-gray-800"
+            className="text-[12px] font-semibold text-[#7E5896] hover:text-[#6c4884]"
           >
             Need a theme? Browse the content bank →
           </Link>
@@ -645,9 +669,9 @@ function ChallengeScheduleSection({
             <button data-opus-button="control"
               type="button"
               onClick={() => setShowAdd(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#6c4884]"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6c4884]"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-4 w-4" />
               Add challenge
             </button>
           )}
@@ -655,28 +679,28 @@ function ChallengeScheduleSection({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="opus-table w-full min-w-[1300px] text-[12px]">
+        <table className="opus-table w-full min-w-325">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-gray-500">
-              <th className="px-4 py-2 font-medium">Launch date</th>
-              <th className="px-2 py-2 font-medium">Theme</th>
-              <th className="px-2 py-2 font-medium">Lead channel</th>
-              <th className="px-2 py-2 font-medium">Hashtag</th>
-              <th className="px-2 py-2 font-medium">Lead owner</th>
-              <th className="px-2 py-2 text-right font-medium">Posts made</th>
-              <th className="px-2 py-2 text-right font-medium">Total reach</th>
-              <th className="px-2 py-2 text-right font-medium">Total engagements</th>
-              <th className="px-2 py-2 text-right font-medium">+Followers</th>
-              <th className="px-2 py-2 text-right font-medium">Submissions/UGC</th>
-              <th className="px-2 py-2 font-medium">Result</th>
-              <th className="px-2 py-2 font-medium">Notes</th>
-              {canAdmin && <th className="px-2 py-2" />}
+            <tr>
+              <th>Launch date</th>
+              <th>Theme</th>
+              <th>Lead channel</th>
+              <th>Hashtag</th>
+              <th>Lead owner</th>
+              <th data-numeric="true">Posts made</th>
+              <th data-numeric="true">Total reach</th>
+              <th data-numeric="true">Total engagements</th>
+              <th data-numeric="true">+Followers</th>
+              <th data-numeric="true">Submissions/UGC</th>
+              <th>Result</th>
+              <th>Notes</th>
+              {canAdmin && <th />}
             </tr>
           </thead>
           <tbody>
             {challenges.length === 0 && (
               <tr>
-                <td colSpan={canAdmin ? 13 : 12} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={canAdmin ? 13 : 12} className="py-10 text-center text-gray-400">
                   No challenges scheduled yet.
                 </td>
               </tr>
@@ -761,8 +785,8 @@ function ChallengeRowView({
   )
 
   return (
-    <tr className={cn('border-b border-gray-50', isPending && 'opacity-60')}>
-      <td className="px-4 py-2">
+    <tr className={cn(isPending && 'opacity-60')}>
+      <td>
         <input
           type="date"
           disabled={!canAdmin}
@@ -772,7 +796,7 @@ function ChallengeRowView({
           className={cn(defInputClass, 'w-32')}
         />
       </td>
-      <td className="px-2 py-2">
+      <td>
         <input
           disabled={!canAdmin}
           value={defValue('theme', challenge.theme)}
@@ -781,7 +805,7 @@ function ChallengeRowView({
           className={cn(defInputClass, 'w-36')}
         />
       </td>
-      <td className="px-2 py-2">
+      <td>
         {canAdmin ? (
           <select
             value={defValue('leadChannel', challenge.leadChannel)}
@@ -797,7 +821,7 @@ function ChallengeRowView({
           <span className="text-gray-800">{challenge.leadChannel}</span>
         )}
       </td>
-      <td className="px-2 py-2">
+      <td>
         <input
           disabled={!canAdmin}
           value={defValue('hashtag', challenge.hashtag)}
@@ -806,7 +830,7 @@ function ChallengeRowView({
           className={cn(defInputClass, 'w-28')}
         />
       </td>
-      <td className="px-2 py-2">
+      <td>
         <input
           list="social-employee-names"
           disabled={!canAdmin}
@@ -816,7 +840,7 @@ function ChallengeRowView({
           className={cn(defInputClass, 'w-28')}
         />
       </td>
-      <td className="px-2 py-2">
+      <td data-numeric="true">
         <input
           type="number"
           min={0}
@@ -827,7 +851,7 @@ function ChallengeRowView({
           className={resultInputClass}
         />
       </td>
-      <td className="px-2 py-2">
+      <td data-numeric="true">
         <input
           type="number"
           min={0}
@@ -838,7 +862,7 @@ function ChallengeRowView({
           className={resultInputClass}
         />
       </td>
-      <td className="px-2 py-2">
+      <td data-numeric="true">
         <input
           type="number"
           min={0}
@@ -849,7 +873,7 @@ function ChallengeRowView({
           className={resultInputClass}
         />
       </td>
-      <td className="px-2 py-2">
+      <td data-numeric="true">
         <input
           type="number"
           min={0}
@@ -860,7 +884,7 @@ function ChallengeRowView({
           className={resultInputClass}
         />
       </td>
-      <td className="px-2 py-2">
+      <td data-numeric="true">
         <input
           type="number"
           min={0}
@@ -871,7 +895,7 @@ function ChallengeRowView({
           className={resultInputClass}
         />
       </td>
-      <td className="px-2 py-2">
+      <td>
         <input
           disabled={!canWrite}
           value={resultValue('result', challenge.result)}
@@ -880,7 +904,7 @@ function ChallengeRowView({
           className={cn(defInputClass, 'w-28')}
         />
       </td>
-      <td className="px-2 py-2">
+      <td>
         <input
           disabled={!canWrite}
           value={resultValue('notes', challenge.notes)}
@@ -891,7 +915,7 @@ function ChallengeRowView({
         {error && <div className="mt-1 text-[10px] text-red-600">{error}</div>}
       </td>
       {canAdmin && (
-        <td className="px-2 py-2">
+        <td>
           <button data-opus-button="control"
             type="button"
             onClick={remove}

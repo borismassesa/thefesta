@@ -12,16 +12,22 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  // ClerkProvider must wrap client hooks (useClerk / useUser) but stay inside
+  // <body> — wrapping <html> breaks the provider context under Next App Router
+  // streaming / long SSR, which surfaces as "useClerk can only be used within
+  // the <ClerkProvider />" from Sidebar / Header / DashboardHeading.
   return (
-    <ClerkProvider
-      signInUrl="/sign-in"
-      signUpUrl="/sign-up"
-      signInFallbackRedirectUrl="/"
-      signUpFallbackRedirectUrl="/"
-    >
-      <html lang="en">
-        <body>{children}</body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <body>
+        <ClerkProvider
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+          signInFallbackRedirectUrl="/"
+          signUpFallbackRedirectUrl="/"
+        >
+          {children}
+        </ClerkProvider>
+      </body>
+    </html>
   )
 }

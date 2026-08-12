@@ -1,33 +1,26 @@
 'use client'
 
-import { useUser } from '@clerk/nextjs'
 import { useSetPageHeading } from '@/components/PageHeading'
 
 // Tiny client-only component that pushes "Welcome, <name>" into the
 // PageHeading context so the global Header renders the personalised
 // greeting. Renders nothing visible — keeps the dashboard page itself
-// a server component (the rest of the dashboard is data-driven via
-// getDashboardSnapshot()).
+// a server component.
 //
-// Fallback chain: firstName → fullName → email-before-@ → "Welcome".
+// Name comes from the server (workforce profile / auth bypass profile),
+// not Clerk's useUser(). That hook throws outside <ClerkProvider /> and
+// is useless under DISABLE_ADMIN_AUTH where there is no Clerk session.
 
-function welcomeTitle(user: ReturnType<typeof useUser>['user']): string {
-  if (!user) return 'Welcome'
-  const first = user.firstName?.trim()
-  if (first) return `Welcome, ${first}`
-  const full = user.fullName?.trim()
-  if (full) return `Welcome, ${full}`
-  const email =
-    user.primaryEmailAddress?.emailAddress ||
-    user.emailAddresses?.[0]?.emailAddress
-  if (email) return `Welcome, ${email.split('@')[0]}`
-  return 'Welcome'
-}
-
-export default function DashboardHeading({ subtitle }: { subtitle?: string }) {
-  const { user, isLoaded } = useUser()
+export default function DashboardHeading({
+  subtitle,
+  name,
+}: {
+  subtitle?: string
+  name?: string | null
+}) {
+  const first = name?.trim().split(/\s+/).filter(Boolean)[0]
   useSetPageHeading({
-    title: isLoaded ? welcomeTitle(user) : 'Welcome',
+    title: first ? `Welcome, ${first}` : 'Welcome',
     subtitle,
   })
   return null

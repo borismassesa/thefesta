@@ -33,7 +33,7 @@ export const WORKSPACE_ROUTES: Record<WorkspaceNavItem, string> = {
 
 export const WORKSPACE_LABELS: Record<WorkspaceNavItem, string> = {
   home: 'Home',
-  'time-clock': 'Time Clock',
+  'time-clock': 'My Clock',
   work: 'My Work',
   leave: 'My Leave',
   tasks: 'My Tasks',

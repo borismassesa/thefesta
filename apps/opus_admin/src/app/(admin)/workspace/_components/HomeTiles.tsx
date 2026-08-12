@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ChevronRight, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WORKSPACE_ROUTES } from '../_lib/routes'
+import { WS } from './ui'
 
 export function TileGrid({ children }: { children: ReactNode }) {
   return (
@@ -43,10 +44,8 @@ export function StatTile({
       <div className="flex items-start justify-between">
         <span
           className={cn(
-            'grid h-10 w-10 place-items-center rounded-xl',
-            tone === 'active'
-              ? 'bg-[#9FE870] text-gray-900'
-              : 'bg-gradient-to-br from-[#F0DFF6] to-[#FBF5FD] text-[#7E5896]',
+            WS.iconWell,
+            tone === 'active' && 'ring-1 ring-[#C9A0DC]',
           )}
         >
           <Icon className="h-5 w-5 stroke-[1.5]" />
@@ -67,8 +66,7 @@ export function StatTile({
     </>
   )
 
-  const shell =
-    'rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors'
+  const shell = cn(WS.cardPad, 'transition-colors')
 
   if (comingSoon) {
     return <div className={cn(shell, 'opacity-75')}>{body}</div>
@@ -117,12 +115,7 @@ export function QuickActions({
           <Link
             key={a.label}
             href={a.href}
-            className={cn(
-              'rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-              a.primary
-                ? 'bg-gray-900 text-white hover:bg-gray-700'
-                : 'border border-gray-200 text-gray-700 hover:bg-gray-50',
-            )}
+            className={cn(a.primary ? WS.btnPrimary : WS.btnSecondary)}
           >
             {a.label}
           </Link>

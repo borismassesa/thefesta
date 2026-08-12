@@ -35,12 +35,15 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       // Article & contributor uploads buffer the file through a server
-      // action before forwarding to Supabase. The platform default is
-      // 1MB which 413s any real phone photo; 25MB gives room for HEIC
-      // originals while staying inside Vercel's per-function payload
-      // cap. Larger videos use the dedicated signed-URL upload paths.
-      bodySizeLimit: '25mb',
+      // action before forwarding to Supabase. Design Studio also posts
+      // Illustrator SVGs (often with embedded images) that exceed 10MB.
+      // Keep this in sync with proxy/middleware body limits below.
+      bodySizeLimit: '50mb',
     },
+    // Next 16 proxy clones the request body (default 10MB). Truncation
+    // yields "Unexpected end of form" on large Design Studio SVG uploads.
+    // Do not also set middlewareClientMaxBodySize — Next rejects both.
+    proxyClientMaxBodySize: '50mb',
   },
 }
 

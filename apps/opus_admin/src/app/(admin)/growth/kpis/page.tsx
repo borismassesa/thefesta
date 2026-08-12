@@ -118,7 +118,7 @@ export default async function GrowthKpisPage({
               {DEPARTMENTS.map((department) => <option key={department} value={department}>{department}</option>)}
             </select>
           </label>
-          <button data-opus-button="primary" data-opus-button-size="medium" className="self-end rounded-md bg-gray-900 px-3 py-2 font-semibold text-white hover:bg-gray-700">Create Metric</button>
+          <button data-opus-button="primary" data-opus-button-size="medium" className="self-end rounded-xl bg-[#7E5896] px-4 py-2.5 font-semibold text-white hover:bg-[#6c4884]">Create Metric</button>
           <label className="space-y-1 md:col-span-2">
             <span className="font-medium text-gray-600">Unit</span>
             <select name="measurementUnit" className="w-full rounded-md border border-gray-200 px-2 py-2">
@@ -241,30 +241,30 @@ export default async function GrowthKpisPage({
                     </form>
                   ) : null}
                   <div className="overflow-x-auto">
-                    <table className="opus-table w-full text-left">
-                      <thead className="text-gray-500">
+                    <table className="opus-table w-full">
+                      <thead>
                         <tr>
-                          <th className="py-2 pr-3 font-medium">Period</th>
-                          <th className="py-2 pr-3 font-medium">Target</th>
-                          <th className="py-2 pr-3 font-medium">Status</th>
-                          <th className="py-2 pr-3 font-medium">Rev</th>
-                          <th className="py-2 pr-3 font-medium">Actions</th>
+                          <th>Period</th>
+                          <th data-numeric="true">Target</th>
+                          <th>Status</th>
+                          <th data-numeric="true">Rev</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {metricTargets.length === 0 ? (
                           <tr><td colSpan={5} className="py-4 text-gray-500">No target versions.</td></tr>
                         ) : metricTargets.map((target) => (
-                          <tr key={target.id} className="border-t border-gray-50">
-                            <td className="py-2 pr-3 text-gray-600">{periodById.get(target.periodId)?.label ?? 'Unknown'}</td>
-                            <td className="py-2 pr-3 text-gray-800">
+                          <tr key={target.id}>
+                            <th scope="row" className="opus-table-cell--leading">{periodById.get(target.periodId)?.label ?? 'Unknown'}</th>
+                            <td data-numeric="true">
                               {metric.direction === 'target_range'
                                 ? `${decimalLabel(target.lowerBound, metric.measurementUnit)} - ${decimalLabel(target.upperBound, metric.measurementUnit)}`
                                 : decimalLabel(target.targetValue, metric.measurementUnit)}
                             </td>
-                            <td className="py-2 pr-3 text-gray-600">{target.status}{target.isCurrent ? ' · current' : ''}</td>
-                            <td className="py-2 pr-3 text-gray-600">{target.revisionNumber}</td>
-                            <td className="py-2 pr-3">
+                            <td className="opus-table-cell--status">{target.status}{target.isCurrent ? ' · current' : ''}</td>
+                            <td data-numeric="true">{target.revisionNumber}</td>
+                            <td>
                               <div className="flex flex-wrap gap-1">
                                 {canManage && target.status === 'draft' ? (
                                   <form action={submitTargetAction}>
@@ -318,26 +318,26 @@ export default async function GrowthKpisPage({
                     </form>
                   ) : null}
                   <div className="overflow-x-auto">
-                    <table className="opus-table w-full text-left">
-                      <thead className="text-gray-500">
+                    <table className="opus-table w-full">
+                      <thead>
                         <tr>
-                          <th className="py-2 pr-3 font-medium">Date</th>
-                          <th className="py-2 pr-3 font-medium">Value</th>
-                          <th className="py-2 pr-3 font-medium">Origin</th>
-                          <th className="py-2 pr-3 font-medium">Current</th>
-                          <th className="py-2 pr-3 font-medium">Override</th>
+                          <th>Date</th>
+                          <th data-numeric="true">Value</th>
+                          <th>Origin</th>
+                          <th>Current</th>
+                          <th>Override</th>
                         </tr>
                       </thead>
                       <tbody>
                         {metricActuals.length === 0 ? (
                           <tr><td colSpan={5} className="py-4 text-gray-500">No actual values.</td></tr>
                         ) : metricActuals.map((actual) => (
-                          <tr key={actual.id} className="border-t border-gray-50">
-                            <td className="py-2 pr-3 font-mono text-gray-600">{actual.asOfDate}</td>
-                            <td className="py-2 pr-3 text-gray-800">{decimalLabel(actual.value, metric.measurementUnit)}</td>
-                            <td className="py-2 pr-3 text-gray-600">{actual.originType}</td>
-                            <td className="py-2 pr-3 text-gray-600">{actual.isCurrent ? 'Yes' : 'No'}</td>
-                            <td className="py-2 pr-3">
+                          <tr key={actual.id}>
+                            <td className="font-mono">{actual.asOfDate}</td>
+                            <td data-numeric="true">{decimalLabel(actual.value, metric.measurementUnit)}</td>
+                            <td>{actual.originType}</td>
+                            <td>{actual.isCurrent ? 'Yes' : 'No'}</td>
+                            <td>
                               {canOverrideActual && actual.isCurrent ? (
                                 <form action={createManualOverrideAction} className="flex gap-1">
                                   <input type="hidden" name="actualId" value={actual.id} />

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getCallerPermissions } from '@/lib/admin-auth'
+import { getCallerPermissions, getCallerProfile } from '@/lib/admin-auth'
 import { getSelfIdentity } from '@/lib/workforce/identity'
 import DashboardHeading from './_dashboard/DashboardHeading'
 import DashboardErrorBanner from './_dashboard/DashboardErrorBanner'
@@ -32,9 +32,9 @@ function buildSubtitle(department: string | null): string {
 // viewer (for example) doesn't see vendor moderation cards.
 //
 // Personalised "Welcome, <name>" lives in <DashboardHeading /> (client)
-// because it needs Clerk's useUser hook. The component renders nothing
-// visible — it just pushes into the global PageHeading context that
-// drives the admin Header.
+// so it can push into PageHeading context. The name itself is resolved
+// on the server (workforce / auth-bypass profile) — never via useUser,
+// which throws outside ClerkProvider and is empty under DISABLE_ADMIN_AUTH.
 
 export default async function DashboardPage() {
   // A Workspace-only employee (the seeded `employee` role holds zero keys)
@@ -50,16 +50,20 @@ export default async function DashboardPage() {
     if (identity.ok) redirect('/workspace')
   }
 
-  const [snapshot, permissions] = await Promise.all([
+  const [snapshot, permissions, profile] = await Promise.all([
     getDashboardSnapshot(),
     getCallerPermissions(),
+    getCallerProfile(),
   ])
 
   return (
     <div className="px-8 py-8">
-      <DashboardHeading subtitle={buildSubtitle(snapshot.caller.department)} />
+      <DashboardHeading
+        subtitle={buildSubtitle(snapshot.caller.department)}
+        name={snapshot.caller.fullName || profile.name}
+      />
 
-      <div className="mx-auto max-w-[1400px] space-y-8">
+      <div className="mx-auto max-w-350 space-y-8">
         {/* Soft "values may be off" banner when one or more counter
             queries failed during snapshot build. Without it, broken
             DB = green dashboard. */}

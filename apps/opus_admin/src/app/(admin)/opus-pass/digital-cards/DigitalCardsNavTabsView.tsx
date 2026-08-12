@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutGrid, Palette, PenTool, type LucideIcon } from 'lucide-react'
+import { LayoutGrid, Palette, PenTool, Sparkles, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Rendering only. Which tabs exist is decided on the server, per caller, in
@@ -11,12 +11,13 @@ import { cn } from '@/lib/utils'
 // Icons are named rather than passed as components: the tab list crosses the
 // server/client boundary, and a LucideIcon is a function, which is not
 // serialisable as a prop.
-type TabIcon = 'catalogue' | 'personalisation' | 'studio'
+type TabIcon = 'catalogue' | 'personalisation' | 'studio' | 'designStudio'
 
 const ICONS: Record<TabIcon, LucideIcon> = {
   catalogue: LayoutGrid,
   personalisation: PenTool,
   studio: Palette,
+  designStudio: Sparkles,
 }
 
 export type SectionTab = {

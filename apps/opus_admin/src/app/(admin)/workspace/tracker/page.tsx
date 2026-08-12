@@ -3,6 +3,7 @@ import { workspaceErrorCode } from '@/lib/workspace/errors'
 import { requireWorkspaceCapability } from '@/lib/workspace/guards'
 import {
   aggregateEntries,
+  ensureMyTrackerUnit,
   getItemsForEntries,
   getMyEntries,
   getMyUnits,
@@ -27,11 +28,11 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-// The daily tracker.
+// The daily tracker — Managing Directors only.
 //
-// Everything is scoped through getMyUnits, which reads tracking_assignments for
-// the resolved employee. A unit nobody assigned to you is a unit you cannot see
-// or name, which is the whole of "employees only see units assigned to them".
+// Brand units the MD owns are the subject. Prefill pulls in department work and
+// tasks assigned to the MD / their people. Non-MDs see an explanatory empty
+// state; the nav also hides the tab unless they are an MD.
 export default async function TrackerPage() {
   let context
   try {
@@ -57,6 +58,9 @@ export default async function TrackerPage() {
   // without loading a quarter of history nobody scrolls to.
   const from = addDays(today, -13)
 
+  // Sync brand MD assignments, then load what that unlocks.
+  await ensureMyTrackerUnit(employee)
+
   const [units, entries, weekly, reviewQueue, isAdmin] = await Promise.all([
     getMyUnits(employee),
     getMyEntries(employee, from, today),
@@ -79,7 +83,7 @@ export default async function TrackerPage() {
     <>
       <WorkspaceHeading
         title="Daily tracker"
-        subtitle="What you committed to, what happened, and what is carrying forward."
+        subtitle="Managing Director execution — your brand, department, and the tasks assigned to your people."
       />
       <TrackerClient
         today={today}

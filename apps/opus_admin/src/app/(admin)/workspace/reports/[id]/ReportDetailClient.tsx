@@ -324,7 +324,7 @@ export default function ReportDetailClient({
               type="button"
               disabled={pending || saveState === 'conflict'}
               onClick={submit}
-              className="ml-auto inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+              className="ml-auto inline-flex items-center gap-2 rounded-xl bg-[#7E5896] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
             >
               <Send className="h-4 w-4" strokeWidth={2} />
               {detail.submission.state === 'returned' ? 'Resubmit' : 'Submit'}
@@ -369,7 +369,7 @@ export default function ReportDetailClient({
               type="button"
               disabled={pending}
               onClick={() => runReview('accept')}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#9FE870] px-4 py-2 text-[13px] font-semibold text-gray-900 hover:brightness-95 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
             >
               <Check className="h-4 w-4" strokeWidth={2} />
               Accept
@@ -423,7 +423,7 @@ export default function ReportDetailClient({
                 } else setMessage(result.error)
               })
             }}
-            className="rounded-full bg-gray-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+            className="rounded-xl bg-[#7E5896] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#6c4884] disabled:opacity-50"
           >
             Post
           </button>

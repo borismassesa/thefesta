@@ -1,22 +1,16 @@
 import 'server-only'
-import QRCode from 'qrcode'
 import { signEntryPassToken } from './tokens'
 import { credentialIssuanceConfigured, ensureAdmissionCredential } from './credentials'
+import { renderEntryPassQr } from './qr-render'
 
 /**
- * Deep purple on white — stays on-brand for the purple ticket artwork while
- * keeping the dark-on-light contrast scanners require (never invert it).
+ * Draw an already-resolved admission credential as the branded entrance-pass
+ * QR. The raw value goes no further than here — never a Pass ID or other
+ * display identifier.
  */
-const QR_OPTIONS = {
-  margin: 1,
-  width: 512,
-  errorCorrectionLevel: 'M' as const,
-  color: { dark: '#4A2472', light: '#FFFFFF' },
-}
-
-/** Draw an already-resolved credential. The raw value goes no further than here. */
-export function renderCredentialQr(rawCredential: string): Promise<string> {
-  return QRCode.toDataURL(rawCredential, QR_OPTIONS)
+export async function renderCredentialQr(rawCredential: string): Promise<string> {
+  const { dataUrl } = await renderEntryPassQr(rawCredential)
+  return dataUrl
 }
 
 /**
@@ -57,5 +51,5 @@ export async function generateEntryPassQrDataUrl(
     )
   }
 
-  return QRCode.toDataURL(signEntryPassToken({ guestContactId, invitationId }), QR_OPTIONS)
+  return renderCredentialQr(signEntryPassToken({ guestContactId, invitationId }))
 }

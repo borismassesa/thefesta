@@ -8,12 +8,12 @@
 export default function ScannerVisual() {
   return (
     <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-white">
-      <div className="absolute h-96 w-96 rounded-full bg-gradient-to-br from-[#F0DFF6] via-[#FCE9C2]/40 to-[#E8FBDB]" />
+      <div className="absolute aspect-square w-[85%] max-w-96 rounded-full bg-gradient-to-br from-[#F0DFF6] via-[#FCE9C2]/40 to-[#E8FBDB]" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/assets/illustrations/qr-code-scanner.svg"
         alt=""
-        className="relative h-72 w-72"
+        className="relative h-auto w-[70%] max-w-72"
       />
     </div>
   )

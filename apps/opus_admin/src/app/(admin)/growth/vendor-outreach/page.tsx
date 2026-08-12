@@ -2,6 +2,7 @@ import { hasAnyPermission, hasPermission } from '@/lib/admin-auth'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { logGrowthDbError } from '../_lib/action-utils'
 import { getGrowthEmployeeOptions } from '../_lib/queries'
+import { resolveTrackerMonth } from '../_lib/period'
 import VendorOutreachClient, { type OutreachLogEntry, type RosterRow } from './VendorOutreachClient'
 
 export const dynamic = 'force-dynamic'
@@ -35,14 +36,6 @@ type LogRow = {
   created_by_employee_id: string | null
 }
 
-const MONTH_RE = /^\d{4}-\d{2}-01$/
-
-function currentMonthStart(): string {
-  // eslint-disable-next-line react-hooks/purity -- server component, reflects request time
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-}
-
 function firstParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null)
 }
@@ -60,8 +53,7 @@ export default async function VendorOutreachPage({
   const canAdmin = await hasPermission('growth.admin')
 
   const params = await searchParams
-  const requestedMonth = firstParam(params?.month)
-  const monthStart = requestedMonth && MONTH_RE.test(requestedMonth) ? requestedMonth : currentMonthStart()
+  const monthStart = resolveTrackerMonth(firstParam(params?.month))
   const [monthYear, monthNum] = monthStart.split('-').map(Number)
   const nextMonthStart = `${monthNum === 12 ? monthYear + 1 : monthYear}-${String(monthNum === 12 ? 1 : monthNum + 1).padStart(2, '0')}-01`
   const supabase = createSupabaseAdminClient()

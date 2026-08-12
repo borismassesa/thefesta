@@ -88,7 +88,7 @@ export default function ReferralForm({ opportunities }: { opportunities: Opportu
 
       <button data-opus-button="control"
         disabled={pending || opportunities.length === 0}
-        className="rounded-xl bg-[#5B2D8E] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#492270] disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-xl bg-[#7E5896] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6c4884] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? 'Submitting securely…' : 'Submit referral'}
       </button>

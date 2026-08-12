@@ -140,28 +140,39 @@ export const getWorkspaceSession = cache(async (): Promise<WorkspaceSession> => 
       getCallerEmail(),
     ])
     const supabase = createSupabaseAdminClient()
-    const result = employeeId
-      ? await supabase
-          .from('workforce_employees')
-          .select(EMPLOYEE_COLUMNS)
-          .eq('id', employeeId)
-          .limit(2)
-          .returns<EmployeeRow[]>()
-      : email
-        ? await supabase
-            .from('workforce_employees')
-            .select(EMPLOYEE_COLUMNS)
-            .ilike('email', escapeLike(email))
-            .limit(2)
-            .returns<EmployeeRow[]>()
-        : { data: [] as EmployeeRow[], error: null }
 
-    if (result.error) {
-      logDbError('workspace.identity.development_lookup', result.error, { employeeId })
-      return { status: 'unresolved', code: 'no_employee_record' }
+    // Prefer an explicit DEV_EMPLOYEE_ID / cookie, but fall back to the
+    // development email when that id is missing or stale. Without the
+    // fallback, a leftover `dev_employee_id` cookie silently closes Workspace
+    // even though a matching row exists for getCallerEmail().
+    let rows: EmployeeRow[] = []
+    if (employeeId) {
+      const byId = await supabase
+        .from('workforce_employees')
+        .select(EMPLOYEE_COLUMNS)
+        .eq('id', employeeId)
+        .limit(2)
+        .returns<EmployeeRow[]>()
+      if (byId.error) {
+        logDbError('workspace.identity.development_lookup', byId.error, { employeeId })
+        return { status: 'unresolved', code: 'no_employee_record' }
+      }
+      rows = byId.data ?? []
+    }
+    if (rows.length === 0 && email) {
+      const byEmail = await supabase
+        .from('workforce_employees')
+        .select(EMPLOYEE_COLUMNS)
+        .ilike('email', escapeLike(email))
+        .limit(2)
+        .returns<EmployeeRow[]>()
+      if (byEmail.error) {
+        logDbError('workspace.identity.development_lookup', byEmail.error, { email })
+        return { status: 'unresolved', code: 'no_employee_record' }
+      }
+      rows = byEmail.data ?? []
     }
 
-    const rows = result.data ?? []
     if (rows.length !== 1) {
       return {
         status: 'unresolved',

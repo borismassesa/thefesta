@@ -1,5 +1,6 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { logDbError } from '@/lib/log-safe'
@@ -305,14 +306,39 @@ export async function adjustBalance(input: {
   return { ok: true }
 }
 
-export async function attachDocument(input: {
-  requestId: string
-  fileName: string
-  storagePath: string
-  mimeType?: string | null
-  sizeBytes?: number | null
-  documentType?: string
-}): Promise<ActionResult> {
+const LEAVE_DOC_BUCKET = 'employees'
+const MAX_LEAVE_DOC_BYTES = 10 * 1024 * 1024
+const LEAVE_DOC_TYPES = new Map<string, string>([
+  ['application/pdf', 'pdf'],
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/webp', 'webp'],
+])
+
+function sniffLeaveDoc(bytes: Uint8Array): string | null {
+  const startsWith = (...sig: number[]) => sig.every((b, i) => bytes[i] === b)
+  if (startsWith(0x25, 0x50, 0x44, 0x46)) return 'application/pdf'
+  if (startsWith(0xff, 0xd8, 0xff)) return 'image/jpeg'
+  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png'
+  if (
+    startsWith(0x52, 0x49, 0x46, 0x46) &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return 'image/webp'
+  }
+  return null
+}
+
+/**
+ * Upload a supporting document onto a draft/returned request.
+ *
+ * The storage key is minted here — never accepted from the client — under
+ * `leave/{employeeId}/{requestId}/…` in the private employees bucket.
+ */
+export async function uploadLeaveDocument(formData: FormData): Promise<ActionResult> {
   let employee
   try {
     ;({ employee } = await requireWorkspaceCapability('tools.use', { action: 'leave.attach' }))
@@ -320,39 +346,73 @@ export async function attachDocument(input: {
     return { ok: false, error: toSafeMessage(error) }
   }
 
+  const requestId = formData.get('requestId')
+  const file = formData.get('file')
+  const documentTypeRaw = formData.get('documentType')
+  if (typeof requestId !== 'string' || !requestId) {
+    return { ok: false, error: 'Missing leave request.' }
+  }
+  if (!(file instanceof File)) return { ok: false, error: 'Choose a file to attach.' }
+  if (file.size === 0) return { ok: false, error: 'That file is empty.' }
+  if (file.size > MAX_LEAVE_DOC_BYTES) {
+    return { ok: false, error: 'Supporting documents are limited to 10MB.' }
+  }
+
+  const declaredRaw = (file.type || '').toLowerCase()
+  const declared = declaredRaw === 'image/jpg' ? 'image/jpeg' : declaredRaw
+  if (!LEAVE_DOC_TYPES.has(declared)) {
+    return { ok: false, error: 'Attach a PDF or an image (JPEG, PNG, WebP).' }
+  }
+
+  const buffer = new Uint8Array(await file.arrayBuffer())
+  const actual = sniffLeaveDoc(buffer.subarray(0, 16))
+  if (!actual || actual !== declared) {
+    return { ok: false, error: 'That file does not match its type.' }
+  }
+
   const supabase = createSupabaseAdminClient()
   const { data: request } = await supabase
     .from('leave_requests')
     .select('id, employee_id, state')
-    .eq('id', input.requestId)
+    .eq('id', requestId)
     .maybeSingle<{ id: string; employee_id: string; state: string }>()
   if (!request) return { ok: false, error: leaveMessage({ message: 'leave.not_found' }) }
   if (request.employee_id !== employee.id) {
     return { ok: false, error: leaveMessage({ message: 'leave.not_owner' }) }
   }
+  if (request.state !== 'draft' && request.state !== 'returned') {
+    return { ok: false, error: leaveMessage({ message: 'leave.not_editable' }) }
+  }
 
-  const fileName = input.fileName.trim()
-  if (fileName.length === 0) return { ok: false, error: 'The file needs a name.' }
-  // The storage path is derived by the upload route, never accepted raw from a
-  // client: a caller-supplied path is a way to point a record at somebody
-  // else's file.
-  if (!input.storagePath.startsWith(`leave/${employee.id}/`)) {
-    return { ok: false, error: 'That upload does not belong to this request.' }
+  const ext = LEAVE_DOC_TYPES.get(declared) ?? 'bin'
+  const storagePath = `leave/${employee.id}/${requestId}/${randomUUID()}.${ext}`
+  const { error: uploadError } = await supabase.storage
+    .from(LEAVE_DOC_BUCKET)
+    .upload(storagePath, buffer, { contentType: declared, upsert: false })
+  if (uploadError) {
+    logDbError('leave.attach.upload', uploadError, { employeeId: employee.id, requestId })
+    return { ok: false, error: 'Could not upload that file.' }
   }
 
   const allowed = ['supporting', 'medical_certificate', 'court_document', 'admission_letter', 'other']
+  const documentType =
+    typeof documentTypeRaw === 'string' && allowed.includes(documentTypeRaw)
+      ? documentTypeRaw
+      : 'supporting'
+
   const { error } = await supabase.from('leave_documents').insert({
-    request_id: input.requestId,
+    request_id: requestId,
     employee_id: employee.id,
-    file_name: fileName,
-    storage_path: input.storagePath,
-    mime_type: input.mimeType ?? null,
-    size_bytes: input.sizeBytes ?? null,
-    document_type: allowed.includes(input.documentType ?? '') ? input.documentType : 'supporting',
+    file_name: file.name.slice(0, 200) || `document.${ext}`,
+    storage_path: storagePath,
+    mime_type: declared,
+    size_bytes: file.size,
+    document_type: documentType,
     uploaded_by: employee.id,
   })
   if (error) {
-    logDbError('leave.attach', error, { employeeId: employee.id })
+    await supabase.storage.from(LEAVE_DOC_BUCKET).remove([storagePath]).catch(() => undefined)
+    logDbError('leave.attach', error, { employeeId: employee.id, requestId })
     return { ok: false, error: leaveMessage(error) }
   }
 

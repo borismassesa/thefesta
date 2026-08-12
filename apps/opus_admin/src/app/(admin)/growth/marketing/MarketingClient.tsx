@@ -4,10 +4,12 @@ import { useMemo, useState, useTransition } from 'react'
 import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import SetGrowthHeading from '../_components/SetGrowthHeading'
+import MonthPager from '../_components/MonthPager'
 import KpiMonthlyGrid from '../_components/KpiMonthlyGrid'
 import StatsStrip from '../_components/StatsStrip'
 import Tabs from '../_components/Tabs'
 import type { KpiActual, KpiTarget } from '../_lib/queries'
+import { dateIsInHalfOpenMonth, monthBounds } from '../_lib/period'
 import { addCampaign, deleteCampaign, updateCampaign, type CampaignInput } from './actions'
 
 export type Campaign = {
@@ -83,6 +85,7 @@ export default function MarketingClient({
   targets,
   actuals,
   initialYear,
+  month,
   canWrite,
   canAdmin,
   campaigns,
@@ -91,6 +94,7 @@ export default function MarketingClient({
   targets: KpiTarget[]
   actuals: KpiActual[]
   initialYear: number
+  month: string
   canWrite: boolean
   canAdmin: boolean
   campaigns: Campaign[]
@@ -101,14 +105,19 @@ export default function MarketingClient({
   const [activeTab, setActiveTab] = useState<'campaigns' | 'kpis'>('campaigns')
   const heading = TAB_HEADINGS[activeTab]
 
+  const monthCampaigns = useMemo(() => {
+    const bounds = monthBounds(month)
+    return campaigns.filter((c) => dateIsInHalfOpenMonth(c.startDate, bounds))
+  }, [campaigns, month])
+
   const totals = useMemo(() => {
-    const spend = campaigns.reduce((s, c) => s + c.spendTzs, 0)
-    const revenue = campaigns.reduce((s, c) => s + c.revenueTzs, 0)
-    const leads = campaigns.reduce((s, c) => s + c.leads, 0)
-    const bookings = campaigns.reduce((s, c) => s + c.bookings, 0)
+    const spend = monthCampaigns.reduce((s, c) => s + c.spendTzs, 0)
+    const revenue = monthCampaigns.reduce((s, c) => s + c.revenueTzs, 0)
+    const leads = monthCampaigns.reduce((s, c) => s + c.leads, 0)
+    const bookings = monthCampaigns.reduce((s, c) => s + c.bookings, 0)
     const roiPct = spend > 0 ? (revenue - spend) / spend : null
     return { spend, revenue, leads, bookings, roiPct }
-  }, [campaigns])
+  }, [monthCampaigns])
 
   function openNew() {
     setEditing(null)
@@ -122,11 +131,12 @@ export default function MarketingClient({
 
   return (
     <div className="space-y-6 pb-16">
-      <SetGrowthHeading
-        title={heading.title}
-        subtitle={heading.subtitle}
-        back={{ href: '/growth', label: 'Growth Tracker' }}
-      />
+      <SetGrowthHeading title={heading.title} subtitle={heading.subtitle} />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[12px] text-gray-500">Stats and campaign log for the selected month.</p>
+        <MonthPager month={month} hrefForMonth={(m) => `/growth/marketing?month=${m}`} />
+      </div>
 
       <StatsStrip
         items={[
@@ -147,18 +157,19 @@ export default function MarketingClient({
         tabs={[
           {
             key: 'campaigns',
-            label: `Campaign log (${campaigns.length})`,
+            label: `Campaign log (${monthCampaigns.length})`,
             content: (
-              <div className="rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
-                  <p className="text-[12px] text-gray-500">
-                    {totals.bookings.toLocaleString('en-US')} bookings attributed across all campaigns
+              <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-[#F0DFF6]/40 px-4 py-3">
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-[#5d3a78]">
+                    Campaign log · {totals.bookings.toLocaleString('en-US')} bookings
                   </p>
                   {canWrite && (
-                    <button data-opus-button="control"
+                    <button
+                      data-opus-button="control"
                       type="button"
                       onClick={openNew}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-2 text-sm font-semibold text-white hover:bg-[#6c4884]"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#6c4884]"
                     >
                       <Plus className="h-4 w-4" />
                       Add campaign
@@ -167,31 +178,31 @@ export default function MarketingClient({
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="opus-table w-full min-w-[1100px] text-[13px]">
+                  <table className="opus-table w-full min-w-275">
                     <thead>
-                      <tr className="border-b border-gray-100 text-left text-gray-500">
-                        <th className="px-4 py-2 text-[12px] font-medium">Campaign</th>
-                        <th className="px-3 py-2 text-[12px] font-medium">Channel</th>
-                        <th className="px-3 py-2 text-[12px] font-medium">Owner</th>
-                        <th className="px-3 py-2 text-[12px] font-medium">Dates</th>
-                        <th className="px-3 py-2 text-right text-[12px] font-medium">Spend</th>
-                        <th className="px-3 py-2 text-right text-[12px] font-medium">Reach</th>
-                        <th className="px-3 py-2 text-right text-[12px] font-medium">Leads</th>
-                        <th className="px-3 py-2 text-right text-[12px] font-medium">Bookings</th>
-                        <th className="px-3 py-2 text-right text-[12px] font-medium">Revenue</th>
-                        <th className="px-3 py-2 text-right text-[12px] font-medium">ROI</th>
-                        {canWrite && <th className="px-3 py-2 text-right text-[12px] font-medium">Actions</th>}
+                      <tr>
+                        <th>Campaign</th>
+                        <th>Channel</th>
+                        <th>Owner</th>
+                        <th>Dates</th>
+                        <th data-numeric="true">Spend</th>
+                        <th data-numeric="true">Reach</th>
+                        <th data-numeric="true">Leads</th>
+                        <th data-numeric="true">Bookings</th>
+                        <th data-numeric="true">Revenue</th>
+                        <th data-numeric="true">ROI</th>
+                        {canWrite && <th />}
                       </tr>
                     </thead>
                     <tbody>
-                      {campaigns.length === 0 && (
+                      {monthCampaigns.length === 0 && (
                         <tr>
-                          <td colSpan={canWrite ? 11 : 10} className="px-4 py-10 text-center text-gray-400">
-                            No campaigns logged yet.
+                          <td colSpan={canWrite ? 11 : 10} className="py-10 text-center text-gray-400">
+                            No campaigns logged for this month.
                           </td>
                         </tr>
                       )}
-                      {campaigns.map((c) => (
+                      {monthCampaigns.map((c) => (
                         <CampaignRow key={c.id} campaign={c} canWrite={canWrite} onEdit={() => openEdit(c)} />
                       ))}
                     </tbody>
@@ -204,7 +215,14 @@ export default function MarketingClient({
             key: 'kpis',
             label: 'Monthly targets',
             content: (
-              <KpiMonthlyGrid targets={targets} actuals={actuals} initialYear={initialYear} canEdit={canWrite} canEditTargets={canAdmin} />
+              <KpiMonthlyGrid
+                targets={targets}
+                actuals={actuals}
+                initialYear={initialYear}
+                canEdit={canWrite}
+                canEditTargets={canAdmin}
+                title="Marketing KPIs — Monthly Target vs Actual"
+              />
             ),
           },
         ]}
@@ -243,26 +261,27 @@ function CampaignRow({
   }
 
   return (
-    <tr className={cn('border-b border-gray-50', isPending && 'opacity-60')}>
-      <td className="px-4 py-2.5">
+    <tr className={cn(isPending && 'opacity-60')}>
+      <th scope="row" className="opus-table-cell--leading">
         <div className="font-medium text-gray-900">{campaign.campaignName}</div>
         {campaign.notes && <div className="mt-0.5 truncate text-[11px] text-gray-500">{campaign.notes}</div>}
         {error && <div className="mt-0.5 text-[11px] font-semibold text-rose-700">{error}</div>}
-      </td>
-      <td className="px-3 py-2.5 text-gray-700">{campaign.channel}</td>
-      <td className="px-3 py-2.5 text-gray-700">{campaign.ownerName || <span className="text-gray-400">—</span>}</td>
-      <td className="px-3 py-2.5 text-gray-500">
+      </th>
+      <td>{campaign.channel}</td>
+      <td>{campaign.ownerName || <span className="text-gray-400">—</span>}</td>
+      <td className="text-gray-500">
         {formatDate(campaign.startDate)}
         {campaign.endDate ? ` – ${formatDate(campaign.endDate)}` : ''}
       </td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-gray-800">{formatTzs(campaign.spendTzs)}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-gray-700">{campaign.reach.toLocaleString('en-US')}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-gray-700">{campaign.leads.toLocaleString('en-US')}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-gray-700">{campaign.bookings.toLocaleString('en-US')}</td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-gray-800">{formatTzs(campaign.revenueTzs)}</td>
+      <td data-numeric="true">{formatTzs(campaign.spendTzs)}</td>
+      <td data-numeric="true">{campaign.reach.toLocaleString('en-US')}</td>
+      <td data-numeric="true">{campaign.leads.toLocaleString('en-US')}</td>
+      <td data-numeric="true">{campaign.bookings.toLocaleString('en-US')}</td>
+      <td data-numeric="true">{formatTzs(campaign.revenueTzs)}</td>
       <td
+        data-numeric="true"
         className={cn(
-          'px-3 py-2.5 text-right tabular-nums font-semibold',
+          'font-semibold',
           campaign.roiPct === null
             ? 'text-gray-400'
             : campaign.roiPct >= 0
@@ -273,7 +292,7 @@ function CampaignRow({
         {campaign.roiPct === null ? '—' : `${(campaign.roiPct * 100).toFixed(0)}%`}
       </td>
       {canWrite && (
-        <td className="px-3 py-2.5">
+        <td>
           <div className="flex items-center justify-end gap-1">
             <button data-opus-button="control"
               type="button"

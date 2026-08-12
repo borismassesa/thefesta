@@ -34,6 +34,7 @@ import DigitalCardsNavTabsView, { type SectionTab } from './DigitalCardsNavTabsV
 export const DIGITAL_CARDS_TABS = {
   catalogue: '/opus-pass/digital-cards/cards',
   personalisation: '/opus-pass/digital-cards/designer',
+  designStudio: '/opus-pass/design-studio',
   // Still under /opus-pass/commissions. Navigation moved; the route did not.
   customStudio: '/opus-pass/commissions',
 } as const
@@ -56,6 +57,12 @@ export async function visibleDigitalCardsTabs(): Promise<SectionTab[]> {
     tabs.push(
       { label: 'Catalogue', icon: 'catalogue', href: DIGITAL_CARDS_TABS.catalogue },
       { label: 'Personalisation Queue', icon: 'personalisation', href: DIGITAL_CARDS_TABS.personalisation },
+      {
+        label: 'Design Studio',
+        icon: 'designStudio',
+        href: DIGITAL_CARDS_TABS.designStudio,
+        activePaths: ['/opus-pass/design-studio'],
+      },
     )
   }
   if (canReadStudio) {

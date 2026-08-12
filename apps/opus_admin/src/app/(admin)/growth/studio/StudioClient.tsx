@@ -4,10 +4,12 @@ import { useMemo, useState, useTransition } from 'react'
 import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import SetGrowthHeading from '../_components/SetGrowthHeading'
+import MonthPager from '../_components/MonthPager'
 import KpiMonthlyGrid from '../_components/KpiMonthlyGrid'
 import StatsStrip from '../_components/StatsStrip'
 import Tabs from '../_components/Tabs'
 import type { KpiActual, KpiTarget } from '../_lib/queries'
+import { dateIsInHalfOpenMonth, monthBounds } from '../_lib/period'
 import { addBooking, deleteBooking, updateBooking, type BookingInput } from './actions'
 
 export type StudioBooking = {
@@ -98,6 +100,7 @@ export default function StudioClient({
   targets,
   actuals,
   initialYear,
+  month,
   canWrite,
   canAdmin,
   bookings,
@@ -106,6 +109,7 @@ export default function StudioClient({
   targets: KpiTarget[]
   actuals: KpiActual[]
   initialYear: number
+  month: string
   canWrite: boolean
   canAdmin: boolean
   bookings: StudioBooking[]
@@ -118,24 +122,30 @@ export default function StudioClient({
 
   const crewOptions = Array.from(new Set([...employeeNames, ...CREW_SUGGESTIONS]))
 
+  const monthBookings = useMemo(() => {
+    const bounds = monthBounds(month)
+    return bookings.filter((b) => dateIsInHalfOpenMonth(b.bookingDate, bounds))
+  }, [bookings, month])
+
   const stats = useMemo(() => {
-    const revenue = bookings.reduce((s, b) => s + b.revenueTzs, 0)
-    const margin = bookings.reduce((s, b) => s + b.marginTzs, 0)
-    const avgBooking = bookings.length ? revenue / bookings.length : null
-    const rated = bookings.filter((b) => b.satisfaction !== null)
+    const revenue = monthBookings.reduce((s, b) => s + b.revenueTzs, 0)
+    const margin = monthBookings.reduce((s, b) => s + b.marginTzs, 0)
+    const avgBooking = monthBookings.length ? revenue / monthBookings.length : null
+    const rated = monthBookings.filter((b) => b.satisfaction !== null)
     const avgSatisfaction = rated.length
       ? rated.reduce((s, b) => s + (b.satisfaction ?? 0), 0) / rated.length
       : null
     return { revenue, margin, avgBooking, avgSatisfaction }
-  }, [bookings])
+  }, [monthBookings])
 
   return (
     <div className="space-y-6 pb-16">
-      <SetGrowthHeading
-        title={heading.title}
-        subtitle={heading.subtitle}
-        back={{ href: '/growth', label: 'Growth Tracker' }}
-      />
+      <SetGrowthHeading title={heading.title} subtitle={heading.subtitle} />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[12px] text-gray-500">Stats and booking log for the selected month.</p>
+        <MonthPager month={month} hrefForMonth={(m) => `/growth/studio?month=${m}`} />
+      </div>
 
       <StatsStrip
         items={[
@@ -152,10 +162,10 @@ export default function StudioClient({
         tabs={[
           {
             key: 'bookings',
-            label: `Booking log (${bookings.length})`,
+            label: `Booking log (${monthBookings.length})`,
             content: (
               <BookingsLog
-                bookings={bookings}
+                bookings={monthBookings}
                 canWrite={canWrite}
                 onAdd={() => setShowAdd(true)}
                 onEdit={(b) => setEditing(b)}
@@ -166,7 +176,14 @@ export default function StudioClient({
             key: 'kpis',
             label: 'Monthly targets',
             content: (
-              <KpiMonthlyGrid targets={targets} actuals={actuals} initialYear={initialYear} canEdit={canWrite} canEditTargets={canAdmin} />
+              <KpiMonthlyGrid
+                targets={targets}
+                actuals={actuals}
+                initialYear={initialYear}
+                canEdit={canWrite}
+                canEditTargets={canAdmin}
+                title="Studio KPIs — Monthly Target vs Actual"
+              />
             ),
           },
         ]}
@@ -218,19 +235,16 @@ function BookingsLog({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.04)]">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
-        <div>
-          <h3 className="text-[13px] font-semibold text-gray-900">Booking log</h3>
-          <p className="text-[12px] text-gray-500">
-            {bookings.length} booking{bookings.length === 1 ? '' : 's'}
-          </p>
-        </div>
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-[#F0DFF6]/40 px-4 py-3">
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-[#5d3a78]">
+          Booking log · {bookings.length} session{bookings.length === 1 ? '' : 's'}
+        </p>
         {canWrite && (
           <button data-opus-button="control"
             type="button"
             onClick={onAdd}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#7E5896] px-3 py-2 text-sm font-semibold text-white hover:bg-[#6c4884]"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#7E5896] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#6c4884]"
           >
             <Plus className="h-4 w-4" />
             Add booking
@@ -244,52 +258,53 @@ function BookingsLog({
         </div>
       )}
 
-      <table className="opus-table w-full min-w-[1200px] text-[12px]">
+      <div className="overflow-x-auto">
+      <table className="opus-table w-full min-w-300">
         <thead>
-          <tr className="border-b border-gray-100 text-left text-gray-500">
-            <th className="px-4 py-2 font-medium">Booking date</th>
-            <th className="px-3 py-2 font-medium">Session date</th>
-            <th className="px-3 py-2 font-medium">Customer</th>
-            <th className="px-3 py-2 font-medium">Service</th>
-            <th className="px-3 py-2 font-medium">Photographer</th>
-            <th className="px-3 py-2 font-medium">Videographer</th>
-            <th className="px-3 py-2 text-right font-medium">Revenue</th>
-            <th className="px-3 py-2 text-right font-medium">Direct cost</th>
-            <th className="px-3 py-2 text-right font-medium">Margin</th>
-            <th className="px-3 py-2 text-right font-medium">Margin %</th>
-            <th className="px-3 py-2 font-medium">Delivery</th>
-            <th className="px-3 py-2 font-medium">Satisfaction</th>
-            {canWrite && <th className="px-3 py-2 font-medium" />}
+          <tr>
+            <th>Booking date</th>
+            <th>Session date</th>
+            <th>Customer</th>
+            <th>Service</th>
+            <th>Photographer</th>
+            <th>Videographer</th>
+            <th data-numeric="true">Revenue</th>
+            <th data-numeric="true">Direct cost</th>
+            <th data-numeric="true">Margin</th>
+            <th data-numeric="true">Margin %</th>
+            <th>Delivery</th>
+            <th data-numeric="true">Satisfaction</th>
+            {canWrite && <th />}
           </tr>
         </thead>
         <tbody>
           {bookings.length === 0 && (
             <tr>
-              <td colSpan={canWrite ? 13 : 12} className="px-4 py-10 text-center text-gray-500">
+              <td colSpan={canWrite ? 13 : 12} className="py-10 text-center text-gray-500">
                 No bookings logged yet.
               </td>
             </tr>
           )}
           {bookings.map((b) => (
-            <tr key={b.id} className={cn('border-b border-gray-50', deletingId === b.id && 'opacity-50')}>
-              <td className="px-4 py-2 text-gray-800">{formatDate(b.bookingDate)}</td>
-              <td className="px-3 py-2 text-gray-600">{formatDate(b.sessionDate)}</td>
-              <td className="px-3 py-2 text-gray-800">{b.customerName}</td>
-              <td className="px-3 py-2 text-gray-800">{b.service}</td>
-              <td className="px-3 py-2 text-gray-600">{b.photographerName ?? '—'}</td>
-              <td className="px-3 py-2 text-gray-600">{b.videographerName ?? '—'}</td>
-              <td className="px-3 py-2 text-right tabular-nums text-gray-800">{formatTzs(b.revenueTzs)}</td>
-              <td className="px-3 py-2 text-right tabular-nums text-gray-600">{formatTzs(b.directCostTzs)}</td>
-              <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">
+            <tr key={b.id} className={cn(deletingId === b.id && 'opacity-50')}>
+              <td>{formatDate(b.bookingDate)}</td>
+              <td className="text-gray-600">{formatDate(b.sessionDate)}</td>
+              <th scope="row" className="opus-table-cell--leading">{b.customerName}</th>
+              <td>{b.service}</td>
+              <td className="text-gray-600">{b.photographerName ?? '—'}</td>
+              <td className="text-gray-600">{b.videographerName ?? '—'}</td>
+              <td data-numeric="true">{formatTzs(b.revenueTzs)}</td>
+              <td data-numeric="true">{formatTzs(b.directCostTzs)}</td>
+              <td data-numeric="true" className="font-semibold text-gray-900">
                 {formatTzs(b.marginTzs)}
               </td>
-              <td className="px-3 py-2 text-right tabular-nums text-gray-600">
+              <td data-numeric="true">
                 {b.marginPct === null ? '—' : `${(b.marginPct * 100).toFixed(1)}%`}
               </td>
-              <td className="px-3 py-2 text-gray-600">{formatDate(b.deliveryDate)}</td>
-              <td className="px-3 py-2 text-gray-600">{b.satisfaction === null ? '—' : b.satisfaction.toFixed(1)}</td>
+              <td className="text-gray-600">{formatDate(b.deliveryDate)}</td>
+              <td data-numeric="true">{b.satisfaction === null ? '—' : b.satisfaction.toFixed(1)}</td>
               {canWrite && (
-                <td className="px-3 py-2">
+                <td>
                   <div className="flex items-center justify-end gap-1">
                     <button data-opus-button="control"
                       type="button"
@@ -315,6 +330,7 @@ function BookingsLog({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

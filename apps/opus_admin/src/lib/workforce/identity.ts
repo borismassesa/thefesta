@@ -4,6 +4,7 @@ import { createSupabaseAdminClient, hasSupabaseAdminConfig } from '@/lib/supabas
 import {
   escapeLike,
   getCallerEmail,
+  getCallerEmployeeId,
   getCallerPermissions,
   isAdminAuthDisabled,
 } from '@/lib/admin-auth'
@@ -144,19 +145,38 @@ export const getSelfIdentity = cache(async (): Promise<SelfIdentityResult> => {
   // Identity repair is deliberately skipped on this path: there is no Clerk
   // user to link, and writing a placeholder id would corrupt a real row.
   if (!userId) {
-    const devEmail = await getCallerEmail()
-    if (!devEmail || !hasSupabaseAdminConfig()) return resolveSelfIdentity(false, [])
+    // DISABLE_ADMIN_AUTH path. Prefer DEV_EMPLOYEE_ID / the impersonation
+    // cookie, then fall back to the development email — same order as
+    // workspace/identity.ts, so the sidebar Workspace section and the
+    // /workspace routes resolve the same person.
+    if (!hasSupabaseAdminConfig()) return resolveSelfIdentity(false, [])
+    const [employeeId, devEmail] = await Promise.all([
+      getCallerEmployeeId(),
+      getCallerEmail(),
+    ])
     const supabase = createSupabaseAdminClient()
-    const { data } = await supabase
-      .from('workforce_employees')
-      .select(EMPLOYEE_COLUMNS)
-      .ilike('email', escapeLike(devEmail))
-      .returns<EmployeeRow[]>()
+    let rows: EmployeeRow[] = []
+    if (employeeId) {
+      const { data } = await supabase
+        .from('workforce_employees')
+        .select(EMPLOYEE_COLUMNS)
+        .eq('id', employeeId)
+        .returns<EmployeeRow[]>()
+      rows = data ?? []
+    }
+    if (rows.length === 0 && devEmail) {
+      const { data } = await supabase
+        .from('workforce_employees')
+        .select(EMPLOYEE_COLUMNS)
+        .ilike('email', escapeLike(devEmail))
+        .returns<EmployeeRow[]>()
+      rows = data ?? []
+    }
     // Treat the bypass as AUTHENTICATED even with no matching row. A developer
     // whose placeholder email has no employee record is EMPLOYEE_NOT_LINKED,
     // not UNAUTHENTICATED — returning the latter would bounce them to
     // /sign-in, where the bypass means there is nothing to sign in to.
-    return resolveSelfIdentity(true, (data ?? []).map(toSelfEmployee))
+    return resolveSelfIdentity(true, rows.map(toSelfEmployee))
   }
 
   if (!hasSupabaseAdminConfig()) {
