@@ -591,14 +591,42 @@ export default function PledgesManager({
     const fmt = (n: number) => formatMoney(n, 'TZS')
     const esc = (s: string) =>
       s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'))
+    // Every figure on the statement is derived from these totals, so the headline
+    // tiles, the goal line and the pledge list can never disagree with each
+    // other on a sheet of paper someone is handing to family.
+    //
+    // Declined pledges are excluded (nobody is waiting on that money), and
+    // outstanding is summed per pledge and floored at zero, so an overpaid
+    // pledge can't quietly cancel out another contributor's shortfall. Anything
+    // received above a pledge is reported on its own line instead of netted away.
+    const active = initialPledges.filter((p) => p.status !== 'declined')
+    const totalPledged = active.reduce((n, p) => n + toTzs(p.pledged_amount, p.currency), 0)
+    const totalReceived = active.reduce((n, p) => n + toTzs(p.amount_received, p.currency), 0)
+    const totalOutstanding = active.reduce(
+      (n, p) => n + toTzs(Math.max(0, p.pledged_amount - p.amount_received), p.currency),
+      0,
+    )
+    const overpaid = active.reduce(
+      (n, p) => n + toTzs(Math.max(0, p.amount_received - p.pledged_amount), p.currency),
+      0,
+    )
+    // Share of committed money actually collected. Derived from outstanding
+    // rather than from received, so it tracks the list below and stays at or
+    // under 100% even when a pledge is overpaid.
     const collectionRate =
-      stats.totalPledged > 0 ? Math.round((stats.totalReceived / stats.totalPledged) * 100) : 0
+      totalPledged > 0 ? Math.round(((totalPledged - totalOutstanding) / totalPledged) * 100) : 0
     const goalLine =
       goalAmount && goalAmount > 0
-        ? `<p class="goal">Goal ${fmt(goalAmount)} · Raised ${fmt(stats.totalReceived)} (${Math.min(
+        ? `<p class="goal">Goal ${fmt(goalAmount)} · Raised ${fmt(totalReceived)} (${Math.min(
             100,
-            Math.round((stats.totalReceived / goalAmount) * 100),
+            Math.round((totalReceived / goalAmount) * 100),
           )}%)</p>`
+        : ''
+    const overpaidLine =
+      overpaid > 0
+        ? `<p class="over">${fmt(
+            overpaid,
+          )} received above pledged amounts — included in Received, not deducted from Outstanding.</p>`
         : ''
 
     const statusRows = (Object.keys(PLEDGE_STATUS_LABELS) as PledgeStatus[])
@@ -653,32 +681,23 @@ export default function PledgesManager({
       })
       .join('')
 
-    // Column totals, declined pledges excluded (they aren't money anyone is
-    // waiting on). Outstanding is summed per pledge and floored at zero, so an
-    // overpaid pledge can't cancel out someone else's shortfall.
-    const active = listed.filter((p) => p.status !== 'declined')
-    const listedPledged = active.reduce((n, p) => n + toTzs(p.pledged_amount, p.currency), 0)
-    const listedReceived = active.reduce((n, p) => n + toTzs(p.amount_received, p.currency), 0)
-    const listedOutstanding = active.reduce(
-      (n, p) => n + toTzs(Math.max(0, p.pledged_amount - p.amount_received), p.currency),
-      0,
-    )
+    // Column totals reuse the statement-wide figures above, so the foot of the
+    // list is the same money as the tiles at the head of it.
     const declinedCount = listed.length - active.length
     const totalsRow = `<tr class="tot"><td>Total</td><td colspan="3">${active.length} ${
       active.length === 1 ? 'pledge' : 'pledges'
     }${declinedCount > 0 ? ` · ${declinedCount} declined excluded` : ''}</td><td class="r">${fmt(
-      listedPledged,
-    )}</td><td class="r">${fmt(listedReceived)}</td><td class="r">${fmt(listedOutstanding)}</td><td></td></tr>`
+      totalPledged,
+    )}</td><td class="r">${fmt(totalReceived)}</td><td class="r">${fmt(totalOutstanding)}</td><td></td></tr>`
 
     const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Contribution statement — ${esc(
-      coupleName,
-    )}</title><style>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Contribution statement — ${esc(coupleName)} — ${today}</title><style>
       *{box-sizing:border-box}
       body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1A1A1A;margin:40px;font-size:13px;line-height:1.4}
       h1{font-size:22px;margin:0 0 2px}
       .sub{color:#666;margin:0 0 4px}
       .goal{font-weight:600;color:#2f7d3a;margin:6px 0 0}
+      .over{color:#8a6100;margin:4px 0 0;font-size:11.5px}
       h2{font-size:14px;margin:26px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}
       .tiles{display:flex;gap:24px;margin-top:14px}
       .tile .l{color:#777;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
@@ -706,10 +725,11 @@ export default function PledgesManager({
       <h1>${esc(coupleName)}</h1>
       <p class="sub">Contribution statement · ${today}</p>
       ${goalLine}
+      ${overpaidLine}
       <div class="tiles">
-        <div class="tile"><div class="l">Pledged</div><div class="v">${fmt(stats.totalPledged)}</div></div>
-        <div class="tile"><div class="l">Received</div><div class="v">${fmt(stats.totalReceived)}</div></div>
-        <div class="tile"><div class="l">Outstanding</div><div class="v">${fmt(stats.outstanding)}</div></div>
+        <div class="tile"><div class="l">Pledged</div><div class="v">${fmt(totalPledged)}</div></div>
+        <div class="tile"><div class="l">Received</div><div class="v">${fmt(totalReceived)}</div></div>
+        <div class="tile"><div class="l">Outstanding</div><div class="v">${fmt(totalOutstanding)}</div></div>
         <div class="tile"><div class="l">Collection rate</div><div class="v">${collectionRate}%</div></div>
       </div>
       <h2>By status</h2>
