@@ -626,15 +626,49 @@ export default function PledgesManager({
       })
       .join('')
 
-    const topRows = topContributors(initialPledges, 10)
-      .map(
-        (p) =>
-          `<tr><td>${esc(p.full_name)}</td><td>${cardTypeLabel(p.max_party_size)}</td><td class="r">${formatMoney(p.pledged_amount, p.currency)}</td><td class="r">${formatMoney(
-            p.amount_received,
-            p.currency,
-          )}</td></tr>`,
-      )
+    // Full pledge listing — every pledge on the statement, largest first, so the
+    // printout is a complete record the kamati can reconcile against, not a
+    // top-10 extract. Row amounts stay in each pledge's own currency (the same
+    // convention the on-screen table uses); the totals row is TZS-converted so
+    // it lines up with the summary tiles above.
+    const listed = [...initialPledges].sort(
+      (a, b) =>
+        toTzs(b.pledged_amount, b.currency) - toTzs(a.pledged_amount, a.currency) ||
+        toTzs(b.amount_received, b.currency) - toTzs(a.amount_received, a.currency) ||
+        a.full_name.localeCompare(b.full_name),
+    )
+    const listRows = listed
+      .map((p) => {
+        // A declined pledge isn't money anyone is waiting on, so it shows no
+        // outstanding figure — same rule the totals row applies.
+        const owing = p.status === 'declined' ? 0 : Math.max(0, p.pledged_amount - p.amount_received)
+        return `<tr${p.status === 'declined' ? ' class="dec"' : ''}><td>${esc(p.full_name)}</td><td>${esc(p.group_tag?.trim() || '—')}</td><td>${cardTypeLabel(
+          p.max_party_size,
+        )}</td><td>${PLEDGE_STATUS_LABELS[p.status]}</td><td class="r">${formatMoney(
+          p.pledged_amount,
+          p.currency,
+        )}</td><td class="r">${formatMoney(p.amount_received, p.currency)}</td><td class="r">${
+          owing > 0 ? formatMoney(owing, p.currency) : '—'
+        }</td><td>${formatDueDate(p.promised_date) || '—'}</td></tr>`
+      })
       .join('')
+
+    // Column totals, declined pledges excluded (they aren't money anyone is
+    // waiting on). Outstanding is summed per pledge and floored at zero, so an
+    // overpaid pledge can't cancel out someone else's shortfall.
+    const active = listed.filter((p) => p.status !== 'declined')
+    const listedPledged = active.reduce((n, p) => n + toTzs(p.pledged_amount, p.currency), 0)
+    const listedReceived = active.reduce((n, p) => n + toTzs(p.amount_received, p.currency), 0)
+    const listedOutstanding = active.reduce(
+      (n, p) => n + toTzs(Math.max(0, p.pledged_amount - p.amount_received), p.currency),
+      0,
+    )
+    const declinedCount = listed.length - active.length
+    const totalsRow = `<tr class="tot"><td>Total</td><td colspan="3">${active.length} ${
+      active.length === 1 ? 'pledge' : 'pledges'
+    }${declinedCount > 0 ? ` · ${declinedCount} declined excluded` : ''}</td><td class="r">${fmt(
+      listedPledged,
+    )}</td><td class="r">${fmt(listedReceived)}</td><td class="r">${fmt(listedOutstanding)}</td><td></td></tr>`
 
     const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Contribution statement — ${esc(
@@ -654,8 +688,20 @@ export default function PledgesManager({
       th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888}
       td.r,th.r{text-align:right}
       .muted{color:#999;text-align:center;padding:14px}
+      .list{font-size:11.5px}
+      .list th,.list td{padding:5px 6px}
+      .list tbody tr.dec td{color:#999}
+      tfoot .tot td{border-top:1.5px solid #ccc;border-bottom:none;font-weight:700;padding-top:8px}
       .foot{margin-top:30px;color:#999;font-size:11px}
-      @media print{body{margin:18mm}}
+      /* The full pledge list can run past one page: repeat its header on every
+         sheet, keep the totals with the last rows, and never split a row. */
+      @media print{
+        body{margin:18mm}
+        thead{display:table-header-group}
+        tfoot{display:table-row-group}
+        tr{break-inside:avoid}
+        h2{break-after:avoid}
+      }
     </style></head><body onload="window.print()">
       <h1>${esc(coupleName)}</h1>
       <p class="sub">Contribution statement · ${today}</p>
@@ -672,10 +718,10 @@ export default function PledgesManager({
       <table><thead><tr><th>Card type</th><th class="r">Count</th><th class="r">Pledged</th><th class="r">Received</th></tr></thead><tbody>${cardTypeRows}</tbody></table>
       <h2>Outstanding by age</h2>
       <table><thead><tr><th>Age</th><th class="r">Count</th><th class="r">Outstanding</th></tr></thead><tbody>${agingRows}</tbody></table>
-      <h2>Top contributors</h2>
-      <table><thead><tr><th>Contributor</th><th>Card type</th><th class="r">Pledged</th><th class="r">Received</th></tr></thead><tbody>${
-        topRows || '<tr><td colspan="4" class="muted">No pledges yet</td></tr>'
-      }</tbody></table>
+      <h2>All pledges (${listed.length})</h2>
+      <table class="list"><thead><tr><th>Contributor</th><th>Group</th><th>Card type</th><th>Status</th><th class="r">Pledged</th><th class="r">Received</th><th class="r">Outstanding</th><th>Promised by</th></tr></thead><tbody>${
+        listRows || '<tr><td colspan="8" class="muted">No pledges yet</td></tr>'
+      }</tbody>${listRows ? `<tfoot>${totalsRow}</tfoot>` : ''}</table>
       <p class="foot">Generated by OpusPass · ${esc(coupleName)} contributions</p>
     </body></html>`
     const blob = new Blob([html], { type: 'text/html' })
